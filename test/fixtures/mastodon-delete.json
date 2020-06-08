@@ -1,0 +1,24 @@
+{
+  "type": "Delete",
+  "object": {
+    "type": "Tombstone",
+    "id": "http://mastodon.example.org/users/gargron/statuses/99620895606148759",
+    "atomUri": "http://mastodon.example.org/users/gargron/statuses/99620895606148759"
+  },
+  "id": "http://mastodon.example.org/users/gargron/statuses/99620895606148759#delete",
+  "actor": "http://mastodon.example.org/users/gargron",
+  "@context": [
+    {
+      "toot": "http://joinmastodon.org/ns#",
+      "sensitive": "as:sensitive",
+      "ostatus": "http://ostatus.org#",
+      "movedTo": "as:movedTo",
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "atomUri": "ostatus:atomUri",
+      "Hashtag": "as:Hashtag",
+      "Emoji": "toot:Emoji"
+    }
+  ]
+}

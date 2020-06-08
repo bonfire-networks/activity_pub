@@ -1,0 +1,40 @@
+{
+  "url": "https://kawen.space/users/karen",
+  "type": "Person",
+  "tag": [],
+  "summary": "Zakladatelka kawen.space, vývojářka Pleromy a MoodleNetu, kočička. Umím mňoukat v pěti jazycích a Super Metroid dohraju tak za hodinu. A dělám dobrý kari. <a class='hashtag' data-tag='kawen' href='https://kawen.space/tag/kawen' rel='tag'>#kawen</a>​",
+  "publicKey": {
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5FUojZbzUpD6L1Kof1gr\nh7GMSKd/N36FiekhhyDBAhtXgwEFgUWkiGLyDrNPP6RFFD/37FuZlq9JWSAonEHL\nbE4freE/FcuBP84AWQl/ZEm8BPCYVlHwALFEo13Gxg/VMetN37By0H7O7Lmb5JV4\nVgujqMaoNss03fwZARGd0LMLokN5KJExt7e1bsAqZOvI/xOBF1XlSRiHkco4OUGZ\nYjhoNbCKQtL995hGo14JlNd3QZI5RcBU47SqEuUYvgJXlyrVEKpqozBsFpGkh4/+\n9ck31bG50V3mLTL2SUthUdX9r8DgJVsxFYSb/rRMyPcCZAH8RD3FJH5deRtH1KJy\n7wIDAQAB\n-----END PUBLIC KEY-----\n\n",
+    "owner": "https://kawen.space/users/karen",
+    "id": "https://kawen.space/users/karen#main-key"
+  },
+  "preferredUsername": "karen",
+  "outbox": "https://kawen.space/users/karen/outbox",
+  "name": "叶恋様⛩️",
+  "manuallyApprovesFollowers": false,
+  "inbox": "https://kawen.space/users/karen/inbox",
+  "image": {
+    "url": "https://kawen.space/media/e05c7271-cd93-472a-97bd-46367f9709d7/CC0E8BA674C6519E9749C29C8883C30F3E348D6DAC558C13E4018BA385F7DA5C.jpeg",
+    "type": "Image"
+  },
+  "id": "https://kawen.space/users/karen",
+  "icon": {
+    "url": "https://kawen.space/media/72fb15aa7554f6f79e441527125452e6719b9ca3ecef44c1879794af0a9235ab.png?name=FGPRMCUPOYCZ.png",
+    "type": "Image"
+  },
+  "following": "https://kawen.space/users/karen/following",
+  "followers": "https://kawen.space/users/karen/followers",
+  "endpoints": {
+    "sharedInbox": "https://kawen.space/inbox",
+    "oauthTokenEndpoint": "https://kawen.space/oauth/token",
+    "oauthRegistrationEndpoint": "https://kawen.space/api/v1/apps",
+    "oauthAuthorizationEndpoint": "https://kawen.space/oauth/authorize"
+  },
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://kawen.space/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ]
+}

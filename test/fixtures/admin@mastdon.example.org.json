@@ -1,0 +1,47 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "sensitive": "as:sensitive",
+      "movedTo": "as:movedTo",
+      "Hashtag": "as:Hashtag",
+      "ostatus": "http://ostatus.org#",
+      "atomUri": "ostatus:atomUri",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "toot": "http://joinmastodon.org/ns#",
+      "Emoji": "toot:Emoji"
+    }
+  ],
+  "id": "http://mastodon.example.org/users/admin",
+  "type": "Person",
+  "following": "http://mastodon.example.org/users/admin/following",
+  "followers": "http://mastodon.example.org/users/admin/followers",
+  "inbox": "http://mastodon.example.org/users/admin/inbox",
+  "outbox": "http://mastodon.example.org/users/admin/outbox",
+  "preferredUsername": "admin",
+  "name": null,
+  "summary": "\u003cp\u003e\u003c/p\u003e",
+  "url": "http://mastodon.example.org/@admin",
+  "manuallyApprovesFollowers": false,
+  "publicKey": {
+    "id": "http://mastodon.example.org/users/admin#main-key",
+    "owner": "http://mastodon.example.org/users/admin",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtc4Tir+3ADhSNF6VKrtW\nOU32T01w7V0yshmQei38YyiVwVvFu8XOP6ACchkdxbJ+C9mZud8qWaRJKVbFTMUG\nNX4+6Q+FobyuKrwN7CEwhDALZtaN2IPbaPd6uG1B7QhWorrY+yFa8f2TBM3BxnUy\nI4T+bMIZIEYG7KtljCBoQXuTQmGtuffO0UwJksidg2ffCF5Q+K//JfQagJ3UzrR+\nZXbKMJdAw4bCVJYs4Z5EhHYBwQWiXCyMGTd7BGlmMkY6Av7ZqHKC/owp3/0EWDNz\nNqF09Wcpr3y3e8nA10X40MJqp/wR+1xtxp+YGbq/Cj5hZGBG7etFOmIpVBrDOhry\nBwIDAQAB\n-----END PUBLIC KEY-----\n"
+  },
+  "endpoints": {
+    "sharedInbox": "http://mastodon.example.org/inbox"
+  },
+  "icon": {
+    "type": "Image",
+    "mediaType": "image/jpeg",
+    "url": "https://cdn.niu.moe/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+  },
+  "image": {
+    "type": "Image",
+    "mediaType": "image/png",
+    "url": "https://cdn.niu.moe/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+  }
+}

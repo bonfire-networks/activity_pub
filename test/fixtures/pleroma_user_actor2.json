@@ -1,0 +1,36 @@
+{
+  "url": "https://testing.kawen.dance/users/karen",
+  "type": "Person",
+  "tag": [],
+  "summary": "Lead Pleroma dev (retired)<br><br>[Not accepting follow reqs from people i don&#39;t know, follow <span class='h-card'><a data-user='9iGoEViOZThBQE2sM4' class='u-url mention' href='https://kawen.space/users/karen'>@<span>karen@kawen.space</span></a></span> instead]",
+  "publicKey": {
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArZPA5NwHd5P1RJsrCusX\n5hT1hn720QnklF6Ys3/Ms62w7c2Fio6Zk2YuaHFFQawkGK/dSg4WI4DWQm+vAPUx\nEUfT7ux6xUKFzV/+aYG5/w38ykdUNgvHfxR7bVM8h1E9+6uehNsxMpTNUTUlkRGM\nA6gNj0TcJM758XXjAag7FY82wiyMR+NKtyn6xwhBj5IutNUSgUphNRxl3VpfsQr+\nsB21FbdLouavkfhmsCZ21OfiNPKmJFyfDp+yDtgy67GfpTZOiPinbfmxDxq/4Ze7\nCCB4sT14xBeAyc/lJ77KtP29jh4Avte0sEYkj1GFci1+HMR4vc5HPe5xkFZRUEPY\nPwIDAQAB\n-----END PUBLIC KEY-----\n\n",
+    "owner": "https://testing.kawen.dance/users/karen",
+    "id": "https://testing.kawen.dance/users/karen#main-key"
+  },
+  "preferredUsername": "karen",
+  "outbox": "https://testing.kawen.dance/users/karen/outbox",
+  "name": "叶恋",
+  "manuallyApprovesFollowers": true,
+  "inbox": "https://testing.kawen.dance/users/karen/inbox",
+  "id": "https://testing.kawen.dance/users/karen",
+  "icon": {
+    "url": "https://testing.kawen.dance/media/a336f6e0616c049d56308313364a1f545bb2e438d1b0c672ee4a54f6248a76dd.png?name=59ZU5E7OV8ID.png",
+    "type": "Image"
+  },
+  "following": "https://testing.kawen.dance/users/karen/following",
+  "followers": "https://testing.kawen.dance/users/karen/followers",
+  "endpoints": {
+    "sharedInbox": "https://testing.kawen.dance/inbox",
+    "oauthTokenEndpoint": "https://testing.kawen.dance/oauth/token",
+    "oauthRegistrationEndpoint": "https://testing.kawen.dance/api/v1/apps",
+    "oauthAuthorizationEndpoint": "https://testing.kawen.dance/oauth/authorize"
+  },
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://testing.kawen.dance/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "type": "Note",
+  "to": [
+    "https://testing.kawen.dance/users/karen/followers"
+  ],
+  "tag": [],
+  "summary": "",
+  "sensitive": false,
+  "published": "2019-07-09T10:56:59.884187Z",
+  "id": "https://testing.kawen.dance/objects/d953809b-d968-49c8-aa8f-7545b9480a12",
+  "conversation": "https://testing.kawen.dance/contexts/616ae0cb-ace9-4a87-b342-be168ad27144",
+  "context": "https://testing.kawen.dance/contexts/616ae0cb-ace9-4a87-b342-be168ad27144",
+  "content": "private note (not really)",
+  "cc": [],
+  "attributedTo": "https://testing.kawen.dance/users/karen",
+  "attachment": [],
+  "actor": "https://testing.kawen.dance/users/karen",
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://testing.kawen.dance/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ]
+}

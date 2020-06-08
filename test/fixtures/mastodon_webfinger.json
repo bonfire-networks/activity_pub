@@ -1,0 +1,23 @@
+{
+  "aliases": [
+    "https://niu.moe/@karen",
+    "https://niu.moe/users/karen"
+  ],
+  "links": [
+    {
+      "href": "https://niu.moe/@karen",
+      "rel": "http://webfinger.net/rel/profile-page",
+      "type": "text/html"
+    },
+    {
+      "href": "https://niu.moe/users/karen",
+      "rel": "self",
+      "type": "application/activity+json"
+    },
+    {
+      "rel": "http://ostatus.org/schema/1.0/subscribe",
+      "template": "https://niu.moe/authorize_interaction?uri={uri}"
+    }
+  ],
+  "subject": "acct:karen@niu.moe"
+}

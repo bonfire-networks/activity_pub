@@ -1,0 +1,6 @@
+<h2>ActivityPub</h2>
+<pre>
+  <code>
+    <%= @view_module.render("show.json", actor: @actor) |> Jason.encode!(pretty: true) %>
+  </code>
+</pre>

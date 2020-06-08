@@ -1,0 +1,40 @@
+{
+  "aliases": [
+    "https://kawen.space/users/karen"
+  ],
+  "links": [
+    {
+      "href": "https://kawen.space/users/karen",
+      "rel": "http://webfinger.net/rel/profile-page",
+      "type": "text/html"
+    },
+    {
+      "href": "https://kawen.space/users/karen",
+      "rel": "self",
+      "type": "application/activity+json"
+    },
+    {
+      "href": "https://kawen.space/users/karen",
+      "rel": "self",
+      "type": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+    },
+    {
+      "href": "https://kawen.space/users/karen/feed.atom",
+      "rel": "http://schemas.google.com/g/2010#updates-from",
+      "type": "application/atom+xml"
+    },
+    {
+      "rel": "http://ostatus.org/schema/1.0/subscribe",
+      "template": "https://kawen.space/ostatus_subscribe?acct={uri}"
+    },
+    {
+      "href": "https://kawen.space/users/karen/salmon",
+      "rel": "salmon"
+    },
+    {
+      "href": "data:application/magic-public-key,RSA.5FUojZbzUpD6L1Kof1grh7GMSKd_N36FiekhhyDBAhtXgwEFgUWkiGLyDrNPP6RFFD_37FuZlq9JWSAonEHLbE4freE_FcuBP84AWQl_ZEm8BPCYVlHwALFEo13Gxg_VMetN37By0H7O7Lmb5JV4VgujqMaoNss03fwZARGd0LMLokN5KJExt7e1bsAqZOvI_xOBF1XlSRiHkco4OUGZYjhoNbCKQtL995hGo14JlNd3QZI5RcBU47SqEuUYvgJXlyrVEKpqozBsFpGkh4_-9ck31bG50V3mLTL2SUthUdX9r8DgJVsxFYSb_rRMyPcCZAH8RD3FJH5deRtH1KJy7w==.AQAB",
+      "rel": "magic-public-key"
+    }
+  ],
+  "subject": "acct:karen@kawen.space"
+}

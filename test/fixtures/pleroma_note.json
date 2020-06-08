@@ -1,0 +1,34 @@
+{
+  "type" : "Note",
+  "sensitive" : false,
+  "content" : "Certified fediverse celebrity",
+  "id" : "https://kawen.space/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779",
+  "context" : "https://kawen.space/contexts/f4f8bfcd-72b9-40ef-8d57-940a5842b29f",
+  "summary" : "",
+  "to" : [
+     "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "attachment" : [],
+  "tag" : [],
+  "published" : "2019-06-05T09:08:19.254430Z",
+  "conversation" : "https://kawen.space/contexts/f4f8bfcd-72b9-40ef-8d57-940a5842b29f",
+  "likes" : {
+     "id" : "https://kawen.space/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779/likes",
+     "first" : "https://kawen.space/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779/likes?page=1",
+     "type" : "OrderedCollection",
+     "totalItems" : 8
+  },
+  "attributedTo" : "https://kawen.space/users/karen",
+  "cc" : [
+     "https://kawen.space/users/karen/followers"
+  ],
+  "repliesCount" : 2,
+  "actor" : "https://kawen.space/users/karen",
+  "@context" : [
+     "https://www.w3.org/ns/activitystreams",
+     "https://kawen.space/schemas/litepub-0.1.jsonld",
+     {
+        "@language" : "und"
+     }
+  ]
+}

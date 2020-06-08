@@ -1,0 +1,36 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "@language": "en",
+      "Emoji": "toot:Emoji",
+      "Hashtag": "as:Hashtag",
+      "MoodleNet": "http://vocab.moodle.net/",
+      "PropertyValue": "schema:PropertyValue",
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "schema": "http://schema.org",
+      "sensitive": "as:sensitive",
+      "toot": "http://joinmastodon.org/ns#",
+      "totalItems": "as:totalItems",
+      "value": "schema:value"
+    }
+  ],
+  "attributedToInv": "http://home.next.moodle.net/205",
+  "endpoints": {
+    "sharedInbox": "http://home.next.moodle.net/shared_inbox"
+  },
+  "followers": "http://home.next.moodle.net/3",
+  "following": "http://home.next.moodle.net/4",
+  "icon": {
+    "type": "Image",
+    "url": "https://mayel.space/assets/images/profile.jpg"
+  },
+  "id": "http://home.next.moodle.net/1",
+  "inbox": "http://home.next.moodle.net/6",
+  "liked": "http://home.next.moodle.net/2",
+  "name": "Mayel",
+  "outbox": "http://home.next.moodle.net/5",
+  "summary": "Hello world!",
+  "type": "Person"
+}

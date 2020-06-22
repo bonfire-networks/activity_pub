@@ -1,8 +1,3 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.ActorTest do
   use ActivityPub.DataCase
   import Tesla.Mock
@@ -17,15 +12,16 @@ defmodule ActivityPub.ActorTest do
   end
 
   test "get_by_username/1" do
-    actor = Faking.fake_user!()
+    actor = local_actor()
 
-    username = actor.actor.preferred_username
+    username = actor.username
 
     {:ok, fetched_actor} = ActivityPub.Actor.get_by_username(username)
 
     assert fetched_actor.data["preferredUsername"] == username
   end
 
+  @tag :skip
   test "external_followers/1" do
     community = Faking.fake_user!() |> Faking.fake_community!()
     actor_1 = actor()
@@ -47,6 +43,7 @@ defmodule ActivityPub.ActorTest do
   end
 
   describe "format remote actor/1" do
+    @tag :skip
     test "it creates local community actor" do
       actor = community()
 
@@ -54,6 +51,7 @@ defmodule ActivityPub.ActorTest do
       assert actor.data["type"] == "MN:Community"
     end
 
+    @tag :skip
     test "it creates local collection actor" do
       actor = collection()
 

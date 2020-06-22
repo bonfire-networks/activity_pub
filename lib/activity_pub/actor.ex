@@ -1,8 +1,3 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.Actor do
   @moduledoc """
   Functions for dealing with ActivityPub actors.
@@ -21,7 +16,7 @@ defmodule ActivityPub.Actor do
 
   @type t :: %Actor{}
 
-  defstruct [:id, :data, :local, :keys, :ap_id, :username, :deactivated, :mn_pointer_id]
+  defstruct [:id, :data, :local, :keys, :ap_id, :username, :deactivated]
 
   @doc """
   Updates an existing actor struct by its AP ID.
@@ -125,7 +120,6 @@ defmodule ActivityPub.Actor do
 
   defp format_remote_actor(%Object{} = actor) do
     username = actor.data["preferredUsername"] <> "@" <> URI.parse(actor.data["id"]).host
-    pointer_id = Map.get(actor, :mn_pointer_id)
     data = actor.data
 
     data =
@@ -147,7 +141,6 @@ defmodule ActivityPub.Actor do
       local: false,
       ap_id: actor.data["id"],
       username: username,
-      mn_pointer_id: pointer_id,
       deactivated: deactivated?(actor)
     }
   end
@@ -376,7 +369,7 @@ defmodule ActivityPub.Actor do
       {:ok, actor}
     else
       with {:ok, pem} <- Keys.generate_rsa_pem(),
-           {:ok, actor} <- Adapter.update_local_actor(actor, %{signing_key: pem}) do
+           {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}) do
         {:ok, actor}
       else
         {:error, e} -> {:error, e}

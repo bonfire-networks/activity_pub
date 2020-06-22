@@ -1,8 +1,3 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.MRF.SimplePolicy do
   alias ActivityPub.MRF
   @moduledoc "Filter activities depending on their origin instance"
@@ -10,7 +5,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_reject(%{host: actor_host} = _actor_info, object) do
     rejects =
-      MoodleNet.Config.get([:mrf_simple, :reject])
+      ActivityPub.Config.get([:mrf_simple, :reject])
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(rejects, actor_host) do
@@ -26,7 +21,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
        )
        when length(child_attachment) > 0 do
     media_removal =
-      MoodleNet.Config.get([:mrf_simple, :media_removal])
+      ActivityPub.Config.get([:mrf_simple, :media_removal])
       |> MRF.subdomains_regex()
 
     object =
@@ -50,7 +45,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
          } = object
        ) do
     media_nsfw =
-      MoodleNet.Config.get([:mrf_simple, :media_nsfw])
+      ActivityPub.Config.get([:mrf_simple, :media_nsfw])
       |> MRF.subdomains_regex()
 
     object =
@@ -70,7 +65,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_report_removal(%{host: actor_host} = _actor_info, %{"type" => "Flag"} = object) do
     report_removal =
-      MoodleNet.Config.get([:mrf_simple, :report_removal])
+      ActivityPub.Config.get([:mrf_simple, :report_removal])
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(report_removal, actor_host) do
@@ -84,7 +79,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_avatar_removal(%{host: actor_host} = _actor_info, %{"icon" => _icon} = object) do
     avatar_removal =
-      MoodleNet.Config.get([:mrf_simple, :avatar_removal])
+      ActivityPub.Config.get([:mrf_simple, :avatar_removal])
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(avatar_removal, actor_host) do
@@ -98,7 +93,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_banner_removal(%{host: actor_host} = _actor_info, %{"image" => _image} = object) do
     banner_removal =
-      MoodleNet.Config.get([:mrf_simple, :banner_removal])
+      ActivityPub.Config.get([:mrf_simple, :banner_removal])
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(banner_removal, actor_host) do

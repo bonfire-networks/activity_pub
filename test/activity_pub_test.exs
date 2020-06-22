@@ -1,15 +1,10 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPubTest do
   use ActivityPub.DataCase
   import ActivityPub.Factory
   alias ActivityPub.Actor
   alias ActivityPub.Object
   alias ActivityPub.Utils
-  alias MoodleNet.Test.Faking
+
 
   doctest ActivityPub
 
@@ -140,8 +135,8 @@ defmodule ActivityPubTest do
     end
 
     test "it creates a delete activity for a local actor" do
-      actor = Faking.fake_user!()
-      {:ok, actor} = Actor.get_by_username(actor.actor.preferred_username)
+      actor = local_actor()
+      {:ok, actor} = Actor.get_by_username(actor.username)
 
       {:ok, activity} = ActivityPub.delete(actor)
 
@@ -153,8 +148,8 @@ defmodule ActivityPubTest do
 
   describe "like an object" do
     test "adds a like activity to the db" do
-      actor = Faking.fake_user!()
-      {:ok, note_actor} = Actor.get_by_username(actor.actor.preferred_username)
+      actor = local_actor()
+      {:ok, note_actor} = Actor.get_by_username(actor.username)
       note_activity = insert(:note_activity, %{actor: note_actor})
       assert object = Object.normalize(note_activity)
 
@@ -177,8 +172,8 @@ defmodule ActivityPubTest do
 
   describe "unliking" do
     test "unliking a previously liked object" do
-      actor = Faking.fake_user!()
-      {:ok, note_actor} = Actor.get_by_username(actor.actor.preferred_username)
+      actor = local_actor()
+      {:ok, note_actor} = Actor.get_by_username(actor.username)
       note_activity = insert(:note_activity, %{actor: note_actor})
       object = Object.normalize(note_activity)
       actor = insert(:actor)
@@ -239,8 +234,8 @@ defmodule ActivityPubTest do
 
   describe "update" do
     test "it creates an update activity with the new user data" do
-      actor = Faking.fake_user!()
-      {:ok, actor} = Actor.get_by_username(actor.actor.preferred_username)
+      actor = local_actor()
+      {:ok, actor} = Actor.get_by_username(actor.username)
       {:ok, actor} = Actor.ensure_keys_present(actor)
       actor_data = ActivityPubWeb.ActorView.render("actor.json", %{actor: actor})
 

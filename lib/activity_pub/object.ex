@@ -62,16 +62,11 @@ defmodule ActivityPub.Object do
   def set_cache(%Object{data: %{"id" => ap_id}} = object) do
     Cachex.put(:ap_object_cache, "ap_id:#{ap_id}", object)
 
-    if object.mn_pointer_id do
-      Cachex.put(:ap_object_cache, "pointer_id:#{object.mn_pointer_id}", object)
-    end
-
     {:ok, object}
   end
 
-  def invalidate_cache(%Object{data: %{"id" => ap_id}} = object) do
-    with {:ok, true} <- Cachex.del(:ap_object_cache, "ap_id:#{ap_id}"),
-         {:ok, true} <- Cachex.del(:ap_object_cache, "pointer_id#{object.mn_pointer_id}") do
+  def invalidate_cache(%Object{data: %{"id" => ap_id}} = _object) do
+    with {:ok, true} <- Cachex.del(:ap_object_cache, "ap_id:#{ap_id}") do
       :ok
     end
   end

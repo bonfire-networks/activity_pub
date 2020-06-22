@@ -1,10 +1,5 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.Workers.WorkerHelper do
-  alias MoodleNet.Config
+  alias ActivityPub.Config
   alias ActivityPub.Workers.WorkerHelper
 
   def worker_args(queue) do
@@ -25,13 +20,15 @@ defmodule ActivityPub.Workers.WorkerHelper do
         max_attempts: 1
 
       def enqueue(op, params, worker_args \\ []) do
+        repo = Application.get_env(:activity_pub, :repo)
+
         params = Map.merge(%{"op" => op}, params)
         queue_atom = String.to_atom(unquote(queue))
         worker_args = worker_args ++ WorkerHelper.worker_args(queue_atom)
 
         unquote(caller_module)
         |> apply(:new, [params, worker_args])
-        |> MoodleNet.Repo.insert()
+        |> repo.insert()
       end
     end
   end

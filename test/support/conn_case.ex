@@ -32,6 +32,8 @@ defmodule ActivityPubWeb.ConnCase do
   end
 
   setup tags do
+    Cachex.clear(:ap_actor_cache)
+    Cachex.clear(:ap_object_cache)
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.TestRepo)
 
     unless tags[:async] do

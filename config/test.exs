@@ -29,5 +29,9 @@ config :activity_pub, Oban,
   repo: ActivityPub.TestRepo,
   queues: false
 
+config :activity_pub, :instance, federating: false
+
+config :tesla, adapter: Tesla.Mock
+
 # Print only warnings and errors during test
 config :logger, level: :warn

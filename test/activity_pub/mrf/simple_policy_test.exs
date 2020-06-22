@@ -1,9 +1,4 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
-defmodule Pleroma.Web.ActivityPub.MRF.SimplePolicyTest do
+defmodule ActivityPubWeb.MRF.SimplePolicyTest do
   use ActivityPub.DataCase
   alias ActivityPub.Config
   alias ActivityPub.MRF.SimplePolicy
@@ -31,7 +26,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.SimplePolicyTest do
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
     %{
-      "actor" => MoodleNetWeb.base_url() <> ap_base_path <> "/actors/alice",
+      "actor" => ActivityPubWeb.base_url() <> ap_base_path <> "/actors/alice",
       "to" => [],
       "cc" => []
     }

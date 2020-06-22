@@ -12,7 +12,7 @@ defmodule ActivityPub do
   alias ActivityPub.Utils
   alias ActivityPub.Object
   alias ActivityPub.MRF
-  alias ActivityPub.Repo
+  @repo Application.get_env(:activity_pub, :repo)
 
   def maybe_forward_activity(
         %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
@@ -231,7 +231,7 @@ defmodule ActivityPub do
     with %Object{} = like_activity <- Utils.get_existing_like(ap_id, object),
          unlike_data <- Utils.make_unlike_data(actor, like_activity, activity_id),
          {:ok, unlike_activity} <- insert(unlike_data, local),
-         {:ok, _activity} <- Repo.delete(like_activity),
+         {:ok, _activity} <- @repo.delete(like_activity),
          :ok <- Utils.maybe_federate(unlike_activity),
          :ok <- Adapter.maybe_handle_activity(unlike_activity) do
       {:ok, unlike_activity, like_activity, object}
@@ -268,7 +268,7 @@ defmodule ActivityPub do
          unannounce_data <- Utils.make_unannounce_data(actor, announce_activity, activity_id),
          {:ok, unannounce_activity} <- insert(unannounce_data, local),
          :ok <- Utils.maybe_federate(unannounce_activity),
-         {:ok, _activity} <- Repo.delete(announce_activity),
+         {:ok, _activity} <- @repo.delete(announce_activity),
          :ok <- Adapter.maybe_handle_activity(unannounce_activity) do
       {:ok, unannounce_activity, object}
     else

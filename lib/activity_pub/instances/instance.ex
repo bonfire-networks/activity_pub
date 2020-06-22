@@ -1,14 +1,9 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.Instances.Instance do
   @moduledoc "Instance."
 
   alias ActivityPub.Instances
   alias ActivityPub.Instances.Instance
-  alias MoodleNet.Repo
+  @repo Application.get_env(:activity_pub, :repo)
 
   use Ecto.Schema
 
@@ -42,7 +37,7 @@ defmodule ActivityPub.Instances.Instance do
       |> Enum.filter(&(to_string(&1) != ""))
 
     unreachable_since_by_host =
-      Repo.all(
+      @repo.all(
         from(i in Instance,
           where: i.host in ^hosts,
           select: {i.host, i.unreachable_since}
@@ -66,7 +61,7 @@ defmodule ActivityPub.Instances.Instance do
   end
 
   def reachable?(url_or_host) when is_binary(url_or_host) do
-    !Repo.one(
+    !@repo.one(
       from(i in Instance,
         where:
           i.host == ^host(url_or_host) and
@@ -80,11 +75,11 @@ defmodule ActivityPub.Instances.Instance do
 
   def set_reachable(url_or_host) when is_binary(url_or_host) do
     with host <- host(url_or_host),
-         %Instance{} = existing_record <- Repo.get_by(Instance, %{host: host}) do
+         %Instance{} = existing_record <- @repo.get_by(Instance, %{host: host}) do
       {:ok, _instance} =
         existing_record
         |> changeset(%{unreachable_since: nil})
-        |> Repo.update()
+        |> @repo.update()
     end
   end
 
@@ -95,7 +90,7 @@ defmodule ActivityPub.Instances.Instance do
   def set_unreachable(url_or_host, unreachable_since) when is_binary(url_or_host) do
     unreachable_since = unreachable_since || DateTime.utc_now()
     host = host(url_or_host)
-    existing_record = Repo.get_by(Instance, %{host: host})
+    existing_record = @repo.get_by(Instance, %{host: host})
 
     changes = %{unreachable_since: unreachable_since}
 
@@ -103,7 +98,7 @@ defmodule ActivityPub.Instances.Instance do
       is_nil(existing_record) ->
         %Instance{}
         |> changeset(Map.put(changes, :host, host))
-        |> Repo.insert()
+        |> @repo.insert()
 
       existing_record.unreachable_since &&
           NaiveDateTime.compare(existing_record.unreachable_since, unreachable_since) != :gt ->
@@ -112,7 +107,7 @@ defmodule ActivityPub.Instances.Instance do
       true ->
         existing_record
         |> changeset(changes)
-        |> Repo.update()
+        |> @repo.update()
     end
   end
 

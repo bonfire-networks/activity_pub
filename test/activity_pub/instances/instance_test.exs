@@ -1,11 +1,6 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.Instances.InstanceTest do
   alias ActivityPub.Instances.Instance
-  alias ActivityPub.TestRepo
+  alias ActivityPub.TestRepo, as: Repo
   import ActivityPub.Factory
 
   require Ecto.Query

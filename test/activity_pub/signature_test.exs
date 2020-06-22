@@ -1,6 +1,7 @@
 defmodule ActivityPub.SignatureTest do
   use ActivityPub.DataCase
 
+  import ActivityPub.Factory
   import ExUnit.CaptureLog
   import Tesla.Mock
 
@@ -48,8 +49,8 @@ defmodule ActivityPub.SignatureTest do
 
   describe "sign/2" do
     test "works" do
-      actor = Faking.fake_user!()
-      {:ok, ap_actor} = ActivityPub.Actor.get_by_username(actor.actor.preferred_username)
+      actor = local_actor()
+      {:ok, ap_actor} = ActivityPub.Actor.get_by_username(actor.username)
 
       _signature =
         Signature.sign(ap_actor, %{

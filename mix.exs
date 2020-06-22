@@ -51,7 +51,8 @@ defmodule ActivityPub.MixProject do
        ref: "293d77bb6f4a67ac8bde1428735c3b42f22cbb30"},
       {:timex, "~> 3.5"},
       {:cachex, "~> 3.2"},
-      {:ex_machina, "~> 2.3", only: [:dev, :test]}
+      {:ex_machina, "~> 2.3", only: [:dev, :test]},
+      {:mock, "~> 0.3.0", only: :test}
     ]
   end
 

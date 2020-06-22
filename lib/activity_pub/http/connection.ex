@@ -1,8 +1,3 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPub.HTTP.Connection do
   @moduledoc """
   Specifies connection options for HTTP requests
@@ -22,8 +17,8 @@ defmodule ActivityPub.HTTP.Connection do
 
   def hackney_options(opts) do
     options = Keyword.get(opts, :adapter, [])
-    adapter_options = Application.get_env(:moodle_net, :http)[:adapter] || []
-    proxy_url = Application.get_env(:moodle_net, :http)[:proxy_url]
+    adapter_options = Application.get_env(:activity_pub, :http)[:adapter] || []
+    proxy_url = Application.get_env(:activity_pub, :http)[:proxy_url]
 
     @hackney_options
     |> Keyword.merge(adapter_options)

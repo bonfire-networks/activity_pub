@@ -3,7 +3,6 @@ defmodule ActivityPub.Object do
   import Ecto.Changeset
   import Ecto.Query
 
-  alias Ecto.ULID
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   @repo Application.get_env(:activity_pub, :repo)

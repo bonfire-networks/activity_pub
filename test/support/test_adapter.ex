@@ -8,7 +8,8 @@ defmodule ActivityPub.TestAdapter do
       local: true,
       keys: actor.keys,
       ap_id: actor.data["preferredUsername"],
-      username: actor.data["preferredUsername"]
+      username: actor.data["preferredUsername"],
+      deactivated: false
     }
   end
 

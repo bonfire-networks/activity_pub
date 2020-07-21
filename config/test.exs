@@ -8,7 +8,7 @@ use Mix.Config
 config :activity_pub, ActivityPub.TestRepo,
   username: "postgres",
   password: "postgres",
-  database: "activity_pub_test#{System.get_env("MIX_TEST_PARTITION")}",
+  database: "activity_pub_test",
   hostname: "localhost",
   pool: Ecto.Adapters.SQL.Sandbox
 

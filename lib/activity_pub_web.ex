@@ -62,7 +62,6 @@ defmodule ActivityPubWeb do
       # Import basic rendering functionality (render, render_layout, etc)
       import Phoenix.View
 
-      import ActivityPubWeb.ErrorHelpers
       import ActivityPubWeb.Gettext
       alias ActivityPubWeb.Router.Helpers, as: Routes
     end

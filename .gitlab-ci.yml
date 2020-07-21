@@ -17,6 +17,9 @@ cache:
 stages:
   - test
 
+before_script:
+  - apk add --update --no-cache build-base git
+
 unit-testing:
   stage: test
   services:

@@ -24,8 +24,8 @@ unit-testing:
     command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
   script:
     - mix local.hex --force
-	  - mix local.rebar --force
-	  - mix deps.get
+    - mix local.rebar --force
+    - mix deps.get
     - mix compile --force
     - mix ecto.create
     - mix ecto.migrate

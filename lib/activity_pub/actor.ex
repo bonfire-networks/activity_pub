@@ -28,7 +28,8 @@ defmodule ActivityPub.Actor do
 
     with {:ok, data} <- Fetcher.fetch_remote_object_from_id(actor_id),
          {:ok, object} <- update_actor_data_by_ap_id(actor_id, data),
-      {:ok, actor} <- Adapter.update_remote_actor(object) do
+         :ok <- Adapter.update_remote_actor(object),
+         {:ok, actor} <- get_by_ap_id(actor_id) do
       set_cache(actor)
     end
   end

@@ -1,0 +1,29 @@
+image: elixir:1.10.2-alpine #update this when we switch Elixir version in Dockerfile
+
+variables: 
+  POSTGRES_DB: activity_pub_test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  DATABASE_HOST: postgres
+  MIX_ENV: test
+  HOSTNAME: localhost
+
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - deps
+    - _build
+
+stages:
+  - test
+
+unit-testing:
+  stage: test
+  services:
+  - name: postgres:9.6.6
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+  script:
+    - mix compile --force
+    - mix ecto.create
+    - mix ecto.migrate
+    - mix coveralls --preload-modules

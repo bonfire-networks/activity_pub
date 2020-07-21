@@ -52,7 +52,8 @@ defmodule ActivityPub.MixProject do
       {:timex, "~> 3.5"},
       {:cachex, "~> 3.2"},
       {:ex_machina, "~> 2.3", only: [:dev, :test]},
-      {:mock, "~> 0.3.0", only: :test}
+      {:mock, "~> 0.3.0", only: :test},
+      {:excoveralls, "~> 0.10", only: :test}
     ]
   end
 

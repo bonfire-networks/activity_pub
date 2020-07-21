@@ -1,27 +1,44 @@
 defmodule ActivityPubWeb.Router do
-  use ActivityPubWeb, :router
+  defmacro __using__(_) do
+    quote do
+      pipeline :well_known do
+        plug(:accepts, ["json", "jrd+json"])
+      end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
+      pipeline :activity_pub do
+        plug(:accepts, ["activity+json", "json", "html"])
+      end
 
-  scope "/api", ActivityPubWeb do
-    pipe_through :api
-  end
+      pipeline :signed_activity_pub do
+        plug(:accepts, ["activity+json", "json"])
+        plug(ActivityPubWeb.Plugs.HTTPSignaturePlug)
+      end
 
-  # Enables LiveDashboard only for development
-  #
-  # If you want to use the LiveDashboard in production, you should put
-  # it behind authentication and allow only admins to access it.
-  # If your application does not have an admins-only section yet,
-  # you can use Plug.BasicAuth to set up some basic authentication
-  # as long as you are also using SSL (which you should anyway).
-  if Mix.env() in [:dev, :test] do
-    import Phoenix.LiveDashboard.Router
+      scope "/.well-known", ActivityPubWeb do
+        pipe_through(:well_known)
 
-    scope "/" do
-      pipe_through [:fetch_session, :protect_from_forgery]
-      live_dashboard "/dashboard", metrics: ActivityPubWeb.Telemetry
+        get "/webfinger", WebFingerController, :webfinger
+        get "/nodeinfo", NodeinfoController, :schemas
+      end
+
+      ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
+
+      scope ap_base_path, ActivityPubWeb do
+        pipe_through(:activity_pub)
+
+        get "/objects/:uuid", ActivityPubController, :object
+        get "/actors/:username", ActivityPubController, :actor
+        get "/actors/:username/followers", ActivityPubController, :followers
+        get "/actors/:username/following", ActivityPubController, :following
+        get "/actors/:username/outbox", ActivityPubController, :noop
+      end
+
+      scope ap_base_path, ActivityPubWeb do
+        pipe_through(:signed_activity_pub)
+
+        post "/actors/:username/inbox", ActivityPubController, :inbox
+        post "/shared_inbox", ActivityPubController, :inbox
+      end
     end
   end
 end

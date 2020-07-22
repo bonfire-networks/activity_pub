@@ -295,16 +295,9 @@ defmodule ActivityPub.Actor do
     |> Map.put("publicKey", public_key)
   end
 
-  defp maybe_create_image_object(url) when not is_nil(url) do
-    %{
-      "type" => "Image",
-      "url" => url
-    }
-  end
-
-  defp maybe_create_image_object(_), do: nil
-
-  defp get_actor_from_follow(follow) do
+  # TODO: the next four functions need to be rewritten as they were
+  # reliant on MN logic
+  def get_actor_from_follow(follow) do
     with {:ok, actor} <- get_cached_by_local_id(follow.creator_id) do
       actor
     else
@@ -313,42 +306,15 @@ defmodule ActivityPub.Actor do
   end
 
   # MN specific function
-  def get_followings(actor) do
-    {:ok, actor} = Adapter.get_actor_by_id(actor.mn_pointer_id)
-    {:ok, follows} = MoodleNet.Follows.many(creator: actor.id)
-
-    followers =
-      follows
-      |> Enum.map(&get_actor_from_follow/1)
-      |> Enum.filter(fn actor -> actor end)
-
-    {:ok, followers}
+  def get_followings(_actor) do
   end
 
   # MN specific function
-  def get_followers(actor) do
-    {:ok, actor} = Adapter.get_actor_by_id(actor.mn_pointer_id)
-    {:ok, follows} = MoodleNet.Follows.many(context: actor.id)
-
-    followers =
-      follows
-      |> Enum.map(&get_actor_from_follow/1)
-      |> Enum.filter(fn actor -> actor end)
-
-    {:ok, followers}
+  def get_followers(_actor) do
   end
 
   # MN specific function
-  def get_external_followers(actor) do
-    {:ok, actor} = Adapter.get_actor_by_id(actor.mn_pointer_id)
-    {:ok, follows} = MoodleNet.Follows.many(context: actor.id)
-
-    followers =
-      follows
-      |> Enum.map(&get_actor_from_follow/1)
-      |> Enum.filter(fn actor -> actor && !actor.local end)
-
-    {:ok, followers}
+  def get_external_followers(_actor) do
   end
 
   # TODO: add bcc

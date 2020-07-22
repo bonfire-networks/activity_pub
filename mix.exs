@@ -3,6 +3,7 @@ defmodule ActivityPub.MixProject do
 
   def project do
     [
+      name: "ActivityPub library",
       app: :activity_pub,
       version: "0.1.0",
       elixir: "~> 1.7",
@@ -11,7 +12,8 @@ defmodule ActivityPub.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      source_url: "https://gitlab.com/CommonsPub/activitypub"
     ]
   end
 

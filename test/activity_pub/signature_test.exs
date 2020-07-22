@@ -6,7 +6,6 @@ defmodule ActivityPub.SignatureTest do
   import Tesla.Mock
 
   alias ActivityPub.Signature
-  alias MoodleNet.Test.Faking
 
   setup do
     mock(fn env -> apply(HttpRequestMock, :request, [env]) end)

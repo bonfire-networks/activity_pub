@@ -1,24 +1,21 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
-# SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPubWeb.NodeinfoController do
+  #TODO: this needs to be rewritten to be more generic - maybe even split into another library
+
   use ActivityPubWeb, :controller
 
-  alias MoodleNet.Application
-  alias MoodleNet.Config
+  alias ActivityPub.Application
+  alias ActivityPub.Config
 
   def schemas(conn, _params) do
     response = %{
       links: [
         %{
           rel: "http://nodeinfo.diaspora.software/ns/schema/2.0",
-          href: MoodleNetWeb.base_url() <> "/.well-known/nodeinfo/2.0"
+          href: ActivityPubWeb.base_url() <> "/.well-known/nodeinfo/2.0"
         },
         %{
           rel: "http://nodeinfo.diaspora.software/ns/schema/2.1",
-          href: MoodleNetWeb.base_url() <> "/.well-known/nodeinfo/2.1"
+          href: ActivityPubWeb.base_url() <> "/.well-known/nodeinfo/2.1"
         }
       ]
     }
@@ -26,9 +23,10 @@ defmodule ActivityPubWeb.NodeinfoController do
     json(conn, response)
   end
 
+  # TODO: make generic
   def user_count() do
-    {:ok, users} = MoodleNet.Users.many(preset: :actor, peer: :not_nil)
-    length(users)
+    # {:ok, users} = MoodleNet.Users.many(preset: :actor, peer: :not_nil)
+    # length(users)
   end
 
   def raw_nodeinfo do

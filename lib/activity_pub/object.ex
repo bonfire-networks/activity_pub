@@ -16,8 +16,7 @@ defmodule ActivityPub.Object do
     field(:data, :map)
     field(:local, :boolean, default: true)
     field(:public, :boolean)
-    # Figure out what to do with this
-    # belongs_to(:mn_pointer, MoodleNet.Meta.Pointer, type: ULID)
+    belongs_to(:pointer, Pointers.Pointer)
 
     timestamps()
   end
@@ -28,7 +27,7 @@ defmodule ActivityPub.Object do
     @repo.one(from(object in Object, where: fragment("(?)->>'id' = ?", object.data, ^ap_id)))
   end
 
-  def get_by_pointer_id(pointer_id), do: @repo.get_by(Object, mn_pointer_id: pointer_id)
+  def get_by_pointer_id(pointer_id), do: @repo.get_by(Object, pointer_id: pointer_id)
 
   def get_cached_by_ap_id(ap_id) do
     key = "ap_id:#{ap_id}"
@@ -61,11 +60,16 @@ defmodule ActivityPub.Object do
   def set_cache(%Object{data: %{"id" => ap_id}} = object) do
     Cachex.put(:ap_object_cache, "ap_id:#{ap_id}", object)
 
+    if object.pointer_id do
+      Cachex.put(:ap_object_cache, "pointer_id:#{object.pointer_id}", object)
+    end
+
     {:ok, object}
   end
 
-  def invalidate_cache(%Object{data: %{"id" => ap_id}} = _object) do
-    with {:ok, true} <- Cachex.del(:ap_object_cache, "ap_id:#{ap_id}") do
+  def invalidate_cache(%Object{data: %{"id" => ap_id}} = object) do
+    with {:ok, true} <- Cachex.del(:ap_object_cache, "ap_id:#{ap_id}"),
+         {:ok, true} <- Cachex.del(:ap_object_cache, "pointer_id:#{object.pointer_id}") do
       :ok
     end
   end
@@ -83,8 +87,7 @@ defmodule ActivityPub.Object do
 
   def changeset(object, attrs) do
     object
-    # |> cast(attrs, [:data, :local, :public, :mn_pointer_id])
-    |> cast(attrs, [:data, :local, :public])
+    |> cast(attrs, [:data, :local, :public, :pointer_id])
     |> validate_required(:data)
   end
 

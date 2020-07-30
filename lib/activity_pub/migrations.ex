@@ -1,5 +1,6 @@
 defmodule ActivityPub.Migrations do
   use Ecto.Migration
+  import Pointers.Migration
 
   def change do
     create table("ap_object", primary_key: false) do
@@ -7,7 +8,7 @@ defmodule ActivityPub.Migrations do
       add :data, :map
       add :local, :boolean
       add :public, :boolean
-      # add :host_pointer_id, :string
+      add :pointer, weak_pointer()
 
       timestamps(type: :utc_datetime_usec)
     end

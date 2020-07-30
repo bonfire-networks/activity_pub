@@ -1,4 +1,4 @@
-defmodule MoodleNet.Repo.Migrations.AddObanJobsTable do
+defmodule ActivityPub.Repo.Migrations.AddObanJobsTable do
   use Ecto.Migration
 
   def up do

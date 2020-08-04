@@ -59,9 +59,7 @@ defmodule ActivityPub.MixProject do
       {:excoveralls, "~> 0.10", only: :test},
       {
         :pointers,
-        # git: "https://github.com/commonspub/pointers.git", branch: "main"
-        git: "https://github.com/mayel/pointers.git",
-        ref: "7b6798f5989b7a935287a195c417720a9db4d5b6"
+        git: "https://github.com/commonspub/pointers.git", branch: "main"
       }
     ]
   end

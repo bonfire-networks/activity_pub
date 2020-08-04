@@ -8,7 +8,7 @@ defmodule ActivityPub.Migrations do
       add :data, :map
       add :local, :boolean
       add :public, :boolean
-      add :pointer, weak_pointer()
+      add :pointer_id, weak_pointer()
 
       timestamps(type: :utc_datetime_usec)
     end

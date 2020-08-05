@@ -4,7 +4,7 @@ defmodule MoodleNet.Repo.Migrations.AddObjectsTable do
   def change do
     execute "CREATE EXTENSION IF NOT EXISTS citext"
 
-    ActivityPub.Migrations.change()
+    ActivityPub.Migrations.up()
 
     # This table only exists for test purposes
     create table("local_actor", primary_key: false) do

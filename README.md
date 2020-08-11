@@ -27,4 +27,12 @@ config :activity_pub, :adapter, MyApp.MyAdapter
 config :activity_pub, :repo, MyApp.Repo
 ```
 
-4. Inject AP routes to your router by adding `use ActivityPubWeb.Router` to your app's router module
+4. Create a new ecto migration and call `ActivityPub.Migration.up/0` from it
+
+5. Inject AP routes to your router by adding `use ActivityPubWeb.Router` to your app's router module
+
+6. If you don't already have Oban set up, follow the [Oban installation intructions](https://hexdocs.pm/oban/installation.html#content) and add the AP queues:
+
+```
+config :my_app, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]
+```

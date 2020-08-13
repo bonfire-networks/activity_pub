@@ -13,7 +13,11 @@ defmodule ActivityPub.MixProject do
       aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
-      source_url: "https://gitlab.com/CommonsPub/activitypub"
+      source_url: "https://gitlab.com/CommonsPub/activitypub",
+      docs: [
+        main: "readme",
+        extras: ["README.md", "CHANGES.md"]
+      ]
     ]
   end
 
@@ -57,7 +61,8 @@ defmodule ActivityPub.MixProject do
       {:ex_machina, "~> 2.3", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
-      {:pointers, "~> 0.3"}
+      {:pointers, "~> 0.3"},
+      {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false}
     ]
   end
 

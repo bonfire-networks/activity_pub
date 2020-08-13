@@ -7,7 +7,7 @@ defmodule ActivityPub.TestAdapter do
       data: actor.data,
       local: true,
       keys: actor.keys,
-      ap_id: actor.data["preferredUsername"],
+      ap_id: actor.data["id"],
       username: actor.data["preferredUsername"],
       deactivated: false
     }
@@ -49,5 +49,10 @@ defmodule ActivityPub.TestAdapter do
 
   def handle_activity(_term) do
     :ok
+  end
+
+  def get_follower_ap_ids(actor) do
+    actor = ActivityPub.LocalActor.get_by_ap_id(actor.ap_id)
+    actor.followers
   end
 end

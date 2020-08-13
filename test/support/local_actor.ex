@@ -14,6 +14,7 @@ defmodule ActivityPub.LocalActor do
     field(:local, :boolean)
     field(:username, :string)
     field(:keys, :string)
+    field(:followers, {:array, :string}, default: [])
   end
 
   def get_by_id(id), do: @repo.get(__MODULE__, id)
@@ -47,5 +48,11 @@ defmodule ActivityPub.LocalActor do
     object
     |> change(attrs)
     |> @repo.update()
+  end
+
+  def follow(follower, followee) do
+    followee = get_by_ap_id(followee.data["id"])
+    followers = [follower.data["id"] | followee.followers]
+    __MODULE__.update(followee, %{followers: followers})
   end
 end

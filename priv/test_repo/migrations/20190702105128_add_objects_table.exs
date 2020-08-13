@@ -13,6 +13,7 @@ defmodule MoodleNet.Repo.Migrations.AddObjectsTable do
       add :data, :map
       add :local, :boolean
       add :keys, :text
+      add :followers, {:array, :string}
     end
   end
 end

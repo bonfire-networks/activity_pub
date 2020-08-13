@@ -295,8 +295,6 @@ defmodule ActivityPub.Actor do
     |> Map.put("publicKey", public_key)
   end
 
-  # TODO: the next four functions need to be rewritten as they were
-  # reliant on MN logic
   def get_actor_from_follow(follow) do
     with {:ok, actor} <- get_cached_by_local_id(follow.creator_id) do
       actor
@@ -305,16 +303,29 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  # MN specific function
   def get_followings(_actor) do
   end
 
-  # MN specific function
-  def get_followers(_actor) do
+  def get_followers(actor) do
+    followers =
+      Adapter.get_follower_ap_ids(actor)
+      |> Enum.map(&get_by_ap_id!/1)
+      # Filter nils
+      |> Enum.filter(fn x -> x end)
+
+    {:ok, followers}
   end
 
-  # MN specific function
-  def get_external_followers(_actor) do
+  def get_external_followers(actor) do
+    followers =
+      Adapter.get_follower_ap_ids(actor)
+      |> Enum.map(&get_by_ap_id!/1)
+      # Filter nils
+      |> Enum.filter(fn x -> x end)
+      # Filter locals
+      |> Enum.filter(fn x -> !x.local end)
+
+    {:ok, followers}
   end
 
   # TODO: add bcc

@@ -64,15 +64,6 @@ defmodule ActivityPub.Application do
   else
     def start(_type, _args) do
       children = [
-        # Start the Telemetry supervisor
-        ActivityPubWeb.Telemetry,
-        # Start the PubSub system
-        {Phoenix.PubSub, name: ActivityPub.PubSub},
-        # Start the Endpoint (http/https)
-        ActivityPubWeb.Endpoint,
-        # Start a worker by calling: ActivityPub.Worker.start_link(arg)
-        # {ActivityPub.Worker, arg}
-        {Oban, Application.get_env(:activity_pub, oban_config())},
         %{
           id: :cachex_actor,
           start:

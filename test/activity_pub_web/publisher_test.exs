@@ -31,7 +31,7 @@ defmodule ActivityPubWeb.PublisherTest do
     {:ok, actor} = Actor.get_by_ap_id(activity.data["actor"])
 
     assert :ok == Publisher.publish(actor, activity)
-    assert %{success: 1, failure: 0} = Oban.drain_queue(:federator_outgoing)
+    assert %{success: 1, failure: 0} = Oban.drain_queue(queue: :federator_outgoing)
   end
 
   test "it adds mothership recipient if the env is set" do
@@ -53,7 +53,7 @@ defmodule ActivityPubWeb.PublisherTest do
     {:ok, actor} = Actor.get_by_ap_id(activity.data["actor"])
 
     assert :ok == Publisher.publish(actor, activity)
-    assert %{success: 2, failure: 0} = Oban.drain_queue(:federator_outgoing)
+    assert %{success: 2, failure: 0} = Oban.drain_queue(queue: :federator_outgoing)
     System.put_env("CONNECT_WITH_MOTHERSHIP", "false")
   end
 
@@ -66,7 +66,7 @@ defmodule ActivityPubWeb.PublisherTest do
 
     ActivityPub.follow(actor_1, ap_community, nil, false)
     ActivityPub.follow(actor_2, ap_community, nil, false)
-    Oban.drain_queue(:ap_incoming)
+    Oban.drain_queue(queue: :ap_incoming)
 
     activity =
       insert(:note_activity, %{

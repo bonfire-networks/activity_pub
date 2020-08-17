@@ -4,7 +4,7 @@ defmodule ActivityPub.Workers.ReceiverWorker do
   use ActivityPub.Workers.WorkerHelper, queue: "federator_incoming"
 
   @impl Oban.Worker
-  def perform(%{"op" => "incoming_ap_doc", "params" => params}, _job) do
+  def perform(%Oban.Job{args: %{"op" => "incoming_ap_doc", "params" => params}}) do
     Federator.perform(:incoming_ap_doc, params)
   end
 end

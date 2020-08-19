@@ -36,4 +36,8 @@ defmodule ActivityPub.Migrations do
     drop index("ap_instance", [:host])
     drop index("ap_instance", [:unreachable_since])
   end
+
+  def upgrade do
+    rename table("ap_object"), :mn_pointer_id, to: :pointer_id
+  end
 end

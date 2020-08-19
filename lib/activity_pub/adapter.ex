@@ -8,14 +8,23 @@ defmodule ActivityPub.Adapter do
 
   @adapter Application.get_env(:activity_pub, :adapter)
 
+  defp validate_actor({:ok, %Actor{local: false} = actor}) do
+    actor_object = Object.get_cached_by_pointer_id(actor.id)
+    {:ok, Actor.format_remote_actor(actor_object)}
+  end
+
+  defp validate_actor({:ok, %Actor{} = actor}), do: {:ok, actor}
+  defp validate_actor({:ok, _}), do: {:error, "Improperly formatted actor struct"}
+  defp validate_actor(_), do: {:error, "not found"}
+
   @doc """
   Fetch an actor given its preferred username
   """
   @callback get_actor_by_username(String.t()) :: {:ok, any()} | {:error, any()}
-  defdelegate get_actor_by_username(username), to: @adapter
+  def get_actor_by_username(username), do: validate_actor(@adapter.get_actor_by_username(username))
 
   @callback get_actor_by_id(String.t()) :: {:ok, any()} | {:error, any()}
-  defdelegate get_actor_by_id(username), to: @adapter
+  def get_actor_by_id(id), do: validate_actor(@adapter.get_actor_by_id(id))
 
   @callback maybe_create_remote_actor(Actor.t()) :: :ok
   defdelegate maybe_create_remote_actor(actor), to: @adapter

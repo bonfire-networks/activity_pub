@@ -119,7 +119,7 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp format_remote_actor(%Object{} = actor) do
+  def format_remote_actor(%Object{} = actor) do
     username = actor.data["preferredUsername"] <> "@" <> URI.parse(actor.data["id"]).host
     data = actor.data
 

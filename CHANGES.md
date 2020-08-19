@@ -1,4 +1,4 @@
-# Changes between the original implentation and the library
+# Changes between the original implementation and the library
 
 ## Actor struct formatting
 
@@ -6,8 +6,8 @@ Format actor functions are now implementation dependant, fetch actor callbacks e
 
 ## Follower collection callbacks
 
-New callback function `get_follower_ap_ids` that accepts an actor and returns a list of AP IDs of that actor's followers.
+New callback functions `get_follower_local_ids` and `get_following_local_ids` that accepts an actor and returns a list of IDs of that actor's followers/followings
 
 ## Other stuff
 
-`mn_pointer_id` is now called `pointer_id`
+`mn_pointer_id` is now called `pointer_id` (run `ActivityPub.Migrations.upgrade/0` to rename it in a migration)

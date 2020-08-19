@@ -52,7 +52,7 @@ defmodule ActivityPub.LocalActor do
 
   def follow(follower, followee) do
     followee = get_by_ap_id(followee.data["id"])
-    followers = [follower.data["id"] | followee.followers]
+    followers = [follower.id | followee.followers]
     __MODULE__.update(followee, %{followers: followers})
   end
 end

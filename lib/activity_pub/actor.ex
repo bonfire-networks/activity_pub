@@ -16,7 +16,7 @@ defmodule ActivityPub.Actor do
 
   @type t :: %Actor{}
 
-  defstruct [:id, :data, :local, :keys, :ap_id, :username, :deactivated]
+  defstruct [:id, :data, :local, :keys, :ap_id, :username, :deactivated, :pointer_id]
 
   @doc """
   Updates an existing actor struct by its AP ID.
@@ -142,7 +142,8 @@ defmodule ActivityPub.Actor do
       local: false,
       ap_id: actor.data["id"],
       username: username,
-      deactivated: deactivated?(actor)
+      deactivated: deactivated?(actor),
+      pointer_id: Map.get(actor, :pointer_id)
     }
   end
 
@@ -303,13 +304,19 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def get_followings(_actor) do
+  def get_followings(actor) do
+    followings =
+      Adapter.get_following_local_ids(actor)
+      |> Enum.map(&get_by_local_id!/1)
+      |> Enum.filter(fn x -> x end)
+
+    {:ok, followings}
   end
 
   def get_followers(actor) do
     followers =
-      Adapter.get_follower_ap_ids(actor)
-      |> Enum.map(&get_by_ap_id!/1)
+      Adapter.get_follower_local_ids(actor)
+      |> Enum.map(&get_by_local_id!/1)
       # Filter nils
       |> Enum.filter(fn x -> x end)
 
@@ -318,8 +325,8 @@ defmodule ActivityPub.Actor do
 
   def get_external_followers(actor) do
     followers =
-      Adapter.get_follower_ap_ids(actor)
-      |> Enum.map(&get_by_ap_id!/1)
+      Adapter.get_follower_local_ids(actor)
+      |> Enum.map(&get_by_local_id!/1)
       # Filter nils
       |> Enum.filter(fn x -> x end)
       # Filter locals

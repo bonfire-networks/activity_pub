@@ -32,8 +32,11 @@ defmodule ActivityPub.Adapter do
   @callback handle_activity(Object.t()) :: :ok | {:ok, any()} | {:error, any()}
   defdelegate handle_activity(activity), to: @adapter
 
-  @callback get_follower_ap_ids(Actor.t()) :: [String.t()]
-  defdelegate get_follower_ap_ids(actor), to: @adapter
+  @callback get_follower_local_ids(Actor.t()) :: [String.t()]
+  defdelegate get_follower_local_ids(actor), to: @adapter
+
+  @callback get_following_local_ids(Actor.t()) :: [String.t()]
+  defdelegate get_following_local_ids(actor), to: @adapter
 
   # FIXME: implicity returning `:ok` here means we don't know if the worker fails which isn't great
   def maybe_handle_activity(%Object{local: false} = activity) do

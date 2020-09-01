@@ -1,6 +1,6 @@
 # ActivityPub
 
-ActivityPub Library for elixir.
+ActivityPub Library for elixir - standalone edition.
 
 **HEAVY WORK IN PROGRESS, BREAKING API CHANGES EXPECTED**
 

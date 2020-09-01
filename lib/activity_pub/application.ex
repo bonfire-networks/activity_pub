@@ -14,89 +14,51 @@ defmodule ActivityPub.Application do
   def named_version, do: @name <> " " <> @version
   def repository, do: @repository
 
-  if Mix.env() == :test do
-    def start(_type, _args) do
-      children = [
-        # Start the Ecto repository
-        ActivityPub.TestRepo,
-        # Start the Telemetry supervisor
-        ActivityPubWeb.Telemetry,
-        # Start the PubSub system
-        {Phoenix.PubSub, name: ActivityPub.PubSub},
-        # Start the Endpoint (http/https)
-        ActivityPubWeb.Endpoint,
-        # Start a worker by calling: ActivityPub.Worker.start_link(arg)
-        # {ActivityPub.Worker, arg}
-        {Oban, oban_config()},
-        %{
-          id: :cachex_actor,
-          start:
-            {Cachex, :start_link,
+  def start(_type, _args) do
+    children = [
+      # Start the Ecto repository
+      ActivityPub.Repo,
+      # Start the Telemetry supervisor
+      ActivityPubWeb.Telemetry,
+      # Start the PubSub system
+      {Phoenix.PubSub, name: ActivityPub.PubSub},
+      # Start the Endpoint (http/https)
+      ActivityPubWeb.Endpoint,
+      # Start a worker by calling: ActivityPub.Worker.start_link(arg)
+      # {ActivityPub.Worker, arg}
+      {Oban, oban_config()},
+      %{
+        id: :cachex_actor,
+        start:
+          {Cachex, :start_link,
+           [
+             :ap_actor_cache,
              [
-               :ap_actor_cache,
-               [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
-                 limit: 2500
-               ]
-             ]}
-        },
-        %{
-          id: :cachex_object,
-          start:
-            {Cachex, :start_link,
+               default_ttl: 25_000,
+               ttl_interval: 1000,
+               limit: 2500
+             ]
+           ]}
+      },
+      %{
+        id: :cachex_object,
+        start:
+          {Cachex, :start_link,
+           [
+             :ap_object_cache,
              [
-               :ap_object_cache,
-               [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
-                 limit: 2500
-               ]
-             ]}
-        }
-      ]
+               default_ttl: 25_000,
+               ttl_interval: 1000,
+               limit: 2500
+             ]
+           ]}
+      }
+    ]
 
-      # See https://hexdocs.pm/elixir/Supervisor.html
-      # for other strategies and supported options
-      opts = [strategy: :one_for_one, name: ActivityPub.Supervisor]
-      Supervisor.start_link(children, opts)
-    end
-  else
-    def start(_type, _args) do
-      children = [
-        %{
-          id: :cachex_actor,
-          start:
-            {Cachex, :start_link,
-             [
-               :ap_actor_cache,
-               [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
-                 limit: 2500
-               ]
-             ]}
-        },
-        %{
-          id: :cachex_object,
-          start:
-            {Cachex, :start_link,
-             [
-               :ap_object_cache,
-               [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
-                 limit: 2500
-               ]
-             ]}
-        }
-      ]
-
-      # See https://hexdocs.pm/elixir/Supervisor.html
-      # for other strategies and supported options
-      opts = [strategy: :one_for_one, name: ActivityPub.Supervisor]
-      Supervisor.start_link(children, opts)
-    end
+    # See https://hexdocs.pm/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :one_for_one, name: ActivityPub.Supervisor]
+    Supervisor.start_link(children, opts)
   end
 
   defp oban_config() do

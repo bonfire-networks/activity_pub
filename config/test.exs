@@ -5,7 +5,7 @@ use Mix.Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-config :activity_pub, ActivityPub.TestRepo,
+config :activity_pub, ActivityPub.Repo,
   adapter: Ecto.Adapters.Postgres,
   username: System.get_env("POSTGRES_USER", "postgres"),
   password: System.get_env("POSTGRES_PASSWORD", "postgres"),
@@ -21,13 +21,13 @@ config :activity_pub, ActivityPubWeb.Endpoint,
 
 config :activity_pub, :adapter, ActivityPub.TestAdapter
 
-config :activity_pub, :repo, ActivityPub.TestRepo
+config :activity_pub, :repo, ActivityPub.Repo
 
 config :activity_pub,
-  ecto_repos: [ActivityPub.TestRepo]
+  ecto_repos: [ActivityPub.Repo]
 
 config :activity_pub, Oban,
-  repo: ActivityPub.TestRepo,
+  repo: ActivityPub.Repo,
   queues: false
 
 config :activity_pub, :instance, federating: false

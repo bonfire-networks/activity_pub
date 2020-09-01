@@ -34,10 +34,10 @@ defmodule ActivityPubWeb.ConnCase do
   setup tags do
     Cachex.clear(:ap_actor_cache)
     Cachex.clear(:ap_object_cache)
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.TestRepo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.TestRepo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.Repo, {:shared, self()})
     end
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}

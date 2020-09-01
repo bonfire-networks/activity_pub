@@ -26,7 +26,11 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-config :activity_pub, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]
+config :activity_pub, Oban,
+  repo: ActivityPub.Repo,
+  queues: [federator_incoming: 50, federator_outgoing: 50]
+
+config :activity_pub, :repo, ActivityPub.Repo
 
 config :activity_pub, :mrf_simple,
   media_removal: [],
@@ -53,6 +57,8 @@ config :activity_pub, :http,
       versions: [:tlsv1, :"tlsv1.1", :"tlsv1.2"]
     ]
   ]
+
+config :activity_pub, :adapter, ActivityPubWeb.WebSocketAdapter
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

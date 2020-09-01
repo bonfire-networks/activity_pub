@@ -1,6 +1,6 @@
 defmodule ActivityPub.Instances.InstanceTest do
   alias ActivityPub.Instances.Instance
-  alias ActivityPub.TestRepo, as: Repo
+  alias ActivityPub.Repo
   import ActivityPub.Factory
 
   require Ecto.Query

@@ -42,5 +42,5 @@ defmodule ActivityPubWeb.Endpoint do
     key: "_activity_pub_key",
     signing_salt: "i4A5AOWF"
 
-  plug ActivityPubWeb.TestRouter
+  plug ActivityPubWeb.Router
 end

@@ -1,3 +1,5 @@
+# TODO: We don't need endpoint when running in library mode but some modules rely on functions provided by it...
+
 defmodule ActivityPubWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :activity_pub
 

@@ -37,6 +37,7 @@ config :activity_pub, :mrf_simple,
   banner_removal: []
 
 config :activity_pub, :instance,
+  hostname: "localhost",
   federation_publisher_modules: [ActivityPubWeb.Publisher],
   federation_reachability_timeout_days: 7,
   federating: true,
@@ -53,8 +54,6 @@ config :activity_pub, :http,
       versions: [:tlsv1, :"tlsv1.1", :"tlsv1.2"]
     ]
   ]
-
-config :activity_pub, :hostname, "localhost"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

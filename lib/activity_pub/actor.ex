@@ -184,7 +184,7 @@ defmodule ActivityPub.Actor do
   @spec get_by_ap_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
   def get_by_ap_id(ap_id) do
     host = URI.parse(ap_id).host
-    instance_host = Application.get_env(:activity_pub, :hostname)
+    instance_host = Application.get_env(:activity_pub, :instance)[:hostname]
 
     if host == instance_host do
       get_local_actor(ap_id)

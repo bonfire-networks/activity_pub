@@ -43,6 +43,7 @@ config :activity_pub, :mrf_simple,
   banner_removal: []
 
 config :activity_pub, :instance,
+  hostname: "example.com",
   federation_publisher_modules: [ActivityPubWeb.Publisher],
   federation_reachability_timeout_days: 7,
   federating: true,
@@ -61,7 +62,9 @@ config :activity_pub, :http,
   ]
   ```
 
-7. If you don't already have Oban set up, follow the [Oban installation intructions](https://hexdocs.pm/oban/installation.html#content) and add the AP queues:
+7. Change the hostname value in the instance config block to your instance's hostname 
+
+8. If you don't already have Oban set up, follow the [Oban installation intructions](https://hexdocs.pm/oban/installation.html#content) and add the AP queues:
 
 ```
 config :my_app, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]

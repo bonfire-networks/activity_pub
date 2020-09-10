@@ -5,6 +5,7 @@ defmodule ActivityPub.Object do
 
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
+  alias Pointers.ULID
   @repo Application.get_env(:activity_pub, :repo)
 
   @type t :: %__MODULE__{}
@@ -16,7 +17,7 @@ defmodule ActivityPub.Object do
     field(:data, :map)
     field(:local, :boolean, default: true)
     field(:public, :boolean)
-    belongs_to(:pointer, Pointers.Pointer)
+    belongs_to(:pointer, Pointers.Pointer, type: ULID)
 
     timestamps()
   end

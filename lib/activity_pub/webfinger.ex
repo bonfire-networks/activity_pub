@@ -18,7 +18,7 @@ defmodule ActivityPub.WebFinger do
   Serves a webfinger response for the requested username.
   """
   def webfinger(resource) do
-    host = ActivityPubWeb.Endpoint.host()
+    host = Application.get_env(:activity_pub, :instance)[:hostname]
     regex = ~r/(acct:)?(?<username>[a-z0-9A-Z_\.-]+)@#{host}/
 
     with %{"username" => username} <- Regex.named_captures(regex, resource),
@@ -50,8 +50,10 @@ defmodule ActivityPub.WebFinger do
   Formats gathered data into a JRD format.
   """
   def represent_user(actor) do
+    host = Application.get_env(:activity_pub, :instance)[:hostname]
+
     %{
-      "subject" => "acct:#{actor.data["preferredUsername"]}@#{ActivityPubWeb.Endpoint.host()}",
+      "subject" => "acct:#{actor.data["preferredUsername"]}@#{host}",
       "aliases" => [actor.data["id"]],
       "links" => gather_links(actor)
     }

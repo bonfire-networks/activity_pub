@@ -20,7 +20,6 @@ defmodule ActivityPubWeb.Router do
         pipe_through(:well_known)
 
         get "/webfinger", WebFingerController, :webfinger
-        get "/nodeinfo", NodeinfoController, :schemas
       end
 
       scope unquote(ap_base_path), ActivityPubWeb do

@@ -51,7 +51,7 @@ defmodule ActivityPub.MixProject do
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
       {:oban, "~> 2.0.0"},
-      {:hackney, "~> 1.15.2"},
+      {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
       {:http_signatures,
        git: "https://git.pleroma.social/pleroma/http_signatures.git",

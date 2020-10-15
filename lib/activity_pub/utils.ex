@@ -416,7 +416,7 @@ defmodule ActivityPub.Utils do
       |> Map.put(:data, data)
       |> Map.put(:local, local)
       |> Map.put(:public, public?(data))
-      |> Map.put(:mn_pointer_id, pointer)
+      |> Map.put(:pointer_id, pointer)
 
     {:ok, data}
   end

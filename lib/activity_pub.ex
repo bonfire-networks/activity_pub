@@ -67,7 +67,7 @@ defmodule ActivityPub do
             data: map,
             local: local,
             public: Utils.public?(map),
-            mn_pointer_id: pointer
+            pointer_id: pointer
           })
         else
           Object.insert(%{

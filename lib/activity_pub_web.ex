@@ -75,6 +75,6 @@ defmodule ActivityPubWeb do
   end
 
   def base_url do
-    Application.get_env(:activity_pub, :base_url) || ActivityPubWeb.Endpoint.url()
+    ActivityPub.Adapter.base_url() || ActivityPubWeb.Endpoint.url()
   end
 end

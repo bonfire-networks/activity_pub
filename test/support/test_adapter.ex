@@ -56,4 +56,6 @@ defmodule ActivityPub.TestAdapter do
     actor = ActivityPub.LocalActor.get_by_id(actor.pointer_id)
     actor.followers
   end
+
+  def base_url(), do: ActivityPubWeb.Endpoint.url()
 end

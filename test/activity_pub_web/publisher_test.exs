@@ -56,25 +56,4 @@ defmodule ActivityPubWeb.PublisherTest do
     assert %{success: 2, failure: 0} = Oban.drain_queue(queue: :federator_outgoing)
     System.put_env("CONNECT_WITH_MOTHERSHIP", "false")
   end
-
-  @tag :skip
-  test "it publishes to followers" do
-    community = Faking.fake_user!() |> Faking.fake_community!()
-    actor_1 = actor()
-    actor_2 = actor()
-    {:ok, ap_community} = ActivityPub.Actor.get_by_local_id(community.id)
-
-    ActivityPub.follow(actor_1, ap_community, nil, false)
-    ActivityPub.follow(actor_2, ap_community, nil, false)
-    Oban.drain_queue(queue: :ap_incoming)
-
-    activity =
-      insert(:note_activity, %{
-        actor: ap_community,
-        data_attrs: %{"cc" => [ap_community.data["followers"]]}
-      })
-
-    assert :ok == Publisher.publish(ap_community, activity)
-    assert %{failure: 0, success: 2} = Oban.drain_queue(:federator_outgoing)
-  end
 end

@@ -22,7 +22,7 @@ defmodule ActivityPub do
       |> List.delete("https://www.w3.org/ns/activitystreams#Public")
       |> Enum.map(&Actor.get_by_ap_id!/1)
       |> Enum.filter(fn actor ->
-        actor.data["type"] == "MN:Collection" or actor.data["type"] == "MN:Community"
+        actor.data["type"] == "MN:Collection" or actor.data["type"] == "Group"
       end)
 
     groups

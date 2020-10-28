@@ -1,4 +1,4 @@
-defmodule MoodleNet.Repo.Migrations.AddObjectsTable do
+defmodule ActivityPub.Repo.Migrations.AddObjectsTable do
   use Ecto.Migration
 
   def change do

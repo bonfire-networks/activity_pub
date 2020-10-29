@@ -39,7 +39,7 @@ defmodule ActivityPubWeb.Federator.Publisher do
 
   @spec publish(Map.t(), Map.t()) :: :ok
   def publish(user, activity) do
-    Application.get_env(:moodle_net, :instance)[:federation_publisher_modules]
+    Application.get_env(:activity_pub, :instance)[:federation_publisher_modules]
     |> Enum.each(fn module ->
       if module.is_representable?(activity) do
         Logger.info("Publishing #{activity.data["id"]} using #{inspect(module)}")

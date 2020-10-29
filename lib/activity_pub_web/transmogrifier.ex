@@ -10,9 +10,9 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Utils
   require Logger
 
-  # TODO: make configurable
-  @supported_actor_types ["Person", "Application", "Service", "Organization", "Group"]
-  @collection_types ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
+  @supported_actor_types Application.get_env(:activity_pub, :instance)[:supported_object_types] || ["Person", "Application", "Service", "Organization", "Group"]
+
+  @collection_types Application.get_env(:activity_pub, :instance)[:supported_collection_types] || ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
 
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.

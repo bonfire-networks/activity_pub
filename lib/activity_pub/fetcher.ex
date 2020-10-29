@@ -8,8 +8,7 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPubWeb.Transmogrifier
   require Logger
 
-  # TODO: make configurable
-  @create_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
+  @create_object_types Application.get_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.

@@ -10,7 +10,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Utils
   require Logger
 
-  @supported_actor_types Application.get_env(:activity_pub, :instance)[:supported_object_types] || ["Person", "Application", "Service", "Organization", "Group"]
+  @supported_actor_types Application.get_env(:activity_pub, :instance)[:supported_actor_types] || ["Person", "Application", "Service", "Organization", "Group"]
 
   @collection_types Application.get_env(:activity_pub, :instance)[:supported_collection_types] || ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
 

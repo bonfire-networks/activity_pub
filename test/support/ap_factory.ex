@@ -25,7 +25,7 @@ defmodule ActivityPub.Factory do
 
     community =
       insert(:actor, %{
-        data: %{"type" => "MN:Community", "attributedTo" => actor.ap_id, "collections" => []}
+        data: %{"type" => "Group", "attributedTo" => actor.ap_id, "collections" => []}
       })
 
     {:ok, community} = ActivityPub.Actor.get_by_ap_id(community.data["id"])
@@ -38,7 +38,7 @@ defmodule ActivityPub.Factory do
 
     community =
       insert(:actor, %{
-        data: %{"type" => "MN:Community", "attributedTo" => actor.ap_id, "collections" => []}
+        data: %{"type" => "Group", "attributedTo" => actor.ap_id, "collections" => []}
       })
 
     {:ok, community} = ActivityPub.Actor.get_by_ap_id(community.data["id"])

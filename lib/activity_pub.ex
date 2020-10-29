@@ -22,7 +22,7 @@ defmodule ActivityPub do
       |> List.delete("https://www.w3.org/ns/activitystreams#Public")
       |> Enum.map(&Actor.get_by_ap_id!/1)
       |> Enum.filter(fn actor ->
-        actor.data["type"] == "MN:Collection" or actor.data["type"] == "MN:Community"
+        actor.data["type"] == "MN:Collection" or actor.data["type"] == "Group"
       end)
 
     groups
@@ -59,8 +59,12 @@ defmodule ActivityPub do
   def insert(map, local, pointer \\ nil) when is_map(map) and is_boolean(local) do
     with map <- Utils.lazy_put_activity_defaults(map),
          :ok <- check_actor_is_active(map["actor"]),
+         # set some healthy boundaries
          {:ok, map} <- MRF.filter(map),
+         # insert the object
          {:ok, map, object} <- Utils.insert_full_object(map, local, pointer) do
+
+      # insert the activity (containing only an ID as object)
       {:ok, activity} =
         if is_nil(object) do
           Object.insert(%{

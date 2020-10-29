@@ -10,6 +10,8 @@ defmodule ActivityPub.Utils do
   import Ecto.Query
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
+
+  # TODO: make configurable
   @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
 
   def get_ap_id(%{"id" => id} = _), do: id
@@ -373,6 +375,8 @@ defmodule ActivityPub.Utils do
     with nil <- Object.normalize(object_data, false),
          {:ok, data} <- prepare_data(object_data, local, pointer),
          {:ok, object} <- Object.insert(data) do
+
+      # return an activity that contains the ID as object rather than the actual object
       map =
         map
         |> Map.put("object", object.data["id"])

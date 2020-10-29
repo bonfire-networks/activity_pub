@@ -3,7 +3,7 @@ defmodule ActivityPub.ActorTest do
   import Tesla.Mock
 
   alias ActivityPub.Actor
-  alias MoodleNet.Test.Faking
+
   import ActivityPub.Factory
 
   setup do

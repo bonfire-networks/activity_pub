@@ -1,9 +1,9 @@
 defmodule ActivityPubWeb.ActivityPubController do
   @moduledoc """
 
-  TODO The only endpoints implemented so far are for serving an object by ID, so the ActivityPub API can be used to read information from a MoodleNet server.
+  Endpoints for serving objects and collections, so the ActivityPub API can be used to read information from the server.
 
-  Even though store the data in AS format, some changes need to be applied to the entity before serving it in the AP REST response. This is done in `ActivityPubWeb.ActivityPubView`.
+  Even though we store the data in AS format, some changes need to be applied to the entity before serving it in the AP REST response. This is done in `ActivityPubWeb.ActivityPubView`.
   """
 
   use ActivityPubWeb, :controller

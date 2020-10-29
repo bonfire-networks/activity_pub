@@ -10,6 +10,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.Keys
   alias ActivityPub.WebFinger
   alias ActivityPub.Object
+
   @repo Application.get_env(:activity_pub, :repo)
 
   require Logger
@@ -126,7 +127,7 @@ defmodule ActivityPub.Actor do
     data =
       cond do
         Map.has_key?(data, "collections") ->
-          Map.put(data, "type", "MN:Community")
+          Map.put(data, "type", "Group")
 
         Map.has_key?(data, "resources") ->
           Map.put(data, "type", "MN:Collection")

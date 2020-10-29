@@ -1,6 +1,4 @@
-# MoodleNet: Connecting and empowering educators worldwide
-# Copyright © 2018-2020 Moodle Pty Ltd <https://moodle.com/moodlenet/>
-# Contains code from Pleroma <https://pleroma.social/> and CommonsPub <https://commonspub.org/>
+
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Publisher do
@@ -91,25 +89,20 @@ defmodule ActivityPubWeb.Publisher do
   defp maybe_use_sharedinbox(%{data: data}),
     do: (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) || data["inbox"]
 
-  defp maybe_federate_to_mothership(recipients, activity) do
-    mothership_inbox =
-      cond do
-        System.get_env("MOTHERSHIP_AP_INBOX_URL") ->
-          System.get_env("MOTHERSHIP_AP_INBOX_URL")
+  @doc """
+  If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE
+  #TODO: move to adapter
+  """
+  def maybe_federate_to_search_index(recipients, activity) do
 
-        System.get_env("REACT_APP_MOTHERSHIP_ENV") == "moodlenet_mothership_next" ->
-          "https://mothership.next.moodle.net/pub/shared_inbox"
+    index_inbox = System.get_env("PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE", "false")
 
-        true ->
-          "https://mothership.moodle.net/pub/shared_inbox"
-      end
-
-    if System.get_env("CONNECT_WITH_MOTHERSHIP", "false") == "true" and
-         (activity.public or activity.data["type"] == "Delete") and
+    if index_inbox !== "false" and
+         activity.public and
          activity.data["type"] in ["Create", "Update", "Delete"] do
       recipients ++
         [
-          mothership_inbox
+          index_inbox
         ]
     else
       recipients
@@ -161,7 +154,7 @@ defmodule ActivityPubWeb.Publisher do
       determine_inbox(activity, actor)
     end)
     |> Enum.uniq()
-    |> maybe_federate_to_mothership(activity)
+    |> maybe_federate_to_search_index(activity)
     |> Instances.filter_reachable()
     |> Enum.each(fn {inbox, unreachable_since} ->
       ActivityPubWeb.Federator.Publisher.enqueue_one(__MODULE__, %{

@@ -10,6 +10,10 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Utils
   require Logger
 
+  # TODO: make configurable
+  @supported_actor_types ["Person", "Application", "Service", "Organization", "Group"]
+  @collection_types ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
+
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.
   """
@@ -232,7 +236,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         %{"type" => "Update", "object" => %{"type" => object_type} = object, "actor" => actor_id} =
           data
       )
-      when object_type in ["Person", "Application", "Service", "Organization", "Group"] do
+      when object_type in @supported_actor_types do
     with {:ok, _} <- Actor.update_actor_data_by_ap_id(actor_id, object),
          {:ok, actor} <- Actor.get_by_ap_id(actor_id),
          {:ok, _} <- Actor.set_cache(actor) do
@@ -362,7 +366,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def handle_incoming(data) do
-    Logger.info("Unhandled activity. Storing...")
+    Logger.warn("ActivityPub library - Unhandled activity - Storing it anyway...")
 
     {:ok, activity, _object} = Utils.insert_full_object(data)
     handle_object(activity)
@@ -375,7 +379,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   @doc """
   Normalises and inserts an incoming AS2 object. Returns Object.
   """
-  @collection_types ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
   def handle_object(%{"type" => type} = data) when type in @collection_types do
     with {:ok, object} <- Utils.prepare_data(data) do
       {:ok, object}

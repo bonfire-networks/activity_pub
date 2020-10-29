@@ -8,7 +8,8 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPubWeb.Transmogrifier
   require Logger
 
-  @create_object_types ["Article", "Note", "Video", "Page", "Question", "Answer"]
+  # TODO: make configurable
+  @create_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.
@@ -83,7 +84,7 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
-  # Wrapping object in a create activity to easily pass it to the MN database.
+  # Wrapping object in a create activity to easily pass it to the app's relational database.
   defp insert_object(%{"type" => type} = data) when type in @create_object_types do
     with params <- %{
            "type" => "Create",

@@ -13,6 +13,7 @@ defmodule ActivityPub.MixProject do
       aliases: aliases(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
+      licenses: ["GNU AGPLv3"],
       source_url: "https://gitlab.com/CommonsPub/activitypub",
       docs: [
         main: "readme",

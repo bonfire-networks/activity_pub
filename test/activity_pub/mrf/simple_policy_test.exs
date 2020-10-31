@@ -161,7 +161,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       report_message = build_report_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(report_message) == {:reject, _}
+      assert SimplePolicy.filter(report_message) == {:reject, nil}
       assert SimplePolicy.filter(local_message) == {:ok, local_message}
     end
 
@@ -170,7 +170,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       report_message = build_report_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(report_message) == {:reject, _}
+      assert SimplePolicy.filter(report_message) == {:reject, nil}
       assert SimplePolicy.filter(local_message) == {:ok, local_message}
     end
   end
@@ -189,7 +189,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_message = build_remote_message()
 
-      assert SimplePolicy.filter(remote_message) == {:reject, _}
+      assert SimplePolicy.filter(remote_message) == {:reject, nil}
     end
 
     test "match with wildcard domain" do
@@ -197,7 +197,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_message = build_remote_message()
 
-      assert SimplePolicy.filter(remote_message) == {:reject, _}
+      assert SimplePolicy.filter(remote_message) == {:reject, nil}
     end
   end
 

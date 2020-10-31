@@ -11,7 +11,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(rejects, actor_host) do
-      {:reject, "host filtered in MRF"}
+      {:reject, nil}
     else
       {:ok, object}
     end
@@ -71,7 +71,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(report_removal, actor_host) do
-      {:reject, "report filtered in MRF"}
+      {:reject, nil}
     else
       {:ok, object}
     end
@@ -117,7 +117,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
          {:ok, object} <- check_report_removal(actor_info, object) do
       {:ok, object}
     else
-      _e -> {:reject, "filtered in MRF"}
+      _e -> {:reject, nil}
     end
   end
 
@@ -129,7 +129,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
          {:ok, object} <- check_banner_removal(actor_info, object) do
       {:ok, object}
     else
-      _e -> {:reject, "actor filtered in MRF"}
+      _e -> {:reject, nil}
     end
   end
 

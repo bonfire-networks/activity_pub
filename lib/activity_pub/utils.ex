@@ -11,7 +11,10 @@ defmodule ActivityPub.Utils do
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
+  @supported_activity_types Application.get_env(:activity_pub, :instance)[:supported_activity_types] || ["Create", "Follow", "Flag", "Like", "Block", "Delete", "Update", "Accept", "Announce", "Undo"]
+
   @supported_object_types Application.get_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
+
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(id), do: id
@@ -370,9 +373,13 @@ defmodule ActivityPub.Utils do
   """
   def insert_full_object(map, local \\ false, pointer \\ nil)
 
-  def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer)
+  def insert_full_object(%{"type" => activity_type, "object" => %{"type" => object_type} = object_data} = map, local, pointer)
       when is_map(object_data)
-      and type in @supported_object_types
+      and (
+        activity_type in @supported_activity_types
+        or
+        object_type in @supported_object_types
+      )
       do
     with nil <- Object.normalize(object_data, false),
          {:ok, data} <- prepare_data(object_data, local, pointer),

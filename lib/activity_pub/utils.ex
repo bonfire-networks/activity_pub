@@ -369,9 +369,10 @@ defmodule ActivityPub.Utils do
   Inserts a full object if it is contained in an activity.
   """
   def insert_full_object(map, local \\ false, pointer \\ nil)
-  def insert_full_object(%{"object" => %{"type" => _type} = object_data} = map, local, pointer)
+
+  def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer)
       when is_map(object_data)
-      # and type in @supported_object_types
+      and type in @supported_object_types
       do
     with nil <- Object.normalize(object_data, false),
          {:ok, data} <- prepare_data(object_data, local, pointer),

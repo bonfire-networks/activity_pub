@@ -98,6 +98,7 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
+  # QUESTION: does calling handle_object here instead of handle_incoming mean activities (or objects not in @create_object_types) won't handled in the same way?
   defp insert_object(data), do: Transmogrifier.handle_object(data)
 
   def get_actor(%{"attributedTo" => actor} = _data), do: actor
@@ -106,7 +107,7 @@ defmodule ActivityPub.Fetcher do
 
   defp check_if_public(public) when public == true, do: {:ok}
 
-  defp check_if_public(_public), do: {:error, "Not public"}
+  defp check_if_public(_public), do: {:error, "Not public"} # discard for now, to avoid privacy leaks
 
   defp contain_uri(id, %{"id" => json_id} = data) do
     id_uri = URI.parse(id)

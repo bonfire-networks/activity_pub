@@ -1,15 +1,10 @@
 defmodule ActivityPubWeb.RedirectController do
   # This entire module was pretty MN specific so need to figure out a way to make it generic
 
-  use ActivityPubWeb, :controller
+  # use ActivityPubWeb, :controller
 
-  def object(conn, %{"uuid" => _uuid}) do
-    conn
-    |> json("not implemented")
-  end
+  def object(id), do: ActivityPub.Adapter.call_or(:redirect_to_object, [id], nil)
 
-  def actor(conn, %{"username" => _username}) do
-    conn
-    |> json("not implemented")
-  end
+  def actor(id), do: ActivityPub.Adapter.call_or(:redirect_to_actor, [id], nil)
+
 end

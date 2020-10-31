@@ -13,6 +13,8 @@ defmodule ActivityPub.Actor do
 
   @repo Application.get_env(:activity_pub, :repo)
 
+  @public_uri "https://www.w3.org/ns/activitystreams#Public"
+
   require Logger
 
   @type t :: %Actor{}
@@ -343,7 +345,7 @@ defmodule ActivityPub.Actor do
 
     [to, cc]
     |> Enum.concat()
-    |> List.delete("https://www.w3.org/ns/activitystreams#Public")
+    |> List.delete(@public_uri)
     |> Enum.map(&get_by_ap_id!/1)
     |> Enum.filter(fn actor -> actor && !actor.local end)
   end

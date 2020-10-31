@@ -26,39 +26,62 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def object(conn, %{"uuid" => uuid}) do
     if get_format(conn) == "html" do
-      RedirectController.object(conn, %{"uuid" => uuid})
+      with nil <- RedirectController.object(uuid) do
+        object_json(conn, %{"uuid" => uuid})
+      else
+        url -> redirect(conn, to: url)
+      end
     else
-      with ap_id <- ap_route_helper(uuid),
-           %Object{} = object <- Object.get_cached_by_ap_id(ap_id),
-           true <- object.public do
+      object_json(conn, %{"uuid" => uuid})
+    end
+  end
+
+  defp object_json(conn, %{"uuid" => uuid}) do
+    with ap_id <- ap_route_helper(uuid),
+          %Object{} = object <- Object.get_cached_by_ap_id(ap_id) do
+
+      if true == object.public do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
       else
-        _ ->
-          conn
-          |> put_status(404)
-          |> json(%{error: "not found"})
+        conn
+        |> put_status(401)
+        |> json(%{error: "unauthorised"})
       end
+
+    else
+      _ ->
+        conn
+        |> put_status(404)
+        |> json(%{error: "not found"})
     end
   end
 
-  def actor(conn, %{"username" => username}) do
+  def actor(conn, %{"username" => username})do
     if get_format(conn) == "html" do
-      RedirectController.actor(conn, %{"username" => username})
-    else
-      with {:ok, actor} <- Actor.get_cached_by_username(username) do
-        conn
-        |> put_resp_content_type("application/activity+json")
-        |> put_view(ActorView)
-        |> render("actor.json", %{actor: actor})
+      with nil <- RedirectController.actor(username) do
+        actor_json(conn, %{"username" => username})
       else
-        _ ->
-          conn
-          |> put_status(404)
-          |> json(%{error: "not found"})
+        url -> redirect(conn, to: url)
       end
+    else
+      actor_json(conn, %{"username" => username})
+    end
+  end
+
+  def actor_json(conn, %{"username" => username}) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ActorView)
+      |> render("actor.json", %{actor: actor})
+    else
+      _ ->
+        conn
+        |> put_status(404)
+        |> json(%{error: "not found"})
     end
   end
 

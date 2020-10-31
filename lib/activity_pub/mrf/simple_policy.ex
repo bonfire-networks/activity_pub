@@ -3,13 +3,15 @@ defmodule ActivityPub.MRF.SimplePolicy do
   @moduledoc "Filter activities depending on their origin instance"
   @behaviour MRF
 
+  @supported_actor_types Application.get_env(:activity_pub, :instance)[:supported_actor_types] || ["Person", "Application", "Service", "Organization", "Group"]
+
   defp check_reject(%{host: actor_host} = _actor_info, object) do
     rejects =
       ActivityPub.Config.get([:mrf_simple, :reject])
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(rejects, actor_host) do
-      {:reject, nil}
+      {:reject, "host filtered in MRF"}
     else
       {:ok, object}
     end
@@ -69,7 +71,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(report_removal, actor_host) do
-      {:reject, nil}
+      {:reject, "report filtered in MRF"}
     else
       {:ok, object}
     end
@@ -115,19 +117,19 @@ defmodule ActivityPub.MRF.SimplePolicy do
          {:ok, object} <- check_report_removal(actor_info, object) do
       {:ok, object}
     else
-      _e -> {:reject, nil}
+      _e -> {:reject, "filtered in MRF"}
     end
   end
 
   def filter(%{"id" => actor, "type" => obj_type} = object)
-      when obj_type in ["Application", "Group", "Organization", "Person", "Service"] do
+      when obj_type in @supported_actor_types do
     actor_info = URI.parse(actor)
 
     with {:ok, object} <- check_avatar_removal(actor_info, object),
          {:ok, object} <- check_banner_removal(actor_info, object) do
       {:ok, object}
     else
-      _e -> {:reject, nil}
+      _e -> {:reject, "actor filtered in MRF"}
     end
   end
 

@@ -125,7 +125,7 @@ defmodule ActivityPub.Utils do
       "actor" => ap_id,
       "object" => activity.data,
       "to" => [actor.data["followers"], activity.data["actor"]],
-      "cc" => ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc" => [@public_uri],
       "context" => context
     }
 
@@ -189,7 +189,7 @@ defmodule ActivityPub.Utils do
       "actor" => ap_id,
       "object" => id,
       "to" => [actor.data["followers"], object.data["actor"]],
-      "cc" => ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc" => [@public_uri],
       "context" => object.data["context"]
     }
 
@@ -209,7 +209,7 @@ defmodule ActivityPub.Utils do
       "actor" => ap_id,
       "object" => activity.data,
       "to" => [actor.data["followers"], activity.data["actor"]],
-      "cc" => ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc" => [@public_uri],
       "context" => context
     }
 
@@ -369,7 +369,7 @@ defmodule ActivityPub.Utils do
   Inserts a full object if it is contained in an activity.
   """
   def insert_full_object(map, local \\ false, pointer \\ nil)
-  def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer)
+  def insert_full_object(%{"object" => %{"type" => _type} = object_data} = map, local, pointer)
       when is_map(object_data)
       # and type in @supported_object_types
       do
@@ -377,7 +377,7 @@ defmodule ActivityPub.Utils do
          {:ok, data} <- prepare_data(object_data, local, pointer),
          {:ok, object} <- Object.insert(data) do
 
-      # return an activity that contains the ID as object rather than the actual object
+      # return an activity that contains the ID as object rather than with the actual object embeded
       map =
         map
         |> Map.put("object", object.data["id"])
@@ -398,7 +398,7 @@ defmodule ActivityPub.Utils do
       recipients == [] ->
         true
 
-      Enum.member?(recipients, "https://www.w3.org/ns/activitystreams#Public") ->
+      Enum.member?(recipients, @public_uri) ->
         true
 
       true ->

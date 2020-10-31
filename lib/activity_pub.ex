@@ -12,14 +12,18 @@ defmodule ActivityPub do
   alias ActivityPub.Utils
   alias ActivityPub.Object
   alias ActivityPub.MRF
+
   @repo Application.get_env(:activity_pub, :repo)
+
+  @public_uri "https://www.w3.org/ns/activitystreams#Public"
+
 
   def maybe_forward_activity(
         %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
       ) do
     groups =
       to
-      |> List.delete("https://www.w3.org/ns/activitystreams#Public")
+      |> List.delete(@public_uri)
       |> Enum.map(&Actor.get_by_ap_id!/1)
       |> Enum.filter(fn actor ->
         actor.data["type"] == "MN:Collection" or actor.data["type"] == "Group"
@@ -28,7 +32,7 @@ defmodule ActivityPub do
     groups
     |> Enum.map(fn group ->
       ActivityPub.create(%{
-        to: ["https://www.w3.org/ns/activitystreams#Public"],
+        to: [@public_uri],
         object: object,
         actor: group,
         context: activity.data["context"],

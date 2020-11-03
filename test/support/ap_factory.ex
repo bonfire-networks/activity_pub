@@ -1,5 +1,6 @@
 defmodule ActivityPub.Factory do
-  use ExMachina.Ecto, repo: ActivityPub.TestRepo
+
+  use ExMachina.Ecto, repo: Application.get_env(:activity_pub, :repo)
 
   def actor(attrs \\ %{}) do
     actor = insert(:actor, attrs)

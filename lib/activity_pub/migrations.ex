@@ -3,6 +3,9 @@ defmodule ActivityPub.Migrations do
   import Pointers.Migration
 
   def up do
+
+    execute "CREATE EXTENSION IF NOT EXISTS citext"
+
     create table("ap_object", primary_key: false) do
       add :id, :uuid, primary_key: true
       add :data, :map
@@ -26,7 +29,21 @@ defmodule ActivityPub.Migrations do
 
     create unique_index("ap_instance", [:host])
     create index("ap_instance", [:unreachable_since])
+
   end
+
+  def prepare_test do
+    # This local_actor table only exists for test purposes
+    create table("local_actor", primary_key: false) do
+      add :id, :uuid, primary_key: true
+      add :username, :citext
+      add :data, :map
+      add :local, :boolean
+      add :keys, :text
+      add :followers, {:array, :string}
+    end
+  end
+
 
   def down do
     drop table("ap_object")
@@ -35,6 +52,7 @@ defmodule ActivityPub.Migrations do
     drop table("ap_instance")
     drop index("ap_instance", [:host])
     drop index("ap_instance", [:unreachable_since])
+    drop table("local_actor")
   end
 
   def upgrade do

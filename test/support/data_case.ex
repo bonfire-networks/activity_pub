@@ -14,11 +14,12 @@ defmodule ActivityPub.DataCase do
   this option is not recommended for other databases.
   """
 
+  @repo Application.get_env(:activity_pub, :repo)
+
   use ExUnit.CaseTemplate
 
   using do
     quote do
-      alias ActivityPub.TestRepo
 
       import Ecto
       import Ecto.Changeset
@@ -30,10 +31,10 @@ defmodule ActivityPub.DataCase do
   setup tags do
     Cachex.clear(:ap_actor_cache)
     Cachex.clear(:ap_object_cache)
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.TestRepo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(@repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.TestRepo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(@repo, {:shared, self()})
     end
 
     :ok

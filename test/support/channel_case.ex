@@ -17,6 +17,8 @@ defmodule ActivityPubWeb.ChannelCase do
 
   use ExUnit.CaseTemplate
 
+  @repo Application.get_env(:activity_pub, :repo)
+
   using do
     quote do
       # Import conveniences for testing with channels
@@ -29,10 +31,10 @@ defmodule ActivityPubWeb.ChannelCase do
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.TestRepo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(@repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.TestRepo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(@repo, {:shared, self()})
     end
 
     :ok

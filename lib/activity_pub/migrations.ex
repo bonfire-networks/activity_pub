@@ -34,7 +34,7 @@ defmodule ActivityPub.Migrations do
 
   def prepare_test do
     # This local_actor table only exists for test purposes
-    create table("local_actor", primary_key: false) do
+    create_if_not_exists table("local_actor", primary_key: false) do
       add :id, :uuid, primary_key: true
       add :username, :citext
       add :data, :map

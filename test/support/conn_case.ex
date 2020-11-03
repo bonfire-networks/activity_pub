@@ -29,7 +29,7 @@ defmodule ActivityPubWeb.ConnCase do
       alias ActivityPubWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
-      @endpoint ActivityPubWeb.Endpoint
+      @endpoint Application.get_env(:activity_pub, :endpoint)
     end
   end
 

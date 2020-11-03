@@ -6,7 +6,7 @@ use Mix.Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :activity_pub, ActivityPub.TestRepo,
-  adapter: Ecto.Adapters.Postgres,
+  # adapter: Ecto.Adapters.Postgres,
   username: System.get_env("POSTGRES_USER", "postgres"),
   password: System.get_env("POSTGRES_PASSWORD", "postgres"),
   database: "activity_pub_test",

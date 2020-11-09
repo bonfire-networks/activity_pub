@@ -377,7 +377,7 @@ defmodule ActivityPub.Utils do
       when is_map(object_data)
       and (
         activity_type in @supported_activity_types
-        or
+        and
         object_type in @supported_object_types
       )
       do

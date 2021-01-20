@@ -3,7 +3,7 @@ defmodule ActivityPub.LocalActor do
   import Ecto.Changeset
   import Ecto.Query
 
-  @repo Application.get_env(:activity_pub, :repo)
+  import ActivityPub.Common
 
   @type t :: %__MODULE__{}
 
@@ -17,20 +17,20 @@ defmodule ActivityPub.LocalActor do
     field(:followers, {:array, :string}, default: [])
   end
 
-  def get_by_id(id), do: @repo.get(__MODULE__, id)
+  def get_by_id(id), do: repo().get(__MODULE__, id)
 
   def get_by_ap_id(ap_id) do
-    @repo.one(from(actor in __MODULE__, where: fragment("(?)->>'id' = ?", actor.data, ^ap_id)))
+    repo().one(from(actor in __MODULE__, where: fragment("(?)->>'id' = ?", actor.data, ^ap_id)))
   end
 
   def get_by_username(username) do
-    @repo.get_by(__MODULE__, username: username)
+    repo().get_by(__MODULE__, username: username)
   end
 
   def insert(attrs) do
     attrs
     |> changeset()
-    |> @repo.insert()
+    |> repo().insert()
   end
 
   def changeset(attrs) do
@@ -47,7 +47,7 @@ defmodule ActivityPub.LocalActor do
   def update(object, attrs) do
     object
     |> change(attrs)
-    |> @repo.update()
+    |> repo().update()
   end
 
   def follow(follower, followee) do

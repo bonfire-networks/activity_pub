@@ -30,11 +30,11 @@ defmodule ActivityPub.Migrations do
 
   def down do
     drop table("ap_object")
-    drop index(:ap_object, ["(data->>'id')"])
-    drop index(:ap_object, [:pointer_id])
+    # drop index(:ap_object, ["(data->>'id')"])
+    # drop index(:ap_object, [:pointer_id])
     drop table("ap_instance")
-    drop index("ap_instance", [:host])
-    drop index("ap_instance", [:unreachable_since])
+    # drop index("ap_instance", [:host])
+    # drop index("ap_instance", [:unreachable_since])
   end
 
   def upgrade do

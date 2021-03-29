@@ -4,8 +4,6 @@ defmodule ActivityPub do
 
   In general, the functions in this module take object-like formatted struct as the input for actor parameters.
   Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_by_ap_id/1` for example) to retrieve those.
-
-  Legacy: Delegates some functions to related ActivityPub submodules
   """
   alias ActivityPub.Actor
   alias ActivityPub.Adapter
@@ -63,7 +61,6 @@ defmodule ActivityPub do
          {:ok, map} <- MRF.filter(map),
          # insert the object
          {:ok, map, object} <- Utils.insert_full_object(map, local, pointer) do
-
       # insert the activity (containing only an ID as object)
       {:ok, activity} =
         if is_nil(object) do
@@ -98,14 +95,9 @@ defmodule ActivityPub do
 
   @doc """
   Generates and federates a Create activity via the data passed through `params`.
-
-  Requires `to`, `actor`, `context` and `object` fields to be present in the input map.
-
-  `to` must be a list.</br>
-  `actor` must be an `ActivityPub.Object`-like struct.</br>
-  `context` must be a string. Use `ActivityPub.Utils.generate_context_id/0` to generate a default context.</br>
-  `object` must be a map.
   """
+  @spec create(%{to: [any()], actor: Actor.t(), context: binary(), object: map()}) ::
+          {:ok, Object.t()} | {:error, any()}
   def create(%{to: to, actor: actor, context: context, object: object} = params, pointer \\ nil) do
     additional = params[:additional] || %{}
     # only accept false as false value
@@ -130,13 +122,9 @@ defmodule ActivityPub do
 
   @doc """
   Generates and federates an Accept activity via the data passed through `params`.
-
-  Requires `to`, `actor` and `object` fields to be present in the input map.
-
-  `to` must be a list.</br>
-  `actor` must be an `ActivityPub.Object`-like struct.</br>
-  `object` should be the URI of the object that is being accepted.
   """
+  @spec accept(%{to: [any()], actor: Actor.t(), object: map()}) ::
+          {:ok, Object.t()} | {:error, any()}
   def accept(%{to: to, actor: actor, object: object} = params) do
     # only accept false as false value
     local = !(params[:local] == false)
@@ -156,13 +144,9 @@ defmodule ActivityPub do
 
   @doc """
   Generates and federates a Reject activity via the data passed through `params`.
-
-  Requires `to`, `actor` and `object` fields to be present in the input map.
-
-  `to` must be a list.<br/>
-  `actor` must be an `ActivityPub.Object`-like struct.<br/>
-  `object` should be the URI of the object that is being rejected
   """
+  @spec reject(%{to: [any()], actor: Actor.t(), object: binary()}) ::
+          {:ok, Object.t()} | {:error, any()}
   def reject(%{to: to, actor: actor, object: object} = params) do
     # only accept false as false value
     local = !(params[:local] == false)
@@ -185,6 +169,12 @@ defmodule ActivityPub do
 
   Note: the follow should be reflected on the host database side only after receiving an `Accept` activity in response!
   """
+  @spec follow(
+          follower :: Actor.t(),
+          follower :: Actor.t(),
+          activity_id :: binary(),
+          local :: boolean()
+        ) :: {:ok, Object.t()} | {:error, any()}
   def follow(follower, followed, activity_id \\ nil, local \\ true) do
     with data <- Utils.make_follow_data(follower, followed, activity_id),
          {:ok, activity} <- insert(data, local),
@@ -197,6 +187,12 @@ defmodule ActivityPub do
   @doc """
   Generates and federates an Unfollow activity.
   """
+  @spec unfollow(
+          follower :: Actor.t(),
+          follower :: Actor.t(),
+          activity_id :: binary(),
+          local :: boolean()
+        ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(follower, followed, activity_id \\ nil, local \\ true) do
     with %Object{} = follow_activity <- Utils.fetch_latest_follow(follower, followed),
          unfollow_data <-
@@ -208,6 +204,8 @@ defmodule ActivityPub do
     end
   end
 
+  @spec like(Actor.t(), Object.t(), activity_id :: binary() | nil, local :: boolean()) ::
+          {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def like(
         %{data: %{"id" => ap_id}} = actor,
         %Object{data: %{"id" => _}} = object,
@@ -226,6 +224,9 @@ defmodule ActivityPub do
     end
   end
 
+  @spec unlike(Actor.t(), Object.t(), activity_id :: binary() | nil, local :: boolean()) ::
+          {:ok, unlike_activity :: Object.t(), like_activity :: Object.t(), object :: Object.t()}
+          | {:error, any()}
   def unlike(
         %{data: %{"id" => ap_id}} = actor,
         %Object{} = object,
@@ -244,6 +245,13 @@ defmodule ActivityPub do
     end
   end
 
+  @spec announce(
+          Actor.t(),
+          Object.t(),
+          activity_id :: binary() | nil,
+          local :: boolean(),
+          public :: boolean()
+        ) :: {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def announce(
         %{data: %{"id" => _}} = actor,
         %Object{data: %{"id" => _}} = object,
@@ -262,6 +270,8 @@ defmodule ActivityPub do
     end
   end
 
+  @spec unannounce(Actor.t(), Object.t(), activity_id :: binary() | nil, local :: boolean) ::
+          {:ok, unannounce_activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def unannounce(
         %{data: %{"id" => ap_id}} = actor,
         %Object{} = object,
@@ -280,6 +290,8 @@ defmodule ActivityPub do
     end
   end
 
+  @spec update(%{to: [any()], cc: [any()], actor: Actor.t(), object: map()}) ::
+          {:ok, Object.t()} | {:error, any()}
   def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
     # only accept false as false value
     local = !(params[:local] == false)
@@ -298,6 +310,12 @@ defmodule ActivityPub do
     end
   end
 
+  @spec block(
+          blocker :: Actor.t(),
+          blocked :: Actor.t(),
+          activity_id :: binary() | nil,
+          local :: boolean
+        ) :: {:ok, Object.t()} | {:error, any()}
   def block(blocker, blocked, activity_id \\ nil, local \\ true) do
     follow_activity = Utils.fetch_latest_follow(blocker, blocked)
     if follow_activity, do: unfollow(blocker, blocked, nil, local)
@@ -312,6 +330,12 @@ defmodule ActivityPub do
     end
   end
 
+  @spec unblock(
+          blocker :: Actor.t(),
+          blocked :: Actor.t(),
+          activity_id :: binary() | nil,
+          local :: boolean
+        ) :: {:ok, Object.t()} | {:error, any()}
   def unblock(blocker, blocked, activity_id \\ nil, local \\ true) do
     with block_activity <- Utils.fetch_latest_block(blocker, blocked),
          unblock_data <- Utils.make_unblock_data(blocker, blocked, block_activity, activity_id),
@@ -324,6 +348,8 @@ defmodule ActivityPub do
 
   def delete(object, local \\ true, delete_actor \\ nil)
 
+  @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary()) ::
+          {:ok, Object.t()} | {:error, any()}
   def delete(%{data: %{"id" => id, "type" => type}} = actor, local, delete_actor)
       when type in [
              "Person",
@@ -349,6 +375,8 @@ defmodule ActivityPub do
     end
   end
 
+  @spec delete(Object.t(), local :: boolean(), delete_actor :: binary()) ::
+          {:ok, Object.t()} | {:error, any()}
   def delete(%Object{data: %{"id" => id, "actor" => actor}} = object, local, _delete_actor) do
     to = (object.data["to"] || []) ++ (object.data["cc"] || [])
 
@@ -366,6 +394,14 @@ defmodule ActivityPub do
     end
   end
 
+  # Not 100% sure about the types here
+  @spec flag(%{
+          actor: Actor.t(),
+          context: binary(),
+          account: Actor.t(),
+          statuses: [any()],
+          content: binary()
+        }) :: {:ok, Object.t()} | {:error, any()}
   def flag(
         %{
           actor: actor,

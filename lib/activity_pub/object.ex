@@ -6,7 +6,7 @@ defmodule ActivityPub.Object do
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias Pointers.ULID
-  @repo Application.get_env(:activity_pub, :repo)
+  import ActivityPub.Common
 
   @type t :: %__MODULE__{}
 
@@ -22,13 +22,13 @@ defmodule ActivityPub.Object do
     timestamps()
   end
 
-  def get_by_id(id), do: @repo.get(Object, id)
+  def get_by_id(id), do: repo().get(Object, id)
 
   def get_by_ap_id(ap_id) do
-    @repo.one(from(object in Object, where: fragment("(?)->>'id' = ?", object.data, ^ap_id)))
+    repo().one(from(object in Object, where: fragment("(?)->>'id' = ?", object.data, ^ap_id)))
   end
 
-  def get_by_pointer_id(pointer_id), do: @repo.get_by(Object, pointer_id: pointer_id)
+  def get_by_pointer_id(pointer_id), do: repo().get_by(Object, pointer_id: pointer_id)
 
   def get_cached_by_ap_id(ap_id) do
     key = "ap_id:#{ap_id}"
@@ -78,7 +78,7 @@ defmodule ActivityPub.Object do
   def insert(attrs) do
     attrs
     |> changeset()
-    |> @repo.insert()
+    |> repo().insert()
   end
 
   def changeset(attrs) do
@@ -99,7 +99,7 @@ defmodule ActivityPub.Object do
   end
 
   def update_and_set_cache(changeset) do
-    with {:ok, object} <- @repo.update(changeset) do
+    with {:ok, object} <- repo().update(changeset) do
       set_cache(object)
     else
       e -> e
@@ -135,7 +135,7 @@ defmodule ActivityPub.Object do
 
     object
     |> Object.changeset(%{data: tombstone})
-    |> @repo.update()
+    |> repo().update()
   end
 
   def delete(%Object{} = object) do

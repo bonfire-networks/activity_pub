@@ -87,6 +87,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   defp can_delete_object?(ap_id) do
     Logger.info("Checking delete permission for #{ap_id}")
+
     case Fetcher.fetch_remote_object_from_id(ap_id) do
       {:error, "Object has been deleted"} -> true
       {:ok, %{"type" => "Tombstone"}} -> true
@@ -168,20 +169,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     ActivityPub.create(params)
   end
 
-  def handle_incoming(
-        %{"type" => "Follow", "object" => followed, "actor" => follower, "id" => id} = data
-      ) do
+  def handle_incoming(%{"type" => "Follow", "object" => followed, "actor" => follower, "id" => id}) do
     with {:ok, followed} <- Actor.get_cached_by_ap_id(followed),
-         {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower),
-         {:ok, activity} <- ActivityPub.follow(follower, followed, id, false) do
-      ActivityPub.accept(%{
-        to: [follower.data["id"]],
-        actor: followed,
-        object: data,
-        local: true
-      })
-
-      {:ok, activity}
+         {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower) do
+      ActivityPub.follow(follower, followed, id, false)
     end
   end
 

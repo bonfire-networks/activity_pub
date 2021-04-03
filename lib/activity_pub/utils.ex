@@ -5,7 +5,7 @@ defmodule ActivityPub.Utils do
   alias ActivityPub.Actor
   alias ActivityPub.Object
   alias Ecto.UUID
-  @repo Application.get_env(:activity_pub, :repo)
+  import ActivityPub.Common
 
   import Ecto.Query
 
@@ -83,7 +83,7 @@ defmodule ActivityPub.Utils do
         where: fragment("(?)->>'type' = 'Like'", object.data)
       )
 
-    @repo.one(query)
+    repo().one(query)
   end
 
   def make_like_data(
@@ -156,7 +156,7 @@ defmodule ActivityPub.Utils do
         where: fragment("(?)->>'type' = 'Announce'", object.data)
       )
 
-    @repo.one(query)
+    repo().one(query)
   end
 
   @doc """
@@ -265,7 +265,7 @@ defmodule ActivityPub.Utils do
         limit: 1
       )
 
-    @repo.one(query)
+    repo().one(query)
   end
 
   def make_unfollow_data(follower, followed, follow_activity, activity_id) do
@@ -306,7 +306,7 @@ defmodule ActivityPub.Utils do
         limit: 1
       )
 
-    @repo.one(query)
+    repo().one(query)
   end
 
   def make_block_data(blocker, blocked, activity_id) do

@@ -11,7 +11,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.WebFinger
   alias ActivityPub.Object
 
-  @repo Application.get_env(:activity_pub, :repo)
+  import ActivityPub.Common
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
@@ -369,7 +369,7 @@ defmodule ActivityPub.Actor do
   def delete(%Actor{local: false} = actor) do
     invalidate_cache(actor)
 
-    @repo.delete(%Object{
+    repo().delete(%Object{
       id: actor.id
     })
   end

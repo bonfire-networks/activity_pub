@@ -1,5 +1,5 @@
 defmodule ActivityPubWeb.ErrorViewTest do
-  use ActivityPubWeb.ConnCase, async: true
+  use ActivityPubWeb.ConnCase, async: false
 
   # Bring render/3 and render_to_string/3 for testing custom views
   import Phoenix.View

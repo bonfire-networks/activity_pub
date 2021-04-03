@@ -1,8 +1,5 @@
 defmodule ActivityPub.Instances.InstanceTest do
   alias ActivityPub.Instances.Instance
-
-  @repo Application.get_env(:activity_pub, :repo)
-
   import ActivityPub.Factory
 
   require Ecto.Query

@@ -89,7 +89,8 @@ defmodule ActivityPubWeb.Transmogrifier do
     Logger.info("Checking delete permission for #{ap_id}")
     case Fetcher.fetch_remote_object_from_id(ap_id) do
       {:error, "Object has been deleted"} -> true
-      %{"type" => "Tombstone"} -> true
+      {:ok, %{"type" => "Tombstone"}} -> true
+      %{"type" => "Tombstone"} -> true # FIXME - remove?
       _ -> false
     end
   end
@@ -137,7 +138,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_incoming(%{"id" => nil}), do: :error
   def handle_incoming(%{"id" => ""}), do: :error
   # length of https:// = 8, should validate better, but good enough for now.
-  def handle_incoming(%{"id" => id}) when not (is_binary(id) and length(id) > 8),
+  def handle_incoming(%{"id" => id}) when not (is_binary(id) and byte_size(id) > 8),
     do: :error
 
   # Incoming actor create, just fetch from source

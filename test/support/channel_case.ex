@@ -17,7 +17,7 @@ defmodule ActivityPubWeb.ChannelCase do
 
   use ExUnit.CaseTemplate
 
-  @repo Application.get_env(:activity_pub, :repo)
+  @repo Application.get_env(:activity_pub, :test_repo, Application.get_env(:activity_pub, :repo))
 
   using do
     quote do
@@ -27,6 +27,7 @@ defmodule ActivityPubWeb.ChannelCase do
 
       # The default endpoint for testing
       @endpoint ActivityPubWeb.Endpoint
+      @repo unquote(@repo)
     end
   end
 

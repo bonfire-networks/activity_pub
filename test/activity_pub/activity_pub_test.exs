@@ -5,8 +5,6 @@ defmodule ActivityPubTest do
   alias ActivityPub.Object
   alias ActivityPub.Utils
 
-  @repo Application.get_env(:activity_pub, :repo)
-
   doctest ActivityPub
 
   describe "create" do

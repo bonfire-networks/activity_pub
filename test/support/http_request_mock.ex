@@ -1,6 +1,9 @@
 defmodule HttpRequestMock do
   require Logger
 
+  @mod_path __DIR__
+  def file(path), do: File.read!(@mod_path<>"/../../"<>path)
+
   def request(
         %Tesla.Env{
           url: url,
@@ -25,7 +28,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/pleroma_note.json")
+       body: file("test/fixtures/pleroma_note.json")
      }}
   end
 
@@ -33,7 +36,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/pleroma_user_actor.json")
+       body: file("test/fixtures/pleroma_user_actor.json")
      }}
   end
 
@@ -41,7 +44,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/pleroma_user_actor2.json")
+       body: file("test/fixtures/pleroma_user_actor2.json")
      }}
   end
 
@@ -49,7 +52,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/pleroma_private_note.json")
+       body: file("test/fixtures/pleroma_private_note.json")
      }}
   end
 
@@ -57,7 +60,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/spoofed_pleroma_note.json")
+       body: file("test/fixtures/spoofed_pleroma_note.json")
      }}
   end
 
@@ -65,7 +68,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/moodlenet_person_actor.json")
+       body: file("test/fixtures/moodlenet_person_actor.json")
      }}
   end
 
@@ -73,7 +76,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/pleroma_webfinger.json")
+       body: file("test/fixtures/pleroma_webfinger.json")
      }}
   end
 
@@ -81,7 +84,7 @@ defmodule HttpRequestMock do
     {:ok,
     %Tesla.Env{
       status: 200,
-      body: File.read!("test/fixtures/mastodon_webfinger.json")
+      body: file("test/fixtures/mastodon_webfinger.json")
     }}
   end
 
@@ -89,7 +92,7 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!("test/fixtures/admin@mastdon.example.org.json")
+       body: file("test/fixtures/admin@mastdon.example.org.json")
      }}
   end
 

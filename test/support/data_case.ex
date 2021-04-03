@@ -18,13 +18,16 @@ defmodule ActivityPub.DataCase do
 
   use ExUnit.CaseTemplate
 
+  @repo Application.get_env(:activity_pub, :test_repo, Application.get_env(:activity_pub, :repo))
+
   using do
     quote do
-
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
       import ActivityPub.DataCase
+
+      @repo unquote(@repo)
     end
   end
 

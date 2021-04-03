@@ -1,4 +1,4 @@
-defmodule ActivityPubWeb.FetcherTest do
+defmodule ActivityPub.FetcherTest do
   use ActivityPub.DataCase
   import Tesla.Mock
 

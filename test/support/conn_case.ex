@@ -19,6 +19,8 @@ defmodule ActivityPubWeb.ConnCase do
 
   use ExUnit.CaseTemplate
 
+  @repo Application.get_env(:activity_pub, :test_repo, Application.get_env(:activity_pub, :repo))
+
   using do
     quote do
       # Import conveniences for testing with connections
@@ -29,7 +31,8 @@ defmodule ActivityPubWeb.ConnCase do
       alias ActivityPubWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
-      @endpoint Application.get_env(:activity_pub, :endpoint)
+      @endpoint ActivityPubWeb.Endpoint
+      @repo unquote(@repo)
     end
   end
 

@@ -11,7 +11,7 @@ ActivityPub Library for elixir.
 ```
 defp deps do
   [...]
-  {:activity_pub: git, "https://github.com/bonfire-ecosystem/activity_pub.git", branch: "stable"} # branch can "stable", or "develop" for the bleeding edge
+  {:activity_pub: git, "https://github.com/bonfire-networks/activity_pub.git", branch: "stable"} # branch can "stable", or "develop" for the bleeding edge
 end
 ```
 

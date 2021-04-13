@@ -10,7 +10,7 @@ config :activity_pub, ActivityPub.TestRepo,
   username: System.get_env("POSTGRES_USER", "postgres"),
   password: System.get_env("POSTGRES_PASSWORD", "postgres"),
   database: "activity_pub_test",
-  hostname: System.get_env("DATABASE_HOST", "localhost"),
+  hostname: System.get_env("POSTGRES_HOST", "localhost"),
   pool: Ecto.Adapters.SQL.Sandbox
 
 # We don't run a server during test. If one is required,

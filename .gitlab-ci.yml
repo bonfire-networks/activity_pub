@@ -4,7 +4,7 @@ variables:
   POSTGRES_DB: activity_pub_test
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
-  DATABASE_HOST: postgres
+  POSTGRES_HOST: postgres
   MIX_ENV: test
   HOSTNAME: localhost
 

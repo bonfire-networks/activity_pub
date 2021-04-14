@@ -6,7 +6,7 @@ defmodule ActivityPub.Adapter do
   alias ActivityPub.Actor
   alias ActivityPub.Object
 
-  @adapter Application.get_env(:activity_pub, :adapter)
+  @adapter Application.get_env(:activity_pub, :adapter) || ActivityPub.Common.adapter_fallback()
 
   defp validate_actor({:ok, %Actor{local: false} = actor}) do
     actor_object = Object.get_cached_by_pointer_id(actor.id)

@@ -1,4 +1,4 @@
-image: elixir:1.10.2-alpine #update this when we switch Elixir version in Dockerfile
+image: elixir:1.11-alpine #update this when we switch Elixir version in Dockerfile
 
 variables: 
   POSTGRES_DB: activity_pub_test

@@ -9,6 +9,6 @@ Mix.Task.run("ecto.migrate")
 # Mix.Task.run("ecto.load")
 
 # Start a process ONLY for our test run.
-{:ok, _pid} = ActivityPub.TestRepo.start_link()
+# {:ok, _pid} = ActivityPub.TestRepo.start_link() # already started at this point
 
 Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.TestRepo, :manual)

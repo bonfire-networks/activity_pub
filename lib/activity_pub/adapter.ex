@@ -6,7 +6,7 @@ defmodule ActivityPub.Adapter do
   alias ActivityPub.Actor
   alias ActivityPub.Object
 
-  @adapter Application.get_env(:activity_pub, :adapter)
+  @adapter Application.get_env(:activity_pub, :adapter) || ActivityPub.Common.adapter_fallback()
 
   @doc """
   Run function from adapter if defined, otherwise return fallback value

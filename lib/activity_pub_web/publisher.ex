@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Publisher do
@@ -94,7 +93,6 @@ defmodule ActivityPubWeb.Publisher do
   #TODO: move to adapter
   """
   def maybe_federate_to_search_index(recipients, activity) do
-
     index_inbox = System.get_env("PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE", "false")
 
     if index_inbox !== "false" and

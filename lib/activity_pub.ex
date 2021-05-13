@@ -96,7 +96,13 @@ defmodule ActivityPub do
   @doc """
   Generates and federates a Create activity via the data passed through `params`.
   """
-  @spec create(%{to: [any()], actor: Actor.t(), context: binary(), object: map()}) ::
+  @spec create(%{
+          :to => [any()],
+          :actor => Actor.t(),
+          :context => binary(),
+          :object => map(),
+          optional(atom()) => any()
+        }) ::
           {:ok, Object.t()} | {:error, any()}
   def create(%{to: to, actor: actor, context: context, object: object} = params, pointer \\ nil) do
     additional = params[:additional] || %{}
@@ -123,7 +129,12 @@ defmodule ActivityPub do
   @doc """
   Generates and federates an Accept activity via the data passed through `params`.
   """
-  @spec accept(%{to: [any()], actor: Actor.t(), object: map()}) ::
+  @spec accept(%{
+          :to => [any()],
+          :actor => Actor.t(),
+          :object => map() | binary(),
+          optional(atom()) => any()
+        }) ::
           {:ok, Object.t()} | {:error, any()}
   def accept(%{to: to, actor: actor, object: object} = params) do
     # only accept false as false value
@@ -290,7 +301,13 @@ defmodule ActivityPub do
     end
   end
 
-  @spec update(%{to: [any()], cc: [any()], actor: Actor.t(), object: map()}) ::
+  @spec update(%{
+          :to => [any()],
+          :cc => [any()],
+          :actor => Actor.t(),
+          :object => map(),
+          optional(atom()) => any()
+        }) ::
           {:ok, Object.t()} | {:error, any()}
   def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
     # only accept false as false value
@@ -396,11 +413,12 @@ defmodule ActivityPub do
 
   # Not 100% sure about the types here
   @spec flag(%{
-          actor: Actor.t(),
-          context: binary(),
-          account: Actor.t(),
-          statuses: [any()],
-          content: binary()
+          :actor => Actor.t(),
+          :context => binary(),
+          :account => Actor.t(),
+          :statuses => [any()],
+          :content => binary(),
+          optional(atom()) => any()
         }) :: {:ok, Object.t()} | {:error, any()}
   def flag(
         %{

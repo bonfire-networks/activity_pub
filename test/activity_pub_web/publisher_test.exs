@@ -35,7 +35,11 @@ defmodule ActivityPubWeb.PublisherTest do
   end
 
   test "it adds index instance recipient if the env is set" do
-    System.put_env("PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE", "http://searchindex.commonspub.org/pub/shared_inbox")
+    System.put_env(
+      "PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE",
+      "http://searchindex.commonspub.org/pub/shared_inbox"
+    )
+
     note_actor = local_actor()
     {:ok, note_actor} = Actor.get_by_username(note_actor.username)
     recipient_actor = actor()

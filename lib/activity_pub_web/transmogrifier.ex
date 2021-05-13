@@ -90,7 +90,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
     case Fetcher.fetch_remote_object_from_id(ap_id) do
       {:error, "Object has been deleted"} -> true
-      %{"type" => "Tombstone"} -> true
+      {:ok, %{"type" => "Tombstone"}} -> true
       _ -> false
     end
   end
@@ -138,6 +138,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_incoming(%{"id" => nil}), do: :error
   def handle_incoming(%{"id" => ""}), do: :error
   # length of https:// = 8, should validate better, but good enough for now.
+  # FIXME: this doesn't actually work because Kernel.length only words with lists and not binaries
   def handle_incoming(%{"id" => id}) when not (is_binary(id) and length(id) > 8),
     do: :error
 

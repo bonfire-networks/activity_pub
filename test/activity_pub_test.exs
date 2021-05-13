@@ -5,7 +5,6 @@ defmodule ActivityPubTest do
   alias ActivityPub.Object
   alias ActivityPub.Utils
 
-
   doctest ActivityPub
 
   describe "create" do

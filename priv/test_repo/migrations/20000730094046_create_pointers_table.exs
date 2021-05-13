@@ -7,6 +7,7 @@ defmodule ActivityPub.TestRepo.Migrations.CreatePointersTable do
 
   defp inits(dir) do
     # init_pointers_ulid_extra(dir) # this one is optional but recommended
-    init_pointers(dir) # this one is not optional
+    # this one is not optional
+    init_pointers(dir)
   end
 end

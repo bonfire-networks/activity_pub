@@ -16,8 +16,7 @@ defmodule ActivityPub.WebFingerTest do
     test "works for fqns" do
       actor = local_actor()
 
-      {:ok, result} =
-        WebFinger.webfinger("#{actor.username}@#{ActivityPubWeb.Endpoint.host()}")
+      {:ok, result} = WebFinger.webfinger("#{actor.username}@#{ActivityPubWeb.Endpoint.host()}")
 
       assert is_map(result)
     end

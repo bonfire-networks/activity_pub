@@ -6,7 +6,8 @@ defmodule ActivityPub.Adapter do
   alias ActivityPub.Actor
   alias ActivityPub.Object
 
-  defp adapter, do: Application.get_env(:activity_pub, :adapter) || ActivityPub.Common.adapter_fallback()
+  defp adapter,
+    do: Application.get_env(:activity_pub, :adapter) || ActivityPub.Common.adapter_fallback()
 
   defp validate_actor({:ok, %Actor{local: false} = actor}) do
     actor_object = Object.get_cached_by_pointer_id(actor.id)
@@ -28,7 +29,7 @@ defmodule ActivityPub.Adapter do
   @callback get_actor_by_id(String.t()) :: {:ok, any()} | {:error, any()}
   def get_actor_by_id(id) do
     validate_actor(adapter().get_actor_by_id(id))
-end
+  end
 
   @callback maybe_create_remote_actor(Actor.t()) :: :ok
   def maybe_create_remote_actor(actor) do

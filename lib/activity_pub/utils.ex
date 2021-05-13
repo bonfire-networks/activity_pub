@@ -33,7 +33,6 @@ defmodule ActivityPub.Utils do
 
   def generate_object_id, do: generate_id("objects")
 
-
   def generate_id(type), do: ap_base_url() <> "/#{type}/#{UUID.generate()}"
 
   def actor_url(%{preferred_username: u}), do: ap_base_url() <> "/actors/" <> u
@@ -370,12 +369,12 @@ defmodule ActivityPub.Utils do
   Inserts a full object if it is contained in an activity.
   """
   def insert_full_object(map, local \\ false, pointer \\ nil)
+
   def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer)
       when is_map(object_data) and type in @supported_object_types do
     with nil <- Object.normalize(object_data, false),
          {:ok, data} <- prepare_data(object_data, local, pointer),
          {:ok, object} <- Object.insert(data) do
-
       # return an activity that contains the ID as object rather than the actual object
       map =
         map

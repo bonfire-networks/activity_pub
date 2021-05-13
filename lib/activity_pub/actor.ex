@@ -15,7 +15,16 @@ defmodule ActivityPub.Actor do
 
   require Logger
 
-  @type t :: %Actor{}
+  @type t :: %Actor{
+          id: binary(),
+          data: map(),
+          local: boolean(),
+          keys: binary(),
+          ap_id: binary(),
+          username: binary(),
+          deactivated: boolean(),
+          pointer_id: binary()
+        }
 
   defstruct [:id, :data, :local, :keys, :ap_id, :username, :deactivated, :pointer_id]
 

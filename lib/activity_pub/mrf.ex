@@ -15,7 +15,8 @@ defmodule ActivityPub.MRF do
   def filter(%{} = object), do: get_policies() |> filter(object)
 
   def get_policies do
-    Keyword.get(Application.get_env(:activity_pub, :instance, []), :rewrite_policy, []) |> get_policies()
+    Keyword.get(Application.get_env(:activity_pub, :instance, []), :rewrite_policy, [])
+    |> get_policies()
   end
 
   defp get_policies(policy) when is_atom(policy), do: [policy]

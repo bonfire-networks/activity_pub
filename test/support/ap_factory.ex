@@ -9,12 +9,14 @@ defmodule ActivityPub.Factory do
 
   def local_actor(attrs \\ %{}) do
     actor = build(:local_actor, attrs)
-    {:ok, actor} = ActivityPub.LocalActor.insert(%{
-      local: true,
-      data: actor.data,
-      keys: nil,
-      username: actor.data["preferredUsername"]
-    })
+
+    {:ok, actor} =
+      ActivityPub.LocalActor.insert(%{
+        local: true,
+        data: actor.data,
+        keys: nil,
+        username: actor.data["preferredUsername"]
+      })
 
     actor
   end

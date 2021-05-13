@@ -172,7 +172,7 @@ defmodule ActivityPub do
   @spec follow(
           follower :: Actor.t(),
           follower :: Actor.t(),
-          activity_id :: binary(),
+          activity_id :: binary() | nil,
           local :: boolean()
         ) :: {:ok, Object.t()} | {:error, any()}
   def follow(follower, followed, activity_id \\ nil, local \\ true) do
@@ -190,7 +190,7 @@ defmodule ActivityPub do
   @spec unfollow(
           follower :: Actor.t(),
           follower :: Actor.t(),
-          activity_id :: binary(),
+          activity_id :: binary() | nil,
           local :: boolean()
         ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(follower, followed, activity_id \\ nil, local \\ true) do
@@ -348,7 +348,7 @@ defmodule ActivityPub do
 
   def delete(object, local \\ true, delete_actor \\ nil)
 
-  @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary()) ::
+  @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary() | nil) ::
           {:ok, Object.t()} | {:error, any()}
   def delete(%{data: %{"id" => id, "type" => type}} = actor, local, delete_actor)
       when type in [

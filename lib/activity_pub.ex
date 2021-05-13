@@ -300,7 +300,7 @@ defmodule ActivityPub do
            "to" => to,
            "cc" => cc,
            "type" => "Update",
-           "actor" => actor,
+           "actor" => actor.data["id"],
            "object" => object
          },
          {:ok, activity} <- insert(data, local),

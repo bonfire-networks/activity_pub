@@ -236,7 +236,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         to: data["to"] || [],
         cc: data["cc"] || [],
         object: object,
-        actor: actor_id
+        actor: actor
       })
     else
       e ->

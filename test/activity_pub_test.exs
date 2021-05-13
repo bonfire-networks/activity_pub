@@ -241,7 +241,7 @@ defmodule ActivityPubTest do
 
       {:ok, update} =
         ActivityPub.update(%{
-          actor: actor_data["id"],
+          actor: actor,
           to: [actor.data["followers"]],
           cc: [],
           object: actor_data

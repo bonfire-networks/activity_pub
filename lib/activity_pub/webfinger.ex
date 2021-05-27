@@ -15,7 +15,7 @@ defmodule ActivityPub.WebFinger do
   Serves a webfinger response for the requested username.
   """
   def webfinger(resource) do
-    host = Application.get_env(:activity_pub, :instance)[:hostname]
+    host = URI.parse(ActivityPub.Adapter.base_url()).host
     regex = ~r/(acct:)?(?<username>[a-z0-9A-Z_\.-]+)@#{host}/
 
     with %{"username" => username} <- Regex.named_captures(regex, resource),

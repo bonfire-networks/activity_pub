@@ -47,7 +47,7 @@ defmodule ActivityPub.WebFinger do
   Formats gathered data into a JRD format.
   """
   def represent_user(actor) do
-    host = Application.get_env(:activity_pub, :instance)[:hostname]
+    host = URI.parse(ActivityPub.Adapter.base_url()).host
 
     %{
       "subject" => "acct:#{actor.data["preferredUsername"]}@#{host}",

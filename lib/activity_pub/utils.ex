@@ -50,10 +50,6 @@ defmodule ActivityPub.Utils do
         "https://litepub.social/litepub/context.jsonld",
         "http://schema.org/",
         %{
-          "collections" => "mn:collections",
-          "resources" => "mn:resources"
-        },
-        %{
           "@language" => "und"
         }
       ]

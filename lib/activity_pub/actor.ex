@@ -365,7 +365,8 @@ defmodule ActivityPub.Actor do
       {:ok, actor}
     else
       with {:ok, pem} <- Keys.generate_rsa_pem(),
-           {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}) do
+           {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
+           {:ok, actor} <- set_cache(actor) do
         {:ok, actor}
       else
         {:error, e} -> {:error, e}

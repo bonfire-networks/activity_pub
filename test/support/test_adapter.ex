@@ -41,7 +41,8 @@ defmodule ActivityPub.TestAdapter do
 
   def update_local_actor(actor, params) do
     actor = ActivityPub.LocalActor.get_by_username(actor.username)
-    ActivityPub.LocalActor.update(actor, params)
+    {:ok, updated_actor} = ActivityPub.LocalActor.update(actor, params)
+    {:ok, format_actor(updated_actor)}
   end
 
   def update_remote_actor(_term) do

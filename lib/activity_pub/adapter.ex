@@ -21,12 +21,12 @@ defmodule ActivityPub.Adapter do
   @doc """
   Fetch an actor given its preferred username
   """
-  @callback get_actor_by_username(String.t()) :: {:ok, any()} | {:error, any()}
+  @callback get_actor_by_username(String.t()) :: {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_username(username) do
     validate_actor(adapter().get_actor_by_username(username))
   end
 
-  @callback get_actor_by_id(String.t()) :: {:ok, any()} | {:error, any()}
+  @callback get_actor_by_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_id(id) do
     validate_actor(adapter().get_actor_by_id(id))
   end
@@ -36,7 +36,7 @@ defmodule ActivityPub.Adapter do
     adapter().maybe_create_remote_actor(actor)
   end
 
-  @callback update_local_actor(Actor.t(), Map.t()) :: {:ok, any()} | {:error, any()}
+  @callback update_local_actor(Actor.t(), Map.t()) :: {:ok, Actor.t()} | {:error, any()}
   def update_local_actor(actor, params) do
     adapter().update_local_actor(actor, params)
   end
@@ -67,6 +67,14 @@ defmodule ActivityPub.Adapter do
   @callback base_url() :: String.t()
   def base_url() do
     adapter().base_url()
+  end
+
+  @doc """
+  Gets local url of an AP object to redirect in browser. Can take pointer id or an actor username.
+  """
+  @callback get_redirect_url(String.t()) :: String.t()
+  def get_redirect_url(id_or_username) do
+    adapter().get_redirect_url(id_or_username)
   end
 
   # FIXME: implicity returning `:ok` here means we don't know if the worker fails which isn't great

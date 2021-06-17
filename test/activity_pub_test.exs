@@ -8,7 +8,7 @@ defmodule ActivityPubTest do
   doctest ActivityPub
 
   describe "create" do
-    test "crates a create activity" do
+    test "creates a create activity" do
       actor = insert(:actor)
       context = "blabla"
       object = %{"content" => "content", "type" => "Note"}

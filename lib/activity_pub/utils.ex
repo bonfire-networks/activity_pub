@@ -12,7 +12,7 @@ defmodule ActivityPub.Utils do
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
   # TODO: make configurable
-  @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
+  @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"]
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(id), do: id

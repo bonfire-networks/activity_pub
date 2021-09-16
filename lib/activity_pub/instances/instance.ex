@@ -37,7 +37,7 @@ defmodule ActivityPub.Instances.Instance do
       |> Enum.filter(&(to_string(&1) != ""))
 
     unreachable_since_by_host =
-      repo().many(
+      repo().all(
         from(i in Instance,
           where: i.host in ^hosts,
           select: {i.host, i.unreachable_since}

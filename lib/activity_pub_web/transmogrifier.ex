@@ -5,6 +5,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   """
 
   alias ActivityPub.Actor
+  alias ActivityPub.Adapter
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
@@ -360,7 +361,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     Logger.warn("ActivityPub library - Unhandled activity - Storing it anyway...")
 
     {:ok, activity, _object} = Utils.insert_full_object(data)
-    handle_object(activity)
+    {:ok, activity} = handle_object(activity)
+    if Application.get_env(:activity_pub, :handle_unknown_activities, false) do
+      Adapter.maybe_handle_activity(activity)
+    end
   end
 
   defp get_obj_helper(id) do

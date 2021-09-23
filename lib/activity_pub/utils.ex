@@ -12,7 +12,11 @@ defmodule ActivityPub.Utils do
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
   # TODO: make configurable
+  @supported_actor_types ["Person", "Application", "Service", "Organization", "Group"]
   @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"]
+
+  def supported_actor_types, do: @supported_actor_types
+  def supported_object_types, do: @supported_object_types
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(id), do: id
@@ -401,7 +405,7 @@ defmodule ActivityPub.Utils do
   end
 
   def actor?(%{data: %{"type" => type}} = _object)
-      when type in ["Person", "Application", "Service", "Organization", "Group"],
+      when type in @supported_actor_types,
       do: true
 
   def actor?(_), do: false

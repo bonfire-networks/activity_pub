@@ -8,8 +8,8 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPubWeb.Transmogrifier
   require Logger
 
-  # TODO: make configurable
-  @create_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
+  @create_object_types ActivityPub.Utils.supported_object_types()
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.
@@ -21,11 +21,21 @@ defmodule ActivityPub.Fetcher do
       with {:ok, data} <- fetch_remote_object_from_id(id),
            {:ok, data} <- contain_origin(data),
            {:ok, object} <- insert_object(data),
-           {:ok} <- check_if_public(object.public) do
+           :ok <- check_if_public(object.public) do
         {:ok, object}
       else
         {:error, e} ->
           {:error, e}
+      end
+    end
+  end
+
+  def get_or_fetch_and_create(id) do
+    with {:ok, object} <- fetch_object_from_id(id) do
+      with %{data: %{"type" => type}} when type in @supported_actor_types <- object do
+        ActivityPub.Actor.maybe_create_actor_from_object(object)
+      else _ ->
+        {:ok, object}
       end
     end
   end
@@ -90,11 +100,11 @@ defmodule ActivityPub.Fetcher do
            "type" => "Create",
            "to" => data["to"],
            "cc" => data["cc"],
-           "actor" => data["actor"] || data["attributedTo"],
+           "actor" => get_actor(data),
            "object" => data
          },
          {:ok, activity} <- Transmogrifier.handle_incoming(params),
-         object <- activity.object do
+         object <- Map.get(activity, :object, activity) do
       {:ok, object}
     end
   end
@@ -105,7 +115,9 @@ defmodule ActivityPub.Fetcher do
 
   def get_actor(%{"actor" => actor} = _data), do: actor
 
-  defp check_if_public(public) when public == true, do: {:ok}
+  def get_actor(%{"id" => actor, "type" => type} = _data) when type in @supported_actor_types, do: actor
+
+  defp check_if_public(public) when public == true, do: :ok
 
   defp check_if_public(_public), do: {:error, "Not public"}
 

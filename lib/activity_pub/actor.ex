@@ -158,12 +158,18 @@ defmodule ActivityPub.Actor do
   end
 
   defp fetch_by_ap_id(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id),
-         actor <- format_remote_actor(object) do
+    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
+      maybe_create_actor_from_object(object)
+    end
+  end
+
+  def maybe_create_actor_from_object(object) do
+    with actor <- format_remote_actor(object) do
       Adapter.maybe_create_remote_actor(actor)
       set_cache(actor)
     end
   end
+
 
   @doc """
   Fetches a local actor given its preferred username.

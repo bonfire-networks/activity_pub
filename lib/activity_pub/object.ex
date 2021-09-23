@@ -25,7 +25,10 @@ defmodule ActivityPub.Object do
   def get_by_id(id), do: repo().get(Object, id)
 
   def get_by_ap_id(ap_id) do
-    repo().one(from(object in Object, where: fragment("(?)->>'id' = ?", object.data, ^ap_id)))
+    repo().one(from(object in Object,
+    where: fragment("(?)->>'id' = ?", object.data, ^ap_id)
+    or fragment("(?)->>'url' = ?", object.data, ^ap_id) # support for looking up by non-canonical URL
+      ))
   end
 
   def get_by_pointer_id(pointer_id), do: repo().get_by(Object, pointer_id: pointer_id)

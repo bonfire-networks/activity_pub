@@ -12,7 +12,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   require Logger
 
   # TODO: make configurable
-  @supported_actor_types ["Person", "Application", "Service", "Organization", "Group"]
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
   @collection_types ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
 
   @doc """
@@ -378,8 +378,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_object(%{"type" => type} = data) when type in @collection_types do
     with {:ok, object} <- Utils.prepare_data(data) do
       {:ok, object}
-    else
-      {:error, e} -> {:error, e}
     end
   end
 
@@ -387,8 +385,6 @@ defmodule ActivityPubWeb.Transmogrifier do
     with {:ok, object} <- Utils.prepare_data(data),
          {:ok, object} <- Object.insert(object) do
       {:ok, object}
-    else
-      {:error, e} -> {:error, e}
     end
   end
 end

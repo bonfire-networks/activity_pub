@@ -3,6 +3,8 @@ defmodule ActivityPub.MRF.SimplePolicy do
   @moduledoc "Filter activities depending on their origin instance"
   @behaviour MRF
 
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
+
   defp check_reject(%{host: actor_host} = _actor_info, object) do
     rejects =
       ActivityPub.Config.get([:mrf_simple, :reject])
@@ -120,7 +122,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
   end
 
   def filter(%{"id" => actor, "type" => obj_type} = object)
-      when obj_type in ["Application", "Group", "Organization", "Person", "Service"] do
+      when obj_type in @supported_actor_types do
     actor_info = URI.parse(actor)
 
     with {:ok, object} <- check_avatar_removal(actor_info, object),

@@ -12,6 +12,8 @@ defmodule ActivityPub do
   alias ActivityPub.MRF
   import ActivityPub.Common
 
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
+
   def maybe_forward_activity(
         %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
       ) do
@@ -368,15 +370,7 @@ defmodule ActivityPub do
   @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary() | nil) ::
           {:ok, Object.t()} | {:error, any()}
   def delete(%{data: %{"id" => id, "type" => type}} = actor, local, delete_actor)
-      when type in [
-             "Person",
-             "Application",
-             "Service",
-             "Organization",
-             "Group",
-             "MN:Community",
-             "MN:Collection"
-           ] do
+      when type in @supported_actor_types do
     to = [actor.data["followers"]]
 
     with data <- %{

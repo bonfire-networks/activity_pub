@@ -362,9 +362,10 @@ defmodule ActivityPubWeb.Transmogrifier do
 
     {:ok, activity, _object} = Utils.insert_full_object(data)
     {:ok, activity} = handle_object(activity)
-    if Application.get_env(:activity_pub, :handle_unknown_activities, false) do
+    if Keyword.get(Application.get_env(:activity_pub, :instance), :handle_unknown_activities) do
       Adapter.maybe_handle_activity(activity)
     end
+    {:ok, activity}
   end
 
   defp get_obj_helper(id) do

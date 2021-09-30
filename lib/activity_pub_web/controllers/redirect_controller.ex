@@ -9,10 +9,10 @@ defmodule ActivityPubWeb.RedirectController do
     case object.pointer_id do
       nil ->
         conn
-        |> json("not  found")
+        |> json("not found")
 
       pointer_id ->
-        case Adapter.get_redirect_url(pointer_id) do
+        case Adapter.get_redirect_url(object) do
           nil ->
             conn
             |> json("not found")

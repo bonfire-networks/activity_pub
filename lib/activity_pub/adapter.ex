@@ -72,9 +72,9 @@ defmodule ActivityPub.Adapter do
   @doc """
   Gets local url of an AP object to redirect in browser. Can take pointer id or an actor username.
   """
-  @callback get_redirect_url(String.t()) :: String.t()
-  def get_redirect_url(id_or_username) do
-    adapter().get_redirect_url(id_or_username)
+  @callback get_redirect_url(String.t() | Map.t()) :: String.t()
+  def get_redirect_url(id_or_username_or_object) do
+    adapter().get_redirect_url(id_or_username_or_object)
   end
 
   # FIXME: implicity returning `:ok` here means we don't know if the worker fails which isn't great

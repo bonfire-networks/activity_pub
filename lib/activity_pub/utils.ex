@@ -161,10 +161,19 @@ defmodule ActivityPub.Utils do
   """
   # for relayed messages, we only want to send to subscribers
   def make_announce_data(
+        actor,
+        object,
+        activity_id,
+        public?,
+        summary \\ nil
+      )
+
+  def make_announce_data(
         %{data: %{"id" => ap_id}} = actor,
         %Object{data: %{"id" => id}} = object,
         activity_id,
-        false
+        false,
+        summary
       ) do
     data = %{
       "type" => "Announce",
@@ -172,7 +181,8 @@ defmodule ActivityPub.Utils do
       "object" => id,
       "to" => [actor.data["followers"]],
       "cc" => [],
-      "context" => object.data["context"]
+      "context" => object.data["context"],
+      "summary"=> summary
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
@@ -182,7 +192,8 @@ defmodule ActivityPub.Utils do
         %{data: %{"id" => ap_id}} = actor,
         %Object{data: %{"id" => id}} = object,
         activity_id,
-        true
+        true,
+        summary
       ) do
     data = %{
       "type" => "Announce",
@@ -190,7 +201,8 @@ defmodule ActivityPub.Utils do
       "object" => id,
       "to" => [actor.data["followers"], object.data["actor"]],
       "cc" => ["https://www.w3.org/ns/activitystreams#Public"],
-      "context" => object.data["context"]
+      "context" => object.data["context"],
+      "summary"=> summary
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data

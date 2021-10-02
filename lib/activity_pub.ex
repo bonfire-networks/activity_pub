@@ -263,17 +263,19 @@ defmodule ActivityPub do
           Object.t(),
           activity_id :: binary() | nil,
           local :: boolean(),
-          public :: boolean()
+          public :: boolean(),
+          summary :: binary() | nil
         ) :: {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def announce(
         %{data: %{"id" => _}} = actor,
         %Object{data: %{"id" => _}} = object,
         activity_id \\ nil,
         local \\ true,
-        public \\ true
+        public \\ true,
+        summary \\ nil
       ) do
     with true <- Utils.public?(object.data),
-         announce_data <- Utils.make_announce_data(actor, object, activity_id, public),
+         announce_data <- Utils.make_announce_data(actor, object, activity_id, public, summary),
          {:ok, activity} <- insert(announce_data, local),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do

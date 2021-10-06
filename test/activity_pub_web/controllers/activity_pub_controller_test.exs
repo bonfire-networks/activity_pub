@@ -37,6 +37,19 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
       assert resp["@context"]
       assert resp["type"] == "Note"
     end
+
+    test "works for outboxes" do
+      actor = local_actor()
+      insert(:note_activity, %{actor: actor})
+
+      resp =
+        build_conn()
+        |> put_req_header("accept", "application/json")
+        |> get("/pub/actors/#{actor.username}/outbox")
+        |> json_response(200)
+
+      IO.inspect(resp)
+    end
   end
 
   describe "actor" do

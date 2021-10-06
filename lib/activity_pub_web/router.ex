@@ -29,7 +29,7 @@ defmodule ActivityPubWeb.Router do
         get "/actors/:username", ActivityPubController, :actor
         get "/actors/:username/followers", ActivityPubController, :followers
         get "/actors/:username/following", ActivityPubController, :following
-        get "/actors/:username/outbox", ActivityPubController, :noop
+        get "/actors/:username/outbox", ActivityPubController, :outbox
       end
 
       scope unquote(ap_base_path), ActivityPubWeb do

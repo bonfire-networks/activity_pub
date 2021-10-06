@@ -102,6 +102,26 @@ defmodule ActivityPubWeb.ActivityPubController do
     end
   end
 
+  def outbox(conn, %{"username" => username, "page" => page}) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      {page, _} = Integer.parse(page)
+
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("outbox.json", %{actor: actor, page: page})
+    end
+  end
+
+  def outbox(conn, %{"username" => username}) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("outbox.json", %{actor: actor})
+    end
+  end
+
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
     Federator.incoming_ap_doc(params)
     json(conn, "ok")

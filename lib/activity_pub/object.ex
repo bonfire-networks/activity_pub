@@ -25,10 +25,14 @@ defmodule ActivityPub.Object do
   def get_by_id(id), do: repo().get(Object, id)
 
   def get_by_ap_id(ap_id) do
-    repo().one(from(object in Object,
-    where: fragment("(?)->>'id' = ?", object.data, ^ap_id)
-    or fragment("(?)->>'url' = ?", object.data, ^ap_id) # support for looking up by non-canonical URL
-      ))
+    repo().one(
+      from(object in Object,
+        # support for looking up by non-canonical URL
+        where:
+          fragment("(?)->>'id' = ?", object.data, ^ap_id) or
+            fragment("(?)->>'url' = ?", object.data, ^ap_id)
+      )
+    )
   end
 
   def get_by_pointer_id(pointer_id), do: repo().get_by(Object, pointer_id: pointer_id)
@@ -146,5 +150,24 @@ defmodule ActivityPub.Object do
          :ok <- invalidate_cache(object) do
       {:ok, object}
     end
+  end
+
+  def get_outbox_for_actor(actor) do
+    from(object in Object,
+      where: fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and object.public == true,
+      limit: 10
+    )
+    |> repo().all()
+  end
+
+  def get_outbox_fox_actor(actor, page) do
+    offset = (page - 1) * 10
+
+    from(object in Object,
+      where: fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and object.public == true,
+      limit: 10,
+      offset: ^offset
+    )
+    |> repo().all()
   end
 end

@@ -267,16 +267,24 @@ defmodule ActivityPub.Actor do
 
   def get_cached_by_username(username) do
     key = "username:#{username}"
-
-    case Cachex.fetch(:ap_actor_cache, key, fn ->
-           case get_by_username(username) do
-             {:ok, actor} -> {:commit, actor}
-             {:error, _error} -> {:ignore, nil}
-           end
-         end) do
-      {:ok, actor} -> {:ok, actor}
-      {:commit, actor} -> {:ok, actor}
-      {:ignore, _} -> {:error, "not found"}
+    try do
+      case Cachex.fetch(:ap_actor_cache, key, fn ->
+            case get_by_username(username) do
+              {:ok, actor} -> {:commit, actor}
+              {:error, _error} -> {:ignore, nil}
+            end
+          end) do
+        {:ok, actor} -> {:ok, actor}
+        {:commit, actor} -> {:ok, actor}
+        {:ignore, _} -> {:error, "not found"}
+      end
+    catch
+      _ ->
+        # workaround :nodedown errors
+        get_by_username(username)
+    rescue
+      _ ->
+        get_by_username(username)
     end
   end
 

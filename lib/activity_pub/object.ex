@@ -39,16 +39,24 @@ defmodule ActivityPub.Object do
 
   def get_cached_by_ap_id(ap_id) do
     key = "ap_id:#{ap_id}"
+    try do
+      Cachex.fetch!(:ap_object_cache, key, fn _ ->
+        object = get_by_ap_id(ap_id)
 
-    Cachex.fetch!(:ap_object_cache, key, fn _ ->
-      object = get_by_ap_id(ap_id)
-
-      if object do
-        {:commit, object}
-      else
-        {:ignore, object}
-      end
-    end)
+        if object do
+          {:commit, object}
+        else
+          {:ignore, object}
+        end
+      end)
+    catch
+      _ ->
+        # workaround :nodedown errors
+        get_by_ap_id(ap_id)
+    rescue
+      _ ->
+        get_by_ap_id(ap_id)
+    end
   end
 
   def get_cached_by_pointer_id(pointer_id) do

@@ -138,8 +138,8 @@ defmodule ActivityPub.Actor do
         Map.has_key?(data, "collections") ->
           Map.put(data, "type", "Group")
 
-        Map.has_key?(data, "resources") ->
-          Map.put(data, "type", "MN:Collection")
+        # Map.has_key?(data, "resources") ->
+        #   Map.put(data, "type", "MN:Collection")
 
         true ->
           data

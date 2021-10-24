@@ -6,21 +6,15 @@ defmodule ActivityPubWeb.RedirectController do
   def object(conn, %{"uuid" => uuid}) do
     object = ActivityPub.Object.get_by_id(uuid)
 
-    case object.pointer_id do
+    case Adapter.get_redirect_url(object) do
       nil ->
         conn
-        |> json("not found")
+        |> send_resp(404, "Object not found or not permitted")
+        |> halt
 
-      pointer_id ->
-        case Adapter.get_redirect_url(object) do
-          nil ->
-            conn
-            |> json("not found")
-
-          url ->
-            conn
-            |> redirect(to: url)
-        end
+      url ->
+        conn
+        |> redirect(to: url)
     end
   end
 
@@ -28,7 +22,8 @@ defmodule ActivityPubWeb.RedirectController do
     case Adapter.get_redirect_url(username) do
       nil ->
         conn
-        |> json("not found")
+        |> send_resp(404, "Actor not found")
+        |> halt
 
       url ->
         conn

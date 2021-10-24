@@ -7,6 +7,7 @@ defmodule ActivityPub.Object do
   alias ActivityPub.Object
   alias Pointers.ULID
   import ActivityPub.Common
+  alias ActivityPub.Utils
 
   @type t :: %__MODULE__{}
 
@@ -22,7 +23,13 @@ defmodule ActivityPub.Object do
     timestamps()
   end
 
-  def get_by_id(id), do: repo().get(Object, id)
+  def get_by_id(id) do
+    if Utils.is_ulid?(id) do
+      get_by_pointer_id(id)
+    else
+      repo().get(Object, id)
+    end
+  end
 
   def get_by_ap_id(ap_id) do
     repo().one(

@@ -476,4 +476,15 @@ defmodule ActivityPub.Utils do
   def create_context(context) do
     context || generate_id("contexts")
   end
+
+
+  def is_ulid?(str) when is_binary(str) and byte_size(str)==26 do
+    with :error <- Pointers.ULID.cast(str) do
+      false
+    else
+      _ -> true
+    end
+  end
+
+  def is_ulid?(_), do: false
 end

@@ -39,9 +39,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     {:ok, data}
   end
 
-  def prepare_outgoing(%{"type" => "Create", "object" => object_id} = data) do
+  def prepare_outgoing(%{"type" => "Create", "object" => object} = data) do
     object =
-      object_id
+      object
+      |> IO.inspect
       |> Object.normalize()
       |> Map.get(:data)
       |> prepare_object

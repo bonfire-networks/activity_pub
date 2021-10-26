@@ -130,9 +130,14 @@ defmodule ActivityPub.Object do
 
   def normalize(_, fetch_remote \\ true)
   def normalize(%Object{} = object, _), do: object
-  def normalize(%{"id" => ap_id}, fetch_remote), do: normalize(ap_id, fetch_remote)
+  def normalize(%{"id" => ap_id} = object, fetch_remote) when is_binary(ap_id) do
+    # if(length(Map.keys(object))==1) do # we only have an ID
+      normalize(ap_id, fetch_remote)
+    # else
+    #   %{data: object}
+    # end
+  end
   def normalize(ap_id, false) when is_binary(ap_id), do: get_cached_by_ap_id(ap_id)
-
   def normalize(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
@@ -140,7 +145,6 @@ defmodule ActivityPub.Object do
       _e -> nil
     end
   end
-
   def normalize(_, _), do: nil
 
   def make_tombstone(%Object{data: %{"id" => id, "type" => type}}, deleted \\ DateTime.utc_now()) do

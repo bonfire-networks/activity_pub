@@ -4,7 +4,7 @@ defmodule ActivityPubWeb.RedirectController do
   alias ActivityPub.Adapter
 
   def object(conn, %{"uuid" => uuid}) do
-    object = ActivityPub.Object.get_by_id(uuid)
+    object = ActivityPub.Object.get_cached_by_id(uuid)
 
     case Adapter.get_redirect_url(object) do
       nil ->

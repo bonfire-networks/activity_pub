@@ -51,11 +51,12 @@ defmodule ActivityPub.Utils do
     %{
       "@context" => [
         "https://www.w3.org/ns/activitystreams",
-        "https://litepub.social/litepub/context.jsonld",
-        "http://schema.org/",
-        %{
-          "@language" => "und"
-        }
+
+        Map.merge(
+          %{"@language" => Application.get_env(:activity_pub, :default_language, "und")},
+          Application.get_env(:activity_pub, :json_contexts, %{
+            "Hashtag"=> "as:Hashtag",
+          }))
       ]
     }
   end
@@ -406,9 +407,11 @@ defmodule ActivityPub.Utils do
 
     cond do
       recipients == [] ->
+        # FIXME: should we really assume things are public by default?
         true
 
-      Enum.member?(recipients, "https://www.w3.org/ns/activitystreams#Public") ->
+      Enum.member?(recipients, "https://www.w3.org/ns/activitystreams#Public") or Enum.member?(recipients, "Public") or Enum.member?(recipients, "as:Public") ->
+        # see note at https://www.w3.org/TR/activitypub/#public-addressing
         true
 
       true ->

@@ -51,7 +51,7 @@ defmodule ActivityPub.MixProject do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
-      {:oban, "~> 2.0.0"},
+      {:oban, "~> 2.8.0"},
       {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
       {:http_signatures,

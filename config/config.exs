@@ -5,7 +5,7 @@
 # is restricted to this project.
 
 # General application configuration
-use Mix.Config
+import Config
 
 config :activity_pub,
   ecto_repos: [ActivityPub.Repo]

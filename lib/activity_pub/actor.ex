@@ -91,10 +91,12 @@ defmodule ActivityPub.Actor do
       {:ok, actor}
     else
       _e ->
-        with [_nick, _domain] <- String.split(username, "@"),
+        with [_nick, domain] <- String.split(username, "@"),
+             false <- domain == URI.parse(Adapter.base_url()).host,
              {:ok, actor} <- fetch_by_username(username) do
           {:ok, actor}
         else
+          true -> get_cached_by_username(hd(String.split(username, "@")))
           _e -> {:error, "not found " <> username}
         end
     end

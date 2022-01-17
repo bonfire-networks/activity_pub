@@ -55,6 +55,22 @@ defmodule ActivityPubWeb.Transmogrifier do
     {:ok, data}
   end
 
+  def prepare_outgoing(%{"type" => "Create", "object" => object} = data) when is_binary(object) do
+    object =
+      object
+      |> Object.normalize()
+      |> Map.get(:data)
+      |> prepare_object
+
+    data =
+      data
+      |> Map.put("object", object)
+      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.delete("bcc")
+
+    {:ok, data}
+  end
+
   def prepare_outgoing(%{"type" => "Create", "object" => object} = data) do
     object =
       object

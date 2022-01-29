@@ -8,13 +8,11 @@ defmodule ActivityPubWeb.Router do
       end
 
       pipeline :activity_pub do
-        plug(:accepts, ["activity+json", "json", "html"])
-        plug(:accepts, ["ld+json", "json", "html"])
+        plug(:accepts, ["activity+json", "ld+json", "json", "html"])
       end
 
       pipeline :signed_activity_pub do
-        plug(:accepts, ["activity+json", "json"])
-        plug(:accepts, ["ld+json", "json"])
+        plug(:accepts, ["activity+json", "ld+json", "json"])
         plug(ActivityPubWeb.Plugs.HTTPSignaturePlug)
       end
 

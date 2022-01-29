@@ -28,7 +28,8 @@ config :phoenix, :json_library, Jason
 
 config :mime, :types, %{
   "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"" => ["ld+json"],
-  "application/activity+json" => ["activity+json"]
+  "application/activity+json" => ["activity+json"],
+  "application/jrd+json" => ["jrd+json"]
 }
 
 config :activity_pub, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]

@@ -44,7 +44,7 @@ defmodule ActivityPub.Fetcher do
   Fetches an AS2 object from remote AP ID.
   """
   def fetch_remote_object_from_id(id) do
-    Logger.info("Fetching object #{id} via AP")
+    Logger.info("Attempting to fetch ActivityPub object #{id}")
 
     with true <- String.starts_with?(id, "http"),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
@@ -59,7 +59,8 @@ defmodule ActivityPub.Fetcher do
       {:ok, %{status: code}} when code in [404, 410] ->
         {:error, "Object has been deleted"}
 
-      {:error, %Jason.DecodeError{} = _error} ->
+      %Jason.DecodeError{} = error ->
+        Logger.debug(error)
         {:error, "Invalid AP JSON"}
 
       {:error, e} ->

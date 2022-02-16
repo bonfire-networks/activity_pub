@@ -25,7 +25,11 @@ defmodule ActivityPub.MRF do
 
   @spec subdomains_regex([String.t()]) :: [Regex.t()]
   def subdomains_regex(domains) when is_list(domains) do
-    for domain <- domains, do: ~r(^#{String.replace(domain, "*.", "(.*\\.)*")}$)
+    for domain <- domains do
+      domain = domain
+      |> String.replace("*", "(.*)*")
+      ~r(^#{domain}$)
+    end
   end
 
   @spec subdomain_match?([Regex.t()], String.t()) :: boolean()

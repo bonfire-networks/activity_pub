@@ -234,7 +234,8 @@ defmodule ActivityPub.Actor do
     Cachex.del(:ap_actor_cache, "id:#{actor.id}")
   end
 
-  def get_cached_by_ap_id(ap_id) do
+  def get_cached_by_ap_id(%{"id" => ap_id}) when is_binary(ap_id), do: get_cached_by_ap_id(ap_id)
+  def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
     key = "ap_id:#{ap_id}"
 
     case Cachex.fetch(:ap_actor_cache, key, fn _ ->

@@ -48,7 +48,7 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
         |> get("/pub/actors/#{actor.username}/outbox")
         |> json_response(200)
 
-      IO.inspect(resp)
+      debug(resp)
     end
   end
 

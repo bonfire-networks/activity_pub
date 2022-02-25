@@ -169,7 +169,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_incoming(%{"id" => nil}), do: :error
   def handle_incoming(%{"id" => ""}), do: :error
   # length of https:// = 8, should validate better, but good enough for now.
-  def handle_incoming(%{"id" => id}) when not (is_binary(id) and byte_size(id) > 8),
+  def handle_incoming(%{"id" => id}) when is_binary(id) and byte_size(id) < 8,
     do: :error
 
   # Incoming actor create, just fetch from source

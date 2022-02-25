@@ -5,6 +5,35 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
+  @impl true
+  def filter(%{"actor" => actor} = object, _is_local?) do
+    actor_info = URI.parse(actor)
+
+    with {:ok, object} <- check_reject(actor_info, object),
+         {:ok, object} <- check_media_removal(actor_info, object),
+         {:ok, object} <- check_media_nsfw(actor_info, object),
+         {:ok, object} <- check_report_removal(actor_info, object) do
+      {:ok, object}
+    else
+      _e -> {:reject, nil}
+    end
+  end
+
+  def filter(%{"id" => actor, "type" => obj_type} = object, _is_local?)
+      when obj_type in @supported_actor_types do
+    actor_info = URI.parse(actor)
+
+    with {:ok, object} <- check_avatar_removal(actor_info, object),
+         {:ok, object} <- check_banner_removal(actor_info, object) do
+      {:ok, object}
+    else
+      _e -> {:reject, nil}
+    end
+  end
+
+  def filter(object, _is_local?), do: {:ok, object}
+
+
   defp check_reject(%{host: actor_host} = _actor_info, object) do
     rejects =
       ActivityPub.Config.get([:mrf_simple, :reject])
@@ -107,31 +136,5 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_banner_removal(_actor_info, object), do: {:ok, object}
 
-  @impl true
-  def filter(%{"actor" => actor} = object) do
-    actor_info = URI.parse(actor)
 
-    with {:ok, object} <- check_reject(actor_info, object),
-         {:ok, object} <- check_media_removal(actor_info, object),
-         {:ok, object} <- check_media_nsfw(actor_info, object),
-         {:ok, object} <- check_report_removal(actor_info, object) do
-      {:ok, object}
-    else
-      _e -> {:reject, nil}
-    end
-  end
-
-  def filter(%{"id" => actor, "type" => obj_type} = object)
-      when obj_type in @supported_actor_types do
-    actor_info = URI.parse(actor)
-
-    with {:ok, object} <- check_avatar_removal(actor_info, object),
-         {:ok, object} <- check_banner_removal(actor_info, object) do
-      {:ok, object}
-    else
-      _e -> {:reject, nil}
-    end
-  end
-
-  def filter(object), do: {:ok, object}
 end

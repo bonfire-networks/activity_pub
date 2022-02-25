@@ -56,26 +56,26 @@ defmodule ActivityPub do
   end
 
   @doc false
-  def insert(map, local, pointer \\ nil) when is_map(map) and is_boolean(local) do
+  def insert(map, local?, pointer \\ nil) when is_map(map) and is_boolean(local?) do
     with map <- Utils.lazy_put_activity_defaults(map),
          :ok <- check_actor_is_active(map["actor"]),
          # set some healthy boundaries
-         {:ok, map} <- MRF.filter(map),
+         {:ok, map} <- MRF.filter(map, local?),
          # insert the object
-         {:ok, map, object} <- Utils.insert_full_object(map, local, pointer) do
+         {:ok, map, object} <- Utils.insert_full_object(map, local?, pointer) do
       # insert the activity (containing only an ID as object)
       {:ok, activity} =
         if is_nil(object) do
           Object.insert(%{
             data: map,
-            local: local,
+            local: local?,
             public: Utils.public?(map),
             pointer_id: pointer
           })
         else
           Object.insert(%{
             data: map,
-            local: local,
+            local: local?,
             public: Utils.public?(map)
           })
         end
@@ -108,17 +108,17 @@ defmodule ActivityPub do
           {:ok, Object.t()} | {:error, any()}
   def create(%{to: to, actor: actor, context: context, object: object} = params, pointer \\ nil) do
     additional = params[:additional] || %{}
+
     # only accept false as false value
-    local = !(params[:local] == false)
-    published = params[:published]
+    local? = (params[:local] != false) |> IO.inspect(label: "AP local?")
 
     with nil <- Object.normalize(additional["id"], false),
          create_data <-
            Utils.make_create_data(
-             %{to: to, actor: actor, published: published, context: context, object: object},
+             %{to: to, actor: actor, published: params[:published], context: context, object: object},
              additional
            ),
-         {:ok, activity} <- insert(create_data, local, pointer),
+         {:ok, activity} <- insert(create_data, local?, pointer),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
       {:ok, activity}

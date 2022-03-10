@@ -190,4 +190,14 @@ defmodule ActivityPub.Object do
     )
     |> repo().all()
   end
+
+  def get_outbox_for_instance() do
+    instance = ActivityPubWeb.base_url()
+    instance_filter = "#{instance}%"
+    from(object in Object,
+      where: fragment("(?)->>'actor' ilike ?", object.data, ^instance_filter) and object.public == true,
+      limit: 10
+    )
+    |> repo().all()
+  end
 end

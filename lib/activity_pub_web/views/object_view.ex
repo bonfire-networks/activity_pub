@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPubWeb.ObjectView do
   use ActivityPubWeb, :view
 
@@ -29,9 +28,24 @@ defmodule ActivityPubWeb.ObjectView do
     total = length(outbox)
 
     %{
-      "id" => "#{actor.ap_id}/followers",
+      "id" => "#{actor.ap_id}/outbox",
       "type" => "Collection",
       "first" => collection(outbox, "#{actor.ap_id}/outbox", 1, total),
+      "totalItems" => total
+    }
+    |> Map.merge(Utils.make_json_ld_header())
+  end
+
+  def render("outbox.json", %{outbox: :shared_outbox}) do # only for testing purposes
+    instance = ActivityPubWeb.base_url()
+    outbox = Object.get_outbox_for_instance()
+
+    total = length(outbox)
+
+    %{
+      "id" => "#{instance}/shared_outbox",
+      "type" => "Collection",
+      "first" => collection(outbox, "#{instance}/shared_outbox", 1, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header())

@@ -50,7 +50,7 @@ defmodule ActivityPubWeb.ActorView do
     %{
       "id" => "#{actor.ap_id}/following",
       "type" => "Collection",
-      "first" => collection(followers, "#{actor.ap_id}/followers", 1, total),
+      "first" => collection(followers, "#{actor.ap_id}/following", 1, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header())

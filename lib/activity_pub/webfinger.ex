@@ -12,24 +12,50 @@ defmodule ActivityPub.WebFinger do
   require Logger
 
   @doc """
+  Fetches webfinger data for an account given in "@username@domain.tld" format.
+  """
+  def finger(account) do
+    account = String.trim_leading(account, "@")
+
+    domain =
+      with [_name, domain] <- String.split(account, "@") do
+        domain
+      else
+        _e ->
+          URI.parse(account).host
+      end
+
+    address = "https://#{domain}/.well-known/webfinger?resource=acct:#{account}"
+
+    with response <-
+           HTTP.get(
+             address,
+             Accept: "application/jrd+json"
+           ),
+         {:ok, %{status: status, body: body}} when status in 200..299 <- response,
+         {:ok, doc} <- Jason.decode(body) do
+      webfinger_from_json(doc)
+    else
+      e ->
+        Logger.debug(fn -> "Could not finger #{account}" end)
+        Logger.debug(fn -> inspect(e) end)
+        {:error, e}
+    end
+  end
+
+  @doc """
   Serves a webfinger response for the requested username.
   """
-  def webfinger(resource) do
+  def output("acct:"<>resource), do: output(resource)
+  def output(resource) do
     host = URI.parse(ActivityPub.Adapter.base_url()).host
-    regex = ~r/(acct:)?(?<username>[a-z0-9A-Z_\.-]+)@#{host}/
 
-    with %{"username" => username} <- Regex.named_captures(regex, resource),
+    with %{"username" => username} <- Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)@#{host}/, resource) || Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
          {:ok, actor} <- Actor.get_cached_by_username(username) do
       {:ok, represent_user(actor)}
     else
-      _e ->
-        case Actor.get_cached_by_ap_id(resource) do
-          {:ok, actor} ->
-            {:ok, represent_user(actor)}
-
-          _ ->
-            {:error, "Couldn't find"}
-        end
+      _ ->
+        {:error, "Could not find such a user"}
     end
   end
 
@@ -88,35 +114,5 @@ defmodule ActivityPub.WebFinger do
     {:ok, data}
   end
 
-  @doc """
-  Fetches webfinger data for an account given in "@username@domain.tld" format.
-  """
-  def finger(account) do
-    account = String.trim_leading(account, "@")
 
-    domain =
-      with [_name, domain] <- String.split(account, "@") do
-        domain
-      else
-        _e ->
-          URI.parse(account).host
-      end
-
-    address = "https://#{domain}/.well-known/webfinger?resource=acct:#{account}"
-
-    with response <-
-           HTTP.get(
-             address,
-             Accept: "application/jrd+json"
-           ),
-         {:ok, %{status: status, body: body}} when status in 200..299 <- response,
-         {:ok, doc} <- Jason.decode(body) do
-      webfinger_from_json(doc)
-    else
-      e ->
-        Logger.debug(fn -> "Couldn't finger #{account}" end)
-        Logger.debug(fn -> inspect(e) end)
-        {:error, e}
-    end
-  end
 end

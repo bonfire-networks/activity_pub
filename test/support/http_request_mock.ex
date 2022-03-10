@@ -1,4 +1,4 @@
-defmodule HttpRequestMock do
+defmodule ActivityPub.Test.HttpRequestMock do
   require Logger
   import ActivityPub.Test.Helpers
 
@@ -62,7 +62,7 @@ defmodule HttpRequestMock do
      }}
   end
 
-  def get("https://home.next.moodle.net/1", _, _, _) do
+  def get("https://home.next.moogle.net/1", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -78,7 +78,7 @@ defmodule HttpRequestMock do
      }}
   end
 
-  def get("https://niu.moe/.well-known/webfinger?resource=acct:karen@niu.moe", _, _, _) do
+  def get("https://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -86,11 +86,19 @@ defmodule HttpRequestMock do
      }}
   end
 
-  def get("http://mastodon.example.org/users/admin", _, _, Accept: "application/activity+json") do
+  def get("https://mastodon.example.org/users/karen", _, _, Accept: "application/activity+json") do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/admin@mastdon.example.org.json")
+       body: File.read!(test_path()<>"/fixtures/mastdon-actor.json")
+     }}
+  end
+
+  def get("https://mastodon.example.org/@karen", _, _, Accept: "application/activity+json") do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/mastdon-actor.json")
      }}
   end
 

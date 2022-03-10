@@ -8,7 +8,7 @@ defmodule ActivityPub.SignatureTest do
   alias ActivityPub.Signature
 
   setup do
-    mock(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 

@@ -7,7 +7,7 @@ defmodule ActivityPub.ActorTest do
   import ActivityPub.Factory
 
   setup do
-    mock(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 

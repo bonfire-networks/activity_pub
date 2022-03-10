@@ -75,17 +75,21 @@ defmodule ActivityPub.Actor do
   @doc """
   Fetches a remote actor by username in `username@domain.tld` format
   """
+  def fetch_by_username("@"<>username), do: fetch_by_username(username)
   def fetch_by_username(username) do
     with {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <- WebFinger.finger(username) do
       fetch_by_ap_id(ap_id)
     else
-      _e -> {:error, "No AP id in WebFinger"}
+      e ->
+        IO.inspect(e)
+        {:error, "No AP id in WebFinger"}
     end
   end
 
   @doc """
   Tries to get a local actor by username or tries to fetch it remotely if username is provided in `username@domain.tld` format.
   """
+  def get_or_fetch_by_username("@"<>username), do: get_or_fetch_by_username(username)
   def get_or_fetch_by_username(username) do
     with {:ok, actor} <- get_cached_by_username(username) do
       {:ok, actor}
@@ -97,7 +101,8 @@ defmodule ActivityPub.Actor do
           {:ok, actor}
         else
           true -> get_cached_by_username(hd(String.split(username, "@")))
-          _e -> {:error, "not found " <> username}
+          {:error, reason} -> {:error, reason}
+          _e -> {:error, "Actor not found: " <> username}
         end
     end
   end
@@ -124,7 +129,7 @@ defmodule ActivityPub.Actor do
         update_actor(ap_id)
 
       nil ->
-        {:error, "not found"}
+        {:error, "Remote actor not found: " <> ap_id}
 
       {:error, e} ->
         {:error, e}
@@ -176,6 +181,7 @@ defmodule ActivityPub.Actor do
   @doc """
   Fetches a local actor given its preferred username.
   """
+  def get_by_username("@"<>username), do: get_by_username(username)
   def get_by_username(username) do
     with {:ok, actor} <- Adapter.get_actor_by_username(username) do
       {:ok, actor}
@@ -268,8 +274,9 @@ defmodule ActivityPub.Actor do
     end
   end
 
+  def get_cached_by_username("@"<>username), do: get_cached_by_username(username)
   def get_cached_by_username(username) do
-    key = "username:#{username}"
+    key = "username:#{username}" |> IO.inspect
     try do
       case Cachex.fetch(:ap_actor_cache, key, fn ->
             case get_by_username(username) do
@@ -283,7 +290,7 @@ defmodule ActivityPub.Actor do
       end
     catch
       _ ->
-        # workaround :nodedown errors
+        # workaround for :nodedown errors
         get_by_username(username)
     rescue
       _ ->

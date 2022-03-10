@@ -8,27 +8,10 @@ defmodule ActivityPub.WebFingerTest do
   import Tesla.Mock
 
   setup do
-    mock(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 
-  describe "incoming webfinger request" do
-    test "works for fqns" do
-      actor = local_actor()
-
-      {:ok, result} = WebFinger.webfinger("#{actor.username}@#{endpoint().host()}")
-
-      assert is_map(result)
-    end
-
-    test "works for ap_ids" do
-      actor = local_actor()
-      {:ok, ap_actor} = Actor.get_by_username(actor.username)
-
-      {:ok, result} = WebFinger.webfinger(ap_actor.data["id"])
-      assert is_map(result)
-    end
-  end
 
   describe "fingering" do
     test "works with pleroma" do
@@ -40,11 +23,19 @@ defmodule ActivityPub.WebFingerTest do
     end
 
     test "works with mastodon" do
-      user = "karen@niu.moe"
+      user = "karen@mastodon.example.org"
 
       {:ok, data} = WebFinger.finger(user)
 
-      assert data["id"] == "https://niu.moe/users/karen"
+      assert data["id"] == "https://mastodon.example.org/users/karen"
+    end
+
+    test "works with mastodon, with leading @" do
+      user = "@karen@mastodon.example.org"
+
+      {:ok, data} = WebFinger.finger(user)
+
+      assert data["id"] == "https://mastodon.example.org/users/karen"
     end
   end
 end

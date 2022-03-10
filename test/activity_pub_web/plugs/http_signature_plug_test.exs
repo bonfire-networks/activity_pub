@@ -7,7 +7,7 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlugTest do
   import Mock
 
   test "it call HTTPSignatures to check validity if the actor sighed it" do
-    params = %{"actor" => "http://mastodon.example.org/users/admin"}
+    params = %{"actor" => "https://mastodon.example.org/users/karen"}
     conn = build_conn(:get, "/doesntmattter", params)
 
     with_mock HTTPSignatures, validate_conn: fn _ -> true end do
@@ -15,7 +15,7 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlugTest do
         conn
         |> put_req_header(
           "signature",
-          "keyId=\"http://mastodon.example.org/users/admin#main-key"
+          "keyId=\"https://mastodon.example.org/users/karen#main-key"
         )
         |> put_format("activity+json")
         |> HTTPSignaturePlug.call(%{})

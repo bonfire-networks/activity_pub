@@ -3,6 +3,7 @@ defmodule ActivityPubWeb.FetcherTest do
   import Tesla.Mock
 
   alias ActivityPub.Fetcher
+  alias ActivityPub.WebFinger
 
   setup do
     mock(fn
@@ -13,7 +14,7 @@ defmodule ActivityPubWeb.FetcherTest do
         %Tesla.Env{status: 410}
 
       env ->
-        apply(HttpRequestMock, :request, [env])
+        apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)
 
     :ok
@@ -33,6 +34,57 @@ defmodule ActivityPubWeb.FetcherTest do
       {:ok, object} = Fetcher.fetch_object_from_id("https://kawen.space/users/karen")
 
       assert object
+    end
+
+    test "fetches a mastodon actor by AP ID" do
+      {:ok, object} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+
+      assert object
+    end
+
+    test "fetches a mastodon actor by friendly URL" do
+      {:ok, object} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      assert object
+    end
+
+    test "fetches a same mastodon actor by friendly URL and AP ID" do
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+
+      assert object1 == object2
+    end
+
+    test "fetches a same mastodon actor by AP ID and friendly URL" do
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      assert object2 == object2
+    end
+
+    test "fetches a same mastodon actor by webfinger, AP ID and friendly URL" do
+
+      {:ok, fingered} = WebFinger.finger("karen@mastodon.example.org")
+      {:ok, object1} = Fetcher.fetch_object_from_id(fingered["id"])
+
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object3} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      assert object1 == object2
+      assert object2 == object3
+    end
+
+    test "fetches a same mastodon actor by AP ID and friendly URL and webfinger" do
+
+
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      {:ok, fingered} = WebFinger.finger("karen@mastodon.example.org")
+      {:ok, object3} = Fetcher.fetch_object_from_id(fingered["id"])
+
+      assert object1 == object2
+      assert object2 == object3
     end
 
     test "rejects private posts" do
@@ -64,7 +116,7 @@ defmodule ActivityPubWeb.FetcherTest do
     end
 
     test "accepts objects containing different scheme than requested" do
-      {:ok, object} = Fetcher.fetch_object_from_id("https://home.next.moodle.net/1")
+      {:ok, object} = Fetcher.fetch_object_from_id("https://home.next.moogle.net/1")
 
       assert object
     end

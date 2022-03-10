@@ -13,12 +13,13 @@ defmodule ActivityPub.Application do
   def version, do: @version
   def named_version, do: @name <> " " <> @version
   def repository, do: @repository
+  def repo, do: Application.get_env(:activity_pub, :test_repo, ActivityPub.TestRepo)
 
   if Mix.env() == :test do
     def start(_type, _args) do
       children = [
         # Start the Ecto repository
-        ActivityPub.TestRepo,
+        repo(),
         # Start the Telemetry supervisor
         ActivityPubWeb.Telemetry,
         # Start the PubSub system

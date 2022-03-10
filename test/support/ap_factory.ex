@@ -1,5 +1,7 @@
 defmodule ActivityPub.Factory do
-  use ExMachina.Ecto, repo: ActivityPub.TestRepo
+  import ActivityPub.Test.Helpers
+  @repo repo()
+  use ExMachina.Ecto, repo: @repo
 
   def actor(attrs \\ %{}) do
     actor = insert(:actor, attrs)
@@ -8,17 +10,33 @@ defmodule ActivityPub.Factory do
   end
 
   def local_actor(attrs \\ %{}) do
-    actor = build(:local_actor, attrs)
 
-    {:ok, actor} =
-      ActivityPub.LocalActor.insert(%{
-        local: true,
-        data: actor.data,
-        keys: nil,
-        username: actor.data["preferredUsername"]
-      })
+    if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and Code.ensure_loaded?(Bonfire.Me.Fake) do # TODO: make into a generic adapter callback?
+      user = Bonfire.Me.Fake.fake_user!(attrs)
+      # |> IO.inspect()
+      {:ok, actor} = ActivityPub.Actor.get_by_username(user.character.username)
 
-    actor
+      %{
+          local: true,
+          data: actor.data,
+          user: user,
+          keys: nil,
+          username: user.character.username
+        }
+
+    else
+      actor = build(:local_actor, attrs)
+
+      {:ok, actor} =
+        ActivityPub.LocalActor.insert(%{
+          local: true,
+          data: actor.data,
+          keys: nil,
+          username: actor.data["preferredUsername"]
+        })
+
+      actor
+    end
   end
 
   def community() do
@@ -60,48 +78,32 @@ defmodule ActivityPub.Factory do
   end
 
   def actor_factory(attrs \\ %{}) do
-    data = %{
-      "name" => sequence(:name, &"Test actor #{&1}"),
-      "preferredUsername" => sequence(:username, &"username#{&1}"),
-      "summary" => sequence(:bio, &"Tester Number#{&1}"),
-      "type" => "Person"
-    }
-
+    username = sequence(:username, &"username#{&1}")
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
-
     id =
       attrs[:data]["id"] ||
-        "https://example.tld" <> ap_base_path <> "/actors/#{data["preferredUsername"]}"
+        "https://example.tld" <> ap_base_path <> "/actors/#{username}"
 
-    data =
-      Map.merge(data, %{
-        "id" => id,
-        "inbox" => "#{id}/inbox",
-        "outbox" => "#{id}/outbox",
-        "followers" => "#{id}/followers",
-        "following" => "#{id}/following"
-      })
-
-    %ActivityPub.Object{
-      data: merge_attributes(data, Map.get(attrs, :data, %{})),
-      local: attrs[:local] || false,
-      public: true
-    }
+    actor_object(id, username, attrs, false)
   end
 
   def local_actor_factory(attrs \\ %{}) do
+    username = sequence(:username, &"username#{&1}")
+    ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
+    id =
+      attrs[:data]["id"] ||
+        ActivityPubWeb.base_url() <> ap_base_path <> "/actors/#{username}"
+
+    actor_object(id, username, attrs, true)
+  end
+
+  defp actor_object(id, username, attrs, local? \\ nil) do
     data = %{
       "name" => sequence(:name, &"Test actor #{&1}"),
-      "preferredUsername" => sequence(:username, &"username#{&1}"),
+      "preferredUsername" => username,
       "summary" => sequence(:bio, &"Tester Number#{&1}"),
       "type" => "Person"
     }
-
-    ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
-
-    id =
-      attrs[:data]["id"] ||
-        ActivityPubWeb.base_url() <> ap_base_path <> "/actors/#{data["preferredUsername"]}"
 
     data =
       Map.merge(data, %{
@@ -114,7 +116,7 @@ defmodule ActivityPub.Factory do
 
     %ActivityPub.Object{
       data: merge_attributes(data, Map.get(attrs, :data, %{})),
-      local: attrs[:local] || true,
+      local: attrs[:local] || local?,
       public: true
     }
   end

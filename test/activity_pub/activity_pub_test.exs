@@ -130,7 +130,7 @@ defmodule ActivityPubTest do
 
       assert Object.get_by_id(delete.id) != nil
 
-      assert ActivityPub.TestRepo.get(Object, object.id).data["type"] == "Tombstone"
+      assert repo().get(Object, object.id).data["type"] == "Tombstone"
     end
 
     test "it creates a delete activity for a local actor" do

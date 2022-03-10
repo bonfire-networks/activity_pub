@@ -1,6 +1,5 @@
 defmodule ActivityPub.Instances.InstanceTest do
   alias ActivityPub.Instances.Instance
-  alias ActivityPub.TestRepo, as: Repo
   import ActivityPub.Factory
 
   require Ecto.Query
@@ -36,7 +35,7 @@ defmodule ActivityPub.Instances.InstanceTest do
       host = "domain.org"
       assert nil == Instance.set_reachable(host)
 
-      assert [] = Repo.all(Ecto.Query.from(i in Instance))
+      assert [] = repo().all(Ecto.Query.from(i in Instance))
       assert Instance.reachable?(host)
     end
   end
@@ -45,7 +44,7 @@ defmodule ActivityPub.Instances.InstanceTest do
     test "creates new record having `unreachable_since` to current time if record does not exist" do
       assert {:ok, instance} = Instance.set_unreachable("https://domain.com/path")
 
-      instance = Repo.get(Instance, instance.id)
+      instance = repo().get(Instance, instance.id)
       assert instance.unreachable_since
       assert "domain.com" == instance.host
     end
@@ -56,7 +55,7 @@ defmodule ActivityPub.Instances.InstanceTest do
 
       assert {:ok, _} = Instance.set_unreachable(instance.host)
 
-      instance = Repo.get(Instance, instance.id)
+      instance = repo().get(Instance, instance.id)
       assert instance.unreachable_since
     end
 
@@ -69,7 +68,7 @@ defmodule ActivityPub.Instances.InstanceTest do
 
       assert {:ok, _} = Instance.set_unreachable(instance.host)
 
-      instance = Repo.get(Instance, instance.id)
+      instance = repo().get(Instance, instance.id)
       assert initial_value == instance.unreachable_since
     end
   end
@@ -84,7 +83,7 @@ defmodule ActivityPub.Instances.InstanceTest do
       past_value = NaiveDateTime.add(NaiveDateTime.utc_now(), -100)
       assert {:ok, _} = Instance.set_unreachable(instance.host, past_value)
 
-      instance = Repo.get(Instance, instance.id)
+      instance = repo().get(Instance, instance.id)
       assert past_value == instance.unreachable_since
     end
 
@@ -97,7 +96,7 @@ defmodule ActivityPub.Instances.InstanceTest do
 
       assert {:ok, _} = Instance.set_unreachable(instance.host, NaiveDateTime.utc_now())
 
-      instance = Repo.get(Instance, instance.id)
+      instance = repo().get(Instance, instance.id)
       assert initial_value == instance.unreachable_since
     end
   end

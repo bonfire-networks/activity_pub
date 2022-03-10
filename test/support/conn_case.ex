@@ -16,6 +16,7 @@ defmodule ActivityPubWeb.ConnCase do
   """
 
   use ExUnit.CaseTemplate
+  import ActivityPub.Test.Helpers
 
   using do
     quote do
@@ -23,21 +24,22 @@ defmodule ActivityPubWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import ActivityPubWeb.ConnCase
+      import ActivityPub.Test.Helpers
 
       alias ActivityPubWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
-      @endpoint ActivityPubWeb.Endpoint
+      @endpoint endpoint()
     end
   end
 
   setup tags do
     Cachex.clear(:ap_actor_cache)
     Cachex.clear(:ap_object_cache)
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.TestRepo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.TestRepo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(repo(), {:shared, self()})
     end
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}

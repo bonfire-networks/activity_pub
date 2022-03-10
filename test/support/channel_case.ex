@@ -16,23 +16,25 @@ defmodule ActivityPubWeb.ChannelCase do
   """
 
   use ExUnit.CaseTemplate
+  import ActivityPub.Test.Helpers
 
   using do
     quote do
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
       import ActivityPubWeb.ChannelCase
+      import ActivityPub.Test.Helpers
 
       # The default endpoint for testing
-      @endpoint ActivityPubWeb.Endpoint
+      @endpoint endpoint()
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(ActivityPub.TestRepo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(ActivityPub.TestRepo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(repo(), {:shared, self()})
     end
 
     :ok

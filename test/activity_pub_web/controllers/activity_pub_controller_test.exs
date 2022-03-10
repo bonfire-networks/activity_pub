@@ -48,7 +48,7 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
         |> get("/pub/actors/#{actor.username}/outbox")
         |> json_response(200)
 
-      debug(resp)
+      IO.inspect(resp)
     end
   end
 
@@ -59,7 +59,7 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
       resp =
         build_conn()
         |> put_req_header("accept", "application/json")
-        |> get("pub/actors/#{actor.username}")
+        |> get("/pub/actors/#{actor.username}")
         |> json_response(200)
 
       assert resp["@context"]

@@ -15,7 +15,8 @@ defmodule ActivityPub.MRF.SimplePolicy do
          {:ok, object} <- check_report_removal(actor_info, object) do
       {:ok, object}
     else
-      _e -> {:reject, nil}
+      {:reject, reason} -> {:reject, reason}
+      _e -> {:reject, "Object blocked"}
     end
   end
 
@@ -27,7 +28,8 @@ defmodule ActivityPub.MRF.SimplePolicy do
          {:ok, object} <- check_banner_removal(actor_info, object) do
       {:ok, object}
     else
-      _e -> {:reject, nil}
+      {:reject, reason} -> {:reject, reason}
+      _e -> {:reject, "Actor blocked"}
     end
   end
 
@@ -40,7 +42,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(rejects, actor_host) do
-      {:reject, nil}
+      {:reject, "Instance blocked"}
     else
       {:ok, object}
     end
@@ -100,7 +102,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
       |> MRF.subdomains_regex()
 
     if MRF.subdomain_match?(report_removal, actor_host) do
-      {:reject, nil}
+      {:reject, "Flag discarded"}
     else
       {:ok, object}
     end

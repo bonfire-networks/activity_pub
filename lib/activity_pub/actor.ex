@@ -346,6 +346,7 @@ defmodule ActivityPub.Actor do
   def get_followers(actor) do
     followers =
       Adapter.get_follower_local_ids(actor)
+      |> IO.inspect(label: "followers")
       |> Enum.map(&get_by_local_id!/1)
       # Filter nils
       |> Enum.filter(fn x -> x end)

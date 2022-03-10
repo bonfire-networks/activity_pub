@@ -42,7 +42,7 @@ defmodule ActivityPub.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.6.6"},
-      {:phoenix_ecto, "~> 4.1"},
+      {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.4"},
       {:postgrex, ">= 0.0.0"},
       {:phoenix_live_dashboard, "~> 0.6.5"},
@@ -51,6 +51,7 @@ defmodule ActivityPub.MixProject do
       {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
+      {:mime, "~> 1.6.0"},
       {:oban, "~> 2.8.0"},
       {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},

@@ -53,7 +53,7 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
   end
 
   describe "actor" do
-    test "works for actors" do
+    test "works for actors with AP ID" do
       actor = local_actor()
 
       resp =
@@ -66,5 +66,6 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
       assert resp["preferredUsername"] == actor.username
       assert resp["url"] == resp["id"]
     end
+
   end
 end

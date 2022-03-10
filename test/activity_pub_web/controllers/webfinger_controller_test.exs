@@ -1,7 +1,7 @@
 defmodule ActivityPubWeb.WebFingerControllerTest do
   use ActivityPubWeb.ConnCase
   import ActivityPub.Factory
-
+  alias ActivityPub.WebFinger
 
   test "webfinger with username and hostname" do
     actor = local_actor()

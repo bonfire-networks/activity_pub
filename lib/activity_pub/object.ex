@@ -44,7 +44,8 @@ defmodule ActivityPub.Object do
 
   def get_by_pointer_id(pointer_id), do: repo().get_by(Object, pointer_id: pointer_id)
 
-  def get_cached_by_ap_id(ap_id) do
+  def get_cached_by_ap_id(%{"id"=> ap_id}), do: get_cached_by_ap_id(ap_id)
+  def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
     key = "ap_id:#{ap_id}"
     try do
       Cachex.fetch!(:ap_object_cache, key, fn _ ->

@@ -19,7 +19,17 @@ defmodule ActivityPub.Fetcher do
       {:ok, object}
     else
       with {:ok, data} <- fetch_remote_object_from_id(id),
-           {:ok, data} <- contain_origin(data),
+           {:ok, object} <- maybe_store_data(data) do
+        {:ok, object}
+      end
+    end
+  end
+
+  defp maybe_store_data(data) do
+    if object = Object.get_cached_by_ap_id(data) do # check that we haven't cached it under another ID
+      {:ok, object}
+    else
+      with {:ok, data} <- contain_origin(data),
            {:ok, object} <- insert_object(data),
            :ok <- check_if_public(object.public) do
         {:ok, object}

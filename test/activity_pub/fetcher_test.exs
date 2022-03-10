@@ -13,6 +13,9 @@ defmodule ActivityPubWeb.FetcherTest do
       %{method: :get, url: "https://pleroma.example/userisgone410"} ->
         %Tesla.Env{status: 410}
 
+      %{method: :get, url: "https://mastodon.example.org/user/karen"} ->
+        ActivityPub.Test.HttpRequestMock.get("https://mastodon.example.org/users/karen", nil, nil, Accept: "application/activity+json")
+
       env ->
         apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)
@@ -60,6 +63,13 @@ defmodule ActivityPubWeb.FetcherTest do
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
 
       assert object2 == object2
+    end
+
+    test "fetches a same mastodon actor by AP ID and a 3rd URL" do
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/user/karen")
+
+      assert object1 == object2
     end
 
     test "fetches a same mastodon actor by webfinger, AP ID and friendly URL" do

@@ -66,7 +66,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/moodlenet_person_actor.json")
+       body: File.read!(test_path()<>"/fixtures/mooglenet_person_actor.json")
      }}
   end
 

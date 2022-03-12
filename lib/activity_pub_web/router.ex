@@ -11,6 +11,10 @@ defmodule ActivityPubWeb.Router do
         plug(:accepts, ["activity+json", "ld+json", "json", "html"])
       end
 
+      pipeline :browser do
+        plug(:accepts, ["html"])
+      end
+
       pipeline :signed_activity_pub do
         plug(:accepts, ["activity+json", "ld+json", "json"])
         plug(ActivityPubWeb.Plugs.HTTPSignaturePlug)
@@ -37,6 +41,13 @@ defmodule ActivityPubWeb.Router do
 
         post "/actors/:username/inbox", ActivityPubController, :inbox
         post "/shared_inbox", ActivityPubController, :inbox
+      end
+
+      scope unquote(ap_base_path), ActivityPubWeb do
+        pipe_through(:browser)
+
+        get "/remote_interaction", RedirectController, :remote_interaction
+        post "/remote_interaction", RedirectController, :remote_interaction
       end
     end
   end

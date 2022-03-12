@@ -107,6 +107,11 @@ defmodule ActivityPub.Actor do
     end
   end
 
+  def get_or_fetch(username_or_uri) do
+    if String.starts_with?(username_or_uri, "http"), do: get_or_fetch_by_ap_id(username_or_uri),
+    else: get_or_fetch_by_username(username_or_uri)
+  end
+
   defp username_from_ap_id(ap_id) do
     ap_id
     |> String.split("/")

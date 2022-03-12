@@ -90,11 +90,11 @@ defmodule ActivityPubWeb.Publisher do
     do: (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) || data["inbox"]
 
   @doc """
-  If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE
+  If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE
   #TODO: move to adapter
   """
   def maybe_federate_to_search_index(recipients, activity) do
-    index_inbox = System.get_env("PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE", "false")
+    index_inbox = System.get_env("PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE", "false")
 
     if index_inbox !== "false" and
          activity.public and
@@ -167,12 +167,18 @@ defmodule ActivityPubWeb.Publisher do
   end
 
   def gather_webfinger_links(actor) do
+    base_url = ActivityPubWeb.base_url()
+
     [
       %{"rel" => "self", "type" => "application/activity+json", "href" => actor.data["id"]},
       %{
         "rel" => "self",
         "type" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
         "href" => actor.data["id"]
+      },
+      %{
+        "rel"=> "http://ostatus.org/schema/1.0/subscribe",
+        "template"=> base_url<>"/pub/remote_interaction?acct={uri}"
       }
     ]
   end

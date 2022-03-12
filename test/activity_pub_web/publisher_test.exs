@@ -36,7 +36,7 @@ defmodule ActivityPubWeb.PublisherTest do
 
   test "it adds index instance recipient if the env is set" do
     System.put_env(
-      "PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE",
+      "PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE",
       "http://searchindex.commonspub.org/pub/shared_inbox"
     )
 
@@ -58,6 +58,6 @@ defmodule ActivityPubWeb.PublisherTest do
 
     assert :ok == Publisher.publish(actor, activity)
     assert %{success: 2, failure: 0} = Oban.drain_queue(queue: :federator_outgoing)
-    System.put_env("PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE", "false")
+    System.put_env("PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE", "false")
   end
 end

@@ -4,7 +4,7 @@ defmodule ActivityPubWeb.Router do
 
     quote do
       pipeline :well_known do
-        plug(:accepts, ["json", "jrd+json"])
+        plug(:accepts, ["json", "jrd+json", "activity+json", "ld+json"])
       end
 
       pipeline :activity_pub do

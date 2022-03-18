@@ -2,6 +2,7 @@ defmodule ActivityPub.Object do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
+  require Logger
 
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
@@ -115,10 +116,20 @@ defmodule ActivityPub.Object do
     |> validate_required(:data)
   end
 
-  def update(object, attrs) do
+  def update(%ActivityPub.Object{} = object, attrs) do
     object
     |> change(attrs)
     |> update_and_set_cache()
+  end
+
+  def update(object_id, attrs) when is_binary(object_id) do
+    get_by_id(object_id)
+    |> __MODULE__.update(attrs)
+  end
+
+  def update(other, attrs) do
+    Logger.error("no match for #{inspect other} in Activity.Object.update/2")
+    {:error, :not_found}
   end
 
   def update_and_set_cache(changeset) do

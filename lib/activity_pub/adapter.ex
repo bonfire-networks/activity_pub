@@ -16,7 +16,7 @@ defmodule ActivityPub.Adapter do
 
   defp validate_actor({:ok, %Actor{} = actor}), do: {:ok, actor}
   defp validate_actor({:ok, _}), do: {:error, "Improperly formatted actor struct"}
-  defp validate_actor(_), do: {:error, "not found"}
+  defp validate_actor(_), do: {:error, :not_found}
 
   @doc """
   Fetch an actor given its preferred username

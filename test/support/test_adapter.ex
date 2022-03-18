@@ -16,14 +16,14 @@ defmodule ActivityPub.TestAdapter do
 
   def get_actor_by_username(username) do
     case ActivityPub.LocalActor.get_by_username(username) do
-      nil -> {:error, "not found"}
+      nil -> {:error, :not_found}
       actor -> {:ok, format_actor(actor)}
     end
   end
 
   def get_actor_by_id(id) do
     case ActivityPub.LocalActor.get_by_id(id) do
-      nil -> {:error, "not found"}
+      nil -> {:error, :not_found}
       actor -> {:ok, format_actor(actor)}
     end
   end

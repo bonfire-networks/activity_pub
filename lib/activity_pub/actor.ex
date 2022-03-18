@@ -142,6 +142,7 @@ defmodule ActivityPub.Actor do
   end
 
   def format_remote_actor(%Object{} = actor) do
+    # IO.inspect(actor)
     username = actor.data["preferredUsername"] <> "@" <> URI.parse(actor.data["id"]).host
     data = actor.data
 
@@ -191,7 +192,7 @@ defmodule ActivityPub.Actor do
     with {:ok, actor} <- Adapter.get_actor_by_username(username) do
       {:ok, actor}
     else
-      _e -> {:error, "not found"}
+      _e -> {:error, :not_found}
     end
   end
 
@@ -199,7 +200,7 @@ defmodule ActivityPub.Actor do
     with {:ok, actor} <- Adapter.get_actor_by_id(id) do
       {:ok, actor}
     else
-      _e -> {:error, "not found"}
+      _e -> {:error, :not_found}
     end
   end
 
@@ -257,7 +258,7 @@ defmodule ActivityPub.Actor do
          end) do
       {:ok, actor} -> {:ok, actor}
       {:commit, actor} -> {:ok, actor}
-      {:ignore, _} -> {:error, "not found"}
+      {:ignore, _} -> {:error, :not_found}
     end
   end
 
@@ -275,7 +276,7 @@ defmodule ActivityPub.Actor do
          end) do
       {:ok, actor} -> {:ok, actor}
       {:commit, actor} -> {:ok, actor}
-      {:ignore, _} -> {:error, "not found"}
+      {:ignore, _} -> {:error, :not_found}
     end
   end
 
@@ -291,7 +292,7 @@ defmodule ActivityPub.Actor do
           end) do
         {:ok, actor} -> {:ok, actor}
         {:commit, actor} -> {:ok, actor}
-        {:ignore, _} -> {:error, "not found"}
+        {:ignore, _} -> {:error, :not_found}
       end
     catch
       _ ->

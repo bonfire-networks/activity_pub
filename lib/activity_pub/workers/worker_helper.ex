@@ -19,16 +19,15 @@ defmodule ActivityPub.Workers.WorkerHelper do
         queue: unquote(queue),
         max_attempts: 1
 
-      def enqueue(op, params, worker_args \\ []) do
-        repo = Application.get_env(:activity_pub, :repo)
-
+      def enqueueable(op, params, worker_args \\ []) do
         params = Map.merge(%{"op" => op}, params)
         queue_atom = String.to_atom(unquote(queue))
-        worker_args = worker_args ++ WorkerHelper.worker_args(queue_atom)
+        worker_args = worker_args ++  ActivityPub.Workers.WorkerHelper.worker_args(queue_atom)
+        unquote(caller_module).new(params, worker_args)
+      end
 
-        unquote(caller_module)
-        |> apply(:new, [params, worker_args])
-        |> Oban.insert()
+      def enqueue(op, params, worker_args \\ []) do
+       Oban.insert(enqueueable(op, params, worker_args)))
       end
     end
   end

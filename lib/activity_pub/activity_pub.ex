@@ -5,6 +5,7 @@ defmodule ActivityPub do
   In general, the functions in this module take object-like formatted struct as the input for actor parameters.
   Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_by_ap_id/1` for example) to retrieve those.
   """
+  require Logger
   alias ActivityPub.Actor
   alias ActivityPub.Adapter
   alias ActivityPub.Utils
@@ -56,29 +57,32 @@ defmodule ActivityPub do
   end
 
   @doc false
-  def insert(map, local?, pointer \\ nil) when is_map(map) and is_boolean(local?) do
-    with map <- Utils.lazy_put_activity_defaults(map),
+  def insert(map, local?, pointer \\ nil, upsert? \\ false) when is_map(map) and is_boolean(local?) do
+    with activity_id <- Ecto.UUID.generate(),
+         %{} = map <- Utils.lazy_put_activity_defaults(map, activity_id),
          :ok <- check_actor_is_active(map["actor"]),
          # set some healthy boundaries
          {:ok, map} <- MRF.filter(map, local?),
-         # insert the object
-         {:ok, map, object} <- Utils.insert_full_object(map, local?, pointer) do
-      # insert the activity (containing only an ID as object)
-      {:ok, activity} =
-        if is_nil(object) do
+         # first insert the object
+         {:ok, map, object} <- Utils.insert_full_object(map, local?, pointer, upsert?),
+      # then insert the activity (containing only an ID as object)
+         {:ok, activity} <- (
+        if not is_nil(object) do
           Object.insert(%{
+            id: activity_id,
+            data: map,
+            local: local?,
+            public: Utils.public?(map)
+          })
+        else # for activities without an object
+          Object.insert(%{
+            id: activity_id,
             data: map,
             local: local?,
             public: Utils.public?(map),
             pointer_id: pointer
           })
-        else
-          Object.insert(%{
-            data: map,
-            local: local?,
-            public: Utils.public?(map)
-          })
-        end
+        end) do
 
       # Splice in the child object if we have one.
       activity =
@@ -90,7 +94,9 @@ defmodule ActivityPub do
 
       {:ok, activity}
     else
-      %Object{} = object -> object
+      %Object{} = object ->
+        Logger.error("ActivityPub - error with insert")
+        object
       error -> {:error, error}
     end
   end
@@ -324,7 +330,7 @@ defmodule ActivityPub do
            "actor" => actor.data["id"],
            "object" => object
          },
-         {:ok, activity} <- insert(data, local),
+         {:ok, activity} <- insert(data, local, nil, true),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
       {:ok, activity}

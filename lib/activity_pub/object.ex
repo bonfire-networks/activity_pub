@@ -112,12 +112,13 @@ defmodule ActivityPub.Object do
 
   def changeset(object, attrs) do
     object
-    |> cast(attrs, [:data, :local, :public, :pointer_id])
+    |> cast(attrs, [:id, :data, :local, :public, :pointer_id])
     |> validate_required(:data)
   end
 
   def update(%ActivityPub.Object{} = object, attrs) do
     object
+    |> IO.inspect(label: "update")
     |> change(attrs)
     |> update_and_set_cache()
   end
@@ -138,6 +139,14 @@ defmodule ActivityPub.Object do
     else
       e -> e
     end
+  end
+
+  def maybe_upsert(true, %ActivityPub.Object{} = existing_object, attrs) do
+    changeset(existing_object, attrs)
+    |> update_and_set_cache()
+  end
+  def maybe_upsert(_, _, attrs) do
+    insert(attrs)
   end
 
   def normalize(_, fetch_remote \\ true)

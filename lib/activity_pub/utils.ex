@@ -13,9 +13,11 @@ defmodule ActivityPub.Utils do
 
   # TODO: make configurable
   @supported_actor_types ["Person", "Application", "Service", "Organization", "Group"]
+  @supported_activity_types ["Create", "Update", "Delete", "Follow", "Accept", "Reject", "Add", "Remove", "Like", "Announce", "Undo", "Arrive", "Block", "Flag", "Dislike", "Ignore", "Invite", "Join", "Leave", "Listen", "Move", "Offer", "Question", "Read", "TentativeReject", "TentativeAccept", "Travel", "View"]
   @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"]
 
   def supported_actor_types, do: @supported_actor_types
+  def supported_activity_types, do: @supported_activity_types
   def supported_object_types, do: @supported_object_types
 
   def get_ap_id(%{"id" => id} = _), do: id
@@ -39,9 +41,11 @@ defmodule ActivityPub.Utils do
 
   def generate_id(type), do: ap_base_url() <> "/#{type}/#{UUID.generate()}"
 
-  def actor_url(%{preferred_username: u}), do: ap_base_url() <> "/actors/" <> u
+  def actor_url(%{preferred_username: username}), do: actor_url(username)
+  def actor_url(username) when is_binary(username), do: ap_base_url() <> "/actors/" <> username
 
-  def object_url(%{id: id}), do: ap_base_url() <> "/objects/" <> id
+  def object_url(%{id: id}), do: object_url(id)
+  def object_url(id) when is_binary(id), do: ap_base_url() <> "/objects/" <> id
 
   defp ap_base_url() do
     ActivityPubWeb.base_url() <> System.get_env("AP_BASE_PATH", "/pub")
@@ -381,13 +385,14 @@ defmodule ActivityPub.Utils do
   @doc """
   Inserts a full object if it is contained in an activity.
   """
-  def insert_full_object(map, local \\ false, pointer \\ nil)
+  def insert_full_object(map, local \\ false, pointer \\ nil, upsert? \\ false)
 
-  def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer)
-      when is_map(object_data) and type in @supported_object_types do
-    with nil <- Object.normalize(object_data, false),
+  def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer, upsert?)
+      when is_map(object_data) and type not in @supported_actor_types and type not in @supported_activity_types do
+      # we're taking a shortcut by assuming that anything that doesn't seem like an actor or activity is an object (which is better than only supporting a specific list of object types)
+    with maybe_existing_object <- Object.normalize(object_data, false), # check that it doesn't already exist
          {:ok, data} <- prepare_data(object_data, local, pointer),
-         {:ok, object} <- Object.insert(data) do
+         {:ok, object} <- Object.maybe_upsert(upsert?, maybe_existing_object, data) do
       # return an activity that contains the ID as object rather than the actual object
       map =
         map
@@ -397,7 +402,7 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def insert_full_object(map, _local, _pointer), do: {:ok, map, nil}
+  def insert_full_object(map, _local, _pointer, _), do: {:ok, map, nil}
 
   @doc """
   Determines if an object or an activity is public.
@@ -452,12 +457,12 @@ defmodule ActivityPub.Utils do
 
   def maybe_federate(_), do: :ok
 
-  def lazy_put_activity_defaults(map) do
+  def lazy_put_activity_defaults(map, activity_id) do
     context = create_context(map["context"])
 
     map =
       map
-      |> Map.put_new_lazy("id", &generate_object_id/0)
+      |> Map.put_new("id", object_url(activity_id))
       |> Map.put_new_lazy("published", &make_date/0)
       |> Map.put_new("context", context)
 

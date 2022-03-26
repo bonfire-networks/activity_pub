@@ -14,11 +14,11 @@ defmodule ActivityPub.Utils do
   # TODO: make configurable
   @supported_actor_types ["Person", "Application", "Service", "Organization", "Group"]
   @supported_activity_types ["Create", "Update", "Delete", "Follow", "Accept", "Reject", "Add", "Remove", "Like", "Announce", "Undo", "Arrive", "Block", "Flag", "Dislike", "Ignore", "Invite", "Join", "Leave", "Listen", "Move", "Offer", "Question", "Read", "TentativeReject", "TentativeAccept", "Travel", "View"]
-  @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"]
+  # @supported_object_types ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
 
   def supported_actor_types, do: @supported_actor_types
   def supported_activity_types, do: @supported_activity_types
-  def supported_object_types, do: @supported_object_types
+  # def supported_object_types, do: @supported_object_types
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(id), do: id
@@ -495,4 +495,32 @@ defmodule ActivityPub.Utils do
   end
 
   def is_ulid?(_), do: false
+
+  # def maybe_forward_activity(
+  #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
+  #     ) do
+  #   groups =
+  #     to
+  #     |> List.delete("https://www.w3.org/ns/activitystreams#Public")
+  #     |> Enum.map(&Actor.get_cached_by_ap_id!/1)
+  #     |> Enum.filter(fn actor ->
+  #       actor.data["type"] == "MN:Collection" or actor.data["type"] == "Group"
+  #     end)
+
+  #   groups
+  #   |> Enum.map(fn group ->
+  #     ActivityPub.create(%{
+  #       to: ["https://www.w3.org/ns/activitystreams#Public"],
+  #       object: object,
+  #       actor: group,
+  #       context: activity.data["context"],
+  #       additional: %{
+  #         "cc" => [group.data["followers"]],
+  #         "attributedTo" => activity.data["actor"]
+  #       }
+  #     })
+  #   end)
+  # end
+
+  # def maybe_forward_activity(_), do: :ok
 end

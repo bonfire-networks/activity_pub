@@ -8,7 +8,7 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPubWeb.Transmogrifier
   require Logger
 
-  @create_object_types ActivityPub.Utils.supported_object_types()
+  @supported_activity_types ActivityPub.Utils.supported_activity_types()
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
   @doc """
@@ -106,7 +106,7 @@ defmodule ActivityPub.Fetcher do
   end
 
   # Wrapping object in a create activity to easily pass it to the app's relational database.
-  defp insert_object(%{"type" => type} = data) when type in @create_object_types do
+  defp insert_object(%{"type" => type} = data) when type not in @supported_activity_types and type not in @supported_actor_types do
     with params <- %{
            "type" => "Create",
            "to" => data["to"],

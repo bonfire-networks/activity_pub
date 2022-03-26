@@ -40,10 +40,12 @@ defmodule ActivityPubTest do
         to: to
       }
 
-      # First time the function goes through fine and returns a Create activity
-      assert {:ok, %{data: %{"type" => "Create"}}} = ActivityPub.create(params)
-      # Second time the function gets halted when inserting object and returns the object
-      assert {:ok, %{data: %{"type" => "Note"}}} = ActivityPub.create(params)
+      # First time the function goes through fine and returns a Create activity and new object
+      {:ok, created} = ActivityPub.create(params)
+      assert %{data: %{"type" => "Create"}} = created
+      # Second time the function return the same object (in a new create activity)
+      {:ok, second} = ActivityPub.create(params)
+      assert created.object == second.object
     end
   end
 
@@ -285,22 +287,22 @@ defmodule ActivityPubTest do
            } = activity
   end
 
-  describe "activity forwarding" do
-    test "works" do
-      group_actor = community()
+  # describe "activity forwarding" do
+  #   test "works" do
+  #     group_actor = community()
 
-      activity =
-        insert(:note_activity, %{
-          data_attrs: %{
-            "to" => [group_actor.ap_id, "https://www.w3.org/ns/activitystreams#Public"]
-          }
-        })
+  #     activity =
+  #       insert(:note_activity, %{
+  #         data_attrs: %{
+  #           "to" => [group_actor.ap_id, "https://www.w3.org/ns/activitystreams#Public"]
+  #         }
+  #       })
 
-      [{:ok, forwarded_activity}] = ActivityPub.maybe_forward_activity(activity)
+  #     [{:ok, forwarded_activity}] = ActivityPub.maybe_forward_activity(activity)
 
-      assert forwarded_activity.data["actor"] == group_actor.ap_id
-      assert forwarded_activity.data["attributedTo"] == activity.data["actor"]
-      assert forwarded_activity.data["object"] == activity.data["object"]
-    end
-  end
+  #     assert forwarded_activity.data["actor"] == group_actor.ap_id
+  #     assert forwarded_activity.data["attributedTo"] == activity.data["actor"]
+  #     assert forwarded_activity.data["object"] == activity.data["object"]
+  #   end
+  # end
 end

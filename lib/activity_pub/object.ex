@@ -145,6 +145,10 @@ defmodule ActivityPub.Object do
     changeset(existing_object, attrs)
     |> update_and_set_cache()
   end
+  def maybe_upsert(_, %ActivityPub.Object{} = existing_object, _attrs) do
+    Logger.error("Attempted to insert an object that already exists")
+    {:ok, existing_object}
+  end
   def maybe_upsert(_, _, attrs) do
     insert(attrs)
   end

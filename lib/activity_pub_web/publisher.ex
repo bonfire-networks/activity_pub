@@ -146,7 +146,7 @@ defmodule ActivityPubWeb.Publisher do
     {:ok, data} = Transmogrifier.prepare_outgoing(activity.data)
     json = Jason.encode!(data)
 
-    # ActivityPub.maybe_forward_activity(activity)
+    # Utils.maybe_forward_activity(activity)
 
     recipients(actor, activity)
     |> Enum.map(fn actor ->

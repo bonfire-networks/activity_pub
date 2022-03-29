@@ -34,7 +34,7 @@ defmodule ActivityPubWeb.RedirectController do
 
   # incoming remote follow
   def remote_interaction(conn, %{"acct" => username_or_uri}) do
-    with {:ok, actor} <- ActivityPub.Actor.get_or_fetch(username_or_uri) |> IO.inspect,
+    with {:ok, actor} <- ActivityPub.Actor.get_or_fetch(username_or_uri), # |> IO.inspect,
     url when is_binary(url) <- Adapter.get_redirect_url(actor) do
       conn
         |> put_flash(:info, "Press the follow button again to confirm that you want to follow this remote user.")

@@ -24,6 +24,7 @@ defmodule ActivityPub.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import ActivityPub.DataCase
+      import Where
     end
   end
 

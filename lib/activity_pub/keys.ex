@@ -2,7 +2,7 @@ defmodule ActivityPub.Keys do
   @moduledoc """
   Generates RSA keys for HTTP message signatures
   """
-  require Logger
+  import Where
 
   def generate_rsa_pem() do
     key = :public_key.generate_key({:rsa, 2048, 65_537})
@@ -22,7 +22,7 @@ defmodule ActivityPub.Keys do
   end
 
   def keys_from_pem(pem) do
-    Logger.error("Could not get keys, expected a PEM but got #{inspect pem}")
+    error(pem, "Could not get keys, expected a PEM but got")
     {:error, "Could not find actor's keys"}
   end
 end

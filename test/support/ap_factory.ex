@@ -13,7 +13,7 @@ defmodule ActivityPub.Factory do
 
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and Code.ensure_loaded?(Bonfire.Me.Fake) do # TODO: make into a generic adapter callback?
       user = Bonfire.Me.Fake.fake_user!(attrs)
-      # |> IO.inspect()
+      # |> debug()
       {:ok, actor} = ActivityPub.Actor.get_by_username(user.character.username)
 
       %{

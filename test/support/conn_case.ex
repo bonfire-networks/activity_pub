@@ -25,6 +25,7 @@ defmodule ActivityPubWeb.ConnCase do
       import Phoenix.ConnTest
       import ActivityPubWeb.ConnCase
       import ActivityPub.Test.Helpers
+      import Where
 
       alias ActivityPubWeb.Router.Helpers, as: Routes
 

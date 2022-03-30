@@ -5,7 +5,7 @@ defmodule ActivityPub do
   In general, the functions in this module take object-like formatted struct as the input for actor parameters.
   Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_by_ap_id/1` for example) to retrieve those.
   """
-  require Logger
+  import Where
   alias ActivityPub.Actor
   alias ActivityPub.Adapter
   alias ActivityPub.Utils
@@ -67,7 +67,7 @@ defmodule ActivityPub do
       {:ok, activity}
     else
       %Object{} = object ->
-        Logger.error("ActivityPub - error with insert")
+        error("error while trying to insert, return the object instead")
         object
       error -> {:error, error}
     end
@@ -88,7 +88,7 @@ defmodule ActivityPub do
     additional = params[:additional] || %{}
 
     # only accept false as false value
-    local? = (params[:local] != false) |> IO.inspect(label: "AP local?")
+    local? = (params[:local] != false) |> debug("AP local?")
 
     with nil <- Object.normalize(additional["id"], false),
          create_data <-

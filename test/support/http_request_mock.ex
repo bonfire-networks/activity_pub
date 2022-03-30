@@ -1,5 +1,5 @@
 defmodule ActivityPub.Test.HttpRequestMock do
-  require Logger
+  import Where
   import ActivityPub.Test.Helpers
 
   def request(
@@ -15,7 +15,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
       res
     else
       {_, _r} = error ->
-        # Logger.warn(r)
+        # warn(r)
         error
     end
   end

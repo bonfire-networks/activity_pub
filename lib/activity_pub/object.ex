@@ -2,7 +2,7 @@ defmodule ActivityPub.Object do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
-  require Logger
+  import Where
 
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
@@ -114,11 +114,13 @@ defmodule ActivityPub.Object do
     object
     |> cast(attrs, [:id, :data, :local, :public, :pointer_id])
     |> validate_required(:data)
+    |> unique_constraint(:pointer_id)
+    |> unique_constraint(:ap_object__data____id_index, match: :exact)
   end
 
   def update(%ActivityPub.Object{} = object, attrs) do
     object
-    |> IO.inspect(label: "update")
+    |> debug("update")
     |> change(attrs)
     |> update_and_set_cache()
   end
@@ -129,7 +131,7 @@ defmodule ActivityPub.Object do
   end
 
   def update(other, attrs) do
-    Logger.error("no match for #{inspect other} in Activity.Object.update/2")
+    error(other, "no function matched")
     {:error, :not_found}
   end
 
@@ -146,7 +148,8 @@ defmodule ActivityPub.Object do
     |> update_and_set_cache()
   end
   def maybe_upsert(_, %ActivityPub.Object{} = existing_object, _attrs) do
-    Logger.error("Attempted to insert an object that already exists")
+    error("Attempted to insert an object that already exists")
+    debug(existing_object)
     {:ok, existing_object}
   end
   def maybe_upsert(_, _, attrs) do

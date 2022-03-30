@@ -1,6 +1,6 @@
 defmodule ActivityPubWeb.RedirectController do
   use ActivityPubWeb, :controller
-
+  import Where
   alias ActivityPub.Adapter
   alias ActivityPub.WebFinger
 
@@ -34,7 +34,7 @@ defmodule ActivityPubWeb.RedirectController do
 
   # incoming remote follow
   def remote_interaction(conn, %{"acct" => username_or_uri}) do
-    with {:ok, actor} <- ActivityPub.Actor.get_or_fetch(username_or_uri), # |> IO.inspect,
+    with {:ok, actor} <- ActivityPub.Actor.get_or_fetch(username_or_uri),
     url when is_binary(url) <- Adapter.get_redirect_url(actor) do
       conn
         |> put_flash(:info, "Press the follow button again to confirm that you want to follow this remote user.")
@@ -52,7 +52,7 @@ defmodule ActivityPubWeb.RedirectController do
     me = Map.get(params, "me") || Map.get(outgoing, "me")
     user_to_follow = Map.get(params, "follow") || Map.get(outgoing, "follow")
 
-    with {:ok, fingered} <- ActivityPub.WebFinger.finger(me) |> IO.inspect,
+    with {:ok, fingered} <- ActivityPub.WebFinger.finger(me) |> debug("fingered"),
     %{"subscribe_address" => subscribe_address} when is_binary(subscribe_address) <- fingered,
     true <- String.contains?(subscribe_address, "{uri}"),
     url <- String.replace(subscribe_address, "{uri}", user_to_follow) do

@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.Federator do
   alias ActivityPub.Workers.PublisherWorker
   alias ActivityPub.Workers.ReceiverWorker
 
-  require Logger
+  import Where
 
   def incoming_ap_doc(params) do
     ReceiverWorker.enqueue("incoming_ap_doc", %{"params" => params})
@@ -24,16 +24,20 @@ defmodule ActivityPubWeb.Federator do
   end
 
   def perform(:publish, activity) do
-    Logger.debug(fn -> "Running publish for #{activity.data["id"]}" end)
 
     with {:ok, actor} <- Actor.get_cached_by_ap_id(activity.data["actor"]),
          {:ok, actor} <- Actor.ensure_keys_present(actor) do
+
+      debug(activity.data["id"], "Running publish for")
       Publisher.publish(actor, activity)
+
+    else _ ->
+      error("Cannot publish because the actor is invalid")
     end
   end
 
   def perform(:incoming_ap_doc, params) do
-    Logger.info("Handling incoming AP activity")
+    debug("Handling incoming AP activity")
 
     params = Utils.normalize_params(params)
 
@@ -41,7 +45,7 @@ defmodule ActivityPubWeb.Federator do
   end
 
   def perform(type, _) do
-    Logger.debug(fn -> "Unknown task: #{type}" end)
+    error(type, "Unknown federator task")
     {:error, "Don't know what to do with this"}
   end
 end

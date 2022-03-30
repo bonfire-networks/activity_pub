@@ -6,13 +6,40 @@ defmodule ActivityPubWeb.Publisher do
   alias ActivityPub.Instances
   alias ActivityPubWeb.Transmogrifier
 
-  require Logger
+  import Where
 
   @behaviour ActivityPubWeb.Federator.Publisher
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
-  def is_representable?(_activity), do: true
+  def is_representable?(_activity), do: true # handle all types
+
+  def publish(actor, activity) do
+    {:ok, data} = Transmogrifier.prepare_outgoing(activity.data)
+    json = Jason.encode!(data)
+    |> debug("JSON ready to go")
+
+    # Utils.maybe_forward_activity(activity)
+
+    recipients(actor, activity)
+    |> debug("recipients")
+    |> Enum.map(fn actor ->
+      determine_inbox(activity, actor)
+    end)
+    |> Enum.uniq()
+    |> maybe_federate_to_search_index(activity)
+    |> Instances.filter_reachable()
+    |> debug("enqueue for")
+    |> Enum.each(fn {inbox, unreachable_since} ->
+      ActivityPubWeb.Federator.Publisher.enqueue_one(__MODULE__, %{
+        inbox: inbox,
+        json: json,
+        actor_username: actor.username,
+        id: activity.data["id"],
+        unreachable_since: unreachable_since
+      })
+    end)
+  end
 
   @doc """
   Publish a single message to a peer.  Takes a struct with the following
@@ -24,7 +51,7 @@ defmodule ActivityPubWeb.Publisher do
   * `id`: the ActivityStreams URI of the message
   """
   def publish_one(%{inbox: inbox, json: json, actor: %Actor{} = actor, id: id} = params) do
-    Logger.info("Federating #{id} to #{inbox}")
+    debug(inbox, "Federating #{id} to")
     %{host: host, path: path} = URI.parse(inbox)
 
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
@@ -131,7 +158,7 @@ defmodule ActivityPubWeb.Publisher do
       type == "Delete" ->
         maybe_use_sharedinbox(user)
 
-      @public_uri in to || @public_uri in cc ->
+      @public_uri in to or @public_uri in cc ->
         maybe_use_sharedinbox(user)
 
       length(to) + length(cc) > 1 ->
@@ -140,30 +167,6 @@ defmodule ActivityPubWeb.Publisher do
       true ->
         inbox
     end
-  end
-
-  def publish(actor, activity) do
-    {:ok, data} = Transmogrifier.prepare_outgoing(activity.data)
-    json = Jason.encode!(data)
-
-    # Utils.maybe_forward_activity(activity)
-
-    recipients(actor, activity)
-    |> Enum.map(fn actor ->
-      determine_inbox(activity, actor)
-    end)
-    |> Enum.uniq()
-    |> maybe_federate_to_search_index(activity)
-    |> Instances.filter_reachable()
-    |> Enum.each(fn {inbox, unreachable_since} ->
-      ActivityPubWeb.Federator.Publisher.enqueue_one(__MODULE__, %{
-        inbox: inbox,
-        json: json,
-        actor_username: actor.username,
-        id: activity.data["id"],
-        unreachable_since: unreachable_since
-      })
-    end)
   end
 
   def gather_webfinger_links(actor) do

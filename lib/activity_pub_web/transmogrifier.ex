@@ -9,7 +9,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
-  require Logger
+  import Where
 
   # TODO: make configurable
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
@@ -117,7 +117,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   defp can_delete_object?(ap_id) do
-    Logger.info("Checking delete permission for #{ap_id}")
+    debug(ap_id, "Checking delete permission for")
 
     case Fetcher.fetch_remote_object_from_id(ap_id) do
       {:error, "Object has been deleted"} -> true
@@ -271,7 +271,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       })
     else
       e ->
-        Logger.error(e)
+        error(e, "could not update")
         :error
     end
   end
@@ -388,7 +388,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def handle_incoming(data) do
-    Logger.warn("ActivityPub library - Unhandled activity - Storing it anyway...")
+    warn("ActivityPub library - Unhandled activity type - Storing it anyway...")
 
     {:ok, activity, _object} = Utils.insert_full_object(data)
     {:ok, activity} = handle_object(activity)

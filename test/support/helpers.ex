@@ -7,7 +7,7 @@ defmodule ActivityPub.Test.Helpers do
 
   def follow(actor_1, actor_2) do
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and Code.ensure_loaded?(Bonfire.Social.Follows) do # TODO: make into a generic adapter callback?
-      Bonfire.Social.Follows.follow(actor_1.user, actor_2.user) |> IO.inspect()
+      Bonfire.Social.Follows.follow(actor_1.user, actor_2.user)
     else
       ActivityPub.LocalActor.follow(actor_1, actor_2)
     end

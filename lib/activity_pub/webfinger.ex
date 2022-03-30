@@ -9,7 +9,7 @@ defmodule ActivityPub.WebFinger do
   alias ActivityPub.HTTP
   alias ActivityPubWeb.Federator.Publisher
 
-  require Logger
+  import Where
 
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.
@@ -37,8 +37,8 @@ defmodule ActivityPub.WebFinger do
       webfinger_from_json(doc)
     else
       e ->
-        Logger.debug(fn -> "Could not finger #{account}" end)
-        Logger.debug(fn -> inspect(e) end)
+        error(account, "Could not finger")
+        warn(e)
         {:error, e}
     end
   end
@@ -106,7 +106,7 @@ defmodule ActivityPub.WebFinger do
             Map.put(data, "subscribe_address", link["template"])
 
           _ ->
-            Logger.debug("Unhandled type: #{inspect(link["type"])}")
+            warn(link["type"], "Unhandled webfinger link type")
             data
         end
       end)

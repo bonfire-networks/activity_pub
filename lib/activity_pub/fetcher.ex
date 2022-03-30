@@ -6,7 +6,7 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPub.HTTP
   alias ActivityPub.Object
   alias ActivityPubWeb.Transmogrifier
-  require Logger
+  import Where
 
   @supported_activity_types ActivityPub.Utils.supported_activity_types()
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
@@ -54,7 +54,7 @@ defmodule ActivityPub.Fetcher do
   Fetches an AS2 object from remote AP ID.
   """
   def fetch_remote_object_from_id(id) do
-    Logger.info("Attempting to fetch ActivityPub object #{id}")
+    debug(id, "Attempting to fetch ActivityPub object")
 
     with true <- String.starts_with?(id, "http"),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
@@ -70,7 +70,7 @@ defmodule ActivityPub.Fetcher do
         {:error, "Object has been deleted"}
 
       %Jason.DecodeError{} = error ->
-        Logger.debug(error)
+        debug(error, "Invalid AP JSON")
         {:error, "Invalid AP JSON"}
 
       {:error, e} ->

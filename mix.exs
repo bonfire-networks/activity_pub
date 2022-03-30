@@ -64,7 +64,8 @@ defmodule ActivityPub.MixProject do
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
       {:pointers, "~> 0.3"},
-      {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false}
+      {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
+      {:where, git: "https://github.com/bonfire-networks/where", branch: "main"}
     ]
   end
 

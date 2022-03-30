@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   use ActivityPubWeb, :controller
 
-  require Logger
+  import Where
 
   alias ActivityPub.Actor
   alias ActivityPub.Fetcher
@@ -147,7 +147,8 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   # only accept relayed Creates
   def inbox(conn, %{"type" => "Create"} = params) do
-    Logger.info(
+    warn(
+      params,
       "Signature missing or not from author, relayed Create message, fetching object from source"
     )
 
@@ -165,11 +166,11 @@ defmodule ActivityPubWeb.ActivityPubController do
     headers = Enum.into(conn.req_headers, %{})
 
     if String.contains?(headers["signature"], params["actor"]) do
-      Logger.info(
-        "Signature validation error for: #{params["actor"]}, make sure you are forwarding the HTTP Host header!"
+      warn(
+        params["actor"],
+        "Signature validation error, make sure you are forwarding the HTTP Host header"
       )
-
-      Logger.info(inspect(conn.req_headers))
+      debug(conn.req_headers)
     end
 
     json(conn, dgettext("errors", "error"))

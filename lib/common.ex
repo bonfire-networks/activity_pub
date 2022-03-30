@@ -1,10 +1,10 @@
 defmodule ActivityPub.Common do
-  require Logger
+  import Where
 
   def repo, do: ActivityPub.Config.get!(:repo)
 
   def adapter_fallback() do
-    Logger.warn("Could not find ActivityPub adapter, falling back to TestAdapter")
+    warn("Could not find an ActivityPub adapter, falling back to TestAdapter")
 
     ActivityPub.TestAdapter
   end

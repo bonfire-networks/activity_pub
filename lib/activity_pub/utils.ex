@@ -499,15 +499,12 @@ defmodule ActivityPub.Utils do
   # def maybe_forward_activity(
   #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
   #     ) do
-  #   groups =
   #     to
   #     |> List.delete("https://www.w3.org/ns/activitystreams#Public")
   #     |> Enum.map(&Actor.get_cached_by_ap_id!/1)
   #     |> Enum.filter(fn actor ->
-  #       actor.data["type"] == "MN:Collection" or actor.data["type"] == "Group"
+  #       actor.data["type"] == "Group"
   #     end)
-
-  #   groups
   #   |> Enum.map(fn group ->
   #     ActivityPub.create(%{
   #       to: ["https://www.w3.org/ns/activitystreams#Public"],

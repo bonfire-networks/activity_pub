@@ -13,7 +13,7 @@ defmodule ActivityPub.Actor do
 
   import ActivityPub.Common
 
-  require Logger
+  import Where
 
   @type t :: %Actor{
           id: binary(),
@@ -34,7 +34,7 @@ defmodule ActivityPub.Actor do
   @spec update_actor(String.t()) :: {:ok, Actor.t()} | {:error, any()}
   def update_actor(actor_id) do
     # TODO: make better
-    Logger.info("Updating actor #{actor_id}")
+    debug(actor_id, "Updating actor")
 
     with {:ok, data} <- Fetcher.fetch_remote_object_from_id(actor_id),
          {:ok, object} <- update_actor_data_by_ap_id(actor_id, data),
@@ -81,7 +81,7 @@ defmodule ActivityPub.Actor do
       fetch_by_ap_id(ap_id)
     else
       e ->
-        IO.inspect(e)
+        debug(e)
         {:error, "No AP id in WebFinger"}
     end
   end
@@ -142,7 +142,7 @@ defmodule ActivityPub.Actor do
   end
 
   def format_remote_actor(%Object{} = actor) do
-    # IO.inspect(actor)
+    # debug(actor)
     username = actor.data["preferredUsername"] <> "@" <> URI.parse(actor.data["id"]).host
     data = actor.data
 
@@ -282,7 +282,7 @@ defmodule ActivityPub.Actor do
 
   def get_cached_by_username("@"<>username), do: get_cached_by_username(username)
   def get_cached_by_username(username) do
-    key = "username:#{username}" |> IO.inspect
+    key = "username:#{username}"
     try do
       case Cachex.fetch(:ap_actor_cache, key, fn ->
             case get_by_username(username) do
@@ -359,7 +359,7 @@ defmodule ActivityPub.Actor do
   def get_followers(actor) do
     followers =
       Adapter.get_follower_local_ids(actor)
-      |> IO.inspect(label: "followers")
+      |> debug("followers")
       |> Enum.map(&get_by_local_id!/1)
       # Filter nils
       |> Enum.filter(fn x -> x end)

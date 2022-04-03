@@ -106,7 +106,7 @@ defmodule ActivityPub.Fetcher do
   end
 
   # Wrapping object in a create activity to easily pass it to the app's relational database.
-  defp insert_object(%{"type" => type} = data) when type not in @supported_activity_types and type not in @supported_actor_types do
+  defp insert_object(%{"type" => type} = data) when type not in @supported_activity_types and type not in @supported_actor_types and type not in ["Collection"] do
     with params <- %{
            "type" => "Create",
            "to" => data["to"],

@@ -3,6 +3,8 @@ defmodule ActivityPub.Actor do
   An ActivityPub Actor type and functions for dealing with actors.
   """
   require Ecto.Query
+  import ActivityPub.Common
+  import Where
 
   alias ActivityPub.Actor
   alias ActivityPub.Adapter
@@ -11,9 +13,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.WebFinger
   alias ActivityPub.Object
 
-  import ActivityPub.Common
-
-  import Where
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
   @type t :: %Actor{
           id: binary(),
@@ -176,12 +176,13 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def maybe_create_actor_from_object(object) do
-    with actor <- format_remote_actor(object) do
+  def maybe_create_actor_from_object(%{data: %{"type" => type}} = actor) when type in @supported_actor_types do
+    with actor <- format_remote_actor(actor) do
       Adapter.maybe_create_remote_actor(actor)
       set_cache(actor)
     end
   end
+  def maybe_create_actor_from_object(object), do: object
 
 
   @doc """

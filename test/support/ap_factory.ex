@@ -97,7 +97,7 @@ defmodule ActivityPub.Factory do
     actor_object(id, username, attrs, true)
   end
 
-  defp actor_object(id, username, attrs, local? \\ nil) do
+  defp actor_object(id, username, attrs, local?) do
     data = %{
       "name" => sequence(:name, &"Test actor #{&1}"),
       "preferredUsername" => username,

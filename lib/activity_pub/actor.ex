@@ -260,6 +260,7 @@ defmodule ActivityPub.Actor do
       {:ok, actor} -> {:ok, actor}
       {:commit, actor} -> {:ok, actor}
       {:ignore, _} -> {:error, :not_found}
+      {:error, msg} -> {:error, msg}
     end
   end
 

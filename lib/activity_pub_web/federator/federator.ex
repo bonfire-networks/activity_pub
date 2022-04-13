@@ -24,15 +24,15 @@ defmodule ActivityPubWeb.Federator do
   end
 
   def perform(:publish, activity) do
-
-    with {:ok, actor} <- Actor.get_cached_by_ap_id(activity.data["actor"]),
+    actor_id = activity.data["actor"]
+    with {:ok, actor} <- Actor.get_cached_by_ap_id(actor_id),
          {:ok, actor} <- Actor.ensure_keys_present(actor) do
 
       debug(activity.data["id"], "Running publish for")
       Publisher.publish(actor, activity)
 
-    else _ ->
-      error("Cannot publish because the actor is invalid")
+    else e ->
+      error(e, "Cannot publish because the actor #{inspect actor_id} is invalid")
     end
   end
 

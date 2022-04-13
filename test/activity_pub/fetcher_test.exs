@@ -134,12 +134,12 @@ defmodule ActivityPubWeb.FetcherTest do
 
   describe "handles errors" do
     test "handle HTTP 410 Gone response" do
-      assert {:error, "Object has been deleted"} ==
+      assert {:error, "Object not found or deleted"} ==
                Fetcher.fetch_remote_object_from_id("https://pleroma.example/userisgone410")
     end
 
     test "handle HTTP 404 response" do
-      assert {:error, "Object has been deleted"} ==
+      assert {:error, "Object not found or deleted"} ==
                Fetcher.fetch_remote_object_from_id("https://pleroma.example/userisgone404")
     end
   end

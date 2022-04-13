@@ -2,7 +2,7 @@ defmodule ActivityPub.HTTP do
   @moduledoc """
   Module for building and performing HTTP requests.
   """
-
+  import Where
   alias ActivityPub.HTTP.Connection
   alias ActivityPub.HTTP.RequestBuilder, as: Builder
 
@@ -27,6 +27,7 @@ defmodule ActivityPub.HTTP do
       options =
         process_request_options(options)
         |> process_sni_options(url)
+        # |> info("options")
 
       params = Keyword.get(options, :params, [])
 
@@ -41,10 +42,10 @@ defmodule ActivityPub.HTTP do
       |> (&Tesla.request(Connection.new(options), &1)).()
     rescue
       e ->
-        {:error, e}
+        error(e, "HTTP request failed")
     catch
       :exit, e ->
-        {:error, e}
+        error(e, "HTTP request exited")
     end
   end
 

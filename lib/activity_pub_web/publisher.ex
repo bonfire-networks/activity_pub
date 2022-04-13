@@ -22,14 +22,14 @@ defmodule ActivityPubWeb.Publisher do
     # Utils.maybe_forward_activity(activity)
 
     recipients(actor, activity)
-    |> debug("recipients")
+    # |> info("recipients")
     |> Enum.map(fn actor ->
       determine_inbox(activity, actor)
     end)
     |> Enum.uniq()
     |> maybe_federate_to_search_index(activity)
     |> Instances.filter_reachable()
-    |> debug("enqueue for")
+    |> info("enqueue for")
     |> Enum.each(fn {inbox, unreachable_since} ->
       ActivityPubWeb.Federator.Publisher.enqueue_one(__MODULE__, %{
         inbox: inbox,
@@ -51,7 +51,7 @@ defmodule ActivityPubWeb.Publisher do
   * `id`: the ActivityStreams URI of the message
   """
   def publish_one(%{inbox: inbox, json: json, actor: %Actor{} = actor, id: id} = params) do
-    debug(inbox, "Federating #{id} to")
+    info(inbox, "Federating #{id} to")
     %{host: host, path: path} = URI.parse(inbox)
 
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())

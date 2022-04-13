@@ -6,7 +6,7 @@ defmodule ActivityPub.Utils do
   alias ActivityPub.Object
   alias Ecto.UUID
   import ActivityPub.Common
-
+  import Where
   import Ecto.Query
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
@@ -351,7 +351,7 @@ defmodule ActivityPub.Utils do
 
     %{
       "type" => "Create",
-      "to" => params.to |> Enum.uniq(),
+      "to" => params.to,
       "actor" => params.actor.data["id"],
       "object" => params.object,
       "published" => published,
@@ -448,8 +448,10 @@ defmodule ActivityPub.Utils do
   Enqueues an activity for federation if it's local
   """
   def maybe_federate(%Object{local: true} = activity) do
-    if Application.get_env(:activity_pub, :instance)[:federating] do
+    if Application.get_env(:activity_pub, :instance)[:federating] || System.get_env("TEST_INSTANCE")=="yes" do
       ActivityPubWeb.Federator.publish(activity)
+    else
+      warn("ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)")
     end
 
     :ok

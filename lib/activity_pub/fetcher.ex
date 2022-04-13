@@ -43,7 +43,7 @@ defmodule ActivityPub.Fetcher do
   def get_or_fetch_and_create(id) do
     with {:ok, object} <- fetch_object_from_id(id) do
       with %{data: %{"type" => type}} when type in @supported_actor_types <- object do
-        ActivityPub.Actor.maybe_create_actor_from_object(object)
+        {:ok, ActivityPub.Actor.maybe_create_actor_from_object(object)}
       else _ ->
         {:ok, object}
       end
@@ -67,17 +67,17 @@ defmodule ActivityPub.Fetcher do
       {:ok, data}
     else
       {:ok, %{status: code}} when code in [404, 410] ->
-        {:error, "Object has been deleted"}
+        warn(id, "404")
+        {:error, "Object not found or deleted"}
 
       %Jason.DecodeError{} = error ->
-        debug(error, "Invalid AP JSON")
-        {:error, "Invalid AP JSON"}
+        error("Invalid AP JSON")
 
       {:error, e} ->
-        {:error, e}
+        error(e)
 
       e ->
-        {:error, e}
+        error(e)
     end
   end
 

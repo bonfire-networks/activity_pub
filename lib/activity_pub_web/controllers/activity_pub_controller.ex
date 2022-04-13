@@ -14,6 +14,8 @@ defmodule ActivityPubWeb.ActivityPubController do
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
+  alias ActivityPub.Adapter
+
   alias ActivityPubWeb.ActorView
   alias ActivityPubWeb.Federator
   alias ActivityPubWeb.ObjectView
@@ -30,7 +32,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       RedirectController.object(conn, %{"uuid" => uuid})
     else # json
       if Utils.is_ulid?(uuid) do # querying by pointer
-        with %Object{} = object <- Object.get_cached_by_pointer_id(uuid),
+        with %Object{} = object <- Object.get_cached_by_pointer_id(uuid) || Adapter.maybe_publish_object(uuid),
             true <- object.public,
             true <- object.id != uuid do
           conn

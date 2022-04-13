@@ -25,7 +25,9 @@ defmodule ActivityPub.WebFinger do
           URI.parse(account).host
       end
 
-    address = "https://#{domain}/.well-known/webfinger?resource=acct:#{account}"
+    protocol = if Application.get_env(:activity_pub, :env) in [:test, :dev], do: "http", else: "https"
+
+    address = "#{protocol}://#{domain}/.well-known/webfinger?resource=acct:#{account}"
 
     with response <-
            HTTP.get(

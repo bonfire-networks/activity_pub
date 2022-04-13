@@ -45,8 +45,10 @@ defmodule ActivityPubWeb.Federator.Publisher do
     )
     |> Enum.each(fn module ->
       if module.is_representable?(activity) do
-        debug("Publishing #{activity.data["id"]} using #{inspect(module)}")
+        info("Publishing #{activity.data["id"]} using #{inspect(module)}")
         module.publish(user, activity)
+      else
+        {:error, "activity is not representable"}
       end
     end)
 

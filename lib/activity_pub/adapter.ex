@@ -69,6 +69,12 @@ defmodule ActivityPub.Adapter do
     adapter().base_url()
   end
 
+  @callback maybe_publish_object(String.t()) :: {:ok, any()} | {:error, any()}
+  def maybe_publish_object(object) do
+    adapter().maybe_publish_object(object)
+  end
+
+
   @doc """
   Gets local url of an AP object to redirect in browser. Can take pointer id or an actor username.
   """

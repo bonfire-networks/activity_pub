@@ -8,6 +8,7 @@
 import Config
 
 config :activity_pub,
+  env: Mix.env(),
   ecto_repos: [ActivityPub.Repo]
 
 # Configures the endpoint

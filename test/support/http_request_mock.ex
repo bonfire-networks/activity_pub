@@ -78,7 +78,23 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
+  def get("http://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space", _, _, _) do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/pleroma_webfinger.json")
+     }}
+  end
+
   def get("https://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/mastodon_webfinger.json")
+     }}
+  end
+
+  def get("http://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -104,7 +120,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   def get(url, query, body, headers) do
     {:error,
-     "Not implemented the mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{
+     "No implemented mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{
        inspect(headers)
      }"}
   end

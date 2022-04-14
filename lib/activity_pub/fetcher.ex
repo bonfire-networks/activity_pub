@@ -73,6 +73,9 @@ defmodule ActivityPub.Fetcher do
       %Jason.DecodeError{} = error ->
         error("Invalid AP JSON")
 
+      {:error, :econnrefused} = e ->
+        error("Could not connect")
+
       {:error, e} ->
         error(e)
 

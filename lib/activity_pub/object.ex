@@ -69,10 +69,11 @@ defmodule ActivityPub.Object do
   end
 
   def get_cached_by_pointer_id(pointer_id) do
+    # FIXME: this sometimes is called with a id/UUID and sometimes with a pointer_id/ULID
     key = "pointer_id:#{pointer_id}"
 
     Cachex.fetch!(:ap_object_cache, key, fn _ ->
-      object = get_by_pointer_id(pointer_id)
+      object = get_by_id(pointer_id)
 
       if object do
         {:commit, object}

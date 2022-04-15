@@ -119,8 +119,8 @@ defmodule ActivityPub.Actor do
   end
 
   defp get_local_actor(ap_id) do
-    username = username_from_ap_id(ap_id)
-    get_by_username(username)
+    username_from_ap_id(ap_id)
+    |> get_by_username()
   end
 
   defp get_remote_actor(ap_id) do

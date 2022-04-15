@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.RedirectController do
     object = ActivityPub.Object.get_cached_by_pointer_id(uuid)
     |> debug()
 
-    case Adapter.get_redirect_url(object) do
+    case Adapter.get_redirect_url(object || uuid) do
       nil ->
         conn
         |> send_resp(404, "Object not found or not permitted")

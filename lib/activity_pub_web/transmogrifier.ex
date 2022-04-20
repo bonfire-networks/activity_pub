@@ -245,7 +245,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     with actor <- Fetcher.get_actor(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         public <- Utils.public?(data),
+         public <- Utils.public?(data, object),
          {:ok, activity, _object} <- ActivityPub.announce(actor, object, id, false, public) do
       {:ok, activity}
     else

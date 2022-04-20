@@ -30,8 +30,8 @@ defmodule ActivityPub.Fetcher do
       {:ok, object}
     else
       with {:ok, data} <- contain_origin(data),
-           {:ok, object} <- insert_object(data),
-           :ok <- check_if_public(object.public) do
+           {:ok, object} <- insert_object(data) do
+          #  :ok <- check_if_public(object.public) do # huh?
         {:ok, object}
       else
         {:error, e} ->

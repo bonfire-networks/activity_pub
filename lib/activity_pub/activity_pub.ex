@@ -44,7 +44,7 @@ defmodule ActivityPub do
             id: activity_id,
             data: map,
             local: local?,
-            public: Utils.public?(map)
+            public: Utils.public?(map, object)
           })
         else # for activities without an object
           Object.insert(%{

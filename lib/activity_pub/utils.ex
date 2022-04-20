@@ -385,20 +385,17 @@ defmodule ActivityPub.Utils do
   @doc """
   Inserts a full object if it is contained in an activity.
   """
-  def insert_full_object(map, local \\ false, pointer \\ nil, upsert? \\ false)
+  def insert_full_object(activity, local \\ false, pointer \\ nil, upsert? \\ false)
 
-  def insert_full_object(%{"object" => %{"type" => type} = object_data} = map, local, pointer, upsert?)
+  def insert_full_object(%{"object" => %{"type" => type} = object_data} = activity, local, pointer, upsert?)
       when is_map(object_data) and type not in @supported_actor_types and type not in @supported_activity_types do
       # we're taking a shortcut by assuming that anything that doesn't seem like an actor or activity is an object (which is better than only supporting a specific list of object types)
     with maybe_existing_object <- Object.normalize(object_data, false), # check that it doesn't already exist
-         {:ok, data} <- prepare_data(object_data, local, pointer),
+         {:ok, data} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <- Object.maybe_upsert(upsert?, maybe_existing_object, data) do
-      # return an activity that contains the ID as object rather than the actual object
-      map =
-        map
-        |> Map.put("object", object.data["id"])
 
-      {:ok, map, object}
+      # return an activity that contains the ID as object rather than the actual object
+      {:ok, Map.put(activity, "object", object.data["id"]), object}
     end
   end
 
@@ -408,12 +405,12 @@ defmodule ActivityPub.Utils do
   Determines if an object or an activity is public.
   """
   def public?(data) do
-    recipients = (data["to"] || []) ++ (data["cc"] || [])
+    recipients = List.wrap(data["to"]) ++ List.wrap(data["cc"])
 
     cond do
       recipients == [] ->
-        # FIXME: should we really assume things are public by default?
-        true
+        # let's NOT assume things are public by default?
+        false
 
       Enum.member?(recipients, "https://www.w3.org/ns/activitystreams#Public") or Enum.member?(recipients, "Public") or Enum.member?(recipients, "as:Public") ->
         # see note at https://www.w3.org/TR/activitypub/#public-addressing
@@ -422,6 +419,24 @@ defmodule ActivityPub.Utils do
       true ->
         false
     end
+  end
+  def public?(activity_data, %{data: object_data}) do
+    public?(activity_data, object_data)
+  end
+  def public?(%{data: activity_data}, object_data) do
+    public?(activity_data, object_data)
+  end
+  def public?(%{"to" =>_} = activity_data, %{"to" =>_} = object_data) do
+    public?(activity_data) && public?(object_data)
+  end
+  def public?(%{"to" =>_} = activity_data, _) do
+    public?(activity_data)
+  end
+  def public?(_, %{"to" =>_} = object_data) do
+    public?(object_data)
+  end
+  def public?(_, _) do
+    false
   end
 
   def actor?(%{data: %{"type" => type}} = _object)
@@ -433,12 +448,12 @@ defmodule ActivityPub.Utils do
   @doc """
   Prepares a struct to be inserted into the objects table
   """
-  def prepare_data(data, local \\ false, pointer \\ nil) do
+  def prepare_data(data, local \\ false, pointer \\ nil, activity \\ nil) do
     data =
       %{}
       |> Map.put(:data, data)
       |> Map.put(:local, local)
-      |> Map.put(:public, public?(data))
+      |> Map.put(:public, public?(data, activity))
       |> Map.put(:pointer_id, pointer)
 
     {:ok, data}

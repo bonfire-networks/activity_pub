@@ -23,7 +23,7 @@ defmodule ActivityPubWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import ActivityPubWeb.ConnCase
+      # import ActivityPubWeb.ConnCase
       import ActivityPub.Test.Helpers
       import Where
 

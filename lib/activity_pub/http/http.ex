@@ -41,6 +41,8 @@ defmodule ActivityPub.HTTP do
       |> Enum.into([])
       |> (&Tesla.request(Connection.new(options), &1)).()
     rescue
+      e in Tesla.Mock.Error ->
+        error(e, :test_mock_error)
       e ->
         error(e, "HTTP request failed")
     catch

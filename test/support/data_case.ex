@@ -23,7 +23,7 @@ defmodule ActivityPub.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import ActivityPub.DataCase
+      # import ActivityPub.DataCase
       import Where
     end
   end

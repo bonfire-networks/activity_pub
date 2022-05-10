@@ -5,6 +5,12 @@ defmodule ActivityPubWeb.ActorView do
   alias ActivityPub.Actor
   alias ActivityPub.Utils
 
+  def actor_json(username) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      render("actor.json", %{actor: actor})
+    end
+  end
+
   def render("actor.json", %{actor: actor}) do
     {:ok, actor} = ActivityPub.Actor.ensure_keys_present(actor)
     {:ok, _, public_key} = ActivityPub.Keys.keys_from_pem(actor.keys)

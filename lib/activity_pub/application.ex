@@ -4,6 +4,7 @@ defmodule ActivityPub.Application do
   @moduledoc false
 
   use Application
+  require Cachex.Spec
 
   @name Mix.Project.config()[:name]
   @version Mix.Project.config()[:version]
@@ -14,6 +15,11 @@ defmodule ActivityPub.Application do
   def named_version, do: @name <> " " <> @version
   def repository, do: @repository
   def repo, do: Application.get_env(:activity_pub, :test_repo, ActivityPub.TestRepo)
+
+  @expiration Cachex.Spec.expiration(
+        default: 25_000,
+        interval: 1000
+  )
 
   if Mix.env() == :test do
     def start(_type, _args) do
@@ -36,8 +42,7 @@ defmodule ActivityPub.Application do
              [
                :ap_actor_cache,
                [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
+                 expiration: @expiration,
                  limit: 2500
                ]
              ]}
@@ -49,8 +54,7 @@ defmodule ActivityPub.Application do
              [
                :ap_object_cache,
                [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
+                 expiration: @expiration,
                  limit: 2500
                ]
              ]}
@@ -72,9 +76,8 @@ defmodule ActivityPub.Application do
              [
                :ap_actor_cache,
                [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
-                 limit: 2500
+                expiration: @expiration,
+                limit: 2500
                ]
              ]}
         },
@@ -85,8 +88,7 @@ defmodule ActivityPub.Application do
              [
                :ap_object_cache,
                [
-                 default_ttl: 25_000,
-                 ttl_interval: 1000,
+                 expiration: @expiration,
                  limit: 2500
                ]
              ]}

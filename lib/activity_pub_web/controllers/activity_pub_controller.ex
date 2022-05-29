@@ -175,7 +175,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       debug(conn.req_headers)
     end
 
-    json(conn, dgettext("errors", "error"))
+    json(conn, "error")
   end
 
   def noop(conn, _params) do

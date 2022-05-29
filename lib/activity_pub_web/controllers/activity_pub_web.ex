@@ -22,7 +22,6 @@ defmodule ActivityPubWeb do
       use Phoenix.Controller, namespace: ActivityPubWeb
 
       import Plug.Conn
-      import ActivityPubWeb.Gettext
       alias ActivityPubWeb.Router.Helpers, as: Routes
     end
   end
@@ -53,7 +52,6 @@ defmodule ActivityPubWeb do
   def channel do
     quote do
       use Phoenix.Channel
-      import ActivityPubWeb.Gettext
     end
   end
 
@@ -62,7 +60,6 @@ defmodule ActivityPubWeb do
       # Import basic rendering functionality (render, render_layout, etc)
       import Phoenix.View
 
-      import ActivityPubWeb.Gettext
       alias ActivityPubWeb.Router.Helpers, as: Routes
     end
   end

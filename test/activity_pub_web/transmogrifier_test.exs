@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
   import Tesla.Mock
 
   @mod_path __DIR__
-  def file(path), do: File.read!(@mod_path<>"/../../"<>path)
+  def file(path), do: File.read!(@mod_path<>"/../"<>path)
 
   setup do
     mock(fn
@@ -28,7 +28,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       activity = insert(:note_activity, %{note: note})
 
       data =
-        file("test/fixtures/mastodon-delete.json")
+        file("fixtures/mastodon-delete.json")
         |> Jason.decode!()
 
       object =
@@ -48,14 +48,14 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it errors when note still exists" do
       note_data =
-        file("test/fixtures/pleroma_note.json")
+        file("fixtures/pleroma_note.json")
         |> Jason.decode!()
 
       note = insert(:note, data: note_data)
       activity = insert(:note_activity, %{note: note})
 
       data =
-        file("test/fixtures/mastodon-delete.json")
+        file("fixtures/mastodon-delete.json")
         |> Jason.decode!()
 
       object =
@@ -77,7 +77,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert Object.get_by_ap_id(ap_id)
 
       data =
-        file("test/fixtures/mastodon-delete-user.json")
+        file("fixtures/mastodon-delete-user.json")
         |> Jason.decode!()
 
       {:ok, _} = Transmogrifier.handle_incoming(data)
@@ -87,7 +87,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it returns an error for incoming unlikes wihout a like activity" do
       data =
-        file("test/fixtures/mastodon-undo-like.json")
+        file("fixtures/mastodon-undo-like.json")
         |> Jason.decode!()
 
       assert Transmogrifier.handle_incoming(data) == :error
@@ -100,7 +100,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       delete_actor = insert(:actor)
 
       data =
-        file("test/fixtures/mastodon-like.json")
+        file("fixtures/mastodon-like.json")
         |> Jason.decode!()
         |> Map.put("object", note_activity.data["object"])
         |> Map.put("actor", delete_actor.data["id"])
@@ -120,7 +120,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       delete_actor = insert(:actor)
 
       like_data =
-        file("test/fixtures/mastodon-like.json")
+        file("fixtures/mastodon-like.json")
         |> Jason.decode!()
         |> Map.put("object", note_activity.data["object"])
         |> Map.put("actor", delete_actor.data["id"])
@@ -128,7 +128,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       {:ok, %Object{data: like_data, local: false}} = Transmogrifier.handle_incoming(like_data)
 
       data =
-        file("test/fixtures/mastodon-undo-like.json")
+        file("fixtures/mastodon-undo-like.json")
         |> Jason.decode!()
         |> Map.put("object", like_data)
         |> Map.put("actor", like_data["actor"])
@@ -146,7 +146,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       note = insert(:note)
 
       data =
-        file("test/fixtures/mastodon-announce.json")
+        file("fixtures/mastodon-announce.json")
         |> Jason.decode!()
         |> Map.put("actor", announce_actor.data["id"])
         |> Map.put("object", note.data["id"])
@@ -170,7 +170,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       announce_actor = insert(:actor)
 
       data =
-        file("test/fixtures/mastodon-announce.json")
+        file("fixtures/mastodon-announce.json")
         |> Jason.decode!()
         |> Map.put("object", note_activity.data["object"])
         |> Map.put("actor", announce_actor.data["id"])
@@ -193,7 +193,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       announce_actor = insert(:actor)
 
       announce_data =
-        file("test/fixtures/mastodon-announce.json")
+        file("fixtures/mastodon-announce.json")
         |> Jason.decode!()
         |> Map.put("actor", announce_actor.data["id"])
         |> Map.put("object", note_activity.data["object"])
@@ -202,7 +202,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
         Transmogrifier.handle_incoming(announce_data)
 
       data =
-        file("test/fixtures/mastodon-undo-announce.json")
+        file("fixtures/mastodon-undo-announce.json")
         |> Jason.decode!()
         |> Map.put("object", announce_data)
         |> Map.put("actor", announce_data["actor"])
@@ -243,10 +243,10 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     end
 
     test "it works for incoming update activities" do
-      data = file("test/fixtures/mastodon-post-activity.json") |> Jason.decode!()
+      data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 
       {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(data)
-      update_data = file("test/fixtures/mastodon-update.json") |> Jason.decode!()
+      update_data = file("fixtures/mastodon-update.json") |> Jason.decode!()
 
       {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])
 

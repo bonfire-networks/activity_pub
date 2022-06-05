@@ -3,7 +3,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   import ActivityPub.Test.Helpers
 
   @mod_path __DIR__
-  def file(path), do: File.read!(@mod_path<>"/../../"<>path)
+  def file(path), do: File.read!(@mod_path<>"/../"<>path)
 
   def request(
         %Tesla.Env{
@@ -29,7 +29,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/pleroma_note.json")
+       body: file("fixtures/pleroma_note.json")
      }}
   end
 
@@ -37,7 +37,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/pleroma_user_actor.json")
+       body: file("fixtures/pleroma_user_actor.json")
      }}
   end
 
@@ -45,7 +45,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/pleroma_user_actor2.json")
+       body: file("fixtures/pleroma_user_actor2.json")
      }}
   end
 
@@ -53,7 +53,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/pleroma_private_note.json")
+       body: file("fixtures/pleroma_private_note.json")
      }}
   end
 
@@ -61,7 +61,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/spoofed_pleroma_note.json")
+       body: file("fixtures/spoofed_pleroma_note.json")
      }}
   end
 
@@ -69,7 +69,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/moodlenet_person_actor.json")
+       body: file("fixtures/moodlenet_person_actor.json")
      }}
   end
 
@@ -77,7 +77,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/pleroma_webfinger.json")
+       body: file("fixtures/pleroma_webfinger.json")
      }}
   end
 
@@ -85,7 +85,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/pleroma_webfinger.json")
+       body: file("fixtures/pleroma_webfinger.json")
      }}
   end
 
@@ -93,7 +93,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/mastodon_webfinger.json")
+       body: file("fixtures/mastodon_webfinger.json")
      }}
   end
 
@@ -101,7 +101,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/mastodon_webfinger.json")
+       body: file("fixtures/mastodon_webfinger.json")
      }}
   end
 
@@ -109,7 +109,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/mastdon-actor.json")
+       body: file("fixtures/mastdon-actor.json")
      }}
   end
 
@@ -117,7 +117,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: File.read!(test_path()<>"/fixtures/mastdon-actor.json")
+       body: file("fixtures/mastdon-actor.json")
      }}
   end
 

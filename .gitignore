@@ -31,3 +31,4 @@ activity_pub-*.tar
 .cache/
 .mix/
 data/
+.vscode

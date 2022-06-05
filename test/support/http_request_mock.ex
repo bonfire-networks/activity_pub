@@ -69,7 +69,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("fixtures/moodlenet_person_actor.json")
+       body: file("fixtures/mooglenet_person_actor.json")
      }}
   end
 

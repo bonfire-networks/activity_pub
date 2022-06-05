@@ -1,7 +1,11 @@
 import ActivityPub.Test.Helpers
 
 {:ok, _} = Application.ensure_all_started(:ex_machina)
-ExUnit.start()
+
+ExUnit.start(
+  exclude: [:skip, :todo, :fixme],
+  capture_log: true
+)
 
 {:ok, _} = Ecto.Adapters.Postgres.ensure_all_started(repo(), :temporary)
 

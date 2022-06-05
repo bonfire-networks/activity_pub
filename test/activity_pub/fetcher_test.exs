@@ -62,7 +62,7 @@ defmodule ActivityPub.FetcherTest do
       {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
 
-      assert object2 == object2
+      assert object1 == object2
     end
 
     test "fetches a same mastodon actor by AP ID and a 3rd URL" do

@@ -34,7 +34,7 @@ defmodule ActivityPub.MixProject do
 
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
   #
@@ -59,7 +59,7 @@ defmodule ActivityPub.MixProject do
        ref: "293d77bb6f4a67ac8bde1428735c3b42f22cbb30"},
       {:timex, "~> 3.5"},
       {:cachex, "~> 3.2"},
-      {:ex_machina, "~> 2.3", only: [:dev, :test]},
+      {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
       {:pointers, "~> 0.3"},

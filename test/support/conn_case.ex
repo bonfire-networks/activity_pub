@@ -18,6 +18,7 @@ defmodule ActivityPubWeb.ConnCase do
   @repo Application.get_env(:activity_pub, :repo)
 
   use ExUnit.CaseTemplate
+  import ActivityPub.Test.Helpers
 
   @repo Application.get_env(:activity_pub, :test_repo, Application.get_env(:activity_pub, :repo))
 
@@ -26,23 +27,24 @@ defmodule ActivityPubWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import ActivityPubWeb.ConnCase
+      # import ActivityPubWeb.ConnCase
+      import ActivityPub.Test.Helpers
+      import Where
 
       alias ActivityPubWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
-      @endpoint ActivityPubWeb.Endpoint
-      @repo unquote(@repo)
+      @endpoint endpoint()
     end
   end
 
   setup tags do
     Cachex.clear(:ap_actor_cache)
     Cachex.clear(:ap_object_cache)
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(@repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(@repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(repo(), {:shared, self()})
     end
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}

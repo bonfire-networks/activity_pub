@@ -76,8 +76,8 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       media_message = build_media_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(media_message) == {:ok, media_message}
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(media_message, false) == {:ok, media_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
 
     test "has a matching host" do
@@ -85,25 +85,25 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       media_message = build_media_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(media_message) ==
+      assert SimplePolicy.filter(media_message, false) ==
                {:ok,
                 media_message
                 |> Map.put("object", Map.delete(media_message["object"], "attachment"))}
 
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :media_removal], ["*.remote.instance"])
+      Config.put([:mrf_simple, :media_removal], ["*remote.instance"])
       media_message = build_media_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(media_message) ==
+      assert SimplePolicy.filter(media_message, false) ==
                {:ok,
                 media_message
                 |> Map.put("object", Map.delete(media_message["object"], "attachment"))}
 
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
   end
 
@@ -113,8 +113,8 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       media_message = build_media_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(media_message) == {:ok, media_message}
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(media_message, false) == {:ok, media_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
 
     test "has a matching host" do
@@ -122,27 +122,27 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       media_message = build_media_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(media_message) ==
+      assert SimplePolicy.filter(media_message, false) ==
                {:ok,
                 media_message
                 |> put_in(["object", "tag"], ["foo", "nsfw"])
                 |> put_in(["object", "sensitive"], true)}
 
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :media_nsfw], ["*.remote.instance"])
+      Config.put([:mrf_simple, :media_nsfw], ["*remote.instance"])
       media_message = build_media_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(media_message) ==
+      assert SimplePolicy.filter(media_message, false) ==
                {:ok,
                 media_message
                 |> put_in(["object", "tag"], ["foo", "nsfw"])
                 |> put_in(["object", "sensitive"], true)}
 
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
   end
 
@@ -152,8 +152,8 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       report_message = build_report_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(report_message) == {:ok, report_message}
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert SimplePolicy.filter(report_message, false) == {:ok, report_message}
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
 
     test "has a matching host" do
@@ -161,17 +161,17 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       report_message = build_report_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(report_message) == {:reject, nil}
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert {:reject, _} = SimplePolicy.filter(report_message, false)
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :report_removal], ["*.remote.instance"])
+      Config.put([:mrf_simple, :report_removal], ["*remote.instance"])
       report_message = build_report_message()
       local_message = build_local_message()
 
-      assert SimplePolicy.filter(report_message) == {:reject, nil}
-      assert SimplePolicy.filter(local_message) == {:ok, local_message}
+      assert {:reject, _} = SimplePolicy.filter(report_message, false)
+      assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
   end
 
@@ -181,7 +181,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_message = build_remote_message()
 
-      assert SimplePolicy.filter(remote_message) == {:ok, remote_message}
+      assert SimplePolicy.filter(remote_message, false) == {:ok, remote_message}
     end
 
     test "has a matching host" do
@@ -189,15 +189,15 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_message = build_remote_message()
 
-      assert SimplePolicy.filter(remote_message) == {:reject, nil}
+      assert {:reject, _} = SimplePolicy.filter(remote_message, false)
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :reject], ["*.remote.instance"])
+      Config.put([:mrf_simple, :reject], ["*remote.instance"])
 
       remote_message = build_remote_message()
 
-      assert SimplePolicy.filter(remote_message) == {:reject, nil}
+      assert {:reject, _} = SimplePolicy.filter(remote_message, false)
     end
   end
 
@@ -207,7 +207,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_user = build_remote_user()
 
-      assert SimplePolicy.filter(remote_user) == {:ok, remote_user}
+      assert SimplePolicy.filter(remote_user, false) == {:ok, remote_user}
     end
 
     test "is not empty but it doesn't have a matching host" do
@@ -215,23 +215,23 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_user = build_remote_user()
 
-      assert SimplePolicy.filter(remote_user) == {:ok, remote_user}
+      assert SimplePolicy.filter(remote_user, false) == {:ok, remote_user}
     end
 
     test "has a matching host" do
       Config.put([:mrf_simple, :avatar_removal], ["remote.instance"])
 
       remote_user = build_remote_user()
-      {:ok, filtered} = SimplePolicy.filter(remote_user)
+      {:ok, filtered} = SimplePolicy.filter(remote_user, false)
 
       refute filtered["icon"]
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :avatar_removal], ["*.remote.instance"])
+      Config.put([:mrf_simple, :avatar_removal], ["*remote.instance"])
 
       remote_user = build_remote_user()
-      {:ok, filtered} = SimplePolicy.filter(remote_user)
+      {:ok, filtered} = SimplePolicy.filter(remote_user, false)
 
       refute filtered["icon"]
     end
@@ -243,7 +243,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_user = build_remote_user()
 
-      assert SimplePolicy.filter(remote_user) == {:ok, remote_user}
+      assert SimplePolicy.filter(remote_user, false) == {:ok, remote_user}
     end
 
     test "is not empty but it doesn't have a matching host" do
@@ -251,23 +251,23 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
       remote_user = build_remote_user()
 
-      assert SimplePolicy.filter(remote_user) == {:ok, remote_user}
+      assert SimplePolicy.filter(remote_user, false) == {:ok, remote_user}
     end
 
     test "has a matching host" do
       Config.put([:mrf_simple, :banner_removal], ["remote.instance"])
 
       remote_user = build_remote_user()
-      {:ok, filtered} = SimplePolicy.filter(remote_user)
+      {:ok, filtered} = SimplePolicy.filter(remote_user, false)
 
       refute filtered["image"]
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :banner_removal], ["*.remote.instance"])
+      Config.put([:mrf_simple, :banner_removal], ["*remote.instance"])
 
       remote_user = build_remote_user()
-      {:ok, filtered} = SimplePolicy.filter(remote_user)
+      {:ok, filtered} = SimplePolicy.filter(remote_user, false)
 
       refute filtered["image"]
     end

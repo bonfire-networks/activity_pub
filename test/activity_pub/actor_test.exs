@@ -7,7 +7,7 @@ defmodule ActivityPub.ActorTest do
   import ActivityPub.Factory
 
   setup do
-    mock(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 
@@ -26,14 +26,29 @@ defmodule ActivityPub.ActorTest do
     actor_2 = local_actor()
     actor_3 = local_actor()
 
-    ActivityPub.LocalActor.follow(actor_1, actor_2)
-    ActivityPub.LocalActor.follow(actor_3, actor_2)
+    follow(actor_1, actor_2)
+    follow(actor_3, actor_2)
 
     {:ok, ap_actor_2} = Actor.get_by_ap_id(actor_2.data["id"])
 
     {:ok, actors} = Actor.get_followers(ap_actor_2)
     assert length(actors) == 2
   end
+
+  # FIXME: not implemented in TestAdapter
+  # test "followings/1" do
+  #   actor_1 = local_actor()
+  #   actor_2 = local_actor()
+  #   actor_3 = local_actor()
+
+  #   follow(actor_2, actor_1)
+  #   follow(actor_2, actor_3)
+
+  #   {:ok, ap_actor_2} = Actor.get_by_ap_id(actor_2.data["id"])
+
+  #   {:ok, actors} = Actor.get_followings(ap_actor_2)
+  #   assert length(actors) == 2
+  # end
 
   test "fetch_by_username/1" do
     {:ok, actor} = Actor.fetch_by_username("karen@kawen.space")

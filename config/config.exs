@@ -5,9 +5,10 @@
 # is restricted to this project.
 
 # General application configuration
-use Mix.Config
+import Config
 
 config :activity_pub,
+  env: Mix.env(),
   ecto_repos: [ActivityPub.Repo]
 
 # Configures the endpoint
@@ -26,6 +27,13 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+config :mime, :types, %{
+  "application/json" => ["json"],
+  "application/activity+json" => ["activity+json"],
+  "application/ld+json" => ["ld+json"],
+  "application/jrd+json" => ["jrd+json"]
+}
+
 config :activity_pub, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]
 
 config :activity_pub, :mrf_simple,
@@ -41,7 +49,8 @@ config :activity_pub, :instance,
   federation_publisher_modules: [ActivityPubWeb.Publisher],
   federation_reachability_timeout_days: 7,
   federating: true,
-  rewrite_policy: []
+  rewrite_policy: [],
+  handle_unknown_activities: false
 
 config :activity_pub, :http,
   proxy_url: nil,

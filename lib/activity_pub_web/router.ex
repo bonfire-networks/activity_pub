@@ -4,15 +4,19 @@ defmodule ActivityPubWeb.Router do
 
     quote do
       pipeline :well_known do
-        plug(:accepts, ["json", "jrd+json"])
+        plug(:accepts, ["json", "jrd+json", "activity+json", "ld+json"])
       end
 
       pipeline :activity_pub do
-        plug(:accepts, ["activity+json", "json", "html"])
+        plug(:accepts, ["activity+json", "ld+json", "json", "html"])
+      end
+
+      pipeline :browser do
+        plug(:accepts, ["html"])
       end
 
       pipeline :signed_activity_pub do
-        plug(:accepts, ["activity+json", "json"])
+        plug(:accepts, ["activity+json", "ld+json", "json"])
         plug(ActivityPubWeb.Plugs.HTTPSignaturePlug)
       end
 
@@ -29,7 +33,7 @@ defmodule ActivityPubWeb.Router do
         get "/actors/:username", ActivityPubController, :actor
         get "/actors/:username/followers", ActivityPubController, :followers
         get "/actors/:username/following", ActivityPubController, :following
-        get "/actors/:username/outbox", ActivityPubController, :noop
+        get "/actors/:username/outbox", ActivityPubController, :outbox
       end
 
       scope unquote(ap_base_path), ActivityPubWeb do
@@ -37,6 +41,13 @@ defmodule ActivityPubWeb.Router do
 
         post "/actors/:username/inbox", ActivityPubController, :inbox
         post "/shared_inbox", ActivityPubController, :inbox
+      end
+
+      scope unquote(ap_base_path), ActivityPubWeb do
+        pipe_through(:browser)
+
+        get "/remote_interaction", RedirectController, :remote_interaction
+        post "/remote_interaction", RedirectController, :remote_interaction
       end
     end
   end

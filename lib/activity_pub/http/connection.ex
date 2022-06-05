@@ -9,10 +9,10 @@ defmodule ActivityPub.HTTP.Connection do
     follow_redirect: true,
     pool: :federation
   ]
-  @adapter Application.get_env(:tesla, :adapter)
 
   def new(opts \\ []) do
-    Tesla.client([], {@adapter, hackney_options(opts)})
+    adapter = Application.get_env(:tesla, :adapter)
+    Tesla.client([], {adapter, hackney_options(opts)})
   end
 
   def hackney_options(opts) do

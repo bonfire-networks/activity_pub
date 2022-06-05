@@ -5,6 +5,7 @@ defmodule ActivityPub do
   In general, the functions in this module take object-like formatted struct as the input for actor parameters.
   Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_by_ap_id/1` for example) to retrieve those.
   """
+  import Where
   alias ActivityPub.Actor
   alias ActivityPub.Adapter
   alias ActivityPub.Utils
@@ -12,36 +13,7 @@ defmodule ActivityPub do
   alias ActivityPub.MRF
   import ActivityPub.Common
 
-  @public_uri "https://www.w3.org/ns/activitystreams#Public"
-
-
-  def maybe_forward_activity(
-        %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
-      ) do
-    groups =
-      to
-      |> List.delete(@public_uri)
-      |> Enum.map(&Actor.get_by_ap_id!/1)
-      |> Enum.filter(fn actor ->
-        actor.data["type"] == "MN:Collection" or actor.data["type"] == "Group"
-      end)
-
-    groups
-    |> Enum.map(fn group ->
-      ActivityPub.create(%{
-        to: [@public_uri],
-        object: object,
-        actor: group,
-        context: activity.data["context"],
-        additional: %{
-          "cc" => [group.data["followers"]],
-          "attributedTo" => activity.data["actor"]
-        }
-      })
-    end)
-  end
-
-  def maybe_forward_activity(_), do: :ok
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
   defp check_actor_is_active(actor) do
     if not is_nil(actor) do
@@ -57,29 +29,32 @@ defmodule ActivityPub do
   end
 
   @doc false
-  def insert(map, local, pointer \\ nil) when is_map(map) and is_boolean(local) do
-    with map <- Utils.lazy_put_activity_defaults(map),
+  def insert(map, local?, pointer \\ nil, upsert? \\ false) when is_map(map) and is_boolean(local?) do
+    with activity_id <- Ecto.UUID.generate(),
+         %{} = map <- Utils.lazy_put_activity_defaults(map, activity_id),
          :ok <- check_actor_is_active(map["actor"]),
          # set some healthy boundaries
-         {:ok, map} <- MRF.filter(map),
-         # insert the object
-         {:ok, map, object} <- Utils.insert_full_object(map, local, pointer) do
-      # insert the activity (containing only an ID as object)
-      {:ok, activity} =
-        if is_nil(object) do
+         {:ok, map} <- MRF.filter(map, local?),
+         # first insert the object
+         {:ok, map, object} <- Utils.insert_full_object(map, local?, pointer, upsert?),
+      # then insert the activity (containing only an ID as object)
+         {:ok, activity} <- (
+        if not is_nil(object) do
           Object.insert(%{
+            id: activity_id,
             data: map,
-            local: local,
+            local: local?,
+            public: Utils.public?(map, object)
+          })
+        else # for activities without an object
+          Object.insert(%{
+            id: activity_id,
+            data: map,
+            local: local?,
             public: Utils.public?(map),
             pointer_id: pointer
           })
-        else
-          Object.insert(%{
-            data: map,
-            local: local,
-            public: Utils.public?(map)
-          })
-        end
+        end) do
 
       # Splice in the child object if we have one.
       activity =
@@ -91,7 +66,9 @@ defmodule ActivityPub do
 
       {:ok, activity}
     else
-      %Object{} = object -> object
+      %Object{} = object ->
+        error("error while trying to insert, return the object instead")
+        object
       error -> {:error, error}
     end
   end
@@ -99,21 +76,27 @@ defmodule ActivityPub do
   @doc """
   Generates and federates a Create activity via the data passed through `params`.
   """
-  @spec create(%{to: [any()], actor: Actor.t(), context: binary(), object: map()}) ::
+  @spec create(%{
+          :to => [any()],
+          :actor => Actor.t(),
+          :context => binary(),
+          :object => map(),
+          optional(atom()) => any()
+        }) ::
           {:ok, Object.t()} | {:error, any()}
   def create(%{to: to, actor: actor, context: context, object: object} = params, pointer \\ nil) do
     additional = params[:additional] || %{}
+
     # only accept false as false value
-    local = !(params[:local] == false)
-    published = params[:published]
+    local? = (params[:local] != false) |> debug("AP local?")
 
     with nil <- Object.normalize(additional["id"], false),
          create_data <-
            Utils.make_create_data(
-             %{to: to, actor: actor, published: published, context: context, object: object},
+             %{to: to, actor: actor, published: params[:published], context: context, object: object},
              additional
            ),
-         {:ok, activity} <- insert(create_data, local, pointer),
+         {:ok, activity} <- insert(create_data, local?, pointer),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
       {:ok, activity}
@@ -126,7 +109,12 @@ defmodule ActivityPub do
   @doc """
   Generates and federates an Accept activity via the data passed through `params`.
   """
-  @spec accept(%{to: [any()], actor: Actor.t(), object: map()}) ::
+  @spec accept(%{
+          :to => [any()],
+          :actor => Actor.t(),
+          :object => map() | binary(),
+          optional(atom()) => any()
+        }) ::
           {:ok, Object.t()} | {:error, any()}
   def accept(%{to: to, actor: actor, object: object} = params) do
     # only accept false as false value
@@ -175,7 +163,7 @@ defmodule ActivityPub do
   @spec follow(
           follower :: Actor.t(),
           follower :: Actor.t(),
-          activity_id :: binary(),
+          activity_id :: binary() | nil,
           local :: boolean()
         ) :: {:ok, Object.t()} | {:error, any()}
   def follow(follower, followed, activity_id \\ nil, local \\ true) do
@@ -193,7 +181,7 @@ defmodule ActivityPub do
   @spec unfollow(
           follower :: Actor.t(),
           follower :: Actor.t(),
-          activity_id :: binary(),
+          activity_id :: binary() | nil,
           local :: boolean()
         ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(follower, followed, activity_id \\ nil, local \\ true) do
@@ -253,17 +241,19 @@ defmodule ActivityPub do
           Object.t(),
           activity_id :: binary() | nil,
           local :: boolean(),
-          public :: boolean()
+          public :: boolean(),
+          summary :: binary() | nil
         ) :: {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def announce(
         %{data: %{"id" => _}} = actor,
         %Object{data: %{"id" => _}} = object,
         activity_id \\ nil,
         local \\ true,
-        public \\ true
+        public \\ true,
+        summary \\ nil
       ) do
     with true <- Utils.public?(object.data),
-         announce_data <- Utils.make_announce_data(actor, object, activity_id, public),
+         announce_data <- Utils.make_announce_data(actor, object, activity_id, public, summary),
          {:ok, activity} <- insert(announce_data, local),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
@@ -293,7 +283,13 @@ defmodule ActivityPub do
     end
   end
 
-  @spec update(%{to: [any()], cc: [any()], actor: Actor.t(), object: map()}) ::
+  @spec update(%{
+          :to => [any()],
+          :cc => [any()],
+          :actor => Actor.t(),
+          :object => map(),
+          optional(atom()) => any()
+        }) ::
           {:ok, Object.t()} | {:error, any()}
   def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
     # only accept false as false value
@@ -303,10 +299,10 @@ defmodule ActivityPub do
            "to" => to,
            "cc" => cc,
            "type" => "Update",
-           "actor" => actor,
+           "actor" => actor.data["id"],
            "object" => object
          },
-         {:ok, activity} <- insert(data, local),
+         {:ok, activity} <- insert(data, local, nil, true),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
       {:ok, activity}
@@ -351,18 +347,10 @@ defmodule ActivityPub do
 
   def delete(object, local \\ true, delete_actor \\ nil)
 
-  @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary()) ::
+  @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary() | nil) ::
           {:ok, Object.t()} | {:error, any()}
   def delete(%{data: %{"id" => id, "type" => type}} = actor, local, delete_actor)
-      when type in [
-             "Person",
-             "Application",
-             "Service",
-             "Organization",
-             "Group",
-             "MN:Community",
-             "MN:Collection"
-           ] do
+      when type in @supported_actor_types do
     to = [actor.data["followers"]]
 
     with data <- %{
@@ -399,11 +387,12 @@ defmodule ActivityPub do
 
   # Not 100% sure about the types here
   @spec flag(%{
-          actor: Actor.t(),
-          context: binary(),
-          account: Actor.t(),
-          statuses: [any()],
-          content: binary()
+          :actor => Actor.t(),
+          :context => binary(),
+          :account => Actor.t(),
+          :statuses => [any()],
+          :content => binary(),
+          optional(atom()) => any()
         }) :: {:ok, Object.t()} | {:error, any()}
   def flag(
         %{

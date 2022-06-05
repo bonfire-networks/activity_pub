@@ -6,7 +6,7 @@
       "@language": "en",
       "Emoji": "toot:Emoji",
       "Hashtag": "as:Hashtag",
-      "MoodleNet": "http://vocab.moodle.net/",
+      "MoodleNet": "http://vocab.moogle.net/",
       "PropertyValue": "schema:PropertyValue",
       "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
       "schema": "http://schema.org",
@@ -16,21 +16,21 @@
       "value": "schema:value"
     }
   ],
-  "attributedToInv": "http://home.next.moodle.net/205",
+  "attributedToInv": "http://home.next.moogle.net/205",
   "endpoints": {
-    "sharedInbox": "http://home.next.moodle.net/shared_inbox"
+    "sharedInbox": "http://home.next.moogle.net/shared_inbox"
   },
-  "followers": "http://home.next.moodle.net/3",
-  "following": "http://home.next.moodle.net/4",
+  "followers": "http://home.next.moogle.net/3",
+  "following": "http://home.next.moogle.net/4",
   "icon": {
     "type": "Image",
     "url": "https://mayel.space/assets/images/profile.jpg"
   },
-  "id": "http://home.next.moodle.net/1",
-  "inbox": "http://home.next.moodle.net/6",
-  "liked": "http://home.next.moodle.net/2",
+  "id": "http://home.next.moogle.net/1",
+  "inbox": "http://home.next.moogle.net/6",
+  "liked": "http://home.next.moogle.net/2",
   "name": "Mayel",
-  "outbox": "http://home.next.moodle.net/5",
+  "outbox": "http://home.next.moogle.net/5",
   "summary": "Hello world!",
   "type": "Person"
 }

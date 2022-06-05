@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.WebFinger do
@@ -10,27 +9,55 @@ defmodule ActivityPub.WebFinger do
   alias ActivityPub.HTTP
   alias ActivityPubWeb.Federator.Publisher
 
-  require Logger
+  import Where
+
+  @doc """
+  Fetches webfinger data for an account given in "@username@domain.tld" format.
+  """
+  def finger(account) do
+    account = String.trim_leading(account, "@")
+
+    domain =
+      with [_name, domain] <- String.split(account, "@") do
+        domain
+      else
+        _e ->
+          URI.parse(account).host
+      end
+
+    protocol = if Application.get_env(:activity_pub, :env) in [:test, :dev], do: "http", else: "https"
+
+    address = "#{protocol}://#{domain}/.well-known/webfinger?resource=acct:#{account}"
+
+    with response <-
+           HTTP.get(
+             address,
+             Accept: "application/jrd+json"
+           ),
+         {:ok, %{status: status, body: body}} when status in 200..299 <- response,
+         {:ok, doc} <- Jason.decode(body) do
+      webfinger_from_json(doc)
+    else
+      e ->
+        error(account, "Could not finger")
+        warn(e)
+        {:error, e}
+    end
+  end
 
   @doc """
   Serves a webfinger response for the requested username.
   """
-  def webfinger(resource) do
-    host = Application.get_env(:activity_pub, :instance)[:hostname]
-    regex = ~r/(acct:)?(?<username>[a-z0-9A-Z_\.-]+)@#{host}/
+  def output("acct:"<>resource), do: output(resource)
+  def output(resource) do
+    host = URI.parse(ActivityPub.Adapter.base_url()).host
 
-    with %{"username" => username} <- Regex.named_captures(regex, resource),
+    with %{"username" => username} <- Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)@#{host}/, resource) || Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
          {:ok, actor} <- Actor.get_cached_by_username(username) do
       {:ok, represent_user(actor)}
     else
-      _e ->
-        case Actor.get_cached_by_ap_id(resource) do
-          {:ok, actor} ->
-            {:ok, represent_user(actor)}
-
-          _ ->
-            {:error, "Couldn't find"}
-        end
+      _ ->
+        {:error, "Could not find such a user"}
     end
   end
 
@@ -48,7 +75,7 @@ defmodule ActivityPub.WebFinger do
   Formats gathered data into a JRD format.
   """
   def represent_user(actor) do
-    host = Application.get_env(:activity_pub, :instance)[:hostname]
+    host = URI.parse(ActivityPub.Adapter.base_url()).host
 
     %{
       "subject" => "acct:#{actor.data["preferredUsername"]}@#{host}",
@@ -81,7 +108,7 @@ defmodule ActivityPub.WebFinger do
             Map.put(data, "subscribe_address", link["template"])
 
           _ ->
-            Logger.debug("Unhandled type: #{inspect(link["type"])}")
+            warn(link["type"], "Unhandled webfinger link type")
             data
         end
       end)
@@ -89,35 +116,5 @@ defmodule ActivityPub.WebFinger do
     {:ok, data}
   end
 
-  @doc """
-  Fetches webfinger data for an account given in "@username@domain.tld" format.
-  """
-  def finger(account) do
-    account = String.trim_leading(account, "@")
 
-    domain =
-      with [_name, domain] <- String.split(account, "@") do
-        domain
-      else
-        _e ->
-          URI.parse(account).host
-      end
-
-    address = "https://#{domain}/.well-known/webfinger?resource=acct:#{account}"
-
-    with response <-
-           HTTP.get(
-             address,
-             Accept: "application/jrd+json"
-           ),
-         {:ok, %{status: status, body: body}} when status in 200..299 <- response,
-         {:ok, doc} <- Jason.decode(body) do
-      webfinger_from_json(doc)
-    else
-      e ->
-        Logger.debug(fn -> "Couldn't finger #{account}" end)
-        Logger.debug(fn -> inspect(e) end)
-        {:error, e}
-    end
-  end
 end

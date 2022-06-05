@@ -1,4 +1,7 @@
-use Mix.Config
+import Config
+
+config :activity_pub, :test_repo, ActivityPub.TestRepo
+config :activity_pub, :endpoint_module, ActivityPubWeb.Endpoint
 
 # Configure your database
 #
@@ -30,7 +33,9 @@ config :activity_pub, Oban,
   repo: ActivityPub.TestRepo,
   queues: false
 
-config :activity_pub, :instance, federating: false
+config :activity_pub, :instance,
+  federating: false
+  # rewrite_policy: [ActivityPub.MRF.SimplePolicy]
 
 config :tesla, adapter: Tesla.Mock
 

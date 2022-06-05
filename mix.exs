@@ -8,7 +8,7 @@ defmodule ActivityPub.MixProject do
       version: "0.1.0",
       elixir: "~> 1.11",
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: [:phoenix, :gettext] ++ Mix.compilers(),
+      compilers: [:phoenix] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -41,17 +41,17 @@ defmodule ActivityPub.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.5.1"},
-      {:phoenix_ecto, "~> 4.1"},
+      {:phoenix, "~> 1.6.6"},
+      {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.4"},
       {:postgrex, ">= 0.0.0"},
-      {:phoenix_live_dashboard, "~> 0.2.0"},
+      {:phoenix_live_dashboard, "~> 0.6.5"},
       {:telemetry_metrics, "~> 0.4"},
       {:telemetry_poller, "~> 0.4"},
-      {:gettext, "~> 0.11"},
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
-      {:oban, "~> 2.0.0"},
+      {:mime, "~> 1.6.0"},
+      {:oban, "~> 2.8.0"},
       {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
       {:http_signatures,
@@ -63,7 +63,8 @@ defmodule ActivityPub.MixProject do
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
       {:pointers, "~> 0.3"},
-      {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false}
+      {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
+      {:where, git: "https://github.com/bonfire-networks/where", branch: "main"}
     ]
   end
 

@@ -8,11 +8,14 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   use ActivityPubWeb, :controller
 
-  require Logger
+  import Where
 
   alias ActivityPub.Actor
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
+  alias ActivityPub.Utils
+  alias ActivityPub.Adapter
+
   alias ActivityPubWeb.ActorView
   alias ActivityPubWeb.Federator
   alias ActivityPubWeb.ObjectView
@@ -26,10 +29,9 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def object(conn, %{"uuid" => uuid}) do
     if get_format(conn) == "html" do
-      with nil <- RedirectController.object(uuid) do
-        object_json(conn, %{"uuid" => uuid})
-      else
-        url -> redirect(conn, to: url)
+      case RedirectController.object(uuid) do
+        url when is_binary(url) -> redirect(conn, to: url)
+        _ -> object_json(conn, %{"uuid" => uuid})
       end
     else
       object_json(conn, %{"uuid" => uuid})
@@ -37,34 +39,43 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   defp object_json(conn, %{"uuid" => uuid}) do
-    with ap_id <- ap_route_helper(uuid),
-          %Object{} = object <- Object.get_cached_by_ap_id(ap_id) do
-
-      if true == object.public do
+    if Utils.is_ulid?(uuid) do # querying by pointer
+      with %Object{} = object <- Object.get_cached_by_pointer_id(uuid) || Adapter.maybe_publish_object(uuid),
+          true <- object.public,
+          true <- object.id != uuid do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
+        # |> Phoenix.Controller.redirect(external: ap_route_helper(object.id))
+        # |> halt()
       else
-        conn
-        |> put_status(401)
-        |> json(%{error: "unauthorised"})
+        _ ->
+          conn
+          |> put_status(404)
+          |> json(%{error: "not found"})
       end
-
     else
-      _ ->
+      with ap_id <- ap_route_helper(uuid),
+          %Object{} = object <- Object.get_cached_by_ap_id(ap_id),
+          true <- object.public do
+        conn
+        |> put_resp_content_type("application/activity+json")
+        |> put_view(ObjectView)
+        |> render("object.json", %{object: object})
+      else _ ->
         conn
         |> put_status(404)
         |> json(%{error: "not found"})
+      end
     end
   end
 
   def actor(conn, %{"username" => username})do
     if get_format(conn) == "html" do
-      with nil <- RedirectController.actor(username) do
-        actor_json(conn, %{"username" => username})
-      else
-        url -> redirect(conn, to: url)
+      case RedirectController.actor(username) do
+        url when is_binary(url) -> redirect(conn, to: url)
+        _ -> actor_json(conn, %{"username" => username})
       end
     else
       actor_json(conn, %{"username" => username})
@@ -125,6 +136,26 @@ defmodule ActivityPubWeb.ActivityPubController do
     end
   end
 
+  def outbox(conn, %{"username" => username, "page" => page}) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      {page, _} = Integer.parse(page)
+
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("outbox.json", %{actor: actor, page: page})
+    end
+  end
+
+  def outbox(conn, %{"username" => username}) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("outbox.json", %{actor: actor})
+    end
+  end
+
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
     Federator.incoming_ap_doc(params)
     json(conn, "ok")
@@ -132,7 +163,8 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   # only accept relayed Creates
   def inbox(conn, %{"type" => "Create"} = params) do
-    Logger.info(
+    warn(
+      params,
       "Signature missing or not from author, relayed Create message, fetching object from source"
     )
 
@@ -150,14 +182,14 @@ defmodule ActivityPubWeb.ActivityPubController do
     headers = Enum.into(conn.req_headers, %{})
 
     if String.contains?(headers["signature"], params["actor"]) do
-      Logger.info(
-        "Signature validation error for: #{params["actor"]}, make sure you are forwarding the HTTP Host header!"
+      warn(
+        params["actor"],
+        "Signature validation error, make sure you are forwarding the HTTP Host header"
       )
-
-      Logger.info(inspect(conn.req_headers))
+      debug(conn.req_headers)
     end
 
-    json(conn, dgettext("errors", "error"))
+    json(conn, "error")
   end
 
   def noop(conn, _params) do

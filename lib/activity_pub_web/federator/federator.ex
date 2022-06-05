@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Federator do
@@ -9,7 +8,7 @@ defmodule ActivityPubWeb.Federator do
   alias ActivityPub.Workers.PublisherWorker
   alias ActivityPub.Workers.ReceiverWorker
 
-  require Logger
+  import Where
 
   def incoming_ap_doc(params) do
     ReceiverWorker.enqueue("incoming_ap_doc", %{"params" => params})
@@ -25,16 +24,20 @@ defmodule ActivityPubWeb.Federator do
   end
 
   def perform(:publish, activity) do
-    Logger.debug(fn -> "Running publish for #{activity.data["id"]}" end)
-
-    with {:ok, actor} <- Actor.get_cached_by_ap_id(activity.data["actor"]),
+    actor_id = activity.data["actor"]
+    with {:ok, actor} <- Actor.get_cached_by_ap_id(actor_id),
          {:ok, actor} <- Actor.ensure_keys_present(actor) do
+
+      debug(activity.data["id"], "Running publish for")
       Publisher.publish(actor, activity)
+
+    else e ->
+      error(e, "Cannot publish because the actor #{inspect actor_id} is invalid")
     end
   end
 
   def perform(:incoming_ap_doc, params) do
-    Logger.info("Handling incoming AP activity")
+    debug("Handling incoming AP activity")
 
     params = Utils.normalize_params(params)
 
@@ -42,7 +45,7 @@ defmodule ActivityPubWeb.Federator do
   end
 
   def perform(type, _) do
-    Logger.debug(fn -> "Unknown task: #{type}" end)
+    error(type, "Unknown federator task")
     {:error, "Don't know what to do with this"}
   end
 end

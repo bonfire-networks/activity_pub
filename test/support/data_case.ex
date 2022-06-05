@@ -17,27 +17,28 @@ defmodule ActivityPub.DataCase do
   @repo Application.get_env(:activity_pub, :repo)
 
   use ExUnit.CaseTemplate
+  import ActivityPub.Test.Helpers
 
   @repo Application.get_env(:activity_pub, :test_repo, Application.get_env(:activity_pub, :repo))
 
   using do
     quote do
+      import ActivityPub.Test.Helpers
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import ActivityPub.DataCase
-
-      @repo unquote(@repo)
+      # import ActivityPub.DataCase
+      import Where
     end
   end
 
   setup tags do
     Cachex.clear(:ap_actor_cache)
     Cachex.clear(:ap_object_cache)
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(@repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(@repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(repo(), {:shared, self()})
     end
 
     :ok

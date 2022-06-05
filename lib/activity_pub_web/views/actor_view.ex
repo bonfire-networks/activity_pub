@@ -1,10 +1,15 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.ActorView do
   use ActivityPubWeb, :view
   alias ActivityPub.Actor
   alias ActivityPub.Utils
+
+  def actor_json(username) do
+    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+      render("actor.json", %{actor: actor})
+    end
+  end
 
   def render("actor.json", %{actor: actor}) do
     {:ok, actor} = ActivityPub.Actor.ensure_keys_present(actor)
@@ -51,7 +56,7 @@ defmodule ActivityPubWeb.ActorView do
     %{
       "id" => "#{actor.ap_id}/following",
       "type" => "Collection",
-      "first" => collection(followers, "#{actor.ap_id}/followers", 1, total),
+      "first" => collection(followers, "#{actor.ap_id}/following", 1, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header())

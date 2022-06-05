@@ -1,5 +1,6 @@
-defmodule HttpRequestMock do
-  require Logger
+defmodule ActivityPub.Test.HttpRequestMock do
+  # import Where
+  import ActivityPub.Test.Helpers
 
   @mod_path __DIR__
   def file(path), do: File.read!(@mod_path<>"/../../"<>path)
@@ -17,7 +18,7 @@ defmodule HttpRequestMock do
       res
     else
       {_, _r} = error ->
-        # Logger.warn(r)
+        # warn(r)
         error
     end
   end
@@ -64,7 +65,7 @@ defmodule HttpRequestMock do
      }}
   end
 
-  def get("https://home.next.moodle.net/1", _, _, _) do
+  def get("https://home.next.moogle.net/1", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -76,29 +77,53 @@ defmodule HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/pleroma_webfinger.json")
+       body: File.read!(test_path()<>"/fixtures/pleroma_webfinger.json")
      }}
   end
 
-  def get("https://niu.moe/.well-known/webfinger?resource=acct:karen@niu.moe", _, _, _) do
-    {:ok,
-    %Tesla.Env{
-      status: 200,
-      body: file("test/fixtures/mastodon_webfinger.json")
-    }}
-  end
-
-  def get("http://mastodon.example.org/users/admin", _, _, Accept: "application/activity+json") do
+  def get("http://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("test/fixtures/admin@mastdon.example.org.json")
+       body: File.read!(test_path()<>"/fixtures/pleroma_webfinger.json")
+     }}
+  end
+
+  def get("https://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/mastodon_webfinger.json")
+     }}
+  end
+
+  def get("http://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/mastodon_webfinger.json")
+     }}
+  end
+
+  def get("https://mastodon.example.org/users/karen", _, _, Accept: "application/activity+json") do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/mastdon-actor.json")
+     }}
+  end
+
+  def get("https://mastodon.example.org/@karen", _, _, Accept: "application/activity+json") do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: File.read!(test_path()<>"/fixtures/mastdon-actor.json")
      }}
   end
 
   def get(url, query, body, headers) do
     {:error,
-     "Not implemented the mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{
+     "No implemented mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{
        inspect(headers)
      }"}
   end

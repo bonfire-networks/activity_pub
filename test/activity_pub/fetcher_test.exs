@@ -3,6 +3,7 @@ defmodule ActivityPub.FetcherTest do
   import Tesla.Mock
 
   alias ActivityPub.Fetcher
+  alias ActivityPub.WebFinger
 
   setup do
     mock(fn
@@ -12,8 +13,11 @@ defmodule ActivityPub.FetcherTest do
       %{method: :get, url: "https://pleroma.example/userisgone410"} ->
         %Tesla.Env{status: 410}
 
+      %{method: :get, url: "https://mastodon.example.org/user/karen"} ->
+        ActivityPub.Test.HttpRequestMock.get("https://mastodon.example.org/users/karen", nil, nil, Accept: "application/activity+json")
+
       env ->
-        apply(HttpRequestMock, :request, [env])
+        apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)
 
     :ok
@@ -35,12 +39,70 @@ defmodule ActivityPub.FetcherTest do
       assert object
     end
 
-    test "rejects private posts" do
-      {:error, _} =
-        Fetcher.fetch_object_from_id(
-          "https://testing.kawen.dance/objects/d953809b-d968-49c8-aa8f-7545b9480a12"
-        )
+    test "fetches a mastodon actor by AP ID" do
+      {:ok, object} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+
+      assert object
     end
+
+    test "fetches a mastodon actor by friendly URL" do
+      {:ok, object} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      assert object
+    end
+
+    test "fetches a same mastodon actor by friendly URL and AP ID" do
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+
+      assert object1 == object2
+    end
+
+    test "fetches a same mastodon actor by AP ID and friendly URL" do
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      assert object2 == object2
+    end
+
+    test "fetches a same mastodon actor by AP ID and a 3rd URL" do
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/user/karen")
+
+      assert object1 == object2
+    end
+
+    test "fetches a same mastodon actor by webfinger, AP ID and friendly URL" do
+
+      {:ok, fingered} = WebFinger.finger("karen@mastodon.example.org")
+      {:ok, object1} = Fetcher.fetch_object_from_id(fingered["id"])
+
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object3} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      assert object1 == object2
+      assert object2 == object3
+    end
+
+    test "fetches a same mastodon actor by AP ID and friendly URL and webfinger" do
+
+
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.example.org/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.example.org/@karen")
+
+      {:ok, fingered} = WebFinger.finger("karen@mastodon.example.org")
+      {:ok, object3} = Fetcher.fetch_object_from_id(fingered["id"])
+
+      assert object1 == object2
+      assert object2 == object3
+    end
+
+    # test "rejects private posts" do # why?
+    #   {:error, _} =
+    #     Fetcher.fetch_object_from_id(
+    #       "https://testing.kawen.dance/objects/d953809b-d968-49c8-aa8f-7545b9480a12"
+    #     )
+    # end
 
     test "rejects posts with spoofed origin" do
       {:error, _} =
@@ -64,7 +126,7 @@ defmodule ActivityPub.FetcherTest do
     end
 
     test "accepts objects containing different scheme than requested" do
-      {:ok, object} = Fetcher.fetch_object_from_id("https://home.next.moodle.net/1")
+      {:ok, object} = Fetcher.fetch_object_from_id("https://home.next.moogle.net/1")
 
       assert object
     end
@@ -72,12 +134,12 @@ defmodule ActivityPub.FetcherTest do
 
   describe "handles errors" do
     test "handle HTTP 410 Gone response" do
-      assert {:error, "Object has been deleted"} ==
+      assert {:error, "Object not found or deleted"} ==
                Fetcher.fetch_remote_object_from_id("https://pleroma.example/userisgone410")
     end
 
     test "handle HTTP 404 response" do
-      assert {:error, "Object has been deleted"} ==
+      assert {:error, "Object not found or deleted"} ==
                Fetcher.fetch_remote_object_from_id("https://pleroma.example/userisgone404")
     end
   end

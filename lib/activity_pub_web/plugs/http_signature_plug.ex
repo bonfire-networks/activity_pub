@@ -1,9 +1,8 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
   import Plug.Conn
-  require Logger
+  import Where
 
   def init(options) do
     options
@@ -29,7 +28,7 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
 
       assign(conn, :valid_signature, HTTPSignatures.validate_conn(conn))
     else
-      Logger.debug("No signature header!")
+      warn("conn has no signature header!")
       conn
     end
   end

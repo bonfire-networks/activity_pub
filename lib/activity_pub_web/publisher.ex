@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Publisher do
@@ -7,13 +6,40 @@ defmodule ActivityPubWeb.Publisher do
   alias ActivityPub.Instances
   alias ActivityPubWeb.Transmogrifier
 
-  require Logger
+  import Where
 
   @behaviour ActivityPubWeb.Federator.Publisher
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
-  def is_representable?(_activity), do: true
+  def is_representable?(_activity), do: true # handle all types
+
+  def publish(actor, activity) do
+    {:ok, data} = Transmogrifier.prepare_outgoing(activity.data)
+    json = Jason.encode!(data)
+    |> debug("JSON ready to go")
+
+    # Utils.maybe_forward_activity(activity)
+
+    recipients(actor, activity)
+    # |> info("recipients")
+    |> Enum.map(fn actor ->
+      determine_inbox(activity, actor)
+    end)
+    |> Enum.uniq()
+    |> maybe_federate_to_search_index(activity)
+    |> Instances.filter_reachable()
+    |> info("enqueue for")
+    |> Enum.each(fn {inbox, unreachable_since} ->
+      ActivityPubWeb.Federator.Publisher.enqueue_one(__MODULE__, %{
+        inbox: inbox,
+        json: json,
+        actor_username: actor.username,
+        id: activity.data["id"],
+        unreachable_since: unreachable_since
+      })
+    end)
+  end
 
   @doc """
   Publish a single message to a peer.  Takes a struct with the following
@@ -25,7 +51,7 @@ defmodule ActivityPubWeb.Publisher do
   * `id`: the ActivityStreams URI of the message
   """
   def publish_one(%{inbox: inbox, json: json, actor: %Actor{} = actor, id: id} = params) do
-    Logger.info("Federating #{id} to #{inbox}")
+    info(inbox, "Federating #{id} to")
     %{host: host, path: path} = URI.parse(inbox)
 
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
@@ -43,22 +69,23 @@ defmodule ActivityPubWeb.Publisher do
         date: date
       })
 
-    with {:ok, %{status: code}} when code in 200..299 <-
-           result =
-             HTTP.post(
-               inbox,
-               json,
-               [
-                 {"Content-Type", "application/activity+json"},
-                 {"Date", date},
-                 {"signature", signature},
-                 {"digest", digest}
-               ]
-             ) do
+    with result = {:ok, %{status: code}} when code in 200..299 <-
+    HTTP.post(
+      inbox,
+      json,
+      [
+        {"Content-Type", "application/activity+json"},
+        {"Date", date},
+        {"signature", signature},
+        {"digest", digest}
+      ]
+    ) do
+
       if !Map.has_key?(params, :unreachable_since) || params[:unreachable_since],
         do: Instances.set_reachable(inbox)
 
       result
+
     else
       {_post_result, response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
@@ -90,12 +117,11 @@ defmodule ActivityPubWeb.Publisher do
     do: (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) || data["inbox"]
 
   @doc """
-  If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE
+  If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE
   #TODO: move to adapter
   """
   def maybe_federate_to_search_index(recipients, activity) do
-
-    index_inbox = System.get_env("PUSH_PULIC_CONTENT_TO_SEARCH_INDEX_INSTANCE", "false")
+    index_inbox = System.get_env("PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE", "false")
 
     if index_inbox !== "false" and
          activity.public and
@@ -132,7 +158,7 @@ defmodule ActivityPubWeb.Publisher do
       type == "Delete" ->
         maybe_use_sharedinbox(user)
 
-      @public_uri in to || @public_uri in cc ->
+      @public_uri in to or @public_uri in cc ->
         maybe_use_sharedinbox(user)
 
       length(to) + length(cc) > 1 ->
@@ -143,37 +169,19 @@ defmodule ActivityPubWeb.Publisher do
     end
   end
 
-  def publish(actor, activity) do
-    {:ok, data} = Transmogrifier.prepare_outgoing(activity.data)
-    json = Jason.encode!(data)
-
-    # ActivityPub.maybe_forward_activity(activity)
-
-    recipients(actor, activity)
-    |> Enum.map(fn actor ->
-      determine_inbox(activity, actor)
-    end)
-    |> Enum.uniq()
-    |> maybe_federate_to_search_index(activity)
-    |> Instances.filter_reachable()
-    |> Enum.each(fn {inbox, unreachable_since} ->
-      ActivityPubWeb.Federator.Publisher.enqueue_one(__MODULE__, %{
-        inbox: inbox,
-        json: json,
-        actor_username: actor.username,
-        id: activity.data["id"],
-        unreachable_since: unreachable_since
-      })
-    end)
-  end
-
   def gather_webfinger_links(actor) do
+    base_url = ActivityPubWeb.base_url()
+
     [
       %{"rel" => "self", "type" => "application/activity+json", "href" => actor.data["id"]},
       %{
         "rel" => "self",
         "type" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
         "href" => actor.data["id"]
+      },
+      %{
+        "rel"=> "http://ostatus.org/schema/1.0/subscribe",
+        "template"=> base_url<>"/pub/remote_interaction?acct={uri}"
       }
     ]
   end

@@ -37,21 +37,35 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
       assert resp["@context"]
       assert resp["type"] == "Note"
     end
+
+    test "works for outboxes" do
+      actor = local_actor()
+      insert(:note_activity, %{actor: actor})
+
+      resp =
+        build_conn()
+        |> put_req_header("accept", "application/json")
+        |> get("/pub/actors/#{actor.username}/outbox")
+        |> json_response(200)
+
+      debug(resp)
+    end
   end
 
   describe "actor" do
-    test "works for actors" do
+    test "works for actors with AP ID" do
       actor = local_actor()
 
       resp =
         build_conn()
         |> put_req_header("accept", "application/json")
-        |> get("pub/actors/#{actor.username}")
+        |> get("/pub/actors/#{actor.username}")
         |> json_response(200)
 
       assert resp["@context"]
       assert resp["preferredUsername"] == actor.username
       assert resp["url"] == resp["id"]
     end
+
   end
 end

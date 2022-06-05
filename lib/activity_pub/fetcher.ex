@@ -6,9 +6,10 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPub.HTTP
   alias ActivityPub.Object
   alias ActivityPubWeb.Transmogrifier
-  require Logger
+  import Where
 
-  @create_object_types Application.get_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document"]
+  @supported_activity_types ActivityPub.Utils.supported_activity_types()
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.
@@ -18,9 +19,19 @@ defmodule ActivityPub.Fetcher do
       {:ok, object}
     else
       with {:ok, data} <- fetch_remote_object_from_id(id),
-           {:ok, data} <- contain_origin(data),
-           {:ok, object} <- insert_object(data),
-           {:ok} <- check_if_public(object.public) do
+           {:ok, object} <- maybe_store_data(data) do
+        {:ok, object}
+      end
+    end
+  end
+
+  defp maybe_store_data(data) do
+    if object = Object.get_cached_by_ap_id(data) do # check that we haven't cached it under another ID
+      {:ok, object}
+    else
+      with {:ok, data} <- contain_origin(data),
+           {:ok, object} <- insert_object(data) do
+          #  :ok <- check_if_public(object.public) do # huh?
         {:ok, object}
       else
         {:error, e} ->
@@ -29,11 +40,21 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
+  def get_or_fetch_and_create(id) do
+    with {:ok, object} <- fetch_object_from_id(id) do
+      with %{data: %{"type" => type}} when type in @supported_actor_types <- object do
+        {:ok, ActivityPub.Actor.maybe_create_actor_from_object(object)}
+      else _ ->
+        {:ok, object}
+      end
+    end
+  end
+
   @doc """
   Fetches an AS2 object from remote AP ID.
   """
   def fetch_remote_object_from_id(id) do
-    Logger.info("Fetching object #{id} via AP")
+    debug(id, "Attempting to fetch ActivityPub object")
 
     with true <- String.starts_with?(id, "http"),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
@@ -46,16 +67,20 @@ defmodule ActivityPub.Fetcher do
       {:ok, data}
     else
       {:ok, %{status: code}} when code in [404, 410] ->
-        {:error, "Object has been deleted"}
+        warn(id, "404")
+        {:error, "Object not found or deleted"}
 
-      {:error, %Jason.DecodeError{} = _error} ->
-        {:error, "Invalid AP JSON"}
+      %Jason.DecodeError{} = error ->
+        error("Invalid AP JSON")
+
+      {:error, :econnrefused} = e ->
+        error("Could not connect")
 
       {:error, e} ->
-        {:error, e}
+        error(e)
 
       e ->
-        {:error, e}
+        error(e)
     end
   end
 
@@ -84,16 +109,16 @@ defmodule ActivityPub.Fetcher do
   end
 
   # Wrapping object in a create activity to easily pass it to the app's relational database.
-  defp insert_object(%{"type" => type} = data) when type in @create_object_types do
+  defp insert_object(%{"type" => type} = data) when type not in @supported_activity_types and type not in @supported_actor_types and type not in ["Collection"] do
     with params <- %{
            "type" => "Create",
            "to" => data["to"],
            "cc" => data["cc"],
-           "actor" => data["actor"] || data["attributedTo"],
+           "actor" => get_actor(data),
            "object" => data
          },
          {:ok, activity} <- Transmogrifier.handle_incoming(params),
-         object <- activity.object do
+         object <- Map.get(activity, :object, activity) do
       {:ok, object}
     end
   end
@@ -105,7 +130,9 @@ defmodule ActivityPub.Fetcher do
 
   def get_actor(%{"actor" => actor} = _data), do: actor
 
-  defp check_if_public(public) when public == true, do: {:ok}
+  def get_actor(%{"id" => actor, "type" => type} = _data) when type in @supported_actor_types, do: actor
+
+  defp check_if_public(public) when public == true, do: :ok
 
   defp check_if_public(_public), do: {:error, "Not public"} # discard for now, to avoid privacy leaks
 

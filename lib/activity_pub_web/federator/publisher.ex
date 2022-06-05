@@ -1,8 +1,7 @@
-
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Federator.Publisher do
-  require Logger
+  import Where
   alias ActivityPub.Workers.PublisherWorker
 
   @moduledoc """
@@ -39,11 +38,17 @@ defmodule ActivityPubWeb.Federator.Publisher do
 
   @spec publish(Map.t(), Map.t()) :: :ok
   def publish(user, activity) do
-    Application.get_env(:activity_pub, :instance)[:federation_publisher_modules]
+    (
+      Application.get_env(:activity_pub, :instance)[:federation_publisher_modules]
+      ||
+      [ActivityPubWeb.Publisher]
+    )
     |> Enum.each(fn module ->
       if module.is_representable?(activity) do
-        Logger.info("Publishing #{activity.data["id"]} using #{inspect(module)}")
+        info("Publishing #{activity.data["id"]} using #{inspect(module)}")
         module.publish(user, activity)
+      else
+        {:error, "activity is not representable"}
       end
     end)
 

@@ -5,13 +5,13 @@ defmodule ActivityPubWeb.Transmogrifier do
   """
 
   alias ActivityPub.Actor
+  alias ActivityPub.Adapter
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
-  require Logger
+  import Where
 
-  @supported_actor_types Application.get_env(:activity_pub, :instance)[:supported_actor_types] || ["Person", "Application", "Service", "Organization", "Group"]
-
+  @supported_actor_types ActivityPub.Utils.supported_actor_types()
   @collection_types Application.get_env(:activity_pub, :instance)[:supported_collection_types] || ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
 
   @doc """
@@ -38,11 +38,41 @@ defmodule ActivityPubWeb.Transmogrifier do
     {:ok, data}
   end
 
-  def prepare_outgoing(%{"type" => "Create", "object" => object_id} = data) do
+  def prepare_outgoing(%{"type" => "Create", "object" => %{data: _} = object} = data) do
     object =
-      object_id
+      object
       |> Object.normalize()
       |> Map.get(:data)
+      |> prepare_object
+
+    data =
+      data
+      |> Map.put("object", object)
+      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.delete("bcc")
+
+    {:ok, data}
+  end
+
+  def prepare_outgoing(%{"type" => "Create", "object" => object} = data) when is_binary(object) do
+    object =
+      object
+      |> Object.normalize()
+      |> Map.get(:data)
+      |> prepare_object
+
+    data =
+      data
+      |> Map.put("object", object)
+      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.delete("bcc")
+
+    {:ok, data}
+  end
+
+  def prepare_outgoing(%{"type" => "Create", "object" => object} = data) do
+    object =
+      object
       |> prepare_object
 
     data =
@@ -86,12 +116,11 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   defp can_delete_object?(ap_id) do
-    Logger.info("Checking delete permission for #{ap_id}")
+    debug(ap_id, "Checking delete permission for")
 
     case Fetcher.fetch_remote_object_from_id(ap_id) do
-      {:error, "Object has been deleted"} -> true
+      {:error, "Object not found or deleted"} -> true
       {:ok, %{"type" => "Tombstone"}} -> true
-      %{"type" => "Tombstone"} -> true # FIXME - remove?
       _ -> false
     end
   end
@@ -139,7 +168,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_incoming(%{"id" => nil}), do: :error
   def handle_incoming(%{"id" => ""}), do: :error
   # length of https:// = 8, should validate better, but good enough for now.
-  def handle_incoming(%{"id" => id}) when not (is_binary(id) and byte_size(id) > 8),
+  def handle_incoming(%{"id" => id}) when is_binary(id) and byte_size(id) < 8,
     do: :error
 
   # Incoming actor create, just fetch from source
@@ -215,7 +244,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     with actor <- Fetcher.get_actor(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         public <- Utils.public?(data),
+         public <- Utils.public?(data, object),
          {:ok, activity, _object} <- ActivityPub.announce(actor, object, id, false, public) do
       {:ok, activity}
     else
@@ -237,11 +266,11 @@ defmodule ActivityPubWeb.Transmogrifier do
         to: data["to"] || [],
         cc: data["cc"] || [],
         object: object,
-        actor: actor_id
+        actor: actor
       })
     else
       e ->
-        Logger.error(e)
+        error(e, "could not update")
         :error
     end
   end
@@ -358,10 +387,14 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def handle_incoming(data) do
-    Logger.warn("ActivityPub library - Unhandled activity - Storing it anyway...")
+    warn("ActivityPub library - Unhandled activity type - Storing it anyway...")
 
     {:ok, activity, _object} = Utils.insert_full_object(data)
-    handle_object(activity)
+    {:ok, activity} = handle_object(activity)
+    if Keyword.get(Application.get_env(:activity_pub, :instance), :handle_unknown_activities) do
+      Adapter.maybe_handle_activity(activity)
+    end
+    {:ok, activity}
   end
 
   defp get_obj_helper(id) do
@@ -374,8 +407,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_object(%{"type" => type} = data) when type in @collection_types do
     with {:ok, object} <- Utils.prepare_data(data) do
       {:ok, object}
-    else
-      {:error, e} -> {:error, e}
     end
   end
 
@@ -383,8 +414,6 @@ defmodule ActivityPubWeb.Transmogrifier do
     with {:ok, object} <- Utils.prepare_data(data),
          {:ok, object} <- Object.insert(object) do
       {:ok, object}
-    else
-      {:error, e} -> {:error, e}
     end
   end
 end

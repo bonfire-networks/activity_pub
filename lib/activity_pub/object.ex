@@ -2,11 +2,13 @@ defmodule ActivityPub.Object do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
+  import Where
 
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias Pointers.ULID
   import ActivityPub.Common
+  alias ActivityPub.Utils
 
   @type t :: %__MODULE__{}
 
@@ -22,33 +24,56 @@ defmodule ActivityPub.Object do
     timestamps()
   end
 
-  def get_by_id(id), do: repo().get(Object, id)
+  def get_by_id(id) do
+    if Utils.is_ulid?(id) do
+      get_by_pointer_id(id)
+    else
+      repo().get(Object, id)
+    end
+  end
 
   def get_by_ap_id(ap_id) do
-    repo().one(from(object in Object, where: fragment("(?)->>'id' = ?", object.data, ^ap_id)))
+    repo().one(
+      from(object in Object,
+        # support for looking up by non-canonical URL
+        where:
+          fragment("(?)->>'id' = ?", object.data, ^ap_id) or
+            fragment("(?)->>'url' = ?", object.data, ^ap_id)
+      )
+    )
   end
 
   def get_by_pointer_id(pointer_id), do: repo().get_by(Object, pointer_id: pointer_id)
 
-  def get_cached_by_ap_id(ap_id) do
+  def get_cached_by_ap_id(%{"id"=> ap_id}), do: get_cached_by_ap_id(ap_id)
+  def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
     key = "ap_id:#{ap_id}"
+    try do
+      Cachex.fetch!(:ap_object_cache, key, fn _ ->
+        object = get_by_ap_id(ap_id)
 
-    Cachex.fetch!(:ap_object_cache, key, fn _ ->
-      object = get_by_ap_id(ap_id)
-
-      if object do
-        {:commit, object}
-      else
-        {:ignore, object}
-      end
-    end)
+        if object do
+          {:commit, object}
+        else
+          {:ignore, object}
+        end
+      end)
+    catch
+      _ ->
+        # workaround :nodedown errors
+        get_by_ap_id(ap_id)
+    rescue
+      _ ->
+        get_by_ap_id(ap_id)
+    end
   end
 
   def get_cached_by_pointer_id(pointer_id) do
+    # FIXME: this sometimes is called with a id/UUID and sometimes with a pointer_id/ULID
     key = "pointer_id:#{pointer_id}"
 
     Cachex.fetch!(:ap_object_cache, key, fn _ ->
-      object = get_by_pointer_id(pointer_id)
+      object = get_by_id(pointer_id)
 
       if object do
         {:commit, object}
@@ -88,14 +113,27 @@ defmodule ActivityPub.Object do
 
   def changeset(object, attrs) do
     object
-    |> cast(attrs, [:data, :local, :public, :pointer_id])
+    |> cast(attrs, [:id, :data, :local, :public, :pointer_id])
     |> validate_required(:data)
+    |> unique_constraint(:pointer_id)
+    |> unique_constraint(:ap_object__data____id_index, match: :exact)
   end
 
-  def update(object, attrs) do
+  def update(%ActivityPub.Object{} = object, attrs) do
     object
+    |> debug("update")
     |> change(attrs)
     |> update_and_set_cache()
+  end
+
+  def update(object_id, attrs) when is_binary(object_id) do
+    get_by_id(object_id)
+    |> __MODULE__.update(attrs)
+  end
+
+  def update(other, attrs) do
+    error(other, "no function matched")
+    {:error, :not_found}
   end
 
   def update_and_set_cache(changeset) do
@@ -106,11 +144,29 @@ defmodule ActivityPub.Object do
     end
   end
 
+  def maybe_upsert(true, %ActivityPub.Object{} = existing_object, attrs) do
+    changeset(existing_object, attrs)
+    |> update_and_set_cache()
+  end
+  def maybe_upsert(_, %ActivityPub.Object{} = existing_object, _attrs) do
+    error("Attempted to insert an object that already exists")
+    debug(existing_object)
+    {:ok, existing_object}
+  end
+  def maybe_upsert(_, _, attrs) do
+    insert(attrs)
+  end
+
   def normalize(_, fetch_remote \\ true)
   def normalize(%Object{} = object, _), do: object
-  def normalize(%{"id" => ap_id}, fetch_remote), do: normalize(ap_id, fetch_remote)
+  def normalize(%{"id" => ap_id} = object, fetch_remote) when is_binary(ap_id) do
+    # if(length(Map.keys(object))==1) do # we only have an ID
+      normalize(ap_id, fetch_remote)
+    # else
+    #   %{data: object}
+    # end
+  end
   def normalize(ap_id, false) when is_binary(ap_id), do: get_cached_by_ap_id(ap_id)
-
   def normalize(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
@@ -118,7 +174,6 @@ defmodule ActivityPub.Object do
       _e -> nil
     end
   end
-
   def normalize(_, _), do: nil
 
   def make_tombstone(%Object{data: %{"id" => id, "type" => type}}, deleted \\ DateTime.utc_now()) do
@@ -143,5 +198,34 @@ defmodule ActivityPub.Object do
          :ok <- invalidate_cache(object) do
       {:ok, object}
     end
+  end
+
+  def get_outbox_for_actor(actor) do
+    from(object in Object,
+      where: fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and object.public == true,
+      limit: 10
+    )
+    |> repo().all()
+  end
+
+  def get_outbox_fox_actor(actor, page) do
+    offset = (page - 1) * 10
+
+    from(object in Object,
+      where: fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and object.public == true,
+      limit: 10,
+      offset: ^offset
+    )
+    |> repo().all()
+  end
+
+  def get_outbox_for_instance() do
+    instance = ActivityPubWeb.base_url()
+    instance_filter = "#{instance}%"
+    from(object in Object,
+      where: fragment("(?)->>'actor' ilike ?", object.data, ^instance_filter) and object.public == true,
+      limit: 10
+    )
+    |> repo().all()
   end
 end

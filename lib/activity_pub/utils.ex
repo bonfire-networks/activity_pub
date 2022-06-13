@@ -12,9 +12,9 @@ defmodule ActivityPub.Utils do
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
   # TODO: make configurable
-  @supported_actor_types Application.get_env(:activity_pub, :instance)[:supported_actor_types] || ["Person", "Application", "Service", "Organization", "Group"]
-  @supported_activity_types Application.get_env(:activity_pub, :instance)[:supported_activity_types] || ["Create", "Update", "Delete", "Follow", "Accept", "Reject", "Add", "Remove", "Like", "Announce", "Undo", "Arrive", "Block", "Flag", "Dislike", "Ignore", "Invite", "Join", "Leave", "Listen", "Move", "Offer", "Question", "Read", "TentativeReject", "TentativeAccept", "Travel", "View"]
-  # @supported_object_types Application.get_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
+  @supported_actor_types Application.compile_env(:activity_pub, :instance)[:supported_actor_types] || ["Person", "Application", "Service", "Organization", "Group"]
+  @supported_activity_types Application.compile_env(:activity_pub, :instance)[:supported_activity_types] || ["Create", "Update", "Delete", "Follow", "Accept", "Reject", "Add", "Remove", "Like", "Announce", "Undo", "Arrive", "Block", "Flag", "Dislike", "Ignore", "Invite", "Join", "Leave", "Listen", "Move", "Offer", "Question", "Read", "TentativeReject", "TentativeAccept", "Travel", "View"]
+  # @supported_object_types Application.compile_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
 
   def supported_actor_types, do: @supported_actor_types
   def supported_activity_types, do: @supported_activity_types

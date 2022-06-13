@@ -12,7 +12,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   import Where
 
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
-  @collection_types Application.get_env(:activity_pub, :instance)[:supported_collection_types] || ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
+  @collection_types Application.compile_env(:activity_pub, :instance)[:supported_collection_types] || ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]
 
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.

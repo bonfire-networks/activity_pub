@@ -157,20 +157,27 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
-    Federator.incoming_ap_doc(params)
-    json(conn, "ok")
+    if Utils.federating? do
+      Federator.incoming_ap_doc(params)
+      json(conn, "ok")
+    else
+      json(conn, "not federating")
+    end
   end
 
   # only accept relayed Creates
   def inbox(conn, %{"type" => "Create"} = params) do
     warn(
       params,
-      "Signature missing or not from author, relayed Create message, fetching object from source"
+      "Signature missing or not from author, relayed Create message, so fetching object from source"
     )
 
-    Fetcher.fetch_object_from_id(params["object"]["id"])
-
-    json(conn, "ok")
+    if Utils.federating? do
+      Fetcher.fetch_object_from_id(params["object"]["id"])
+      json(conn, "ok")
+    else
+      json(conn, "not federating")
+    end
   end
 
   # heck u mastodon

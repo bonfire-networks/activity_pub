@@ -465,7 +465,7 @@ defmodule ActivityPub.Utils do
   Enqueues an activity for federation if it's local
   """
   def maybe_federate(%Object{local: true} = activity) do
-    if Application.get_env(:activity_pub, :instance)[:federating] || System.get_env("TEST_INSTANCE")=="yes" do
+    if federating? do
       ActivityPubWeb.Federator.publish(activity)
     else
       warn("ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)")
@@ -475,6 +475,11 @@ defmodule ActivityPub.Utils do
   end
 
   def maybe_federate(_), do: :ok
+
+  def federating? do
+    (Application.get_env(:activity_pub, :instance)[:federating] || System.get_env("TEST_INSTANCE")=="yes")
+    |> IO.inspect(label: "Federating?")
+  end
 
   def lazy_put_activity_defaults(map, activity_id) do
     context = create_context(map["context"])

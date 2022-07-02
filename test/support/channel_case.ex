@@ -18,7 +18,7 @@ defmodule ActivityPubWeb.ChannelCase do
   use ExUnit.CaseTemplate
   import ActivityPub.Test.Helpers
 
-  @repo Application.compile_env(:activity_pub, :test_repo, Application.compile_env(:activity_pub, :repo))
+  # @repo Application.compile_env(:activity_pub, :test_repo, Application.compile_env(:activity_pub, :repo))
 
   using do
     quote do

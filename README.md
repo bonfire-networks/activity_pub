@@ -15,10 +15,45 @@ defp deps do
 end
 ```
 
-2. Create an adapter module (more on that later) and set it in config
+2. Create an adapter module. To start, one created at
+   `lib/my_app/adapter.ex` might look like
+
+```elixir
+defmodule MyApp.Adapter do
+  @moduledoc """
+  Adapter functions delegated from the `ActivityPub` Library
+  """
+
+  @behaviour ActivityPub.Adapter
+end
+```
+
+Note that, due to the defined `@behavior`, Elixir will warn you that
+the required functions
+
+  * `base_url/0`
+  * `get_actor_by_id/1`
+  * `get_actor_by_username/1`
+  * `get_follower_local_ids/1`
+  * `get_following_local_ids/1`
+  * `get_redirect_url/1`
+  * `handle_activity/1`
+  * `maybe_create_remote_actor/1`
+  * `maybe_publish_object/1`
+  * `update_local_actor/2`
+  * `update_remote_actor/1`
+
+have not yet been implemented though you will be able to start your
+app. Defining these allows `ActivityPub` to handle ActivityPub HTTP
+and database calls and operations. An example of an implemented
+adaptor can be found
+[here](https://github.com/bonfire-networks/bonfire_federate_activitypub/tree/main/lib/adapter
+"Link to file hosted on GitHub").
+
+Then set it in config
 
 ```
-config :activity_pub, :adapter, MyApp.MyAdapter
+config :activity_pub, :adapter, MyApp.Adapter
 ```
 
 3. Set your application repo in config

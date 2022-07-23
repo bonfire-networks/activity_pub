@@ -14,7 +14,7 @@ defmodule ActivityPub.MixProject do
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
       licenses: ["GNU AGPLv3"],
-      source_url: "https://gitlab.com/CommonsPub/activitypub",
+      source_url: "https://github.com/bonfire-networks/activity_pub",
       docs: [
         main: "readme",
         extras: ["README.md", "CHANGES.md"]
@@ -62,7 +62,15 @@ defmodule ActivityPub.MixProject do
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
-      {:pointers, "~> 0.3"},
+      {:pointers_ulid,
+        #"~> 0.2"
+        git: "https://github.com/bonfire-networks/pointers_ulid", branch: "main"
+      },
+      # {:pointers,
+      #   #"~> 0.5"
+      #   git: "https://github.com/bonfire-networks/pointers", branch: "main",
+      #   optional: true
+      # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
       {:where, git: "https://github.com/bonfire-networks/where", branch: "main"}
     ]

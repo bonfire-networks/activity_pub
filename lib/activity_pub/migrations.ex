@@ -1,6 +1,16 @@
 defmodule ActivityPub.Migrations do
   use Ecto.Migration
-  import Pointers.Migration
+
+  def weak_pointer() do
+    if Code.ensure_loaded?(Pointers.Pointer) do
+      references Pointers.Pointer.__schema__(:source),
+        type: :uuid,
+        on_update: :update_all,
+        on_delete: :nilify_all
+    else
+      :uuid
+    end
+  end
 
   def up do
 

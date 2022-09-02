@@ -2,7 +2,7 @@ defmodule ActivityPub.HTTP do
   @moduledoc """
   Module for building and performing HTTP requests.
   """
-  import Where
+  import Untangle
   alias ActivityPub.HTTP.Connection
   alias ActivityPub.HTTP.RequestBuilder, as: Builder
 

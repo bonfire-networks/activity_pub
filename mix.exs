@@ -72,7 +72,7 @@ defmodule ActivityPub.MixProject do
       #   optional: true
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
-      {:where, git: "https://github.com/bonfire-networks/where", branch: "main"}
+      {:untangle, git: "https://github.com/bonfire-networks/untangle", branch: "main"}
     ]
   end
 

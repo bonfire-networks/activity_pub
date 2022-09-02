@@ -5,7 +5,7 @@ defmodule ActivityPub do
   In general, the functions in this module take object-like formatted struct as the input for actor parameters.
   Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_by_ap_id/1` for example) to retrieve those.
   """
-  import Where
+  import Untangle
   alias ActivityPub.Actor
   alias ActivityPub.Adapter
   alias ActivityPub.Utils

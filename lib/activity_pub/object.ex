@@ -2,7 +2,7 @@ defmodule ActivityPub.Object do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
-  import Where
+  import Untangle
 
   alias ActivityPub.Fetcher
   alias ActivityPub.Object

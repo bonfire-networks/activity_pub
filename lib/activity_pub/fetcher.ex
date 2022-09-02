@@ -6,7 +6,7 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPub.HTTP
   alias ActivityPub.Object
   alias ActivityPubWeb.Transmogrifier
-  import Where
+  import Untangle
 
   @supported_activity_types ActivityPub.Utils.supported_activity_types()
   @supported_actor_types ActivityPub.Utils.supported_actor_types()

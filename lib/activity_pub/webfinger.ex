@@ -9,7 +9,7 @@ defmodule ActivityPub.WebFinger do
   alias ActivityPub.HTTP
   alias ActivityPubWeb.Federator.Publisher
 
-  import Where
+  import Untangle
 
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.

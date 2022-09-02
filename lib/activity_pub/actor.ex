@@ -4,7 +4,7 @@ defmodule ActivityPub.Actor do
   """
   require Ecto.Query
   import ActivityPub.Common
-  import Where
+  import Untangle
 
   alias ActivityPub.Actor
   alias ActivityPub.Adapter

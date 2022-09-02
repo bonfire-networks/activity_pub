@@ -26,7 +26,7 @@ defmodule ActivityPubWeb.ChannelCase do
       import Phoenix.ChannelTest
       import ActivityPubWeb.ChannelCase
       import ActivityPub.Test.Helpers
-      import Where
+      import Untangle
 
       # The default endpoint for testing
       @endpoint endpoint()

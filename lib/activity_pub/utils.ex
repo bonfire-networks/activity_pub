@@ -6,7 +6,7 @@ defmodule ActivityPub.Utils do
   alias ActivityPub.Object
   alias Ecto.UUID
   import ActivityPub.Common
-  import Where
+  import Untangle
   import Ecto.Query
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"

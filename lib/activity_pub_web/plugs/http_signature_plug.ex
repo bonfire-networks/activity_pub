@@ -2,7 +2,7 @@
 
 defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
   import Plug.Conn
-  import Where
+  import Untangle
 
   def init(options) do
     options

@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.Federator do
   alias ActivityPub.Workers.PublisherWorker
   alias ActivityPub.Workers.ReceiverWorker
 
-  import Where
+  import Untangle
 
   def incoming_ap_doc(params) do
     ReceiverWorker.enqueue("incoming_ap_doc", %{"params" => params})

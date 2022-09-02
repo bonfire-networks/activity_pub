@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   use ActivityPubWeb, :controller
 
-  import Where
+  import Untangle
 
   alias ActivityPub.Actor
   alias ActivityPub.Fetcher

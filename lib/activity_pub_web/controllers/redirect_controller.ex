@@ -1,6 +1,6 @@
 defmodule ActivityPubWeb.RedirectController do
   use ActivityPubWeb, :controller
-  import Where
+  import Untangle
   alias ActivityPub.Adapter
   alias ActivityPub.WebFinger
 

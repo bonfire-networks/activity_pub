@@ -2,7 +2,7 @@ defmodule ActivityPub.Keys do
   @moduledoc """
   Generates RSA keys for HTTP message signatures
   """
-  import Where
+  import Untangle
 
   def generate_rsa_pem() do
     key = :public_key.generate_key({:rsa, 2048, 65_537})

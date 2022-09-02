@@ -9,7 +9,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
-  import Where
+  import Untangle
 
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
   @collection_types Application.compile_env(:activity_pub, :instance)[:supported_collection_types] || ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"]

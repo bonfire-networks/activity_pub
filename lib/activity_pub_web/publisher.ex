@@ -6,7 +6,7 @@ defmodule ActivityPubWeb.Publisher do
   alias ActivityPub.Instances
   alias ActivityPubWeb.Transmogrifier
 
-  import Where
+  import Untangle
 
   @behaviour ActivityPubWeb.Federator.Publisher
 

@@ -1,5 +1,5 @@
 defmodule ActivityPub.Common do
-  import Where
+  import Untangle
 
   def repo, do: ActivityPub.Config.get!(:repo)
 

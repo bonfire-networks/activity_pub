@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Federator.Publisher do
-  import Where
+  import Untangle
   alias ActivityPub.Workers.PublisherWorker
 
   @moduledoc """

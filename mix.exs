@@ -62,8 +62,9 @@ defmodule ActivityPub.MixProject do
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
-      {:pointers_ulid,
-        #"~> 0.2"
+      {
+        :pointers_ulid,
+        # "~> 0.2"
         git: "https://github.com/bonfire-networks/pointers_ulid", branch: "main"
       },
       # {:pointers,
@@ -72,7 +73,8 @@ defmodule ActivityPub.MixProject do
       #   optional: true
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
-      {:untangle, git: "https://github.com/bonfire-networks/untangle", branch: "main"}
+      {:untangle,
+       git: "https://github.com/bonfire-networks/untangle", branch: "main"}
     ]
   end
 

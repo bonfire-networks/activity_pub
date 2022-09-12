@@ -13,5 +13,4 @@ defmodule ActivityPubWeb.ErrorHelpers do
       content_tag(:span, error, class: "help-block")
     end)
   end
-
 end

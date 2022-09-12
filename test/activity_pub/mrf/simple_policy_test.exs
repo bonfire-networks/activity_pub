@@ -88,7 +88,10 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       assert SimplePolicy.filter(media_message, false) ==
                {:ok,
                 media_message
-                |> Map.put("object", Map.delete(media_message["object"], "attachment"))}
+                |> Map.put(
+                  "object",
+                  Map.delete(media_message["object"], "attachment")
+                )}
 
       assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end
@@ -101,7 +104,10 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       assert SimplePolicy.filter(media_message, false) ==
                {:ok,
                 media_message
-                |> Map.put("object", Map.delete(media_message["object"], "attachment"))}
+                |> Map.put(
+                  "object",
+                  Map.delete(media_message["object"], "attachment")
+                )}
 
       assert SimplePolicy.filter(local_message, true) == {:ok, local_message}
     end

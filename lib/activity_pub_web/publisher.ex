@@ -12,12 +12,15 @@ defmodule ActivityPubWeb.Publisher do
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
-  def is_representable?(_activity), do: true # handle all types
+  # handle all types
+  def is_representable?(_activity), do: true
 
   def publish(actor, activity) do
     {:ok, data} = Transmogrifier.prepare_outgoing(activity.data)
-    json = Jason.encode!(data)
-    |> debug("JSON ready to go")
+
+    json =
+      Jason.encode!(data)
+      |> debug("JSON ready to go")
 
     # Utils.maybe_forward_activity(activity)
 
@@ -70,22 +73,21 @@ defmodule ActivityPubWeb.Publisher do
       })
 
     with result = {:ok, %{status: code}} when code in 200..299 <-
-    HTTP.post(
-      inbox,
-      json,
-      [
-        {"Content-Type", "application/activity+json"},
-        {"Date", date},
-        {"signature", signature},
-        {"digest", digest}
-      ]
-    ) do
-
-      if !Map.has_key?(params, :unreachable_since) || params[:unreachable_since],
-        do: Instances.set_reachable(inbox)
+           HTTP.post(
+             inbox,
+             json,
+             [
+               {"Content-Type", "application/activity+json"},
+               {"Date", date},
+               {"signature", signature},
+               {"digest", digest}
+             ]
+           ) do
+      if !Map.has_key?(params, :unreachable_since) ||
+           params[:unreachable_since],
+         do: Instances.set_reachable(inbox)
 
       result
-
     else
       {_post_result, response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
@@ -104,7 +106,8 @@ defmodule ActivityPubWeb.Publisher do
 
   defp recipients(actor, activity) do
     {:ok, followers} =
-      if actor.data["followers"] in ((activity.data["to"] || []) ++ (activity.data["cc"] || [])) do
+      if actor.data["followers"] in ((activity.data["to"] || []) ++
+                                       (activity.data["cc"] || [])) do
         Actor.get_external_followers(actor)
       else
         {:ok, []}
@@ -114,7 +117,9 @@ defmodule ActivityPubWeb.Publisher do
   end
 
   defp maybe_use_sharedinbox(%{data: data}),
-    do: (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) || data["inbox"]
+    do:
+      (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) ||
+        data["inbox"]
 
   @doc """
   If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE
@@ -173,15 +178,19 @@ defmodule ActivityPubWeb.Publisher do
     base_url = ActivityPubWeb.base_url()
 
     [
-      %{"rel" => "self", "type" => "application/activity+json", "href" => actor.data["id"]},
+      %{
+        "rel" => "self",
+        "type" => "application/activity+json",
+        "href" => actor.data["id"]
+      },
       %{
         "rel" => "self",
         "type" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
         "href" => actor.data["id"]
       },
       %{
-        "rel"=> "http://ostatus.org/schema/1.0/subscribe",
-        "template"=> base_url<>"/pub/remote_interaction?acct={uri}"
+        "rel" => "http://ostatus.org/schema/1.0/subscribe",
+        "template" => base_url <> "/pub/remote_interaction?acct={uri}"
       }
     ]
   end

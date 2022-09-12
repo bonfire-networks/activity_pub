@@ -52,7 +52,10 @@ defmodule ActivityPub.Instances.Instance do
       unreachable_since = unreachable_since_by_host[host]
 
       if !unreachable_since ||
-           NaiveDateTime.compare(unreachable_since, reachability_datetime_threshold) == :gt do
+           NaiveDateTime.compare(
+             unreachable_since,
+             reachability_datetime_threshold
+           ) == :gt do
         {entry, unreachable_since}
       end
     end
@@ -87,7 +90,8 @@ defmodule ActivityPub.Instances.Instance do
 
   def set_unreachable(url_or_host, unreachable_since \\ nil)
 
-  def set_unreachable(url_or_host, unreachable_since) when is_binary(url_or_host) do
+  def set_unreachable(url_or_host, unreachable_since)
+      when is_binary(url_or_host) do
     unreachable_since = unreachable_since || DateTime.utc_now()
     host = host(url_or_host)
     existing_record = repo().get_by(Instance, %{host: host})
@@ -101,7 +105,10 @@ defmodule ActivityPub.Instances.Instance do
         |> repo().insert()
 
       existing_record.unreachable_since &&
-          NaiveDateTime.compare(existing_record.unreachable_since, unreachable_since) != :gt ->
+          NaiveDateTime.compare(
+            existing_record.unreachable_since,
+            unreachable_since
+          ) != :gt ->
         {:ok, existing_record}
 
       true ->

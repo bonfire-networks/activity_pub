@@ -29,10 +29,18 @@ defmodule ActivityPubWeb.Telemetry do
       ),
 
       # Database Metrics
-      summary("activity_pub.repo.query.total_time", unit: {:native, :millisecond}),
-      summary("activity_pub.repo.query.decode_time", unit: {:native, :millisecond}),
-      summary("activity_pub.repo.query.query_time", unit: {:native, :millisecond}),
-      summary("activity_pub.repo.query.queue_time", unit: {:native, :millisecond}),
+      summary("activity_pub.repo.query.total_time",
+        unit: {:native, :millisecond}
+      ),
+      summary("activity_pub.repo.query.decode_time",
+        unit: {:native, :millisecond}
+      ),
+      summary("activity_pub.repo.query.query_time",
+        unit: {:native, :millisecond}
+      ),
+      summary("activity_pub.repo.query.queue_time",
+        unit: {:native, :millisecond}
+      ),
       summary("activity_pub.repo.query.idle_time", unit: {:native, :millisecond}),
 
       # VM Metrics

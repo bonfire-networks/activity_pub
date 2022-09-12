@@ -3,11 +3,11 @@ defmodule ActivityPubWeb.TestRouter do
   use ActivityPubWeb.Router
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
   end
 
   scope "/api", ActivityPubWeb do
-    pipe_through :api
+    pipe_through(:api)
   end
 
   # Enables LiveDashboard only for development
@@ -21,8 +21,8 @@ defmodule ActivityPubWeb.TestRouter do
     import Phoenix.LiveDashboard.Router
 
     scope "/" do
-      pipe_through [:fetch_session, :protect_from_forgery]
-      live_dashboard "/dashboard", metrics: ActivityPubWeb.Telemetry
+      pipe_through([:fetch_session, :protect_from_forgery])
+      live_dashboard("/dashboard", metrics: ActivityPubWeb.Telemetry)
     end
   end
 end

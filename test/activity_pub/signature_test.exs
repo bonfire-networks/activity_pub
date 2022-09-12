@@ -15,7 +15,9 @@ defmodule ActivityPub.SignatureTest do
   defp make_fake_signature(key_id), do: "keyId=\"#{key_id}\""
 
   defp make_fake_conn(key_id),
-    do: %Plug.Conn{req_headers: %{"signature" => make_fake_signature(key_id <> "#main-key")}}
+    do: %Plug.Conn{
+      req_headers: %{"signature" => make_fake_signature(key_id <> "#main-key")}
+    }
 
   describe "fetch_public_key/1" do
     test "works" do
@@ -26,7 +28,8 @@ defmodule ActivityPub.SignatureTest do
 
     test "it returns error when not found user" do
       assert capture_log(fn ->
-               assert Signature.fetch_public_key(make_fake_conn("test-ap_id")) == {:error, :error}
+               assert Signature.fetch_public_key(make_fake_conn("test-ap_id")) ==
+                        {:error, :error}
              end)
     end
   end

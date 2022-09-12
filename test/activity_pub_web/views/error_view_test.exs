@@ -9,6 +9,7 @@ defmodule ActivityPubWeb.ErrorViewTest do
   end
 
   test "renders 500.json" do
-    assert render(ActivityPubWeb.ErrorView, "500.json", []) == "Internal Server Error"
+    assert render(ActivityPubWeb.ErrorView, "500.json", []) ==
+             "Internal Server Error"
   end
 end

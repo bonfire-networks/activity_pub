@@ -31,7 +31,16 @@ defmodule ActivityPub.Actor do
   #         pointer_id: binary()
   #       }
 
-  defstruct [:id, :data, :local, :keys, :ap_id, :username, :deactivated, :pointer_id]
+  defstruct [
+    :id,
+    :data,
+    :local,
+    :keys,
+    :ap_id,
+    :username,
+    :deactivated,
+    :pointer_id
+  ]
 
   @doc """
   Updates an existing actor struct by its AP ID.
@@ -49,7 +58,9 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp public_key_from_data(%{"publicKey" => %{"publicKeyPem" => public_key_pem}}) do
+  defp public_key_from_data(%{
+         "publicKey" => %{"publicKeyPem" => public_key_pem}
+       }) do
     key =
       public_key_pem
       |> :public_key.pem_decode()
@@ -80,9 +91,11 @@ defmodule ActivityPub.Actor do
   @doc """
   Fetches a remote actor by username in `username@domain.tld` format
   """
-  def fetch_by_username("@"<>username), do: fetch_by_username(username)
+  def fetch_by_username("@" <> username), do: fetch_by_username(username)
+
   def fetch_by_username(username) do
-    with {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <- WebFinger.finger(username) do
+    with {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
+           WebFinger.finger(username) do
       fetch_by_ap_id(ap_id)
     else
       e ->
@@ -94,7 +107,9 @@ defmodule ActivityPub.Actor do
   @doc """
   Tries to get a local actor by username or tries to fetch it remotely if username is provided in `username@domain.tld` format.
   """
-  def get_or_fetch_by_username("@"<>username), do: get_or_fetch_by_username(username)
+  def get_or_fetch_by_username("@" <> username),
+    do: get_or_fetch_by_username(username)
+
   def get_or_fetch_by_username(username) do
     with {:ok, actor} <- get_cached_by_username(username) do
       {:ok, actor}
@@ -113,8 +128,9 @@ defmodule ActivityPub.Actor do
   end
 
   def get_or_fetch(username_or_uri) do
-    if String.starts_with?(username_or_uri, "http"), do: get_or_fetch_by_ap_id(username_or_uri),
-    else: get_or_fetch_by_username(username_or_uri)
+    if String.starts_with?(username_or_uri, "http"),
+      do: get_or_fetch_by_ap_id(username_or_uri),
+      else: get_or_fetch_by_username(username_or_uri)
   end
 
   defp username_from_ap_id(ap_id) do
@@ -149,6 +165,7 @@ defmodule ActivityPub.Actor do
   def format_remote_actor(%Object{} = actor) do
     # debug(actor)
     username = actor.data["preferredUsername"] <> "@" <> URI.parse(actor.data["id"]).host
+
     data = actor.data
 
     data =
@@ -181,19 +198,21 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def maybe_create_actor_from_object(%{data: %{"type" => type}} = actor) when type in @supported_actor_types do
+  def maybe_create_actor_from_object(%{data: %{"type" => type}} = actor)
+      when type in @supported_actor_types do
     with actor <- format_remote_actor(actor) do
       Adapter.maybe_create_remote_actor(actor)
       set_cache(actor)
     end
   end
-  def maybe_create_actor_from_object(object), do: object
 
+  def maybe_create_actor_from_object(object), do: object
 
   @doc """
   Fetches a local actor given its preferred username.
   """
-  def get_by_username("@"<>username), do: get_by_username(username)
+  def get_by_username("@" <> username), do: get_by_username(username)
+
   def get_by_username(username) do
     with {:ok, actor} <- Adapter.get_actor_by_username(username) do
       {:ok, actor}
@@ -252,7 +271,9 @@ defmodule ActivityPub.Actor do
     Cachex.del(:ap_actor_cache, "id:#{actor.id}")
   end
 
-  def get_cached_by_ap_id(%{"id" => ap_id}) when is_binary(ap_id), do: get_cached_by_ap_id(ap_id)
+  def get_cached_by_ap_id(%{"id" => ap_id}) when is_binary(ap_id),
+    do: get_cached_by_ap_id(ap_id)
+
   def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
     key = "ap_id:#{ap_id}"
 
@@ -287,16 +308,19 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def get_cached_by_username("@"<>username), do: get_cached_by_username(username)
+  def get_cached_by_username("@" <> username),
+    do: get_cached_by_username(username)
+
   def get_cached_by_username(username) do
     key = "username:#{username}"
+
     try do
       case Cachex.fetch(:ap_actor_cache, key, fn ->
-            case get_by_username(username) do
-              {:ok, actor} -> {:commit, actor}
-              {:error, _error} -> {:ignore, nil}
-            end
-          end) do
+             case get_by_username(username) do
+               {:ok, actor} -> {:commit, actor}
+               {:error, _error} -> {:ignore, nil}
+             end
+           end) do
         {:ok, actor} -> {:ok, actor}
         {:commit, actor} -> {:ok, actor}
         {:ignore, _} -> {:error, :not_found}

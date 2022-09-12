@@ -61,7 +61,9 @@ defmodule ActivityPub.Instances.InstanceTest do
 
     test "does NOT modify `unreachable_since` value of existing record in case it's present" do
       instance =
-        insert(:instance, unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10))
+        insert(:instance,
+          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10)
+        )
 
       assert instance.unreachable_since
       initial_value = instance.unreachable_since
@@ -76,7 +78,9 @@ defmodule ActivityPub.Instances.InstanceTest do
   describe "set_unreachable/2" do
     test "sets `unreachable_since` value of existing record in case it's newer than supplied value" do
       instance =
-        insert(:instance, unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10))
+        insert(:instance,
+          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10)
+        )
 
       assert instance.unreachable_since
 
@@ -89,7 +93,9 @@ defmodule ActivityPub.Instances.InstanceTest do
 
     test "does NOT modify `unreachable_since` value of existing record in case it's equal to or older than supplied value" do
       instance =
-        insert(:instance, unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10))
+        insert(:instance,
+          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10)
+        )
 
       assert instance.unreachable_since
       initial_value = instance.unreachable_since

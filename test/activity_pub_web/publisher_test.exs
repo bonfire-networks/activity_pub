@@ -22,7 +22,10 @@ defmodule ActivityPubWeb.PublisherTest do
       insert(:note, %{
         actor: note_actor,
         data: %{
-          "to" => [recipient_actor.ap_id, "https://www.w3.org/ns/activitystreams#Public"],
+          "to" => [
+            recipient_actor.ap_id,
+            "https://www.w3.org/ns/activitystreams#Public"
+          ],
           "cc" => note_actor.data["followers"]
         }
       })
@@ -31,6 +34,7 @@ defmodule ActivityPubWeb.PublisherTest do
     {:ok, actor} = Actor.get_by_ap_id(activity.data["actor"])
 
     assert :ok == Publisher.publish(actor, activity)
+
     assert %{success: 1, failure: 0} = Oban.drain_queue(queue: :federator_outgoing)
   end
 
@@ -48,7 +52,10 @@ defmodule ActivityPubWeb.PublisherTest do
       insert(:note, %{
         actor: note_actor,
         data: %{
-          "to" => [recipient_actor.ap_id, "https://www.w3.org/ns/activitystreams#Public"],
+          "to" => [
+            recipient_actor.ap_id,
+            "https://www.w3.org/ns/activitystreams#Public"
+          ],
           "cc" => note_actor.data["followers"]
         }
       })
@@ -57,7 +64,9 @@ defmodule ActivityPubWeb.PublisherTest do
     {:ok, actor} = Actor.get_by_ap_id(activity.data["actor"])
 
     assert :ok == Publisher.publish(actor, activity)
+
     assert %{success: 2, failure: 0} = Oban.drain_queue(queue: :federator_outgoing)
+
     System.put_env("PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE", "false")
   end
 end

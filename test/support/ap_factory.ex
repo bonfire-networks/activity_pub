@@ -10,20 +10,20 @@ defmodule ActivityPub.Factory do
   end
 
   def local_actor(attrs \\ %{}) do
-
-    if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and Code.ensure_loaded?(Bonfire.Me.Fake) do # TODO: make into a generic adapter callback?
+    # TODO: make into a generic adapter callback?
+    if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
+         Code.ensure_loaded?(Bonfire.Me.Fake) do
       user = Bonfire.Me.Fake.fake_user!(attrs)
       # |> debug()
       {:ok, actor} = ActivityPub.Actor.get_by_username(user.character.username)
 
       %{
-          local: true,
-          data: actor.data,
-          user: user,
-          keys: nil,
-          username: user.character.username
-        }
-
+        local: true,
+        data: actor.data,
+        user: user,
+        keys: nil,
+        username: user.character.username
+      }
     else
       actor = build(:local_actor, attrs)
 
@@ -45,7 +45,11 @@ defmodule ActivityPub.Factory do
 
     community =
       insert(:actor, %{
-        data: %{"type" => "Group", "attributedTo" => actor.ap_id, "collections" => []}
+        data: %{
+          "type" => "Group",
+          "attributedTo" => actor.ap_id,
+          "collections" => []
+        }
       })
 
     {:ok, community} = ActivityPub.Actor.get_by_ap_id(community.data["id"])
@@ -58,7 +62,11 @@ defmodule ActivityPub.Factory do
 
     community =
       insert(:actor, %{
-        data: %{"type" => "Group", "attributedTo" => actor.ap_id, "collections" => []}
+        data: %{
+          "type" => "Group",
+          "attributedTo" => actor.ap_id,
+          "collections" => []
+        }
       })
 
     {:ok, community} = ActivityPub.Actor.get_by_ap_id(community.data["id"])
@@ -80,6 +88,7 @@ defmodule ActivityPub.Factory do
   def actor_factory(attrs \\ %{}) do
     username = sequence(:username, &"username#{&1}")
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
+
     id =
       attrs[:data]["id"] ||
         "https://example.tld" <> ap_base_path <> "/actors/#{username}"
@@ -90,6 +99,7 @@ defmodule ActivityPub.Factory do
   def local_actor_factory(attrs \\ %{}) do
     username = sequence(:username, &"username#{&1}")
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
+
     id =
       attrs[:data]["id"] ||
         ActivityPubWeb.base_url() <> ap_base_path <> "/actors/#{username}"

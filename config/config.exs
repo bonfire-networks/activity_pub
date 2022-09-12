@@ -15,7 +15,11 @@ config :activity_pub,
 config :activity_pub, ActivityPubWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "sNcPgFlG0+zaRYZF//S3wJC79rLWp63V46ATq6FDCWHYxwHZ7Ece4ScTto64ZSZj",
-  render_errors: [view: ActivityPubWeb.ErrorView, accepts: ~w(json), layout: false],
+  render_errors: [
+    view: ActivityPubWeb.ErrorView,
+    accepts: ~w(json),
+    layout: false
+  ],
   pubsub_server: ActivityPub.PubSub,
   live_view: [signing_salt: "cWBjhI3e"]
 

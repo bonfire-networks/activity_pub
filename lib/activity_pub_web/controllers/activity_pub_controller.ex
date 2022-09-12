@@ -39,14 +39,18 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   defp object_json(conn, %{"uuid" => uuid}) do
-    if Utils.is_ulid?(uuid) do # querying by pointer
-      with %Object{} = object <- Object.get_cached_by_pointer_id(uuid) || Adapter.maybe_publish_object(uuid),
-          true <- object.public,
-          true <- object.id != uuid do
+    # querying by pointer
+    if Utils.is_ulid?(uuid) do
+      with %Object{} = object <-
+             Object.get_cached_by_pointer_id(uuid) ||
+               Adapter.maybe_publish_object(uuid),
+           true <- object.public,
+           true <- object.id != uuid do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
+
         # |> Phoenix.Controller.redirect(external: ap_route_helper(object.id))
         # |> halt()
       else
@@ -57,21 +61,22 @@ defmodule ActivityPubWeb.ActivityPubController do
       end
     else
       with ap_id <- ap_route_helper(uuid),
-          %Object{} = object <- Object.get_cached_by_ap_id(ap_id),
-          true <- object.public do
+           %Object{} = object <- Object.get_cached_by_ap_id(ap_id),
+           true <- object.public do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
-      else _ ->
-        conn
-        |> put_status(404)
-        |> json(%{error: "not found"})
+      else
+        _ ->
+          conn
+          |> put_status(404)
+          |> json(%{error: "not found"})
       end
     end
   end
 
-  def actor(conn, %{"username" => username})do
+  def actor(conn, %{"username" => username}) do
     if get_format(conn) == "html" do
       case RedirectController.actor(username) do
         url when is_binary(url) -> redirect(conn, to: url)
@@ -157,7 +162,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
-    if Utils.federating? do
+    if Utils.federating?() do
       Federator.incoming_ap_doc(params)
       json(conn, "ok")
     else
@@ -172,7 +177,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       "Signature missing or not from author, relayed Create message, so fetching object from source"
     )
 
-    if Utils.federating? do
+    if Utils.federating?() do
       Fetcher.fetch_object_from_id(params["object"]["id"])
       json(conn, "ok")
     else
@@ -193,6 +198,7 @@ defmodule ActivityPubWeb.ActivityPubController do
         params["actor"],
         "Signature validation error, make sure you are forwarding the HTTP Host header"
       )
+
       debug(conn.req_headers)
     end
 

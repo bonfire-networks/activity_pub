@@ -12,10 +12,15 @@ defmodule ActivityPub.MRF do
     end)
   end
 
-  def filter(%{} = object, is_local?), do: get_policies() |> filter(object, is_local?)
+  def filter(%{} = object, is_local?),
+    do: get_policies() |> filter(object, is_local?)
 
   def get_policies do
-    Keyword.get(Application.get_env(:activity_pub, :instance, []), :rewrite_policy, [])
+    Keyword.get(
+      Application.get_env(:activity_pub, :instance, []),
+      :rewrite_policy,
+      []
+    )
     |> get_policies()
   end
 
@@ -26,8 +31,10 @@ defmodule ActivityPub.MRF do
   @spec subdomains_regex([String.t()]) :: [Regex.t()]
   def subdomains_regex(domains) when is_list(domains) do
     for domain <- domains do
-      domain = domain
-      |> String.replace("*", "(.*)*")
+      domain =
+        domain
+        |> String.replace("*", "(.*)*")
+
       ~r(^#{domain}$)
     end
   end

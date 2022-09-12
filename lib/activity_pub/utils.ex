@@ -12,8 +12,50 @@ defmodule ActivityPub.Utils do
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
   # TODO: make configurable
-  @supported_actor_types Application.compile_env(:activity_pub, :instance)[:supported_actor_types] || ["Person", "Application", "Service", "Organization", "Group"]
-  @supported_activity_types Application.compile_env(:activity_pub, :instance)[:supported_activity_types] || ["Create", "Update", "Delete", "Follow", "Accept", "Reject", "Add", "Remove", "Like", "Announce", "Undo", "Arrive", "Block", "Flag", "Dislike", "Ignore", "Invite", "Join", "Leave", "Listen", "Move", "Offer", "Question", "Read", "TentativeReject", "TentativeAccept", "Travel", "View"]
+  @supported_actor_types Application.compile_env(:activity_pub, :instance)[
+                           :supported_actor_types
+                         ] ||
+                           [
+                             "Person",
+                             "Application",
+                             "Service",
+                             "Organization",
+                             "Group"
+                           ]
+  @supported_activity_types Application.compile_env(:activity_pub, :instance)[
+                              :supported_activity_types
+                            ] ||
+                              [
+                                "Create",
+                                "Update",
+                                "Delete",
+                                "Follow",
+                                "Accept",
+                                "Reject",
+                                "Add",
+                                "Remove",
+                                "Like",
+                                "Announce",
+                                "Undo",
+                                "Arrive",
+                                "Block",
+                                "Flag",
+                                "Dislike",
+                                "Ignore",
+                                "Invite",
+                                "Join",
+                                "Leave",
+                                "Listen",
+                                "Move",
+                                "Offer",
+                                "Question",
+                                "Read",
+                                "TentativeReject",
+                                "TentativeAccept",
+                                "Travel",
+                                "View"
+                              ]
+
   # @supported_object_types Application.compile_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
 
   def supported_actor_types, do: @supported_actor_types
@@ -42,7 +84,9 @@ defmodule ActivityPub.Utils do
   def generate_id(type), do: ap_base_url() <> "/#{type}/#{UUID.generate()}"
 
   def actor_url(%{preferred_username: username}), do: actor_url(username)
-  def actor_url(username) when is_binary(username), do: ap_base_url() <> "/actors/" <> username
+
+  def actor_url(username) when is_binary(username),
+    do: ap_base_url() <> "/actors/" <> username
 
   def object_url(%{id: id}), do: object_url(id)
   def object_url(id) when is_binary(id), do: ap_base_url() <> "/objects/" <> id
@@ -55,12 +99,14 @@ defmodule ActivityPub.Utils do
     %{
       "@context" => [
         "https://www.w3.org/ns/activitystreams",
-
         Map.merge(
-          %{"@language" => Application.get_env(:activity_pub, :default_language, "und")},
+          %{
+            "@language" => Application.get_env(:activity_pub, :default_language, "und")
+          },
           Application.get_env(:activity_pub, :json_contexts, %{
-            "Hashtag"=> "as:Hashtag",
-          }))
+            "Hashtag" => "as:Hashtag"
+          })
+        )
       ]
     }
   end
@@ -187,7 +233,7 @@ defmodule ActivityPub.Utils do
       "to" => [actor.data["followers"]],
       "cc" => [],
       "context" => object.data["context"],
-      "summary"=> summary
+      "summary" => summary
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
@@ -207,7 +253,7 @@ defmodule ActivityPub.Utils do
       "to" => [actor.data["followers"], object.data["actor"]],
       "cc" => [@public_uri],
       "context" => object.data["context"],
-      "summary"=> summary
+      "summary" => summary
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
@@ -253,7 +299,9 @@ defmodule ActivityPub.Utils do
     data
   end
 
-  def fetch_latest_follow(%{data: %{"id" => follower_id}}, %{data: %{"id" => followed_id}}) do
+  def fetch_latest_follow(%{data: %{"id" => follower_id}}, %{
+        data: %{"id" => followed_id}
+      }) do
     query =
       from(
         activity in Object,
@@ -294,7 +342,9 @@ defmodule ActivityPub.Utils do
   end
 
   #### Block-related helpers
-  def fetch_latest_block(%{data: %{"id" => blocker_id}}, %{data: %{"id" => blocked_id}}) do
+  def fetch_latest_block(%{data: %{"id" => blocker_id}}, %{
+        data: %{"id" => blocked_id}
+      }) do
     query =
       from(
         activity in Object,
@@ -385,17 +435,28 @@ defmodule ActivityPub.Utils do
   @doc """
   Inserts a full object if it is contained in an activity.
   """
-  def insert_full_object(activity, local \\ false, pointer \\ nil, upsert? \\ false)
+  def insert_full_object(
+        activity,
+        local \\ false,
+        pointer \\ nil,
+        upsert? \\ false
+      )
 
-  def insert_full_object(%{"object" => %{"type" => type} = object_data} = activity, local, pointer, upsert?)
-      when is_map(object_data)
-      and type not in @supported_actor_types
-      and type not in @supported_activity_types do
-      # we're taking a shortcut by assuming that anything that doesn't seem like an actor or activity is an object (which is better than only supporting a specific list of object types)
-    with maybe_existing_object <- Object.normalize(object_data, false), # check that it doesn't already exist
+  def insert_full_object(
+        %{"object" => %{"type" => type} = object_data} = activity,
+        local,
+        pointer,
+        upsert?
+      )
+      when is_map(object_data) and
+             type not in @supported_actor_types and
+             type not in @supported_activity_types do
+    # we're taking a shortcut by assuming that anything that doesn't seem like an actor or activity is an object (which is better than only supporting a specific list of object types)
+    # check that it doesn't already exist
+    with maybe_existing_object <- Object.normalize(object_data, false),
          {:ok, data} <- prepare_data(object_data, local, pointer, activity),
-         {:ok, object} <- Object.maybe_upsert(upsert?, maybe_existing_object, data) do
-
+         {:ok, object} <-
+           Object.maybe_upsert(upsert?, maybe_existing_object, data) do
       # return an activity that contains the ID as object rather than the actual object
       {:ok, Map.put(activity, "object", object.data["id"]), object}
     end
@@ -414,7 +475,9 @@ defmodule ActivityPub.Utils do
         # let's NOT assume things are public by default?
         false
 
-      Enum.member?(recipients, @public_uri) or Enum.member?(recipients, "Public") or Enum.member?(recipients, "as:Public") ->
+      Enum.member?(recipients, @public_uri) or
+        Enum.member?(recipients, "Public") or
+          Enum.member?(recipients, "as:Public") ->
         # see note at https://www.w3.org/TR/activitypub/#public-addressing
         true
 
@@ -422,21 +485,27 @@ defmodule ActivityPub.Utils do
         false
     end
   end
+
   def public?(activity_data, %{data: object_data}) do
     public?(activity_data, object_data)
   end
+
   def public?(%{data: activity_data}, object_data) do
     public?(activity_data, object_data)
   end
-  def public?(%{"to" =>_} = activity_data, %{"to" =>_} = object_data) do
+
+  def public?(%{"to" => _} = activity_data, %{"to" => _} = object_data) do
     public?(activity_data) && public?(object_data)
   end
-  def public?(%{"to" =>_} = activity_data, _) do
+
+  def public?(%{"to" => _} = activity_data, _) do
     public?(activity_data)
   end
-  def public?(_, %{"to" =>_} = object_data) do
+
+  def public?(_, %{"to" => _} = object_data) do
     public?(object_data)
   end
+
   def public?(_, _) do
     false
   end
@@ -468,7 +537,9 @@ defmodule ActivityPub.Utils do
     if federating? do
       ActivityPubWeb.Federator.publish(activity)
     else
-      warn("ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)")
+      warn(
+        "ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)"
+      )
     end
 
     :ok
@@ -477,7 +548,8 @@ defmodule ActivityPub.Utils do
   def maybe_federate(_), do: :ok
 
   def federating? do
-    (Application.get_env(:activity_pub, :instance)[:federating] || System.get_env("TEST_INSTANCE")=="yes")
+    (Application.get_env(:activity_pub, :instance)[:federating] ||
+       System.get_env("TEST_INSTANCE") == "yes")
     |> IO.inspect(label: "Federating?")
   end
 
@@ -509,8 +581,7 @@ defmodule ActivityPub.Utils do
     context || generate_id("contexts")
   end
 
-
-  def is_ulid?(str) when is_binary(str) and byte_size(str)==26 do
+  def is_ulid?(str) when is_binary(str) and byte_size(str) == 26 do
     with :error <- Pointers.ULID.cast(str) do
       false
     else

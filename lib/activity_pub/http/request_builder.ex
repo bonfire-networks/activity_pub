@@ -19,7 +19,9 @@ defmodule ActivityPub.HTTP.RequestBuilder do
     Map.put_new(request, :opts, options)
   end
 
-  def add_param(request, :query, :query, values), do: Map.put(request, :query, values)
+  def add_param(request, :query, :query, values),
+    do: Map.put(request, :query, values)
 
-  def add_param(request, :body, :body, value), do: Map.put(request, :body, value)
+  def add_param(request, :body, :body, value),
+    do: Map.put(request, :body, value)
 end

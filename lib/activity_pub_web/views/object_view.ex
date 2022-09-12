@@ -36,7 +36,8 @@ defmodule ActivityPubWeb.ObjectView do
     |> Map.merge(Utils.make_json_ld_header())
   end
 
-  def render("outbox.json", %{outbox: :shared_outbox}) do # only for testing purposes
+  # only for testing purposes
+  def render("outbox.json", %{outbox: :shared_outbox}) do
     instance = ActivityPubWeb.base_url()
     outbox = Object.get_outbox_for_instance()
 
@@ -53,7 +54,12 @@ defmodule ActivityPubWeb.ObjectView do
 
   def collection(collection, iri, page, total \\ nil) do
     offset = (page - 1) * 10
-    items = Enum.map(collection, fn object -> render("object.json", %{object: object}) end)
+
+    items =
+      Enum.map(collection, fn object ->
+        render("object.json", %{object: object})
+      end)
+
     total = total || length(collection)
 
     map = %{

@@ -27,7 +27,8 @@ defmodule ActivityPub.HTTP do
       options =
         process_request_options(options)
         |> process_sni_options(url)
-        # |> info("options")
+
+      # |> info("options")
 
       params = Keyword.get(options, :params, [])
 
@@ -43,6 +44,7 @@ defmodule ActivityPub.HTTP do
     rescue
       e in Tesla.Mock.Error ->
         error(e, :test_mock_error)
+
       e ->
         error(e, "HTTP request failed")
     catch

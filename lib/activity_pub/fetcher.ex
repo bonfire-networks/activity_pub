@@ -26,12 +26,13 @@ defmodule ActivityPub.Fetcher do
   end
 
   defp maybe_store_data(data) do
-    if object = Object.get_cached_by_ap_id(data) do # check that we haven't cached it under another ID
+    # check that we haven't cached it under another ID
+    if object = Object.get_cached_by_ap_id(data) do
       {:ok, object}
     else
       with {:ok, data} <- contain_origin(data),
            {:ok, object} <- insert_object(data) do
-          #  :ok <- check_if_public(object.public) do # huh?
+        #  :ok <- check_if_public(object.public) do # huh?
         {:ok, object}
       else
         {:error, e} ->
@@ -42,10 +43,12 @@ defmodule ActivityPub.Fetcher do
 
   def get_or_fetch_and_create(id) do
     with {:ok, object} <- fetch_object_from_id(id) do
-      with %{data: %{"type" => type}} when type in @supported_actor_types <- object do
+      with %{data: %{"type" => type}} when type in @supported_actor_types <-
+             object do
         {:ok, ActivityPub.Actor.maybe_create_actor_from_object(object)}
-      else _ ->
-        {:ok, object}
+      else
+        _ ->
+          {:ok, object}
       end
     end
   end
@@ -109,7 +112,9 @@ defmodule ActivityPub.Fetcher do
   end
 
   # Wrapping object in a create activity to easily pass it to the app's relational database.
-  defp insert_object(%{"type" => type} = data) when type not in @supported_activity_types and type not in @supported_actor_types and type not in ["Collection"] do
+  defp insert_object(%{"type" => type} = data)
+       when type not in @supported_activity_types and
+              type not in @supported_actor_types and type not in ["Collection"] do
     with params <- %{
            "type" => "Create",
            "to" => data["to"],
@@ -130,11 +135,14 @@ defmodule ActivityPub.Fetcher do
 
   def get_actor(%{"actor" => actor} = _data), do: actor
 
-  def get_actor(%{"id" => actor, "type" => type} = _data) when type in @supported_actor_types, do: actor
+  def get_actor(%{"id" => actor, "type" => type} = _data)
+      when type in @supported_actor_types,
+      do: actor
 
   defp check_if_public(public) when public == true, do: :ok
 
-  defp check_if_public(_public), do: {:error, "Not public"} # discard for now, to avoid privacy leaks
+  # discard for now, to avoid privacy leaks
+  defp check_if_public(_public), do: {:error, "Not public"}
 
   defp contain_uri(id, %{"id" => json_id} = data) do
     id_uri = URI.parse(id)

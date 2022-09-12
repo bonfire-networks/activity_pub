@@ -13,15 +13,13 @@ defmodule ActivityPub.WebFingerTest do
   end
 
   describe "incoming webfinger request" do
-
     @tag :fixme
     test "works for fqns" do
       actor = local_actor()
 
       host = Application.get_env(:activity_pub, :instance)[:hostname]
 
-      {:ok, result} =
-        WebFinger.finger("#{actor.username}@#{host}")
+      {:ok, result} = WebFinger.finger("#{actor.username}@#{host}")
 
       assert is_map(result)
     end

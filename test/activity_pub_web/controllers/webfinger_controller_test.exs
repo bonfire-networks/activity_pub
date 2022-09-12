@@ -11,7 +11,8 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:#{actor.username}@#{endpoint().host()}")
 
-    assert json_response(response, 200)["subject"] == "acct:#{actor.username}@#{endpoint().host()}"
+    assert json_response(response, 200)["subject"] ==
+             "acct:#{actor.username}@#{endpoint().host()}"
   end
 
   test "webfinger with username only" do
@@ -22,7 +23,8 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:#{actor.username}")
 
-    assert json_response(response, 200)["subject"] == "acct:#{actor.username}@#{endpoint().host()}"
+    assert json_response(response, 200)["subject"] ==
+             "acct:#{actor.username}@#{endpoint().host()}"
   end
 
   test "webfinger with username and leading @" do
@@ -33,7 +35,8 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:@#{actor.username}")
 
-    assert json_response(response, 200)["subject"] == "acct:#{actor.username}@#{endpoint().host()}"
+    assert json_response(response, 200)["subject"] ==
+             "acct:#{actor.username}@#{endpoint().host()}"
   end
 
   test "webfinger with username and hostname and leading @" do
@@ -44,7 +47,8 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:@#{actor.username}@#{endpoint().host()}")
 
-    assert json_response(response, 200)["subject"] == "acct:#{actor.username}@#{endpoint().host()}"
+    assert json_response(response, 200)["subject"] ==
+             "acct:#{actor.username}@#{endpoint().host()}"
   end
 
   test "it returns 404 when user isn't found (JSON)" do
@@ -56,7 +60,6 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
 
     assert result == "Could not find user"
   end
-
 
   describe "incoming webfinger request" do
     test "works for fqns" do
@@ -75,5 +78,4 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
     #   assert is_map(result)
     # end
   end
-
 end

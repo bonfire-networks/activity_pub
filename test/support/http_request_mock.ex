@@ -3,7 +3,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   import ActivityPub.Test.Helpers
 
   @mod_path __DIR__
-  def file(path), do: File.read!(@mod_path<>"/../"<>path)
+  def file(path), do: File.read!(@mod_path <> "/../" <> path)
 
   def request(
         %Tesla.Env{
@@ -25,7 +25,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   def get(url, query \\ [], body \\ [], headers \\ [])
 
-  def get("https://kawen.space/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779", _, _, _) do
+  def get(
+        "https://kawen.space/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -49,7 +54,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://testing.kawen.dance/objects/d953809b-d968-49c8-aa8f-7545b9480a12", _, _, _) do
+  def get(
+        "https://testing.kawen.dance/objects/d953809b-d968-49c8-aa8f-7545b9480a12",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -57,7 +67,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://letsalllovela.in/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6", _, _, _) do
+  def get(
+        "https://letsalllovela.in/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -73,7 +88,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space", _, _, _) do
+  def get(
+        "https://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -81,7 +101,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("http://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space", _, _, _) do
+  def get(
+        "http://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -89,7 +114,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
+  def get(
+        "https://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -97,7 +127,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("http://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org", _, _, _) do
+  def get(
+        "http://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org",
+        _,
+        _,
+        _
+      ) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -123,8 +158,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   def get(url, query, body, headers) do
     {:error,
-     "No implemented mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{
-       inspect(headers)
-     }"}
+     "No implemented mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}"}
   end
 end

@@ -25,7 +25,10 @@ defmodule ActivityPub.WebFinger do
           URI.parse(account).host
       end
 
-    protocol = if Application.get_env(:activity_pub, :env) in [:test, :dev], do: "http", else: "https"
+    protocol =
+      if Application.get_env(:activity_pub, :env) in [:test, :dev],
+        do: "http",
+        else: "https"
 
     address = "#{protocol}://#{domain}/.well-known/webfinger?resource=acct:#{account}"
 
@@ -34,7 +37,8 @@ defmodule ActivityPub.WebFinger do
              address,
              Accept: "application/jrd+json"
            ),
-         {:ok, %{status: status, body: body}} when status in 200..299 <- response,
+         {:ok, %{status: status, body: body}} when status in 200..299 <-
+           response,
          {:ok, doc} <- Jason.decode(body) do
       webfinger_from_json(doc)
     else
@@ -48,11 +52,17 @@ defmodule ActivityPub.WebFinger do
   @doc """
   Serves a webfinger response for the requested username.
   """
-  def output("acct:"<>resource), do: output(resource)
+  def output("acct:" <> resource), do: output(resource)
+
   def output(resource) do
     host = URI.parse(ActivityPub.Adapter.base_url()).host
 
-    with %{"username" => username} <- Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)@#{host}/, resource) || Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
+    with %{"username" => username} <-
+           Regex.named_captures(
+             ~r/(?<username>[a-z0-9A-Z_\.-]+)@#{host}/,
+             resource
+           ) ||
+             Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
          {:ok, actor} <- Actor.get_cached_by_username(username) do
       {:ok, represent_user(actor)}
     else
@@ -115,6 +125,4 @@ defmodule ActivityPub.WebFinger do
 
     {:ok, data}
   end
-
-
 end

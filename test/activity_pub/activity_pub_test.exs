@@ -43,6 +43,7 @@ defmodule ActivityPubTest do
       # First time the function goes through fine and returns a Create activity and new object
       {:ok, created} = ActivityPub.create(params)
       assert %{data: %{"type" => "Create"}} = created
+
       # Second time the function return the same object (in a new create activity)
       {:ok, second} = ActivityPub.create(params)
       assert created.object == second.object
@@ -112,7 +113,13 @@ defmodule ActivityPubTest do
     test "it creates a delete activity and deletes the original object" do
       actor = insert(:actor)
       context = "blabla"
-      object = %{"content" => "content", "type" => "Note", "actor" => actor.data["id"]}
+
+      object = %{
+        "content" => "content",
+        "type" => "Note",
+        "actor" => actor.data["id"]
+      }
+
       to = ["https://testing.kawen.dance/users/karen"]
 
       params = %{
@@ -161,7 +168,12 @@ defmodule ActivityPubTest do
       assert like_activity.data["actor"] == actor.data["id"]
       assert like_activity.data["type"] == "Like"
       assert like_activity.data["object"] == object.data["id"]
-      assert like_activity.data["to"] == [actor.data["followers"], note_activity.data["actor"]]
+
+      assert like_activity.data["to"] == [
+               actor.data["followers"],
+               note_activity.data["actor"]
+             ]
+
       assert like_activity.data["context"] == object.data["context"]
 
       # Just return the original activity if the user already liked it.
@@ -227,7 +239,9 @@ defmodule ActivityPubTest do
       assert unannounce_activity.data["type"] == "Undo"
       assert unannounce_activity.data["object"] == announce_activity.data
       assert unannounce_activity.data["actor"] == actor.data["id"]
-      assert unannounce_activity.data["context"] == announce_activity.data["context"]
+
+      assert unannounce_activity.data["context"] ==
+               announce_activity.data["context"]
 
       assert Object.get_by_id(announce_activity.id) == nil
     end
@@ -238,6 +252,7 @@ defmodule ActivityPubTest do
       actor = local_actor()
       {:ok, actor} = Actor.get_by_username(actor.username)
       {:ok, actor} = Actor.ensure_keys_present(actor)
+
       actor_data = ActivityPubWeb.ActorView.render("actor.json", %{actor: actor})
 
       {:ok, update} =

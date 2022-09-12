@@ -14,7 +14,8 @@ defmodule ActivityPub.Keys do
   def keys_from_pem(pem) when is_binary(pem) do
     with [private_key_code] <- :public_key.pem_decode(pem),
          private_key <- :public_key.pem_entry_decode(private_key_code),
-         {:RSAPrivateKey, _, modulus, exponent, _, _, _, _, _, _, _} <- private_key do
+         {:RSAPrivateKey, _, modulus, exponent, _, _, _, _, _, _, _} <-
+           private_key do
       {:ok, private_key, {:RSAPublicKey, modulus, exponent}}
     else
       error -> {:error, error}

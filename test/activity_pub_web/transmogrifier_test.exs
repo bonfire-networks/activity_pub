@@ -8,7 +8,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
   import Tesla.Mock
 
   @mod_path __DIR__
-  def file(path), do: File.read!(@mod_path<>"/../"<>path)
+  def file(path), do: File.read!(@mod_path <> "/../" <> path)
 
   setup do
     mock(fn
@@ -25,6 +25,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
   describe "handle incoming" do
     test "it works for incoming deletes when object was deleted on origin instance" do
       note = insert(:note, %{data: %{"id" => "https://pleroma.example/objects/410"}})
+
       activity = insert(:note_activity, %{note: note})
 
       data =
@@ -72,7 +73,9 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it works for incoming user deletes" do
       %{data: %{"id" => ap_id}} =
-        insert(:actor, %{data: %{"id" => "https://mastodon.example.org/users/karen"}})
+        insert(:actor, %{
+          data: %{"id" => "https://mastodon.example.org/users/karen"}
+        })
 
       assert Object.get_by_ap_id(ap_id)
 
@@ -137,8 +140,12 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       assert data["actor"] == delete_actor.data["id"]
       assert data["type"] == "Undo"
-      assert data["id"] == "https://mastodon.example.org/users/karen#likes/2/undo"
-      assert data["object"]["id"] == "https://mastodon.example.org/users/karen#likes/2"
+
+      assert data["id"] ==
+               "https://mastodon.example.org/users/karen#likes/2/undo"
+
+      assert data["object"]["id"] ==
+               "https://mastodon.example.org/users/karen#likes/2"
     end
 
     test "it works for incoming announces" do
@@ -246,6 +253,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 
       {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(data)
+
       update_data = file("fixtures/mastodon-update.json") |> Jason.decode!()
 
       {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])

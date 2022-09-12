@@ -7,7 +7,9 @@ defmodule ActivityPub.Adapter do
   alias ActivityPub.Object
 
   def adapter,
-    do: Application.get_env(:activity_pub, :adapter) || ActivityPub.Common.adapter_fallback()
+    do:
+      Application.get_env(:activity_pub, :adapter) ||
+        ActivityPub.Common.adapter_fallback()
 
   @doc """
   Run function from adapter if defined, otherwise return fallback value
@@ -26,13 +28,17 @@ defmodule ActivityPub.Adapter do
   end
 
   defp validate_actor({:ok, %Actor{} = actor}), do: {:ok, actor}
-  defp validate_actor({:ok, _}), do: {:error, "Improperly formatted actor struct"}
+
+  defp validate_actor({:ok, _}),
+    do: {:error, "Improperly formatted actor struct"}
+
   defp validate_actor(_), do: {:error, :not_found}
 
   @doc """
   Fetch an actor given its preferred username
   """
-  @callback get_actor_by_username(String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  @callback get_actor_by_username(String.t()) ::
+              {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_username(username) do
     validate_actor(adapter().get_actor_by_username(username))
   end
@@ -47,7 +53,8 @@ defmodule ActivityPub.Adapter do
     adapter().maybe_create_remote_actor(actor)
   end
 
-  @callback update_local_actor(Actor.t(), Map.t()) :: {:ok, Actor.t()} | {:error, any()}
+  @callback update_local_actor(Actor.t(), Map.t()) ::
+              {:ok, Actor.t()} | {:error, any()}
   def update_local_actor(actor, params) do
     adapter().update_local_actor(actor, params)
   end
@@ -84,7 +91,6 @@ defmodule ActivityPub.Adapter do
   def maybe_publish_object(object) do
     adapter().maybe_publish_object(object)
   end
-
 
   @doc """
   Gets local url of an AP object to redirect in browser. Can take pointer id or an actor username.

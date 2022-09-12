@@ -35,7 +35,6 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   def filter(object, _is_local?), do: {:ok, object}
 
-
   defp check_reject(%{host: actor_host} = _actor_info, object) do
     rejects =
       ActivityPub.Config.get([:mrf_simple, :reject])
@@ -96,7 +95,10 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_media_nsfw(_actor_info, object), do: {:ok, object}
 
-  defp check_report_removal(%{host: actor_host} = _actor_info, %{"type" => "Flag"} = object) do
+  defp check_report_removal(
+         %{host: actor_host} = _actor_info,
+         %{"type" => "Flag"} = object
+       ) do
     report_removal =
       ActivityPub.Config.get([:mrf_simple, :report_removal])
       |> MRF.subdomains_regex()
@@ -110,7 +112,10 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_report_removal(_actor_info, object), do: {:ok, object}
 
-  defp check_avatar_removal(%{host: actor_host} = _actor_info, %{"icon" => _icon} = object) do
+  defp check_avatar_removal(
+         %{host: actor_host} = _actor_info,
+         %{"icon" => _icon} = object
+       ) do
     avatar_removal =
       ActivityPub.Config.get([:mrf_simple, :avatar_removal])
       |> MRF.subdomains_regex()
@@ -124,7 +129,10 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   defp check_avatar_removal(_actor_info, object), do: {:ok, object}
 
-  defp check_banner_removal(%{host: actor_host} = _actor_info, %{"image" => _image} = object) do
+  defp check_banner_removal(
+         %{host: actor_host} = _actor_info,
+         %{"image" => _image} = object
+       ) do
     banner_removal =
       ActivityPub.Config.get([:mrf_simple, :banner_removal])
       |> MRF.subdomains_regex()
@@ -137,6 +145,4 @@ defmodule ActivityPub.MRF.SimplePolicy do
   end
 
   defp check_banner_removal(_actor_info, object), do: {:ok, object}
-
-
 end

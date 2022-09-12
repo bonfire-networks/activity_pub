@@ -43,11 +43,14 @@ defmodule ActivityPub.Object do
     )
   end
 
-  def get_by_pointer_id(pointer_id), do: repo().get_by(Object, pointer_id: pointer_id)
+  def get_by_pointer_id(pointer_id),
+    do: repo().get_by(Object, pointer_id: pointer_id)
 
-  def get_cached_by_ap_id(%{"id"=> ap_id}), do: get_cached_by_ap_id(ap_id)
+  def get_cached_by_ap_id(%{"id" => ap_id}), do: get_cached_by_ap_id(ap_id)
+
   def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
     key = "ap_id:#{ap_id}"
+
     try do
       Cachex.fetch!(:ap_object_cache, key, fn _ ->
         object = get_by_ap_id(ap_id)
@@ -95,7 +98,8 @@ defmodule ActivityPub.Object do
 
   def invalidate_cache(%Object{data: %{"id" => ap_id}} = object) do
     with {:ok, true} <- Cachex.del(:ap_object_cache, "ap_id:#{ap_id}"),
-         {:ok, true} <- Cachex.del(:ap_object_cache, "pointer_id:#{object.pointer_id}") do
+         {:ok, true} <-
+           Cachex.del(:ap_object_cache, "pointer_id:#{object.pointer_id}") do
       :ok
     end
   end
@@ -148,25 +152,32 @@ defmodule ActivityPub.Object do
     changeset(existing_object, attrs)
     |> update_and_set_cache()
   end
+
   def maybe_upsert(_, %ActivityPub.Object{} = existing_object, _attrs) do
     error("Attempted to insert an object that already exists")
     debug(existing_object)
     {:ok, existing_object}
   end
+
   def maybe_upsert(_, _, attrs) do
     insert(attrs)
   end
 
   def normalize(_, fetch_remote \\ true)
   def normalize(%Object{} = object, _), do: object
-  def normalize(%{"id" => ap_id} = object, fetch_remote) when is_binary(ap_id) do
+
+  def normalize(%{"id" => ap_id} = object, fetch_remote)
+      when is_binary(ap_id) do
     # if(length(Map.keys(object))==1) do # we only have an ID
-      normalize(ap_id, fetch_remote)
+    normalize(ap_id, fetch_remote)
     # else
     #   %{data: object}
     # end
   end
-  def normalize(ap_id, false) when is_binary(ap_id), do: get_cached_by_ap_id(ap_id)
+
+  def normalize(ap_id, false) when is_binary(ap_id),
+    do: get_cached_by_ap_id(ap_id)
+
   def normalize(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
@@ -174,9 +185,13 @@ defmodule ActivityPub.Object do
       _e -> nil
     end
   end
+
   def normalize(_, _), do: nil
 
-  def make_tombstone(%Object{data: %{"id" => id, "type" => type}}, deleted \\ DateTime.utc_now()) do
+  def make_tombstone(
+        %Object{data: %{"id" => id, "type" => type}},
+        deleted \\ DateTime.utc_now()
+      ) do
     %{
       "id" => id,
       "formerType" => type,
@@ -202,7 +217,9 @@ defmodule ActivityPub.Object do
 
   def get_outbox_for_actor(actor) do
     from(object in Object,
-      where: fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and object.public == true,
+      where:
+        fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and
+          object.public == true,
       limit: 10
     )
     |> repo().all()
@@ -212,7 +229,9 @@ defmodule ActivityPub.Object do
     offset = (page - 1) * 10
 
     from(object in Object,
-      where: fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and object.public == true,
+      where:
+        fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and
+          object.public == true,
       limit: 10,
       offset: ^offset
     )
@@ -222,8 +241,11 @@ defmodule ActivityPub.Object do
   def get_outbox_for_instance() do
     instance = ActivityPubWeb.base_url()
     instance_filter = "#{instance}%"
+
     from(object in Object,
-      where: fragment("(?)->>'actor' ilike ?", object.data, ^instance_filter) and object.public == true,
+      where:
+        fragment("(?)->>'actor' ilike ?", object.data, ^instance_filter) and
+          object.public == true,
       limit: 10
     )
     |> repo().all()

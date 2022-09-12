@@ -3,18 +3,18 @@ defmodule ActivityPub.Migrations do
 
   def weak_pointer() do
     if Code.ensure_loaded?(Pointers.Pointer) do
-      references Pointers.Pointer.__schema__(:source),
+      references(Pointers.Pointer.__schema__(:source),
         type: :uuid,
         on_update: :update_all,
         on_delete: :nilify_all
+      )
     else
       :uuid
     end
   end
 
   def up do
-
-    execute "CREATE EXTENSION IF NOT EXISTS citext"
+    execute("CREATE EXTENSION IF NOT EXISTS citext")
 
     create table("ap_object", primary_key: false) do
       add(:id, :uuid, primary_key: true)
@@ -44,15 +44,14 @@ defmodule ActivityPub.Migrations do
   def prepare_test do
     # This local_actor table only exists for test purposes
     create_if_not_exists table("local_actor", primary_key: false) do
-      add :id, :uuid, primary_key: true
-      add :username, :citext
-      add :data, :map
-      add :local, :boolean
-      add :keys, :text
-      add :followers, {:array, :string}
+      add(:id, :uuid, primary_key: true)
+      add(:username, :citext)
+      add(:data, :map)
+      add(:local, :boolean)
+      add(:keys, :text)
+      add(:followers, {:array, :string})
     end
   end
-
 
   def down do
     drop(table("ap_object"))

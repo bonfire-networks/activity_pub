@@ -29,33 +29,35 @@ defmodule ActivityPub do
   end
 
   @doc false
-  def insert(map, local?, pointer \\ nil, upsert? \\ false) when is_map(map) and is_boolean(local?) do
+  def insert(map, local?, pointer \\ nil, upsert? \\ false)
+      when is_map(map) and is_boolean(local?) do
     with activity_id <- Ecto.UUID.generate(),
          %{} = map <- Utils.lazy_put_activity_defaults(map, activity_id),
          :ok <- check_actor_is_active(map["actor"]),
          # set some healthy boundaries
          {:ok, map} <- MRF.filter(map, local?),
          # first insert the object
-         {:ok, map, object} <- Utils.insert_full_object(map, local?, pointer, upsert?),
-      # then insert the activity (containing only an ID as object)
-         {:ok, activity} <- (
-        if not is_nil(object) do
-          Object.insert(%{
-            id: activity_id,
-            data: map,
-            local: local?,
-            public: Utils.public?(map, object)
-          })
-        else # for activities without an object
-          Object.insert(%{
-            id: activity_id,
-            data: map,
-            local: local?,
-            public: Utils.public?(map),
-            pointer_id: pointer
-          })
-        end) do
-
+         {:ok, map, object} <-
+           Utils.insert_full_object(map, local?, pointer, upsert?),
+         # then insert the activity (containing only an ID as object)
+         # for activities without an object
+         {:ok, activity} <-
+           (if not is_nil(object) do
+              Object.insert(%{
+                id: activity_id,
+                data: map,
+                local: local?,
+                public: Utils.public?(map, object)
+              })
+            else
+              Object.insert(%{
+                id: activity_id,
+                data: map,
+                local: local?,
+                public: Utils.public?(map),
+                pointer_id: pointer
+              })
+            end) do
       # Splice in the child object if we have one.
       activity =
         if !is_nil(object) do
@@ -69,7 +71,9 @@ defmodule ActivityPub do
       %Object{} = object ->
         error("error while trying to insert, return the object instead")
         object
-      error -> {:error, error}
+
+      error ->
+        {:error, error}
     end
   end
 
@@ -84,7 +88,10 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
-  def create(%{to: to, actor: actor, context: context, object: object} = params, pointer \\ nil) do
+  def create(
+        %{to: to, actor: actor, context: context, object: object} = params,
+        pointer \\ nil
+      ) do
     additional = params[:additional] || %{}
 
     # only accept false as false value
@@ -93,7 +100,13 @@ defmodule ActivityPub do
     with nil <- Object.normalize(additional["id"], false),
          create_data <-
            Utils.make_create_data(
-             %{to: to, actor: actor, published: params[:published], context: context, object: object},
+             %{
+               to: to,
+               actor: actor,
+               published: params[:published],
+               context: context,
+               object: object
+             },
              additional
            ),
          {:ok, activity} <- insert(create_data, local?, pointer),
@@ -185,9 +198,15 @@ defmodule ActivityPub do
           local :: boolean()
         ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(follower, followed, activity_id \\ nil, local \\ true) do
-    with %Object{} = follow_activity <- Utils.fetch_latest_follow(follower, followed),
+    with %Object{} = follow_activity <-
+           Utils.fetch_latest_follow(follower, followed),
          unfollow_data <-
-           Utils.make_unfollow_data(follower, followed, follow_activity, activity_id),
+           Utils.make_unfollow_data(
+             follower,
+             followed,
+             follow_activity,
+             activity_id
+           ),
          {:ok, activity} <- insert(unfollow_data, local),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
@@ -195,7 +214,12 @@ defmodule ActivityPub do
     end
   end
 
-  @spec like(Actor.t(), Object.t(), activity_id :: binary() | nil, local :: boolean()) ::
+  @spec like(
+          Actor.t(),
+          Object.t(),
+          activity_id :: binary() | nil,
+          local :: boolean()
+        ) ::
           {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def like(
         %{data: %{"id" => ap_id}} = actor,
@@ -215,7 +239,12 @@ defmodule ActivityPub do
     end
   end
 
-  @spec unlike(Actor.t(), Object.t(), activity_id :: binary() | nil, local :: boolean()) ::
+  @spec unlike(
+          Actor.t(),
+          Object.t(),
+          activity_id :: binary() | nil,
+          local :: boolean()
+        ) ::
           {:ok, unlike_activity :: Object.t(), like_activity :: Object.t(), object :: Object.t()}
           | {:error, any()}
   def unlike(
@@ -225,7 +254,8 @@ defmodule ActivityPub do
         local \\ true
       ) do
     with %Object{} = like_activity <- Utils.get_existing_like(ap_id, object),
-         unlike_data <- Utils.make_unlike_data(actor, like_activity, activity_id),
+         unlike_data <-
+           Utils.make_unlike_data(actor, like_activity, activity_id),
          {:ok, unlike_activity} <- insert(unlike_data, local),
          {:ok, _activity} <- repo().delete(like_activity),
          :ok <- Utils.maybe_federate(unlike_activity),
@@ -243,7 +273,8 @@ defmodule ActivityPub do
           local :: boolean(),
           public :: boolean(),
           summary :: binary() | nil
-        ) :: {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
+        ) ::
+          {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def announce(
         %{data: %{"id" => _}} = actor,
         %Object{data: %{"id" => _}} = object,
@@ -253,7 +284,8 @@ defmodule ActivityPub do
         summary \\ nil
       ) do
     with true <- Utils.public?(object.data),
-         announce_data <- Utils.make_announce_data(actor, object, activity_id, public, summary),
+         announce_data <-
+           Utils.make_announce_data(actor, object, activity_id, public, summary),
          {:ok, activity} <- insert(announce_data, local),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
@@ -263,16 +295,24 @@ defmodule ActivityPub do
     end
   end
 
-  @spec unannounce(Actor.t(), Object.t(), activity_id :: binary() | nil, local :: boolean) ::
-          {:ok, unannounce_activity :: Object.t(), object :: Object.t()} | {:error, any()}
+  @spec unannounce(
+          Actor.t(),
+          Object.t(),
+          activity_id :: binary() | nil,
+          local :: boolean
+        ) ::
+          {:ok, unannounce_activity :: Object.t(), object :: Object.t()}
+          | {:error, any()}
   def unannounce(
         %{data: %{"id" => ap_id}} = actor,
         %Object{} = object,
         activity_id \\ nil,
         local \\ true
       ) do
-    with %Object{} = announce_activity <- Utils.get_existing_announce(ap_id, object),
-         unannounce_data <- Utils.make_unannounce_data(actor, announce_activity, activity_id),
+    with %Object{} = announce_activity <-
+           Utils.get_existing_announce(ap_id, object),
+         unannounce_data <-
+           Utils.make_unannounce_data(actor, announce_activity, activity_id),
          {:ok, unannounce_activity} <- insert(unannounce_data, local),
          :ok <- Utils.maybe_federate(unannounce_activity),
          {:ok, _activity} <- repo().delete(announce_activity),
@@ -337,7 +377,13 @@ defmodule ActivityPub do
         ) :: {:ok, Object.t()} | {:error, any()}
   def unblock(blocker, blocked, activity_id \\ nil, local \\ true) do
     with block_activity <- Utils.fetch_latest_block(blocker, blocked),
-         unblock_data <- Utils.make_unblock_data(blocker, blocked, block_activity, activity_id),
+         unblock_data <-
+           Utils.make_unblock_data(
+             blocker,
+             blocked,
+             block_activity,
+             activity_id
+           ),
          {:ok, activity} <- insert(unblock_data, local),
          :ok <- Utils.maybe_federate(activity),
          :ok <- Adapter.maybe_handle_activity(activity) do
@@ -349,7 +395,11 @@ defmodule ActivityPub do
 
   @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary() | nil) ::
           {:ok, Object.t()} | {:error, any()}
-  def delete(%{data: %{"id" => id, "type" => type}} = actor, local, delete_actor)
+  def delete(
+        %{data: %{"id" => id, "type" => type}} = actor,
+        local,
+        delete_actor
+      )
       when type in @supported_actor_types do
     to = [actor.data["followers"]]
 
@@ -368,7 +418,11 @@ defmodule ActivityPub do
 
   @spec delete(Object.t(), local :: boolean(), delete_actor :: binary()) ::
           {:ok, Object.t()} | {:error, any()}
-  def delete(%Object{data: %{"id" => id, "actor" => actor}} = object, local, _delete_actor) do
+  def delete(
+        %Object{data: %{"id" => id, "actor" => actor}} = object,
+        local,
+        _delete_actor
+      ) do
     to = (object.data["to"] || []) ++ (object.data["cc"] || [])
 
     with {:ok, _object} <- Object.delete(object),

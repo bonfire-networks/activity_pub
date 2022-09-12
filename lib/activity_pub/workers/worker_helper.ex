@@ -22,7 +22,11 @@ defmodule ActivityPub.Workers.WorkerHelper do
       def enqueueable(op, params, worker_args \\ []) do
         params = Map.merge(%{"op" => op}, params)
         queue_atom = String.to_atom(unquote(queue))
-        worker_args = worker_args ++  ActivityPub.Workers.WorkerHelper.worker_args(queue_atom)
+
+        worker_args =
+          worker_args ++
+            ActivityPub.Workers.WorkerHelper.worker_args(queue_atom)
+
         unquote(caller_module).new(params, worker_args)
       end
 

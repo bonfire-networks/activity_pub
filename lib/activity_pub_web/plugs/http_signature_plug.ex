@@ -22,8 +22,11 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
         conn
         |> put_req_header("(request-target)", request_target)
         |> case do
-          %{assigns: %{digest: digest}} = conn -> put_req_header(conn, "digest", digest)
-          conn -> conn
+          %{assigns: %{digest: digest}} = conn ->
+            put_req_header(conn, "digest", digest)
+
+          conn ->
+            conn
         end
 
       assign(conn, :valid_signature, HTTPSignatures.validate_conn(conn))

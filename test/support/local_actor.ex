@@ -20,7 +20,11 @@ defmodule ActivityPub.LocalActor do
   def get_by_id(id), do: repo().get(__MODULE__, id)
 
   def get_by_ap_id(ap_id) do
-    repo().one(from(actor in __MODULE__, where: fragment("(?)->>'id' = ?", actor.data, ^ap_id)))
+    repo().one(
+      from(actor in __MODULE__,
+        where: fragment("(?)->>'id' = ?", actor.data, ^ap_id)
+      )
+    )
   end
 
   def get_by_username(username) do

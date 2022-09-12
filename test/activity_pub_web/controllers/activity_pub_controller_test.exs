@@ -66,6 +66,5 @@ defmodule ActivityPubWeb.ActivityPubControllerTest do
       assert resp["preferredUsername"] == actor.username
       assert resp["url"] == resp["id"]
     end
-
   end
 end

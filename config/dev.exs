@@ -4,7 +4,7 @@ import Config
 config :activity_pub, ActivityPub.Repo,
   username: "postgres",
   password: "postgres",
-  database: "activity_pub_dev" ,
+  database: "activity_pub_dev",
   hostname: System.get_env("DATABASE_HOST", "localhost"),
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

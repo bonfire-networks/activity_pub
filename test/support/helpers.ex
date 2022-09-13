@@ -21,4 +21,5 @@ defmodule ActivityPub.Test.Helpers do
       ActivityPub.LocalActor.follow(actor_1, actor_2)
     end
   end
+
 end

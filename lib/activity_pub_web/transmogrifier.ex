@@ -297,7 +297,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       )
       when object_type in @supported_actor_types do
     with {:ok, _} <- Actor.update_actor_data_by_ap_id(actor_id, object),
-         {:ok, actor} <- Actor.get_by_ap_id(actor_id),
+         {:ok, actor} <- Actor.single_by_ap_id(actor_id),
          {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
         local: false,

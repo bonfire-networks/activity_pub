@@ -19,7 +19,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   alias ActivityPubWeb.ActorView
   alias ActivityPubWeb.Federator
   alias ActivityPubWeb.ObjectView
-  alias ActivityPubWeb.RedirectController
+  # alias ActivityPubWeb.RedirectController
 
   def ap_route_helper(uuid) do
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
@@ -29,7 +29,8 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def object(conn, %{"uuid" => uuid}) do
     if get_format(conn) == "html" do
-      case RedirectController.object(uuid) do
+      case Adapter.get_redirect_url(uuid) do
+        "http" <> _ = url -> redirect(conn, external: url)
         url when is_binary(url) -> redirect(conn, to: url)
         _ -> object_json(conn, %{"uuid" => uuid})
       end
@@ -41,7 +42,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   defp object_json(conn, %{"uuid" => uuid}) do
     # querying by pointer
     if Utils.is_ulid?(uuid) do
-      with %Object{} = object <-
+      with {:ok, object} <-
              Object.get_cached_by_pointer_id(uuid) ||
                Adapter.maybe_publish_object(uuid),
            true <- object.public,
@@ -61,7 +62,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       end
     else
       with ap_id <- ap_route_helper(uuid),
-           %Object{} = object <- Object.get_cached_by_ap_id(ap_id),
+           {:ok, object} <- Object.get_cached_by_ap_id(ap_id),
            true <- object.public do
         conn
         |> put_resp_content_type("application/activity+json")
@@ -77,8 +78,9 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def actor(conn, %{"username" => username}) do
-    if get_format(conn) == "html" do
-      case RedirectController.actor(username) do
+    if get_format(conn) |> info == "html" do
+      case Adapter.get_redirect_url(username) do
+        "http" <> _ = url -> redirect(conn, external: url)
         url when is_binary(url) -> redirect(conn, to: url)
         _ -> actor_json(conn, %{"username" => username})
       end
@@ -162,23 +164,18 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
-    if Utils.federating?() do
-      Federator.incoming_ap_doc(params)
-      json(conn, "ok")
-    else
-      json(conn, "not federating")
-    end
+    process_incoming(conn, params)
   end
 
   # only accept relayed Creates
   def inbox(conn, %{"type" => "Create"} = params) do
     warn(
       params,
-      "Signature missing or not from author, relayed Create message, so fetching object from source"
+      "Signature missing or not from author, so fetching object from source"
     )
 
     if Utils.federating?() do
-      Fetcher.fetch_object_from_id(params["object"]["id"])
+      Fetcher.fetch_object_from_id(params["object"]["id"] || params["object"])
       json(conn, "ok")
     else
       json(conn, "not federating")
@@ -191,21 +188,39 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def inbox(conn, params) do
-    headers = Enum.into(conn.req_headers, %{})
+    invalid_signature(conn.req_headers, params)
 
-    if String.contains?(headers["signature"], params["actor"]) do
-      warn(
-        params["actor"],
-        "Signature validation error, make sure you are forwarding the HTTP Host header"
-      )
-
-      debug(conn.req_headers)
-    end
+    # TODO: should we ignore unsigned or invalidly signed activities?
+    process_incoming(conn, params)
 
     json(conn, "error")
   end
 
   def noop(conn, _params) do
     json(conn, "ok")
+  end
+
+  defp process_incoming(conn, params) do
+    if Utils.federating?() do
+      Federator.incoming_ap_doc(params)
+      json(conn, "ok")
+    else
+      json(conn, "not federating")
+    end
+  end
+
+  defp invalid_signature(req_headers, params) do
+    headers = Enum.into(req_headers, %{})
+
+    if String.contains?(headers["signature"], params["actor"]) do
+      error(
+        params,
+        "Signature validation error (make sure you are forwarding the HTTP Host header)"
+      )
+    else
+      error("No signature provided (make sure you are forwarding the HTTP Host header)")
+    end
+
+    info(req_headers)
   end
 end

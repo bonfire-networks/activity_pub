@@ -5,7 +5,7 @@ defmodule ActivityPub.Factory do
 
   def actor(attrs \\ %{}) do
     actor = insert(:actor, attrs)
-    {:ok, actor} = ActivityPub.Actor.get_by_ap_id(actor.data["id"])
+    {:ok, actor} = ActivityPub.Actor.single_by_ap_id(actor.data["id"])
     actor
   end
 
@@ -41,7 +41,7 @@ defmodule ActivityPub.Factory do
 
   def community() do
     actor = insert(:actor)
-    {:ok, actor} = ActivityPub.Actor.get_by_ap_id(actor.data["id"])
+    {:ok, actor} = ActivityPub.Actor.single_by_ap_id(actor.data["id"])
 
     community =
       insert(:actor, %{
@@ -52,13 +52,13 @@ defmodule ActivityPub.Factory do
         }
       })
 
-    {:ok, community} = ActivityPub.Actor.get_by_ap_id(community.data["id"])
+    {:ok, community} = ActivityPub.Actor.single_by_ap_id(community.data["id"])
     community
   end
 
   def collection() do
     actor = insert(:actor)
-    {:ok, actor} = ActivityPub.Actor.get_by_ap_id(actor.data["id"])
+    {:ok, actor} = ActivityPub.Actor.single_by_ap_id(actor.data["id"])
 
     community =
       insert(:actor, %{
@@ -69,7 +69,7 @@ defmodule ActivityPub.Factory do
         }
       })
 
-    {:ok, community} = ActivityPub.Actor.get_by_ap_id(community.data["id"])
+    {:ok, community} = ActivityPub.Actor.single_by_ap_id(community.data["id"])
 
     collection =
       insert(:actor, %{
@@ -81,7 +81,7 @@ defmodule ActivityPub.Factory do
         }
       })
 
-    {:ok, collection} = ActivityPub.Actor.get_by_ap_id(collection.data["id"])
+    {:ok, collection} = ActivityPub.Actor.single_by_ap_id(collection.data["id"])
     collection
   end
 

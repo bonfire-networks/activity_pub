@@ -1,10 +1,10 @@
 defmodule ActivityPub.Test.Helpers do
   def repo,
-    do: Application.get_env(:activity_pub, :test_repo, ActivityPub.TestRepo)
+    do: Process.get(:ecto_repo_module) || Application.get_env(:activity_pub, :test_repo, ActivityPub.TestRepo)
 
   def endpoint,
     do:
-      Application.get_env(
+      Process.get(:phoenix_endpoint_module) || Application.get_env(
         :activity_pub,
         :endpoint_module,
         ActivityPubWeb.Endpoint

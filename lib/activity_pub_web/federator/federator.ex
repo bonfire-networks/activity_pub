@@ -27,7 +27,7 @@ defmodule ActivityPubWeb.Federator do
     actor_id = activity.data["actor"]
 
     with {:ok, actor} <- Actor.get_cached_by_ap_id(actor_id),
-         {:ok, actor} <- Actor.ensure_keys_present(actor) do
+         actor <- Actor.add_public_key(actor) do
       debug(activity.data["id"], "Running publish for")
       Publisher.publish(actor, activity)
     else

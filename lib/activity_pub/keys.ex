@@ -18,12 +18,11 @@ defmodule ActivityPub.Keys do
            private_key do
       {:ok, private_key, {:RSAPublicKey, modulus, exponent}}
     else
-      error -> {:error, error}
+      error -> error(error)
     end
   end
 
   def keys_from_pem(pem) do
-    error(pem, "Could not get keys, expected a PEM but got")
-    {:error, "Could not find actor's keys"}
+    error(pem, "Could not get keys (expected a PEM)")
   end
 end

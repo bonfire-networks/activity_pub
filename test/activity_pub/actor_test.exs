@@ -29,7 +29,7 @@ defmodule ActivityPub.ActorTest do
     follow(actor_1, actor_2)
     follow(actor_3, actor_2)
 
-    {:ok, ap_actor_2} = Actor.get_by_ap_id(actor_2.data["id"])
+    {:ok, ap_actor_2} = Actor.single_by_ap_id(actor_2.data["id"])
 
     {:ok, actors} = Actor.get_followers(ap_actor_2)
     assert length(actors) == 2

@@ -9,6 +9,7 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
   end
 
   def call(%{assigns: %{valid_signature: true}} = conn, _opts) do
+    # already validated somehow?
     conn
   end
 
@@ -29,7 +30,10 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
             conn
         end
 
-      assign(conn, :valid_signature, HTTPSignatures.validate_conn(conn))
+      validate = HTTPSignatures.validate_conn(conn)
+      |> info("valid_signature?")
+
+      assign(conn, :valid_signature, validate)
     else
       warn("conn has no signature header!")
       conn

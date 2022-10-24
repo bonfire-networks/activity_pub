@@ -1,8 +1,9 @@
 defmodule ActivityPub.Signature do
   @behaviour HTTPSignatures.Adapter
-
+  import Untangle
   alias ActivityPub.Actor
   alias ActivityPub.Keys
+  alias ActivityPub.Fetcher
 
   def key_id_to_actor_id(key_id) do
     uri =
@@ -20,25 +21,27 @@ defmodule ActivityPub.Signature do
   end
 
   def fetch_public_key(conn) do
-    with %{"keyId" => kid} <- HTTPSignatures.signature_for_conn(conn),
-         actor_id <- key_id_to_actor_id(kid),
-         {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor_id) do
+    with %{"keyId" => kid} <- HTTPSignatures.signature_for_conn(conn) |> info,
+         actor_id <- key_id_to_actor_id(kid) |> info,
+         {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor_id) |> info do
       {:ok, public_key}
     else
       e ->
-        {:error, e}
+        error(e)
+        # return ok so that HTTPSignatures calls `refetch_public_key/1`
+        {:ok, nil}
     end
   end
 
   def refetch_public_key(conn) do
     with %{"keyId" => kid} <- HTTPSignatures.signature_for_conn(conn),
          actor_id <- key_id_to_actor_id(kid),
-         # Ensure the actor is in the database before updating
-         # This might potentially update the actor twice in a row
-         # TODO: Fix that
-         {:ok, _actor} <- Actor.get_or_fetch_by_ap_id(actor_id),
-         {:ok, _actor} <- Actor.update_actor(actor_id),
-         {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor_id) do
+         # Ensure the remote actor is freshly fetched before updating
+         {:ok, actor} <- Fetcher.fetch_fresh_object_from_id(actor_id) |> info,
+        #  {:ok, actor} <- Actor.update_actor(actor_id) |> info,
+         # FIXME: This might update the actor twice in a row ^
+         {:ok, actor} <- Actor.update_actor(actor_id, actor) |> info,
+         {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor) do
       {:ok, public_key}
     else
       e ->

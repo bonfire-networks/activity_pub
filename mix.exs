@@ -55,8 +55,8 @@ defmodule ActivityPub.MixProject do
       {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
       {:http_signatures,
-       git: "https://git.pleroma.social/pleroma/http_signatures.git",
-       ref: "293d77bb6f4a67ac8bde1428735c3b42f22cbb30"},
+       git: "https://github.com/bonfire-networks/http_signatures",
+       branch: "main"},
       {:timex, "~> 3.5"},
       {:cachex, "~> 3.2"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
@@ -73,6 +73,8 @@ defmodule ActivityPub.MixProject do
       #   optional: true
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
+      {:arrows,
+       git: "https://github.com/bonfire-networks/arrows", branch: "main"},
       {:untangle,
        git: "https://github.com/bonfire-networks/untangle", branch: "main"}
     ]

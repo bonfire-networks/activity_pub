@@ -15,28 +15,35 @@ defmodule ActivityPub.Fetcher do
   Checks if an object exists in the database and fetches it if it doesn't.
   """
   def fetch_object_from_id(id) do
-    if object = Object.get_cached_by_ap_id(id) do
-      {:ok, object}
-    else
-      with {:ok, data} <- fetch_remote_object_from_id(id),
+    case Object.get_cached_by_ap_id(id) do
+      {:ok, actor} -> {:ok, actor}
+      _ ->
+        fetch_fresh_object_from_id(id)
+    end
+  end
+
+  def fetch_fresh_object_from_id(%{data: %{"id"=>id}}), do: fetch_fresh_object_from_id(id)
+  def fetch_fresh_object_from_id(%{"id"=>id}), do: fetch_fresh_object_from_id(id)
+  def fetch_fresh_object_from_id(id) do
+        with {:ok, data} <- fetch_remote_object_from_id(id) |> info,
            {:ok, object} <- maybe_store_data(data) do
         {:ok, object}
-      end
     end
   end
 
   defp maybe_store_data(data) do
-    # check that we haven't cached it under another ID
-    if object = Object.get_cached_by_ap_id(data) do
+    with {:ok, object} <- Object.single_by_ap_id(data) do
+      info("object was already cached under another ID")
+          # TODO: update in some specific cases?
       {:ok, object}
-    else
+    else _ ->
       with {:ok, data} <- contain_origin(data),
            {:ok, object} <- insert_object(data) do
         #  :ok <- check_if_public(object.public) do # huh?
         {:ok, object}
       else
-        {:error, e} ->
-          {:error, e}
+        e ->
+          error(e)
       end
     end
   end
@@ -50,6 +57,12 @@ defmodule ActivityPub.Fetcher do
         _ ->
           {:ok, object}
       end
+    end
+  end
+
+  def get_or_fetch_and_create_tuple(id) do
+    with {:ok, object} <- fetch_object_from_id(id) do
+        ActivityPub.Actor.maybe_create_actor_from_object_tuple(object)
     end
   end
 
@@ -71,6 +84,7 @@ defmodule ActivityPub.Fetcher do
     else
       {:ok, %{status: code}} when code in [404, 410] ->
         warn(id, "404")
+
         {:error, "Object not found or deleted"}
 
       %Jason.DecodeError{} = error ->
@@ -128,7 +142,7 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
-  # QUESTION: does calling handle_object here instead of handle_incoming mean activities (or objects not in @create_object_types) won't handled in the same way?
+  # QUESTION: does calling handle_object here instead of handle_incoming mean activities (or objects not in @create_object_types) won't be handled in the same way?
   defp insert_object(data), do: Transmogrifier.handle_object(data)
 
   def get_actor(%{"attributedTo" => actor} = _data), do: actor

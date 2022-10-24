@@ -453,7 +453,7 @@ defmodule ActivityPub.Utils do
              type not in @supported_activity_types do
     # we're taking a shortcut by assuming that anything that doesn't seem like an actor or activity is an object (which is better than only supporting a specific list of object types)
     # check that it doesn't already exist
-    with maybe_existing_object <- Object.normalize(object_data, false),
+    with maybe_existing_object <- Object.normalize(object_data, false) |> info("maybe_existing_object"),
          {:ok, data} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
            Object.maybe_upsert(upsert?, maybe_existing_object, data) do
@@ -550,7 +550,7 @@ defmodule ActivityPub.Utils do
   def federating? do
     (Application.get_env(:activity_pub, :instance)[:federating] ||
        System.get_env("TEST_INSTANCE") == "yes")
-    |> IO.inspect(label: "Federating?")
+    # |> IO.inspect(label: "Federating?")
   end
 
   def lazy_put_activity_defaults(map, activity_id) do

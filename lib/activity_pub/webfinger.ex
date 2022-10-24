@@ -11,26 +11,27 @@ defmodule ActivityPub.WebFinger do
 
   import Untangle
 
+  def base_url(account) do
+    host = with [_name, domain] <- String.split(account, "@") do
+        domain
+      else
+        _e ->
+          uri = URI.parse(account)
+          if uri.port not in [80, 443], do: "#{uri.host}:#{uri.port}", else: uri.host
+      end
+
+    if String.starts_with?(host, "localhost"),
+        do: "http://#{host}",
+        else: "https://#{host}"
+  end
+
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.
   """
   def finger(account) do
     account = String.trim_leading(account, "@")
 
-    domain =
-      with [_name, domain] <- String.split(account, "@") do
-        domain
-      else
-        _e ->
-          URI.parse(account).host
-      end
-
-    protocol =
-      if Application.get_env(:activity_pub, :env) in [:test, :dev],
-        do: "http",
-        else: "https"
-
-    address = "#{protocol}://#{domain}/.well-known/webfinger?resource=acct:#{account}"
+    address = "#{base_url(account)}/.well-known/webfinger?resource=acct:#{account}"
 
     with response <-
            HTTP.get(
@@ -85,10 +86,8 @@ defmodule ActivityPub.WebFinger do
   Formats gathered data into a JRD format.
   """
   def represent_user(actor) do
-    host = URI.parse(ActivityPub.Adapter.base_url()).host
-
     %{
-      "subject" => "acct:#{actor.data["preferredUsername"]}@#{host}",
+      "subject" => "acct:#{Actor.format_username(actor.data)}",
       "aliases" => [actor.data["id"]],
       "links" => gather_links(actor)
     }

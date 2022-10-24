@@ -11,7 +11,7 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:#{actor.username}@#{endpoint().host()}")
 
-    assert json_response(response, 200)["subject"] ==
+    assert json_response(response, 200)["subject"] =~
              "acct:#{actor.username}@#{endpoint().host()}"
   end
 
@@ -23,7 +23,7 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:#{actor.username}")
 
-    assert json_response(response, 200)["subject"] ==
+    assert json_response(response, 200)["subject"] =~
              "acct:#{actor.username}@#{endpoint().host()}"
   end
 
@@ -35,7 +35,7 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:@#{actor.username}")
 
-    assert json_response(response, 200)["subject"] ==
+    assert json_response(response, 200)["subject"] =~
              "acct:#{actor.username}@#{endpoint().host()}"
   end
 
@@ -47,7 +47,7 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
       |> put_req_header("accept", "application/json")
       |> get("/.well-known/webfinger?resource=acct:@#{actor.username}@#{endpoint().host()}")
 
-    assert json_response(response, 200)["subject"] ==
+    assert json_response(response, 200)["subject"] =~
              "acct:#{actor.username}@#{endpoint().host()}"
   end
 

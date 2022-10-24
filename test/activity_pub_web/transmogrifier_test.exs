@@ -23,6 +23,14 @@ defmodule ActivityPubWeb.TransmogrifierTest do
   end
 
   describe "handle incoming" do
+
+
+    test "it works for incoming create activity" do
+      data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
+
+      {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(data)
+    end
+
     test "it works for incoming deletes when object was deleted on origin instance" do
       note = insert(:note, %{data: %{"id" => "https://pleroma.example/objects/410"}})
 
@@ -271,7 +279,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(update_data)
 
-      {:ok, actor} = Actor.get_by_ap_id(data["actor"])
+      {:ok, actor} = Actor.single_by_ap_id(data["actor"])
       assert actor.data["name"] == "gargle"
 
       assert actor.data["icon"]["url"] ==

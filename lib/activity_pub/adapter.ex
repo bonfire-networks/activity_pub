@@ -2,7 +2,7 @@ defmodule ActivityPub.Adapter do
   @moduledoc """
   Contract for ActivityPub module adapters
   """
-
+  import Untangle
   alias ActivityPub.Actor
   alias ActivityPub.Object
 
@@ -23,7 +23,7 @@ defmodule ActivityPub.Adapter do
   end
 
   defp validate_actor({:ok, %Actor{local: false} = actor}) do
-    actor_object = Object.get_cached_by_pointer_id(actor.id)
+    {:ok, actor_object} = Object.get_cached_by_pointer_id(actor.id)
     {:ok, Actor.format_remote_actor(actor_object)}
   end
 
@@ -40,6 +40,7 @@ defmodule ActivityPub.Adapter do
   @callback get_actor_by_username(String.t()) ::
               {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_username(username) do
+    info(self())
     validate_actor(adapter().get_actor_by_username(username))
   end
 

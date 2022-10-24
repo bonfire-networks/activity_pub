@@ -32,6 +32,8 @@ defmodule ActivityPub.Object do
     end
   end
 
+  def get_by_ap_id(%{data: %{"id" => ap_id}}), do: get_by_ap_id(ap_id)
+  def get_by_ap_id(%{"id" => ap_id}), do: get_by_ap_id(ap_id)
   def get_by_ap_id(ap_id) do
     repo().one(
       from(object in Object,
@@ -43,6 +45,18 @@ defmodule ActivityPub.Object do
     )
   end
 
+  def single_by_ap_id(ap_id) do
+    case get_by_ap_id(ap_id) do
+      %Object{} = object -> {:ok, object}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  @doc false # for debugging
+  def all() do
+    repo().many(from(object in Object))
+  end
+
   def get_by_pointer_id(pointer_id),
     do: repo().get_by(Object, pointer_id: pointer_id)
 
@@ -51,23 +65,32 @@ defmodule ActivityPub.Object do
   def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
     key = "ap_id:#{ap_id}"
 
-    try do
-      Cachex.fetch!(:ap_object_cache, key, fn _ ->
-        object = get_by_ap_id(ap_id)
-
-        if object do
-          {:commit, object}
-        else
-          {:ignore, object}
+    case cachex_fetch(:ap_object_cache, key, fn ->
+        case single_by_ap_id(ap_id) |> info do
+          {:ok, object} -> {:commit, object}
+          {:error, _} -> {:ignore, nil}
         end
-      end)
-    catch
-      _ ->
-        # workaround :nodedown errors
-        get_by_ap_id(ap_id)
-    rescue
-      _ ->
-        get_by_ap_id(ap_id)
+      end) do
+      {:ok, object} -> {:ok, object}
+      {:commit, object} -> {:ok, object}
+      {:ignore, _} -> {:error, :not_found}
+      msg -> error(msg)
+    end
+  catch
+    _ ->
+      # workaround :nodedown errors
+      single_by_ap_id(ap_id)
+  rescue
+    _ ->
+      single_by_ap_id(ap_id)
+  end
+
+  def get_cached_by_ap_id!(ap_id) do
+    with {:ok, object} <- get_cached_by_ap_id(ap_id) do
+      object
+    else e ->
+      error(e)
+      nil
     end
   end
 
@@ -75,15 +98,18 @@ defmodule ActivityPub.Object do
     # FIXME: this sometimes is called with a id/UUID and sometimes with a pointer_id/ULID
     key = "pointer_id:#{pointer_id}"
 
-    Cachex.fetch!(:ap_object_cache, key, fn _ ->
-      object = get_by_id(pointer_id)
-
-      if object do
-        {:commit, object}
-      else
-        {:ignore, object}
+    case cachex_fetch(:ap_object_cache, key, fn ->
+      case get_by_id(pointer_id) do
+        %{} = object -> {:commit, object}
+      e ->
+        {:ignore, e}
       end
-    end)
+    end) do
+      {:ok, object} -> {:ok, object}
+      {:commit, object} -> {:ok, object}
+      {:ignore, _} -> {:error, :not_found}
+      msg -> error(msg)
+    end
   end
 
   def set_cache(%Object{data: %{"id" => ap_id}} = object) do
@@ -136,7 +162,7 @@ defmodule ActivityPub.Object do
   end
 
   def update(other, attrs) do
-    error(other, "no function matched")
+    error(other, "no update/2 function matched")
     {:error, :not_found}
   end
 
@@ -164,6 +190,7 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(_, fetch_remote \\ true)
+  def normalize({:ok, object}, _), do: object
   def normalize(%Object{} = object, _), do: object
 
   def normalize(%{"id" => ap_id} = object, fetch_remote)
@@ -176,7 +203,7 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(ap_id, false) when is_binary(ap_id),
-    do: get_cached_by_ap_id(ap_id)
+    do: get_cached_by_ap_id!(ap_id)
 
   def normalize(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do

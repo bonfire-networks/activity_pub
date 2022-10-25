@@ -112,6 +112,16 @@ defmodule ActivityPub.Object do
     end
   end
 
+
+  def get_cached_by_pointer_id!(pointer_id) do
+    with {:ok, object} <- get_cached_by_pointer_id(pointer_id) do
+      object
+    else e ->
+      error(e)
+      nil
+    end
+  end
+
   def set_cache(%Object{data: %{"id" => ap_id}} = object) do
     Cachex.put(:ap_object_cache, "ap_id:#{ap_id}", object)
 

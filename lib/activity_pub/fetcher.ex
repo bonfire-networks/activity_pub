@@ -61,7 +61,7 @@ defmodule ActivityPub.Fetcher do
   end
 
   def get_or_fetch_and_create_tuple(id) do
-    with {:ok, object} <- fetch_object_from_id(id) do
+    with {:ok, object} <- fetch_object_from_id(id) |> info do
         ActivityPub.Actor.maybe_create_actor_from_object_tuple(object)
     end
   end

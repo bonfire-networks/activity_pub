@@ -12,7 +12,7 @@ defmodule ActivityPubTest do
       actor = insert(:actor)
       context = "blabla"
       object = %{"content" => "content", "type" => "Note"}
-      to = ["https://testing.kawen.dance/users/karen"]
+      to = ["https://testing.local/users/karen"]
 
       params = %{
         actor: actor,
@@ -31,7 +31,7 @@ defmodule ActivityPubTest do
       actor = actor()
       context = "blabla"
       object = %{"id" => "some_id", "content" => "content", "type" => "Note"}
-      to = ["https://testing.kawen.dance/users/karen"]
+      to = ["https://testing.local/users/karen"]
 
       params = %{
         actor: actor,
@@ -120,7 +120,7 @@ defmodule ActivityPubTest do
         "actor" => actor.data["id"]
       }
 
-      to = ["https://testing.kawen.dance/users/karen"]
+      to = ["https://testing.local/users/karen"]
 
       params = %{
         actor: actor,

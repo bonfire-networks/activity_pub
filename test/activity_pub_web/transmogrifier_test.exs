@@ -24,11 +24,10 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
   describe "handle incoming" do
 
-
     test "it works for incoming create activity" do
       data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 
-      {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(data)
+      {:ok, %Object{data: _data, local: false}} = Transmogrifier.handle_incoming(data)
     end
 
     test "it works for incoming deletes when object was deleted on origin instance" do
@@ -82,7 +81,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     test "it works for incoming user deletes" do
       %{data: %{"id" => ap_id}} =
         insert(:actor, %{
-          data: %{"id" => "https://mastodon.example.org/users/karen"}
+          data: %{"id" => "https://mastodon.local/users/karen"}
         })
 
       assert Object.get_by_ap_id(ap_id)
@@ -120,7 +119,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       assert data["actor"] == delete_actor.data["id"]
       assert data["type"] == "Like"
-      assert data["id"] == "https://mastodon.example.org/users/karen#likes/2"
+      assert data["id"] == "https://mastodon.local/users/karen#likes/2"
       assert data["object"] == note_activity.data["object"]
     end
 
@@ -150,10 +149,10 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert data["type"] == "Undo"
 
       assert data["id"] ==
-               "https://mastodon.example.org/users/karen#likes/2/undo"
+               "https://mastodon.local/users/karen#likes/2/undo"
 
       assert data["object"]["id"] ==
-               "https://mastodon.example.org/users/karen#likes/2"
+               "https://mastodon.local/users/karen#likes/2"
     end
 
     test "it works for incoming announces" do
@@ -172,7 +171,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert data["type"] == "Announce"
 
       assert data["id"] ==
-               "https://mastodon.example.org/users/karen/statuses/99542391527669785/activity"
+               "https://mastodon.local/users/karen/statuses/99542391527669785/activity"
 
       assert data["object"] ==
                note.data["id"]
@@ -196,7 +195,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert data["type"] == "Announce"
 
       assert data["id"] ==
-               "https://mastodon.example.org/users/karen/statuses/99542391527669785/activity"
+               "https://mastodon.local/users/karen/statuses/99542391527669785/activity"
 
       assert data["object"] == note_activity.data["object"]
     end
@@ -230,7 +229,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert object_data["object"] == note_activity.data["object"]
 
       assert object_data["id"] ==
-               "https://mastodon.example.org/users/karen/statuses/99542391527669785/activity"
+               "https://mastodon.local/users/karen/statuses/99542391527669785/activity"
     end
 
     test "it accepts Flag activities" do
@@ -283,10 +282,10 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert actor.data["name"] == "gargle"
 
       assert actor.data["icon"]["url"] ==
-               "https://cd.mastodon.example.org/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+               "https://cd.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
 
       assert actor.data["image"]["url"] ==
-               "https://cd.mastodon.example.org/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+               "https://cd.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
 
       assert actor.data["summary"] == "<p>Some bio</p>"
     end

@@ -26,7 +26,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   def get(url, query \\ [], body \\ [], headers \\ [])
 
   def get(
-        "https://kawen.space/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779",
+        "https://mocked.local/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779",
         _,
         _,
         _
@@ -38,7 +38,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://kawen.space/users/karen", _, _, _) do
+  def get("https://mocked.local/users/karen", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -46,7 +46,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://testing.kawen.dance/users/karen", _, _, _) do
+  def get("https://testing.local/users/karen", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -55,7 +55,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get(
-        "https://testing.kawen.dance/objects/d953809b-d968-49c8-aa8f-7545b9480a12",
+        "https://testing.local/objects/d953809b-d968-49c8-aa8f-7545b9480a12",
         _,
         _,
         _
@@ -68,7 +68,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get(
-        "https://letsalllovela.in/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6",
+        "https://instance.local/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6",
         _,
         _,
         _
@@ -80,7 +80,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://home.next.moogle.net/1", _, _, _) do
+  def get("https://home.local/1", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -89,7 +89,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get(
-        "https://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space",
+        "https://mocked.local/.well-known/webfinger?resource=acct:karen@mocked.local",
         _,
         _,
         _
@@ -102,7 +102,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get(
-        "http://kawen.space/.well-known/webfinger?resource=acct:karen@kawen.space",
+        "http://mocked.local/.well-known/webfinger?resource=acct:karen@mocked.local",
         _,
         _,
         _
@@ -115,7 +115,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get(
-        "https://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org",
+        "https://mastodon.local/.well-known/webfinger?resource=acct:karen@mastodon.local",
         _,
         _,
         _
@@ -128,7 +128,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get(
-        "http://mastodon.example.org/.well-known/webfinger?resource=acct:karen@mastodon.example.org",
+        "http://mastodon.local/.well-known/webfinger?resource=acct:karen@mastodon.local",
         _,
         _,
         _
@@ -140,7 +140,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.example.org/users/karen", _, _, Accept: "application/activity+json") do
+  def get("https://mastodon.local/users/karen", _, _, Accept: "application/activity+json") do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -148,7 +148,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.example.org/@karen", _, _, Accept: "application/activity+json") do
+  def get("https://mastodon.local/@karen", _, _, Accept: "application/activity+json") do
     {:ok,
      %Tesla.Env{
        status: 200,

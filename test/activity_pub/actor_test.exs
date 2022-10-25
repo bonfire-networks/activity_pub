@@ -51,7 +51,7 @@ defmodule ActivityPub.ActorTest do
   # end
 
   test "fetch_by_username/1" do
-    {:ok, actor} = Actor.fetch_by_username("karen@kawen.space")
+    {:ok, actor} = Actor.fetch_by_username("karen@mocked.local")
 
     assert actor.data["preferredUsername"] == "karen"
   end

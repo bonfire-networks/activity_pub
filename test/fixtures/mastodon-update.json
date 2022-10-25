@@ -1,29 +1,29 @@
 {                                                                               
   "type": "Update",                                                                    
   "object": {                                                                          
-    "url": "https://mastodon.example.org/@gargron",                                     
+    "url": "https://mastodon.local/@gargron",                                     
     "type": "Person",                                                                  
     "summary": "<p>Some bio</p>",                                                              
     "publicKey": {                                                                     
       "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0gs3VnQf6am3R+CeBV4H\nlfI1HZTNRIBHgvFszRZkCERbRgEWMu+P+I6/7GJC5H5jhVQ60z4MmXcyHOGmYMK/\n5XyuHQz7V2Ssu1AxLfRN5Biq1ayb0+DT/E7QxNXDJPqSTnstZ6C7zKH/uAETqg3l\nBonjCQWyds+IYbQYxf5Sp3yhvQ80lMwHML3DaNCMlXWLoOnrOX5/yK5+dedesg2\n/HIvGk+HEt36vm6hoH7bwPuEkgA++ACqwjXRe5Mta7i3eilHxFaF8XIrJFARV0t\nqOu4GID/jG6oA+swIWndGrtR2QRJIt9QIBFfK3HG5M0koZbY1eTqwNFRHFL3xaD\nUQIDAQAB\n-----END PUBLIC KEY-----\n",
-      "owner": "https://mastodon.example.org/users/gargron",
-      "id": "https://mastodon.example.org/users/gargron#main-key"
+      "owner": "https://mastodon.local/users/gargron",
+      "id": "https://mastodon.local/users/gargron#main-key"
     },
     "preferredUsername": "gargron",
-    "outbox": "https://mastodon.example.org/users/gargron/outbox",
+    "outbox": "https://mastodon.local/users/gargron/outbox",
     "name": "gargle",
     "manuallyApprovesFollowers": false,
-    "inbox": "https://mastodon.example.org/users/gargron/inbox",
-    "id": "https://mastodon.example.org/users/gargron",
-    "following": "https://mastodon.example.org/users/gargron/following",
-    "followers": "https://mastodon.example.org/users/gargron/followers",
+    "inbox": "https://mastodon.local/users/gargron/inbox",
+    "id": "https://mastodon.local/users/gargron",
+    "following": "https://mastodon.local/users/gargron/following",
+    "followers": "https://mastodon.local/users/gargron/followers",
     "endpoints": {
-      "sharedInbox": "https://mastodon.example.org/inbox"
+      "sharedInbox": "https://mastodon.local/inbox"
     },
-    "icon":{"type":"Image","mediaType":"image/jpeg","url":"https://cd.mastodon.example.org/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"},"image":{"type":"Image","mediaType":"image/png","url":"https://cd.mastodon.example.org/accounts/headers/000/033/323/original/850b3448fa5fd477.png"}
+    "icon":{"type":"Image","mediaType":"image/jpeg","url":"https://cd.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"},"image":{"type":"Image","mediaType":"image/png","url":"https://cd.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"}
   },
-  "id": "https://mastodon.example.org/users/gargron#updates/1519563538",
-  "actor": "https://mastodon.example.org/users/gargron",
+  "id": "https://mastodon.local/users/gargron#updates/1519563538",
+  "actor": "https://mastodon.local/users/gargron",
   "@context": [
     "https://www.w3.org/ns/activitystreams",
     "https://w3id.org/security/v1",

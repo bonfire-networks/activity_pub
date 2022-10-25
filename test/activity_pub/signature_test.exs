@@ -21,7 +21,7 @@ defmodule ActivityPub.SignatureTest do
 
   describe "fetch_public_key/1" do
     test "works" do
-      id = "https://kawen.space/users/karen"
+      id = "https://mocked.local/users/karen"
 
       {:ok, {:RSAPublicKey, _, _}} = Signature.fetch_public_key(make_fake_conn(id))
     end
@@ -36,7 +36,7 @@ defmodule ActivityPub.SignatureTest do
 
   describe "refetch_public_key/2" do
     test "works" do
-      id = "https://kawen.space/users/karen"
+      id = "https://mocked.local/users/karen"
 
       {:ok, {:RSAPublicKey, _, _}} = Signature.refetch_public_key(make_fake_conn(id))
     end

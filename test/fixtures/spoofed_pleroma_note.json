@@ -1,24 +1,24 @@
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
-    "https://letsalllovela.in/schemas/litepub-0.1.jsonld",
+    "https://instance.local/schemas/litepub-0.1.jsonld",
     {
       "@language": "und"
     }
   ],
-  "actor": "https://kawen.space/users/karen",
+  "actor": "https://mocked.local/users/karen",
   "attachment": [],
-  "attributedTo": "https://kawen.space/users/karen",
+  "attributedTo": "https://mocked.local/users/karen",
   "cc": [
-    "https://kawen.space/users/karen/followers"
+    "https://mocked.local/users/karen/followers"
   ],
   "content": "hey nikki is pretty cool send proot",
-  "context": "https://letsalllovela.in/contexts/2b4de451-30b4-4ee1-81fc-8687048f9a91",
-  "conversation": "https://letsalllovela.in/contexts/2b4de451-30b4-4ee1-81fc-8687048f9a91",
-  "id": "https://letsalllovela.in/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6",
+  "context": "https://instance.local/contexts/2b4de451-30b4-4ee1-81fc-8687048f9a91",
+  "conversation": "https://instance.local/contexts/2b4de451-30b4-4ee1-81fc-8687048f9a91",
+  "id": "https://instance.local/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6",
   "likes": {
-    "first": "https://letsalllovela.in/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6/likes?page=1",
-    "id": "https://letsalllovela.in/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6/likes",
+    "first": "https://instance.local/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6/likes?page=1",
+    "id": "https://instance.local/objects/89a60bfd-6b05-42c0-acde-ce73cc9780e6/likes",
     "totalItems": 3,
     "type": "OrderedCollection"
   },

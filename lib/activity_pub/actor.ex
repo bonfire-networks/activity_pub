@@ -233,7 +233,7 @@ defmodule ActivityPub.Actor do
 
   def maybe_create_actor_from_object_tuple(object) do
     warn(object, "Skip creating usupported actor type")
-    object
+    {nil, object}
   end
 
    def maybe_create_actor_from_object(actor) do

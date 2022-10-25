@@ -6,7 +6,6 @@
       "@language": "en",
       "Emoji": "toot:Emoji",
       "Hashtag": "as:Hashtag",
-      "MoodleNet": "http://vocab.moogle.net/",
       "PropertyValue": "schema:PropertyValue",
       "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
       "schema": "http://schema.org",
@@ -16,21 +15,21 @@
       "value": "schema:value"
     }
   ],
-  "attributedToInv": "http://home.next.moogle.net/205",
+  "attributedToInv": "http://home.local/205",
   "endpoints": {
-    "sharedInbox": "http://home.next.moogle.net/shared_inbox"
+    "sharedInbox": "http://home.local/shared_inbox"
   },
-  "followers": "http://home.next.moogle.net/3",
-  "following": "http://home.next.moogle.net/4",
+  "followers": "http://home.local/3",
+  "following": "http://home.local/4",
   "icon": {
     "type": "Image",
     "url": "https://mayel.space/assets/images/profile.jpg"
   },
-  "id": "http://home.next.moogle.net/1",
-  "inbox": "http://home.next.moogle.net/6",
-  "liked": "http://home.next.moogle.net/2",
+  "id": "http://home.local/1",
+  "inbox": "http://home.local/6",
+  "liked": "http://home.local/2",
   "name": "Mayel",
-  "outbox": "http://home.next.moogle.net/5",
+  "outbox": "http://home.local/5",
   "summary": "Hello world!",
   "type": "Person"
 }

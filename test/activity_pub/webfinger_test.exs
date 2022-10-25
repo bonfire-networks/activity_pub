@@ -36,27 +36,27 @@ defmodule ActivityPub.WebFingerTest do
 
   describe "fingering" do
     test "works with pleroma" do
-      user = "karen@kawen.space"
+      user = "karen@mocked.local"
 
       {:ok, data} = WebFinger.finger(user)
 
-      assert data["id"] == "https://kawen.space/users/karen"
+      assert data["id"] == "https://mocked.local/users/karen"
     end
 
     test "works with mastodon" do
-      user = "karen@mastodon.example.org"
+      user = "karen@mastodon.local"
 
       {:ok, data} = WebFinger.finger(user)
 
-      assert data["id"] == "https://mastodon.example.org/users/karen"
+      assert data["id"] == "https://mastodon.local/users/karen"
     end
 
     test "works with mastodon, with leading @" do
-      user = "@karen@mastodon.example.org"
+      user = "@karen@mastodon.local"
 
       {:ok, data} = WebFinger.finger(user)
 
-      assert data["id"] == "https://mastodon.example.org/users/karen"
+      assert data["id"] == "https://mastodon.local/users/karen"
     end
   end
 end

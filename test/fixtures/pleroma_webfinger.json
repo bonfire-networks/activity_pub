@@ -1,34 +1,34 @@
 {
   "aliases": [
-    "https://kawen.space/users/karen"
+    "https://mocked.local/users/karen"
   ],
   "links": [
     {
-      "href": "https://kawen.space/users/karen",
+      "href": "https://mocked.local/users/karen",
       "rel": "http://webfinger.net/rel/profile-page",
       "type": "text/html"
     },
     {
-      "href": "https://kawen.space/users/karen",
+      "href": "https://mocked.local/users/karen",
       "rel": "self",
       "type": "application/activity+json"
     },
     {
-      "href": "https://kawen.space/users/karen",
+      "href": "https://mocked.local/users/karen",
       "rel": "self",
       "type": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
     },
     {
-      "href": "https://kawen.space/users/karen/feed.atom",
+      "href": "https://mocked.local/users/karen/feed.atom",
       "rel": "http://schemas.google.com/g/2010#updates-from",
       "type": "application/atom+xml"
     },
     {
       "rel": "http://ostatus.org/schema/1.0/subscribe",
-      "template": "https://kawen.space/ostatus_subscribe?acct={uri}"
+      "template": "https://mocked.local/ostatus_subscribe?acct={uri}"
     },
     {
-      "href": "https://kawen.space/users/karen/salmon",
+      "href": "https://mocked.local/users/karen/salmon",
       "rel": "salmon"
     },
     {
@@ -36,5 +36,5 @@
       "rel": "magic-public-key"
     }
   ],
-  "subject": "acct:karen@kawen.space"
+  "subject": "acct:karen@mocked.local"
 }

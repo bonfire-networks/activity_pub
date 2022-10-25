@@ -56,7 +56,7 @@ defmodule ActivityPub.MixProject do
       {:tesla, "~> 1.2"},
       {:http_signatures,
        git: "https://github.com/bonfire-networks/http_signatures",
-       branch: "main"},
+       branch: "master"},
       {:timex, "~> 3.5"},
       {:cachex, "~> 3.2"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},

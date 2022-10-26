@@ -20,7 +20,7 @@ defmodule ActivityPubWeb.Publisher do
 
     json =
       Jason.encode!(data)
-      |> debug("JSON ready to go")
+      |> info("JSON ready to publish")
 
     # Utils.maybe_forward_activity(activity)
 
@@ -29,6 +29,7 @@ defmodule ActivityPubWeb.Publisher do
     |> Enum.map(fn actor ->
       determine_inbox(activity, actor)
     end)
+    |> info("initial recipients")
     |> Enum.uniq()
     |> maybe_federate_to_search_index(activity)
     |> Instances.filter_reachable()

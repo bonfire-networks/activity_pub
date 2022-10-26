@@ -19,4 +19,11 @@ defmodule ActivityPub.Common do
       end,
       options)
   end
+
+  def ok_unwrap(val, fallback \\ nil)
+  def ok_unwrap({:ok, val}, _fallback), do: val
+  def ok_unwrap({:error, _val}, fallback), do: fallback
+  def ok_unwrap(:error, fallback), do: fallback
+  def ok_unwrap(val, fallback), do: val || fallback
+
 end

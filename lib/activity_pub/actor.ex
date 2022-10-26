@@ -133,9 +133,10 @@ defmodule ActivityPub.Actor do
              {:ok, actor} <- fetch_by_username(username) do
           {:ok, actor}
         else
+          %ActivityPub.Actor{} = actor -> {:ok, actor}
           true -> get_cached_by_username(hd(String.split(username, "@")))
-          {:error, reason} -> {:error, reason}
-          _e -> {:error, "Actor not found: " <> username}
+          {:error, reason} -> error(reason)
+          e -> error(e, "Actor not found: #{username}")
         end
     end
   end
@@ -221,7 +222,7 @@ defmodule ActivityPub.Actor do
   def maybe_create_actor_from_object_tuple(%{data: %{"type" => type}} = actor)
       when type in @supported_actor_types do
     with actor <- format_remote_actor(actor) do
-      {Adapter.maybe_create_remote_actor(actor), set_cache(actor)}
+      {ok_unwrap(Adapter.maybe_create_remote_actor(actor)), ok_unwrap(set_cache(actor))}
     end
   end
 
@@ -233,7 +234,7 @@ defmodule ActivityPub.Actor do
 
   def maybe_create_actor_from_object_tuple(object) do
     warn(object, "Skip creating usupported actor type")
-    {nil, object}
+    {nil, ok_unwrap(object)}
   end
 
    def maybe_create_actor_from_object(actor) do
@@ -284,7 +285,7 @@ defmodule ActivityPub.Actor do
       info(ap_id, "assume remote actor")
       get_remote_actor(ap_id)
     end
-    |> info()
+    # |> info()
     |> case do
       %{} = object -> object
       {:ok, object} -> object

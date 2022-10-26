@@ -24,6 +24,7 @@ defmodule ActivityPub.Object do
     timestamps()
   end
 
+  def get_by_id(%{id: id}), do: id
   def get_by_id(id) do
     if Utils.is_ulid?(id) do
       get_by_pointer_id(id)
@@ -159,21 +160,20 @@ defmodule ActivityPub.Object do
     |> unique_constraint(:ap_object__data____id_index, match: :exact)
   end
 
-  def update(%ActivityPub.Object{} = object, attrs) do
+  def update_existing(object_id, attrs) do
+    case get_by_id(object_id) do
+      %{} = object -> do_update_existing(object, attrs)
+      {:ok, object} -> do_update_existing(object, attrs)
+    e ->
+      error(e, "Could not find the object to update")
+    end
+  end
+
+  def do_update_existing(%ActivityPub.Object{} = object, attrs) do
     object
     |> debug("update")
     |> change(attrs)
     |> update_and_set_cache()
-  end
-
-  def update(object_id, attrs) when is_binary(object_id) do
-    get_by_id(object_id)
-    |> __MODULE__.update(attrs)
-  end
-
-  def update(other, attrs) do
-    error(other, "no update/2 function matched")
-    {:error, :not_found}
   end
 
   def update_and_set_cache(changeset) do

@@ -88,7 +88,7 @@ defmodule ActivityPub.Actor do
   Fetches the public key for given actor AP ID.
   """
   def get_public_key_for_ap_id(ap_id) do
-    with {:ok, actor} <- get_or_fetch_by_ap_id(ap_id),
+    with %ActivityPub.Actor{} = actor <- ok_unwrap(get_or_fetch_by_ap_id(ap_id)),
          {:ok, public_key} <- public_key_from_data(actor.data) do
       {:ok, public_key}
     else
@@ -238,8 +238,10 @@ defmodule ActivityPub.Actor do
   end
 
    def maybe_create_actor_from_object(actor) do
-    maybe_create_actor_from_object_tuple(actor)
-    |> elem(1)
+    case maybe_create_actor_from_object_tuple(actor) do
+      {_, %Actor{} = actor} -> {:ok, actor}
+      e -> error(e, "Could not find or create the actor")
+    end
   end
 
   @doc """
@@ -262,7 +264,9 @@ defmodule ActivityPub.Actor do
     with {:ok, actor} <- Adapter.get_actor_by_id(id) do
       {:ok, actor}
     else
-      _e -> {:error, :not_found}
+      e ->
+        error(e, "Adapter did not return an actor")
+        {:error, :not_found}
     end
   end
 
@@ -278,7 +282,7 @@ defmodule ActivityPub.Actor do
     host = URI.parse(ap_id)
     instance_host = URI.parse(Adapter.base_url())
 
-    if host.host == instance_host.host and host.port == instance_host.port do
+    if host.host == instance_host.host and host.port == instance_host.port and not String.ends_with?(ap_id, "/followers") do
       info(ap_id, "assume local actor")
       get_local_actor(ap_id)
     else
@@ -348,11 +352,13 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def get_cached_by_local_id(id) do
+  def get_cached_by_local_id(id, object \\ nil)
+  def get_cached_by_local_id(%{id: id} = object, _), do: get_cached_by_local_id(id, object)
+  def get_cached_by_local_id(id, object) do
     key = "id:#{id}"
 
     case cachex_fetch(:ap_actor_cache, key, fn ->
-           case get_by_local_id(id) do
+           case get_by_local_id(object || id) do
              {:ok, actor} ->
                {:commit, actor}
 
@@ -489,7 +495,13 @@ defmodule ActivityPub.Actor do
     |> Enum.concat()
     |> List.delete(@public_uri)
     |> Enum.map(&get_by_ap_id/1)
-    |> Enum.filter(fn actor -> actor && !actor.local end)
+    |> Enum.filter(fn
+      %{local: local} -> !local
+      {:ok, %{local: local}} -> !local
+      actor ->
+        warn(actor, "Invalid actor")
+        false
+    end)
   end
 
   def delete(%Actor{local: false} = actor) do

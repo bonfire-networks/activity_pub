@@ -1,5 +1,6 @@
 defmodule ActivityPub.Factory do
   import ActivityPub.Test.Helpers
+  import ActivityPub.Common
   @repo repo()
   use ExMachina.Ecto, repo: @repo
 

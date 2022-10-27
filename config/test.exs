@@ -1,6 +1,6 @@
 import Config
 
-config :activity_pub, :test_repo, ActivityPub.TestRepo
+config :activity_pub, :repo, ActivityPub.TestRepo
 config :activity_pub, :endpoint_module, ActivityPubWeb.Endpoint
 
 # Configure your database

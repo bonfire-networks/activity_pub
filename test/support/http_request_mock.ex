@@ -144,7 +144,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("fixtures/mastdon-actor.json")
+       body: file("fixtures/mastodon-actor.json")
      }}
   end
 
@@ -152,7 +152,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("fixtures/mastdon-actor.json")
+       body: file("fixtures/mastodon-actor.json")
      }}
   end
 

@@ -51,7 +51,8 @@ defmodule ActivityPub.ActorTest do
   # end
 
   test "fetch_by_username/1" do
-    {:ok, actor} = Actor.fetch_by_username("karen@mocked.local")
+    actor = ok_unwrap(Actor.fetch_by_username("karen@mocked.local"))
+    assert %ActivityPub.Actor{} = actor
 
     assert actor.data["preferredUsername"] == "karen"
   end

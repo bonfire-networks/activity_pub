@@ -27,7 +27,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     test "it works for incoming create activity" do
       data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 
-      {:ok, %Object{data: _data, local: false}} = Transmogrifier.handle_incoming(data)
+      assert %Object{data: _, local: false} = ok_unwrap(Transmogrifier.handle_incoming(data))
     end
 
     test "it works for incoming deletes when object was deleted on origin instance" do
@@ -259,7 +259,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     test "it works for incoming update activities" do
       data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 
-      {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(data)
+      assert %Object{data: data, local: false} = ok_unwrap(Transmogrifier.handle_incoming(data))
 
       update_data = file("fixtures/mastodon-update.json") |> Jason.decode!()
 

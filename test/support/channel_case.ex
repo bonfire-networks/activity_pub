@@ -17,11 +17,11 @@ defmodule ActivityPubWeb.ChannelCase do
 
   use ExUnit.CaseTemplate
   import ActivityPub.Test.Helpers
-
-  # @repo Application.compile_env(:activity_pub, :test_repo, Application.compile_env(:activity_pub, :repo))
+  import ActivityPub.Common
 
   using do
     quote do
+      import ActivityPub.Common
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
       import ActivityPubWeb.ChannelCase

@@ -534,22 +534,31 @@ defmodule ActivityPub.Utils do
   Enqueues an activity for federation if it's local
   """
   def maybe_federate(%Object{local: true} = activity) do
-    if federating? do
-      ActivityPubWeb.Federator.publish(activity)
+    if federating?() do
+      with {:ok, job} <- ActivityPubWeb.Federator.publish(activity) do
+        :ok
+      end
     else
       warn(
         "ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)"
       )
+      :ok
     end
+  end
 
+  def maybe_federate(_) do
+    warn(
+        "Skip outgoing federation of non-local object"
+      )
     :ok
   end
 
-  def maybe_federate(_), do: :ok
-
   def federating? do
-    (Application.get_env(:activity_pub, :instance)[:federating] ||
-       System.get_env("TEST_INSTANCE") == "yes")
+    (
+      Application.get_env(:activity_pub, :instance)[:federating] ||
+      (Application.get_env(:activity_pub, :env) == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
+       System.get_env("TEST_INSTANCE") == "yes"
+    )
     # |> IO.inspect(label: "Federating?")
   end
 

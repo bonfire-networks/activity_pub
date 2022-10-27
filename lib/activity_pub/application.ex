@@ -16,7 +16,7 @@ defmodule ActivityPub.Application do
   def repository, do: @repository
 
   def repo,
-    do: Application.get_env(:activity_pub, :test_repo, ActivityPub.TestRepo)
+    do: Application.get_env(:activity_pub, :repo, ActivityPub.TestRepo)
 
   @expiration Cachex.Spec.expiration(
                 default: 25_000,

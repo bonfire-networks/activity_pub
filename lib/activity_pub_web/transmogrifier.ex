@@ -190,6 +190,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       do: Actor.get_or_fetch_by_ap_id(ap_id)
 
   def handle_incoming(%{"type" => "Create", "object" => object} = data) do
+    info("Handle incoming creation of an object")
     data = Utils.normalize_params(data)
     {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])
     object = fix_object(object)
@@ -218,6 +219,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         "actor" => follower,
         "id" => id
       }) do
+    info("Handle incoming follow")
     with {:ok, followed} <- Actor.get_cached_by_ap_id(followed),
          {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower) do
       ActivityPub.follow(follower, followed, id, false)
@@ -232,6 +234,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => _id
         } = data
       ) do
+    info("Handle incoming accept")
     with actor <- Fetcher.get_actor(data),
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, follow_activity} <- get_follow_activity(follow_object, followed) do
@@ -257,6 +260,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = data
       ) do
+    info("Handle incoming like")
     with actor <- Fetcher.get_actor(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
@@ -275,6 +279,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = data
       ) do
+    info("Handle incoming boost")
     with actor <- Fetcher.get_actor(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
@@ -296,6 +301,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       )
       when object_type in @supported_actor_types do
+    info("Handle incoming update")
     with {:ok, _} <- Actor.update_actor_data_by_ap_id(actor_id, object),
          {:ok, actor} <- Actor.single_by_ap_id(actor_id),
          {:ok, _} <- Actor.set_cache(actor) do
@@ -321,6 +327,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = _data
       ) do
+    info("Handle incoming block")
     with {:ok, %{local: true} = blocked} <- Actor.get_cached_by_ap_id(blocked),
          {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
          {:ok, activity} <- ActivityPub.block(blocker, blocked, id, false) do
@@ -338,6 +345,8 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => _id
         } = _data
       ) do
+    info("Handle incoming deletion")
+
     object_id = Utils.get_ap_id(object_id)
 
     with {:ok, object} <- get_obj_helper(object_id),
@@ -373,6 +382,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = data
       ) do
+    info("Handle incoming unboost")
     with actor <- Fetcher.get_actor(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
@@ -391,6 +401,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = data
       ) do
+    info("Handle incoming unlike")
     with actor <- Fetcher.get_actor(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
@@ -409,6 +420,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = _data
       ) do
+    info("Handle incoming unfollow")
     with {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower),
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed) do
       ActivityPub.unfollow(follower, followed, id, false)
@@ -425,6 +437,7 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => id
         } = _data
       ) do
+    info("Handle incoming unblock")
     with {:ok, %{local: true} = blocked} <-
            Actor.get_or_fetch_by_ap_id(blocked),
          {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
@@ -436,7 +449,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def handle_incoming(data) do
-    warn("ActivityPub library - Unhandled activity type - Storing it anyway...")
+    warn("ActivityPub - Unknown incoming activity type - Storing it anyway...")
 
     {:ok, activity, _object} = Utils.insert_full_object(data)
     {:ok, activity} = handle_object(activity)

@@ -14,15 +14,13 @@ defmodule ActivityPub.DataCase do
   this option is not recommended for other databases.
   """
 
-  # @repo Application.compile_env(:activity_pub, :repo)
-
   use ExUnit.CaseTemplate
   import ActivityPub.Test.Helpers
-
-  # @repo Application.compile_env(:activity_pub, :test_repo, Application.compile_env(:activity_pub, :repo))
+  import ActivityPub.Common
 
   using do
     quote do
+      import ActivityPub.Common
       import ActivityPub.Test.Helpers
       import Ecto
       import Ecto.Changeset

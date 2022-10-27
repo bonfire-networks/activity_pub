@@ -51,7 +51,7 @@ defmodule ActivityPubWeb.Federator.Publisher do
       end
     end)
 
-    :ok
+    # :ok
   end
 
   @doc """

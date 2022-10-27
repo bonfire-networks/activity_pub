@@ -1,6 +1,4 @@
 defmodule ActivityPub.Test.Helpers do
-  def repo,
-    do: Process.get(:ecto_repo_module) || Application.get_env(:activity_pub, :test_repo, ActivityPub.TestRepo)
 
   def endpoint,
     do:

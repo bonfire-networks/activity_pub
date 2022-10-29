@@ -7,7 +7,7 @@ defmodule ActivityPubWeb.ActorView do
   alias ActivityPub.Utils
 
   def actor_json(username) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       render("actor.json", %{actor: actor})
     end
   end

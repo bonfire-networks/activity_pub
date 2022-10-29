@@ -43,7 +43,7 @@ defmodule ActivityPubWeb.ActivityPubController do
     # querying by pointer
     if Utils.is_ulid?(uuid) do
       with {:ok, object} <-
-             Object.get_cached_by_pointer_id(uuid) ||
+             Object.get_cached(pointer: uuid) ||
                Adapter.maybe_publish_object(uuid),
            true <- object.public,
            true <- object.id != uuid do
@@ -62,7 +62,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       end
     else
       with ap_id <- ap_route_helper(uuid),
-           {:ok, object} <- Object.get_cached_by_ap_id(ap_id),
+           {:ok, object} <- Object.get_cached(ap_id: ap_id),
            true <- object.public do
         conn
         |> put_resp_content_type("application/activity+json")
@@ -78,7 +78,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def actor(conn, %{"username" => username}) do
-    if get_format(conn) |> info == "html" do
+    if get_format(conn) == "html" do
       case Adapter.get_redirect_url(username) do
         "http" <> _ = url -> redirect(conn, external: url)
         url when is_binary(url) -> redirect(conn, to: url)
@@ -90,7 +90,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def actor_json(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -104,7 +104,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def following(conn, %{"username" => username, "page" => page}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       {page, _} = Integer.parse(page)
 
       conn
@@ -115,7 +115,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def following(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -124,7 +124,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def followers(conn, %{"username" => username, "page" => page}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       {page, _} = Integer.parse(page)
 
       conn
@@ -135,7 +135,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def followers(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -144,7 +144,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def outbox(conn, %{"username" => username, "page" => page}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       {page, _} = Integer.parse(page)
 
       conn
@@ -155,7 +155,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   def outbox(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached_by_username(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
@@ -178,7 +178,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       Fetcher.fetch_object_from_id(params["object"]["id"] || params["object"])
       json(conn, "ok")
     else
-      json(conn, "not federating")
+      json(conn, "This instance is not federating")
     end
   end
 
@@ -190,10 +190,11 @@ defmodule ActivityPubWeb.ActivityPubController do
   def inbox(conn, params) do
     invalid_signature(conn.req_headers, params)
 
-    # TODO: should we ignore unsigned or invalidly signed activities?
+    error("TODO: should we ignore incoming unsigned or invalidly signed activities?")
     process_incoming(conn, params)
+    |> info("processed")
 
-    json(conn, "error")
+    # json(conn, "invalid signature")
   end
 
   def noop(conn, _params) do
@@ -201,6 +202,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   defp process_incoming(conn, params) do
+    Logger.metadata(action: info("process_incoming"))
     if Utils.federating?() do
       Federator.incoming_ap_doc(params)
       json(conn, "ok")

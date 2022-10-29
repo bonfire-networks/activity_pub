@@ -3,6 +3,7 @@ defmodule ActivityPub.Fetcher do
   Handles fetching AS2 objects from remote instances.
   """
 
+  alias ActivityPub.Utils
   alias ActivityPub.HTTP
   alias ActivityPub.Object
   alias ActivityPubWeb.Transmogrifier
@@ -15,7 +16,7 @@ defmodule ActivityPub.Fetcher do
   Checks if an object exists in the database and fetches it if it doesn't.
   """
   def fetch_object_from_id(id) do
-    case Object.get_cached_by_ap_id(id) do
+    case Object.get_cached(ap_id: id) do
       {:ok, actor} -> {:ok, actor}
       _ ->
         fetch_fresh_object_from_id(id)
@@ -32,9 +33,9 @@ defmodule ActivityPub.Fetcher do
   end
 
   defp maybe_store_data(data) do
-    with {:ok, object} <- Object.single_by_ap_id(data) do
+    with {:ok, object} <- Object.get_cached(ap_id: data) do
       info("object was already cached under another ID")
-          # TODO: update in some specific cases?
+      # TODO: update in some specific cases?
       {:ok, object}
     else _ ->
       with {:ok, data} <- contain_origin(data),
@@ -113,7 +114,7 @@ defmodule ActivityPub.Fetcher do
     if data["type"] in @skipped_types do
       {:ok, data}
     else
-      actor = get_actor(data)
+      actor = Utils.actor_from_data(data)
       actor_uri = URI.parse(actor)
       id_uri = URI.parse(id)
 
@@ -133,7 +134,7 @@ defmodule ActivityPub.Fetcher do
            "type" => "Create",
            "to" => data["to"],
            "cc" => data["cc"],
-           "actor" => get_actor(data),
+           "actor" => Utils.actor_from_data(data),
            "object" => data
          },
          {:ok, activity} <- Transmogrifier.handle_incoming(params),
@@ -145,13 +146,7 @@ defmodule ActivityPub.Fetcher do
   # QUESTION: does calling handle_object here instead of handle_incoming mean activities (or objects not in @create_object_types) won't be handled in the same way?
   defp insert_object(data), do: Transmogrifier.handle_object(data)
 
-  def get_actor(%{"attributedTo" => actor} = _data), do: actor
 
-  def get_actor(%{"actor" => actor} = _data), do: actor
-
-  def get_actor(%{"id" => actor, "type" => type} = _data)
-      when type in @supported_actor_types,
-      do: actor
 
   defp check_if_public(public) when public == true, do: :ok
 

@@ -62,16 +62,6 @@ defmodule ActivityPub.Utils do
   def supported_activity_types, do: @supported_activity_types
   # def supported_object_types, do: @supported_object_types
 
-  def get_ap_id(%{"id" => id} = _), do: id
-  def get_ap_id(id), do: id
-
-  @doc """
-  Some implementations send the actor URI as the actor field, others send the entire actor object,
-  this function figures out what the actor's URI is based on what we have.
-  """
-  def normalize_params(params) do
-    Map.put(params, "actor", get_ap_id(params["actor"]))
-  end
 
   defp make_date do
     DateTime.utc_now() |> DateTime.to_iso8601()
@@ -88,7 +78,8 @@ defmodule ActivityPub.Utils do
   def actor_url(username) when is_binary(username),
     do: ap_base_url() <> "/actors/" <> username
 
-  def object_url(%{id: id}), do: object_url(id)
+  def object_url(%{pointer_id: id}) when is_binary(id), do: object_url(id)
+  def object_url(%{id: id}) when is_binary(id), do: object_url(id)
   def object_url(id) when is_binary(id), do: ap_base_url() <> "/objects/" <> id
 
   defp ap_base_url() do
@@ -139,8 +130,8 @@ defmodule ActivityPub.Utils do
         %{data: %{"id" => id}} = object,
         activity_id
       ) do
-    object_actor_id = ActivityPub.Fetcher.get_actor(object.data)
-    {:ok, object_actor} = Actor.get_cached_by_ap_id(object_actor_id)
+    object_actor_id = ActivityPub.Utils.actor_from_data(object.data)
+    {:ok, object_actor} = Actor.get_cached(ap_id: object_actor_id)
 
     to =
       if public?(object.data) do
@@ -297,6 +288,7 @@ defmodule ActivityPub.Utils do
     data = if activity_id, do: Map.put(data, "id", activity_id), else: data
 
     data
+    |> info()
   end
 
   def fetch_latest_follow(%{data: %{"id" => follower_id}}, %{
@@ -462,7 +454,7 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def insert_full_object(map, _local, _pointer, _), do: {:ok, map, nil}
+  def insert_full_object(activity, _local, _pointer, _), do: {:ok, activity, nil}
 
   @doc """
   Determines if an object or an activity is public.
@@ -536,6 +528,10 @@ defmodule ActivityPub.Utils do
   def maybe_federate(%Object{local: true} = activity) do
     if federating?() do
       with {:ok, job} <- ActivityPubWeb.Federator.publish(activity) do
+        info(job,
+        "ActivityPub outgoing federation has been queued"
+      )
+
         :ok
       end
     else
@@ -546,8 +542,8 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def maybe_federate(_) do
-    warn(
+  def maybe_federate(object) do
+    warn(object,
         "Skip outgoing federation of non-local object"
       )
     :ok
@@ -572,18 +568,20 @@ defmodule ActivityPub.Utils do
       |> Map.put_new("context", context)
 
     if is_map(map["object"]) do
-      object = lazy_put_object_defaults(map["object"], map)
+      object = map["object"]
+      |> lazy_put_object_defaults(map["context"])
+      |> normalize_actors()
       %{map | "object" => object}
     else
       map
     end
   end
 
-  def lazy_put_object_defaults(map, activity) do
+  def lazy_put_object_defaults(map, context) do
     map
     |> Map.put_new_lazy("id", &generate_object_id/0)
     |> Map.put_new_lazy("published", &make_date/0)
-    |> Map.put_new("context", activity["context"])
+    |> maybe_put("context", context)
   end
 
   def create_context(context) do
@@ -624,4 +622,100 @@ defmodule ActivityPub.Utils do
   # end
 
   # def maybe_forward_activity(_), do: :ok
+
+  def set_repo(repo) when is_binary(repo) do
+    String.to_existing_atom(repo)
+    |> set_repo()
+  end
+  def set_repo(nil), do: nil
+  def set_repo(repo) do
+    if is_atom(repo) and Code.ensure_loaded?(repo) do
+      Process.put(:ecto_repo_module, repo)
+      ActivityPub.Config.get!(:repo).put_dynamic_repo(repo)
+    else
+      error(repo, "invalid module")
+  end
+  end
+
+  def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
+    p = Process.get()
+    Cachex.fetch(cache, key, fn _ ->
+      # Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
+      set_repo(p[:ecto_repo_module])
+
+       fallback.()
+      end,
+      options)
+  end
+
+  # TODO: avoid storing multiple copies of things in cache
+  # def get_with_cache(get_fun, cache_bucket, :id, identifier) do
+  #   do_get_with_cache(get_fun, cache_bucket, :id, identifier)
+  # end
+  # def get_with_cache(get_fun, cache_bucket, key, identifier) do
+  #   cachex_fetch(cache_bucket, key, fn ->
+  #   end)
+  # end
+
+  def get_with_cache(get_fun, cache_bucket, key, identifier) when is_function(get_fun) do
+    cache_key = "#{key}:#{identifier}"
+
+    case cachex_fetch(cache_bucket, cache_key, fn ->
+      case get_fun.([{key, identifier}]) do
+        {:ok, object} ->
+          info(object, "got with #{key} - #{identifier} :")
+          {:commit, object}
+      e ->
+        info(e, "nothing with #{key} - #{identifier} ")
+        {:ignore, e}
+      end
+    end) do
+      {:ok, object} -> {:ok, object}
+      {:commit, object} -> {:ok, object}
+      {:ignore, _} -> {:error, :not_found}
+      {:error, :no_cache} -> get_fun.([{key, identifier}])
+      msg -> error(msg)
+    end
+  catch
+    _ ->
+      # workaround :nodedown errors
+      get_fun.([{key, identifier}])
+  rescue
+    _ ->
+      get_fun.([{key, identifier}])
+  end
+
+  def actor_from_data(%{"attributedTo" => actor} = _data), do: actor
+
+  def actor_from_data(%{"actor" => actor} = _data), do: actor
+
+  def actor_from_data(%{"id" => actor, "type" => type} = _data)
+      when type in @supported_actor_types,
+      do: actor
+
+  def actor_from_data(%{data: data}), do: actor_from_data(data)
+
+  def get_ap_id(%{"id" => id} = _), do: id
+  def get_ap_id(%{data: data}), do: get_ap_id(data)
+  def get_ap_id(id) when is_binary(id), do: id
+  def get_ap_id(_), do: nil
+
+
+  def normalize_actors(params) do
+    # Some implementations include actors as URIs, others inline the entire actor object, this function figures out what the URIs are based on what we have.
+    params
+    |> maybe_put("actor", get_ap_id(params["actor"]))
+    |> maybe_put("to", Enum.map(List.wrap(params["to"]), &get_ap_id/1))
+    |> maybe_put("bto", Enum.map(List.wrap(params["bto"]), &get_ap_id/1))
+    |> maybe_put("cc", Enum.map(List.wrap(params["cc"]), &get_ap_id/1))
+    |> maybe_put("bcc", Enum.map(List.wrap(params["bcc"]), &get_ap_id/1))
+    |> maybe_put("audience", Enum.map(List.wrap(params["audience"]), &get_ap_id/1))
+  end
+
+  @doc "conditionally update a map"
+  def maybe_put(map, _key, nil), do: map
+  def maybe_put(map, _key, []), do: map
+  def maybe_put(map, _key, ""), do: map
+  def maybe_put(map, key, value), do: Map.put(map, key, value)
+
 end

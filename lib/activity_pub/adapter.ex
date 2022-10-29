@@ -15,19 +15,20 @@ defmodule ActivityPub.Adapter do
   Run function from adapter if defined, otherwise return fallback value
   """
   def call_or(fun, args \\ [], fallback \\ nil) do
-    if Kernel.function_exported?(@adapter, fun, length(args)) do
-      apply(@adapter, fun, args)
+    if Kernel.function_exported?(adapter(), fun, length(args)) do
+      apply(adapter(), fun, args)
     else
       fallback
     end
   end
 
   defp validate_actor({:ok, %Actor{local: false} = actor}) do
-    {:ok, actor_object} = Object.get_cached_by_pointer_id(actor.id)
+    {:ok, actor_object} = Object.get_cached(id: actor.id)
     {:ok, Actor.format_remote_actor(actor_object)}
   end
 
   defp validate_actor({:ok, %Actor{} = actor}), do: {:ok, actor}
+  defp validate_actor(%Actor{} = actor), do: {:ok, actor}
 
   defp validate_actor({:ok, _}),
     do: {:error, "Improperly formatted actor struct"}
@@ -42,6 +43,11 @@ defmodule ActivityPub.Adapter do
   def get_actor_by_username(username) do
     info(self())
     validate_actor(adapter().get_actor_by_username(username))
+  end
+
+  @callback get_actor_by_ap_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  def get_actor_by_ap_id(id) do
+    validate_actor(adapter().get_actor_by_ap_id(id))
   end
 
   @callback get_actor_by_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}

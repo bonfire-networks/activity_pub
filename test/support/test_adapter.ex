@@ -1,6 +1,7 @@
 defmodule ActivityPub.TestAdapter do
   @behaviour ActivityPub.Adapter
 
+  defp format_actor({:ok, actor}), do: actor
   defp format_actor(actor) do
     %ActivityPub.Actor{
       id: actor.id,
@@ -15,14 +16,14 @@ defmodule ActivityPub.TestAdapter do
   end
 
   def get_actor_by_username(username) do
-    case ActivityPub.LocalActor.get_by_username(username) do
+    case ActivityPub.LocalActor.get_cached(username: username) do
       nil -> {:error, :not_found}
       actor -> {:ok, format_actor(actor)}
     end
   end
 
   def get_actor_by_id(id) do
-    case ActivityPub.LocalActor.get_by_id(id) do
+    case ActivityPub.LocalActor.get(id: id) do
       nil -> {:error, :not_found}
       actor -> {:ok, format_actor(actor)}
     end
@@ -40,7 +41,7 @@ defmodule ActivityPub.TestAdapter do
   end
 
   def update_local_actor(actor, params) do
-    actor = ActivityPub.LocalActor.get_by_username(actor.username)
+    actor = ActivityPub.LocalActor.get_cached(username: actor.username)
     {:ok, updated_actor} = ActivityPub.LocalActor.update(actor, params)
     {:ok, format_actor(updated_actor)}
   end
@@ -54,7 +55,7 @@ defmodule ActivityPub.TestAdapter do
   end
 
   def get_follower_local_ids(actor) do
-    actor = ActivityPub.LocalActor.get_by_id(actor.pointer_id)
+    actor = ActivityPub.LocalActor.get(pointer: actor.pointer_id)
     actor.followers
   end
 

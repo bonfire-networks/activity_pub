@@ -52,7 +52,7 @@ defmodule ActivityPub.SignatureTest do
   describe "sign/2" do
     test "works" do
       actor = local_actor()
-      {:ok, ap_actor} = ActivityPub.Actor.get_by_username(actor.username)
+      {:ok, ap_actor} = ActivityPub.Actor.get_cached(username: actor.username)
 
       _signature =
         Signature.sign(ap_actor, %{

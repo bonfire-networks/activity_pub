@@ -64,7 +64,7 @@ defmodule ActivityPub.WebFinger do
              resource
            ) ||
              Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
-         {:ok, actor} <- Actor.get_cached_by_username(username) do
+         {:ok, actor} <- Actor.get_cached(username: username) do
       {:ok, represent_user(actor)}
     else
       _ ->

@@ -20,7 +20,7 @@ defmodule ActivityPub.Workers.WorkerHelper do
         max_attempts: 1
 
       def enqueueable(op, params, worker_args \\ []) do
-        params = Map.merge(%{"op" => op}, params)
+        params = Map.merge(%{"op" => op, "repo" => ActivityPub.Common.repo()}, params)
         queue_atom = String.to_atom(unquote(queue))
 
         worker_args =

@@ -72,7 +72,7 @@ defmodule ActivityPubWeb.WebFingerControllerTest do
 
     # test "works for ap_ids" do
     #   actor = local_actor()
-    #   {:ok, ap_actor} = Actor.get_by_username(actor.username)
+    #   {:ok, ap_actor} = Actor.get_cached(username: actor.username)
 
     #   {:ok, result} = WebFinger.output(ap_actor.data["id"])
     #   assert is_map(result)

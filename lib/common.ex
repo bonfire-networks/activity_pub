@@ -9,16 +9,6 @@ defmodule ActivityPub.Common do
     ActivityPub.TestAdapter
   end
 
-  def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
-    p = Process.get()
-    Cachex.fetch(cache, key, fn _ ->
-      Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
-      Process.put(:ecto_repo_module, p[:ecto_repo_module])
-
-       fallback.()
-      end,
-      options)
-  end
 
   def ok_unwrap(val, fallback \\ nil)
   def ok_unwrap({:ok, val}, _fallback), do: val

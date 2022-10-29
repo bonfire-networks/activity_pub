@@ -17,7 +17,7 @@ defmodule ActivityPubWeb.PublisherTest do
     previous_queue = Oban.drain_queue(queue: :federator_outgoing)
 
     note_actor = local_actor()
-    {:ok, note_actor} = Actor.get_by_username(note_actor.username)
+    {:ok, note_actor} = Actor.get_cached(username: note_actor.username)
     recipient_actor = actor()
 
     note =
@@ -33,12 +33,12 @@ defmodule ActivityPubWeb.PublisherTest do
       })
 
     activity = insert(:note_activity, %{note: note})
-    {:ok, actor} = Actor.single_by_ap_id(activity.data["actor"])
+    {:ok, actor} = Actor.get_cached(ap_id: activity.data["actor"])
 
     assert :ok == Publisher.publish(actor, activity)
 
     queue = Oban.drain_queue(queue: :federator_outgoing)
-    assert queue[:success] == (previous_queue[:success] || 0) + 1
+    assert queue[:success] == 1 #(previous_queue[:success] || 0) + 1
     assert queue[:failure] == (previous_queue[:failure] || 0)
   end
 
@@ -52,7 +52,7 @@ defmodule ActivityPubWeb.PublisherTest do
   #   )
 
   #   note_actor = local_actor()
-  #   {:ok, note_actor} = Actor.get_by_username(note_actor.username)
+  #   {:ok, note_actor} = Actor.get_cached(username: note_actor.username)
   #   recipient_actor = actor()
 
   #   note =
@@ -68,7 +68,7 @@ defmodule ActivityPubWeb.PublisherTest do
   #     })
 
   #   activity = insert(:note_activity, %{note: note})
-  #   {:ok, actor} = Actor.single_by_ap_id(activity.data["actor"])
+  #   {:ok, actor} = Actor.get_cached(ap_id: activity.data["actor"])
 
   #   assert :ok == Publisher.publish(actor, activity)
 

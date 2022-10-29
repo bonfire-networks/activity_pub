@@ -24,121 +24,100 @@ defmodule ActivityPub.Object do
     timestamps()
   end
 
-  def get_by_id(%{id: id}), do: id
-  def get_by_id(id) do
-    if Utils.is_ulid?(id) do
-      get_by_pointer_id(id)
-    else
-      repo().get(Object, id)
+  def get_cached(id: id) when is_binary(id), do: do_get_cached(:id, id)
+  def get_cached(ap_id: id) when is_binary(id), do: do_get_cached(:ap_id, id)
+  def get_cached(pointer: id) when is_binary(id), do: do_get_cached(:pointer, id)
+
+  def get_cached([_: %Object{} = o]), do: o
+
+  def get_cached(id: %{id: id}) when is_binary(id), do: get_cached(id: id)
+  def get_cached(pointer: %{id: id}) when is_binary(id), do: get_cached(pointer: id)
+  def get_cached([{_, %{ap_id: ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+  def get_cached([{_, %{"id" => ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+  def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+  def get_cached(opts) do
+    error(opts, "Unexpected args")
+    raise "Unexpected args for get_cached"
+  end
+
+  def get_cached(opts), do: get(opts)
+
+  defp do_get_cached(key, val), do: Utils.get_with_cache(&get/1, :ap_object_cache, key, val)
+
+  def get_cached!(opts) do
+    with {:ok, object} <- get_cached(opts) do
+      object
+    else e ->
+      error(e)
+      nil
     end
   end
 
-  def get_by_ap_id(%{data: %{"id" => ap_id}}), do: get_by_ap_id(ap_id)
-  def get_by_ap_id(%{"id" => ap_id}), do: get_by_ap_id(ap_id)
-  def get_by_ap_id(ap_id) do
-    repo().one(
+  def get_uncached(opts), do: get(opts)
+
+  defp get(id) when is_binary(id) do
+    if Utils.is_ulid?(id) do
+      get(pointer: id)
+    else
+      get(id: id)
+    end
+  end
+  defp get(id: id) when is_binary(id) do
+    case repo().get(Object, id) do
+      %Object{} = object -> {:ok, object}
+      _ -> {:error, :not_found}
+    end
+  end
+  defp get(pointer: id) when is_binary(id) do
+    case repo().get_by(Object, pointer_id: id) do
+      %Object{} = object -> {:ok, object}
+      _ -> {:error, :not_found}
+    end
+  end
+  defp get(ap_id: ap_id) when is_binary(ap_id) do
+    case repo().one(
       from(object in Object,
         # support for looking up by non-canonical URL
         where:
           fragment("(?)->>'id' = ?", object.data, ^ap_id) or
             fragment("(?)->>'url' = ?", object.data, ^ap_id)
       )
-    )
-  end
-
-  def single_by_ap_id(ap_id) do
-    case get_by_ap_id(ap_id) do
+    ) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
   end
+  defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
+  defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
 
-  @doc false # for debugging
-  def all() do
-    repo().many(from(object in Object))
-  end
-
-  def get_by_pointer_id(pointer_id),
-    do: repo().get_by(Object, pointer_id: pointer_id)
-
-  def get_cached_by_ap_id(%{"id" => ap_id}), do: get_cached_by_ap_id(ap_id)
-
-  def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
-    key = "ap_id:#{ap_id}"
-
-    case cachex_fetch(:ap_object_cache, key, fn ->
-        case single_by_ap_id(ap_id) |> info do
-          {:ok, object} -> {:commit, object}
-          {:error, _} -> {:ignore, nil}
-        end
-      end) do
-      {:ok, object} -> {:ok, object}
-      {:commit, object} -> {:ok, object}
-      {:ignore, _} -> {:error, :not_found}
-      msg -> error(msg)
-    end
-  catch
-    _ ->
-      # workaround :nodedown errors
-      single_by_ap_id(ap_id)
-  rescue
-    _ ->
-      single_by_ap_id(ap_id)
-  end
-
-  def get_cached_by_ap_id!(ap_id) do
-    with {:ok, object} <- get_cached_by_ap_id(ap_id) do
-      object
-    else e ->
-      error(e)
-      nil
-    end
-  end
-
-  def get_cached_by_pointer_id(pointer_id) do
-    # FIXME: this sometimes is called with a id/UUID and sometimes with a pointer_id/ULID
-    key = "pointer_id:#{pointer_id}"
-
-    case cachex_fetch(:ap_object_cache, key, fn ->
-      case get_by_id(pointer_id) do
-        %{} = object -> {:commit, object}
-      e ->
-        {:ignore, e}
-      end
-    end) do
-      {:ok, object} -> {:ok, object}
-      {:commit, object} -> {:ok, object}
-      {:ignore, _} -> {:error, :not_found}
-      msg -> error(msg)
-    end
+  defp get(opts) do
+    error(opts, "Unexpected args")
+    raise "Unexpected args for Actor.get"
   end
 
 
-  def get_cached_by_pointer_id!(pointer_id) do
-    with {:ok, object} <- get_cached_by_pointer_id(pointer_id) do
-      object
-    else e ->
-      error(e)
-      nil
-    end
-  end
-
-  def set_cache(%Object{data: %{"id" => ap_id}} = object) do
+  def set_cache(%{id: id, data: %{"id" => ap_id}} = object) do
+    # TODO: store in cache only once, and only IDs for the others
+    Cachex.put(:ap_object_cache, "id:#{id}", object)
     Cachex.put(:ap_object_cache, "ap_id:#{ap_id}", object)
 
     if object.pointer_id do
-      Cachex.put(:ap_object_cache, "pointer_id:#{object.pointer_id}", object)
+      Cachex.put(:ap_object_cache, "pointer:#{object.pointer_id}", object)
     end
 
     {:ok, object}
   end
 
-  def invalidate_cache(%Object{data: %{"id" => ap_id}} = object) do
-    with {:ok, true} <- Cachex.del(:ap_object_cache, "ap_id:#{ap_id}"),
-         {:ok, true} <-
-           Cachex.del(:ap_object_cache, "pointer_id:#{object.pointer_id}") do
+  def invalidate_cache(%{id: id, data: %{"id" => ap_id}} = object) do
+     Cachex.del(:ap_object_cache, "id:#{id}")
+     Cachex.del(:ap_object_cache, "ap_id:#{ap_id}")
+    Cachex.del(:ap_object_cache, "pointer:#{object.pointer_id}")
       :ok
-    end
+  end
+
+  @doc false # for debugging
+  def all() do
+    repo().many(from(object in Object))
   end
 
   def insert(attrs) do
@@ -161,11 +140,10 @@ defmodule ActivityPub.Object do
   end
 
   def update_existing(object_id, attrs) do
-    case get_by_id(object_id) do
-      %{} = object -> do_update_existing(object, attrs)
+    case get(id: object_id) do
       {:ok, object} -> do_update_existing(object, attrs)
     e ->
-      error(e, "Could not find the object to update")
+      error(object_id, "Could not find the object to update")
     end
   end
 
@@ -182,6 +160,9 @@ defmodule ActivityPub.Object do
     else
       e -> e
     end
+  rescue
+    e in Ecto.ConstraintError ->
+      error(e, "Could not update the AP object")
   end
 
   def maybe_upsert(true, %ActivityPub.Object{} = existing_object, attrs) do
@@ -213,7 +194,7 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(ap_id, false) when is_binary(ap_id),
-    do: get_cached_by_ap_id!(ap_id)
+    do: get_cached!(ap_id: ap_id)
 
   def normalize(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
@@ -252,22 +233,24 @@ defmodule ActivityPub.Object do
     end
   end
 
-  def get_outbox_for_actor(actor) do
+  def get_outbox_for_actor(%{ap_id: ap_id}), do: get_outbox_for_actor(ap_id)
+  def get_outbox_for_actor(ap_id) when is_binary(ap_id) do
     from(object in Object,
       where:
-        fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and
+        fragment("(?)->>'actor' = ?", object.data, ^ap_id) and
           object.public == true,
       limit: 10
     )
     |> repo().all()
   end
 
-  def get_outbox_fox_actor(actor, page) do
+  def get_outbox_for_actor(%{ap_id: ap_id}, page), do: get_outbox_for_actor(ap_id, page)
+  def get_outbox_fox_actor(ap_id, page) when is_binary(ap_id)  do
     offset = (page - 1) * 10
 
     from(object in Object,
       where:
-        fragment("(?)->>'actor' = ?", object.data, ^actor.ap_id) and
+        fragment("(?)->>'actor' = ?", object.data, ^ap_id) and
           object.public == true,
       limit: 10,
       offset: ^offset

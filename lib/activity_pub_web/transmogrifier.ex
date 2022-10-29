@@ -31,7 +31,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def fix_actor(%{"attributedTo" => actor} = object) do
-    Map.put(object, "actor", Fetcher.get_actor(%{"actor" => actor}))
+    Map.put(object, "actor", Utils.actor_from_data(%{"actor" => actor}))
   end
 
   @doc """
@@ -111,9 +111,9 @@ defmodule ActivityPubWeb.Transmogrifier do
   defp mastodon_follow_hack(_, _), do: {:error, nil}
 
   defp get_follow_activity(follow_object, followed) do
-    with object_id when not is_nil(object_id) <- Utils.get_ap_id(follow_object),
-         {_, %Object{} = activity} <-
-           {:activity, Object.get_cached_by_ap_id(object_id)} do
+    info(follow_object)
+    with object_id when not is_nil(object_id) <- Utils.get_ap_id(follow_object) |> info,
+         %Object{} = activity <- Object.get_cached!(ap_id: object_id) |> info do
       {:ok, activity}
     else
       # Can't find the activity. This might a Mastodon 2.3 "Accept"
@@ -150,7 +150,7 @@ defmodule ActivityPubWeb.Transmogrifier do
          # Reduce the object list to find the reported user.
          account <-
            Enum.reduce_while(objects, nil, fn ap_id, _ ->
-             with {:ok, actor} <- Actor.get_cached_by_ap_id(ap_id) do
+             with {:ok, actor} <- Actor.get_cached(ap_id: ap_id) do
                {:halt, actor}
              else
                _ -> {:cont, nil}
@@ -191,7 +191,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   def handle_incoming(%{"type" => "Create", "object" => object} = data) do
     info("Handle incoming creation of an object")
-    data = Utils.normalize_params(data)
+    data = Utils.normalize_actors(data)
     {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])
     object = fix_object(object)
 
@@ -220,9 +220,9 @@ defmodule ActivityPubWeb.Transmogrifier do
         "id" => id
       }) do
     info("Handle incoming follow")
-    with {:ok, followed} <- Actor.get_cached_by_ap_id(followed),
-         {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower) do
-      ActivityPub.follow(follower, followed, id, false)
+    with   {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower) |> info(follower),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed) |> info(followed) do
+      ActivityPub.follow(%{actor: follower, object: followed, activity_id: id, local: false})
     end
   end
 
@@ -234,10 +234,10 @@ defmodule ActivityPubWeb.Transmogrifier do
           "id" => _id
         } = data
       ) do
-    info("Handle incoming accept")
-    with actor <- Fetcher.get_actor(data),
-         {:ok, followed} <- Actor.get_or_fetch_by_ap_id(actor),
-         {:ok, follow_activity} <- get_follow_activity(follow_object, followed) do
+    info("Handle incoming Accept")
+    with followed_actor <- Utils.actor_from_data(data) |> info(),
+         {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed_actor) |> info(),
+         {:ok, follow_activity} <- get_follow_activity(follow_object, followed) |> info() do
       ActivityPub.accept(%{
         to: follow_activity.data["to"],
         type: "Accept",
@@ -245,8 +245,11 @@ defmodule ActivityPubWeb.Transmogrifier do
         object: follow_activity.data["id"],
         local: false
       })
+      |> info()
     else
-      _e -> :error
+      e ->
+        error(e, "Could not handle incoming Accept")
+        :error
     end
   end
 
@@ -261,10 +264,10 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming like")
-    with actor <- Fetcher.get_actor(data),
+    with actor <- Utils.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         {:ok, activity, _object} <- ActivityPub.like(actor, object, id, false) do
+         {:ok, activity, _object} <- ActivityPub.like(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
     else
       _e -> :error
@@ -280,12 +283,12 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming boost")
-    with actor <- Fetcher.get_actor(data),
+    with actor <- Utils.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
          public <- Utils.public?(data, object),
          {:ok, activity, _object} <-
-           ActivityPub.announce(actor, object, id, false, public) do
+           ActivityPub.announce(%{actor: actor, object: object, activity_id: id, local: false, public: public}) do
       {:ok, activity}
     else
       _e -> :error
@@ -303,7 +306,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       when object_type in @supported_actor_types do
     info("Handle incoming update")
     with {:ok, _} <- Actor.update_actor_data_by_ap_id(actor_id, object),
-         {:ok, actor} <- Actor.single_by_ap_id(actor_id),
+         {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
          {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
         local: false,
@@ -328,9 +331,9 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = _data
       ) do
     info("Handle incoming block")
-    with {:ok, %{local: true} = blocked} <- Actor.get_cached_by_ap_id(blocked),
+    with {:ok, %{local: true} = blocked} <- Actor.get_cached(ap_id: blocked),
          {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
-         {:ok, activity} <- ActivityPub.block(blocker, blocked, id, false) do
+         {:ok, activity} <- ActivityPub.block(%{actor: blocker, object: blocked, activity_id: id, local: false}) do
       {:ok, activity}
     else
       _e -> :error
@@ -356,7 +359,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       {:ok, activity}
     else
       {:actor, true} ->
-        case Actor.get_cached_by_ap_id(object_id) do
+        case Actor.get_cached(ap_id: object_id) do
           # FIXME: This is supposed to prevent unauthorized deletes
           # but we currently use delete activities where the activity
           # actor isn't the deleted object so we need to disable it.
@@ -383,10 +386,10 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming unboost")
-    with actor <- Fetcher.get_actor(data),
+    with actor <- Utils.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         {:ok, activity, _} <- ActivityPub.unannounce(actor, object, id, false) do
+         {:ok, activity, _} <- ActivityPub.unannounce(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
     else
       _e -> :error
@@ -402,10 +405,10 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming unlike")
-    with actor <- Fetcher.get_actor(data),
+    with actor <- Utils.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         {:ok, activity, _, _} <- ActivityPub.unlike(actor, object, id, false) do
+         {:ok, activity, _, _} <- ActivityPub.unlike(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
     else
       _e -> :error
@@ -423,7 +426,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     info("Handle incoming unfollow")
     with {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower),
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed) do
-      ActivityPub.unfollow(follower, followed, id, false)
+      ActivityPub.unfollow(%{actor: follower, object: followed, activity_id: id, local: false})
     else
       _e -> :error
     end
@@ -441,7 +444,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     with {:ok, %{local: true} = blocked} <-
            Actor.get_or_fetch_by_ap_id(blocked),
          {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
-         {:ok, activity} <- ActivityPub.unblock(blocker, blocked, id, false) do
+         {:ok, activity} <- ActivityPub.unblock(%{actor: blocker, object: blocked, activity_id: id, local: false}) do
       {:ok, activity}
     else
       _e -> :error

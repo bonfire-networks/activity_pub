@@ -14,8 +14,14 @@ defmodule ActivityPubWeb.Federator do
     ReceiverWorker.enqueue("incoming_ap_doc", %{"params" => params})
   end
 
-  def publish(activity) do
-    PublisherWorker.enqueue("publish", %{"activity_id" => activity.id})
+  def publish(%{id: activity}) do
+    publish(activity)
+  end
+  def publish(%{"id"=>_}=activity) do
+    PublisherWorker.enqueue("publish", %{"activity" => activity})
+  end
+  def publish(activity) when is_binary(activity) do
+    PublisherWorker.enqueue("publish", %{"activity_id" => activity})
   end
 
   @spec perform(atom(), module(), any()) :: {:ok, any()} | {:error, any()}
@@ -23,10 +29,10 @@ defmodule ActivityPubWeb.Federator do
     apply(module, :publish_one, [params])
   end
 
-  def perform(:publish, activity) do
+  def perform(:publish, %{data: _} = activity) do
     actor_id = activity.data["actor"]
 
-    with {:ok, actor} <- Actor.get_cached_by_ap_id(actor_id),
+    with {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
          actor <- Actor.add_public_key(actor) do
       debug(activity.data["id"], "Running publish for")
       Publisher.publish(actor, activity)
@@ -42,13 +48,10 @@ defmodule ActivityPubWeb.Federator do
   def perform(:incoming_ap_doc, params) do
     debug("Handling incoming AP activity")
 
-    params = Utils.normalize_params(params)
-
     Transmogrifier.handle_incoming(params)
   end
 
   def perform(type, _) do
     error(type, "Unknown federator task")
-    {:error, "Don't know what to do with this"}
   end
 end

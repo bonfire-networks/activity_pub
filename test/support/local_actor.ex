@@ -17,9 +17,9 @@ defmodule ActivityPub.LocalActor do
     field(:followers, {:array, :string}, default: [])
   end
 
-  def get_by_id(id), do: repo().get(__MODULE__, id)
+  def get(id: id), do: repo().get(__MODULE__, id)
 
-  def get_by_ap_id(ap_id) do
+  def get(ap_id: ap_id) do
     repo().one(
       from(actor in __MODULE__,
         where: fragment("(?)->>'id' = ?", actor.data, ^ap_id)
@@ -27,7 +27,7 @@ defmodule ActivityPub.LocalActor do
     )
   end
 
-  def get_by_username(username) do
+  def get_cached(username: username) do
     repo().get_by(__MODULE__, username: username)
   end
 
@@ -55,7 +55,7 @@ defmodule ActivityPub.LocalActor do
   end
 
   def follow(follower, followee) do
-    followee = get_by_ap_id(followee.data["id"])
+    followee = get(ap_id: followee.data["id"])
     followers = [follower.id | followee.followers]
     __MODULE__.update(followee, %{followers: followers})
   end

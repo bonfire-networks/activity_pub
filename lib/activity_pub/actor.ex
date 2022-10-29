@@ -13,6 +13,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.Keys
   alias ActivityPub.WebFinger
   alias ActivityPub.Object
+  alias ActivityPub.Utils
 
   @supported_actor_types ActivityPub.Utils.supported_actor_types()
 
@@ -43,6 +44,111 @@ defmodule ActivityPub.Actor do
     :pointer_id
   ]
 
+  def get_cached(id: id), do: do_get_cached(:id, id)
+  def get_cached(pointer: id), do: do_get_cached(:pointer, id)
+  def get_cached(username: username), do: do_get_cached(:username, username)
+  def get_cached(ap_id: ap_id) when is_binary(ap_id), do: do_get_cached(:ap_id, ap_id)
+
+  def get_cached([_: %Actor{} = actor]), do: actor
+
+  def get_cached(id: %{id: id}) when is_binary(id), do: get_cached(id: id)
+  def get_cached(pointer: %{id: id}) when is_binary(id), do: get_cached(pointer: id)
+  def get_cached([{_, %{ap_id: ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+  def get_cached([{_, %{"id" => ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+  def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+
+  def get_cached(username: "@" <> username), do: get_cached(username: username)
+
+  def get_cached(opts), do: get(opts)
+
+
+  defp do_get_cached(key, val), do: Utils.get_with_cache(&get/1, :ap_actor_cache, key, val)
+
+  def get_cached!(opts) do
+    with {:ok, actor} <- get_cached(opts) do
+      actor
+    else
+      {:error, _e} -> nil
+    end
+  end
+
+  @doc """
+  Fetches a local actor given its preferred username.
+  """
+  defp get(username: "@" <> username), do: get_cached(username: username)
+  defp get(username: username) do
+
+    with {:ok, actor} <- Adapter.get_actor_by_username(username) do
+      {:ok, actor}
+    else
+      e ->
+        error(e, "Adapter did not find a local actor")
+        {:error, :not_found}
+    end
+  end
+
+  defp get(id: id) when not is_nil(id) do
+    with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
+      {:ok, format_remote_actor(actor)}
+    else e ->
+        error(e, "Not a remote actor (so cannot query by UUID)")
+        {:error, :not_found}
+    end
+  end
+
+  defp get(pointer: id) when not is_nil(id) do
+    with {:ok, actor} <- ActivityPub.Object.get_cached(pointer: id) do
+      {:ok, format_remote_actor(actor)}
+    else _ ->
+       with {:ok, actor} <- Adapter.get_actor_by_id(id) do
+        {:ok, actor}
+      else
+        e ->
+          error(e, "Adapter did not find a local actor")
+          {:error, :not_found}
+      end
+    end
+  end
+
+  # defp get(ap_id: id) when not is_nil(id) do
+  #   with {:ok, actor} <- ActivityPub.Object.get_cached(ap_id: id) do
+  #     {:ok, format_remote_actor(actor)}
+  #   else _ ->
+  #      with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
+  #       {:ok, actor}
+  #     else
+  #       e ->
+  #         error(e, "Adapter did not return an actor")
+  #         {:error, :not_found}
+  #     end
+  #   end
+  # end
+
+  @doc """
+  Fetches an actor given its AP ID.
+
+  Remote actors are first checked if they exist in database and are fetched remotely if they don't.
+
+  Remote actors are also automatically updated every 24 hours.
+  """
+  @spec get(ap_id: String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  defp get(ap_id: ap_id) when is_binary(ap_id) do
+
+    with {:ok, actor} <- get_remote_actor(ap_id) do
+      {:ok, actor}
+    else e ->
+        Adapter.get_actor_by_ap_id(ap_id)
+    end
+
+  end
+
+
+  defp get(opts) do
+    error(opts, "Unexpected args")
+    raise "Unexpected args for Actor.get"
+  end
+
+
   @doc """
   Updates an existing actor struct by its AP ID.
   """
@@ -63,7 +169,7 @@ defmodule ActivityPub.Actor do
 
     with {:ok, object} <- update_actor_data_by_ap_id(actor_id, data),
          done = Adapter.update_remote_actor(object),
-         {:ok, actor} <- single_by_ap_id(actor_id) do
+         {:ok, actor} <- get(ap_id: actor_id) do
       set_cache(actor)
     end
   end
@@ -98,7 +204,8 @@ defmodule ActivityPub.Actor do
   end
 
   defp check_if_time_to_update(actor) do
-    NaiveDateTime.diff(NaiveDateTime.utc_now(), actor.updated_at) >= 86_400
+    (NaiveDateTime.diff(NaiveDateTime.utc_now(), actor.updated_at) >= 86_400)
+    |> info("Time to update the actor?")
   end
 
   @doc """
@@ -124,7 +231,7 @@ defmodule ActivityPub.Actor do
     do: get_or_fetch_by_username(username)
 
   def get_or_fetch_by_username(username) do
-    with {:ok, actor} <- get_cached_by_username(username) do
+    with {:ok, actor} <- get_cached(username: username) do
       {:ok, actor}
     else
       _e ->
@@ -134,7 +241,7 @@ defmodule ActivityPub.Actor do
           {:ok, actor}
         else
           %ActivityPub.Actor{} = actor -> {:ok, actor}
-          true -> get_cached_by_username(hd(String.split(username, "@")))
+          true -> get_cached(username: hd(String.split(username, "@")))
           {:error, reason} -> error(reason)
           e -> error(e, "Actor not found: #{username}")
         end
@@ -147,22 +254,20 @@ defmodule ActivityPub.Actor do
       else: get_or_fetch_by_username(username_or_uri)
   end
 
-  defp username_from_ap_id(ap_id) do
-    ap_id
-    |> String.split("/")
-    |> List.last()
-  end
+  # defp username_from_ap_id(ap_id) do
+  #   ap_id
+  #   |> String.split("/")
+  #   |> List.last()
+  # end
 
-  defp get_local_actor(ap_id) do
-    username_from_ap_id(ap_id)
-    |> get_by_username()
-  end
 
-  defp get_remote_actor(ap_id) do
-    with {:ok, actor} <- Object.get_cached_by_ap_id(ap_id),
+  defp get_remote_actor(ap_id, maybe_create \\ true) do
+    with {:ok, actor} <- Object.get_cached(ap_id: ap_id),
          false <- check_if_time_to_update(actor),
          actor <- format_remote_actor(actor) do
-      Adapter.maybe_create_remote_actor(actor)
+
+      if maybe_create, do: Adapter.maybe_create_remote_actor(actor)
+
       {:ok, actor}
     else
       true ->
@@ -239,78 +344,18 @@ defmodule ActivityPub.Actor do
 
    def maybe_create_actor_from_object(actor) do
     case maybe_create_actor_from_object_tuple(actor) do
-      {_, %Actor{} = actor} -> {:ok, actor}
-      e -> error(e, "Could not find or create the actor")
-    end
-  end
-
-  @doc """
-  Fetches a local actor given its preferred username.
-  """
-  def get_by_username("@" <> username), do: get_by_username(username)
-
-  def get_by_username(username) do
-
-    with {:ok, actor} <- Adapter.get_actor_by_username(username) do
-      {:ok, actor}
-    else
+      {_, %Actor{} = actor} ->
+        {:ok, actor}
+      {_, %{} = object} ->
+         warn(object, "Not an actor?")
+         {:ok, object}
       e ->
-        warn(e, username)
-        {:error, :not_found}
+        error(e, "Could not find or create an actor")
     end
   end
 
-  def get_by_local_id(id) when not is_nil(id) do
-    with {:ok, actor} <- Adapter.get_actor_by_id(id) do
-      {:ok, actor}
-    else
-      e ->
-        error(e, "Adapter did not return an actor")
-        {:error, :not_found}
-    end
-  end
-
-  @doc """
-  Fetches an actor given its AP ID.
-
-  Remote actors are first checked if they exist in database and are fetched remotely if they don't.
-
-  Remote actors are also automatically updated every 24 hours.
-  """
-  @spec get_by_ap_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
-  def get_by_ap_id(ap_id) do
-    host = URI.parse(ap_id)
-    instance_host = URI.parse(Adapter.base_url())
-
-    if host.host == instance_host.host and host.port == instance_host.port and not String.ends_with?(ap_id, "/followers") do
-      info(ap_id, "assume local actor")
-      get_local_actor(ap_id)
-    else
-      info(ap_id, "assume remote actor")
-      get_remote_actor(ap_id)
-    end
-    # |> info()
-    |> case do
-      %{} = object -> object
-      {:ok, object} -> object
-      {:error, e} -> error(e)
-      other -> info(other)
-    end
-  end
-
-  def single_by_ap_id(ap_id) do
-    case get_by_ap_id(ap_id) do
-      %{} = object -> {:ok, object}
-      {:ok, object} -> {:ok, object}
-      {:error, e} -> error(e)
-      other -> warn(other)
-    end
-  end
-
-  def get_cached_by_ap_id!(ap_id), do: get_by_ap_id(ap_id)
-
-  def get_or_fetch_by_ap_id(ap_id) do
-    case get_cached_by_ap_id(ap_id) |> info() do
+  def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true) do
+    case get_remote_actor(ap_id, maybe_create) |> info() do
       {:ok, actor} -> {:ok, actor}
       _ -> fetch_by_ap_id(ap_id) |> info()
     end
@@ -319,94 +364,23 @@ defmodule ActivityPub.Actor do
   def set_cache({:ok, actor}), do: set_cache(actor)
 
   def set_cache(%Actor{} = actor) do
-    Cachex.put(:ap_actor_cache, "ap_id:#{actor.ap_id}", actor)
-    Cachex.put(:ap_actor_cache, "username:#{actor.username}", actor)
+    # TODO: store in cache only once, and only IDs for the others
     Cachex.put(:ap_actor_cache, "id:#{actor.id}", actor)
+    Cachex.put(:ap_actor_cache, "ap_id:#{actor.ap_id}", actor)
+    Cachex.put(:ap_actor_cache, "pointer:#{actor.pointer_id}", actor)
+    Cachex.put(:ap_actor_cache, "username:#{actor.username}", actor)
     {:ok, actor}
   end
-  def set_cache(e), do: e
+  def set_cache(e), do: error(e, "Not an actor")
 
   def invalidate_cache(%Actor{} = actor) do
-    Cachex.del(:ap_actor_cache, "ap_id:#{actor.ap_id}")
-    Cachex.del(:ap_actor_cache, "username:#{actor.username}")
     Cachex.del(:ap_actor_cache, "id:#{actor.id}")
+    Cachex.del(:ap_actor_cache, "ap_id:#{actor.ap_id}")
+    Cachex.del(:ap_actor_cache, "pointer:#{actor.pointer_id}")
+    Cachex.del(:ap_actor_cache, "username:#{actor.username}")
+    Object.invalidate_cache(actor)
   end
 
-  def get_cached_by_ap_id(%{"id" => ap_id}) when is_binary(ap_id),
-    do: get_cached_by_ap_id(ap_id)
-  def get_cached_by_ap_id(%{data: %{"id" => ap_id}}) when is_binary(ap_id),
-    do: get_cached_by_ap_id(ap_id)
-  def get_cached_by_ap_id(ap_id) when is_binary(ap_id) do
-    key = "ap_id:#{ap_id}"
-
-    case cachex_fetch(:ap_actor_cache, key, fn ->
-           case single_by_ap_id(ap_id) |> info do
-             {:ok, actor} -> {:commit, actor}
-             {:error, _} -> {:ignore, nil}
-           end
-         end) do
-      {:ok, actor} -> {:ok, actor}
-      {:commit, actor} -> {:ok, actor}
-      {:ignore, _} -> {:error, :not_found}
-      msg -> error(msg)
-    end
-  end
-
-  def get_cached_by_local_id(id, object \\ nil)
-  def get_cached_by_local_id(%{id: id} = object, _), do: get_cached_by_local_id(id, object)
-  def get_cached_by_local_id(id, object) do
-    key = "id:#{id}"
-
-    case cachex_fetch(:ap_actor_cache, key, fn ->
-           case get_by_local_id(object || id) do
-             {:ok, actor} ->
-               {:commit, actor}
-
-             _ ->
-               {:ignore, nil}
-           end
-         end) do
-      {:ok, actor} -> {:ok, actor}
-      {:commit, actor} -> {:ok, actor}
-      {:ignore, _} -> {:error, :not_found}
-      msg -> error(msg)
-    end
-  end
-
-  def get_cached_by_username("@" <> username),
-    do: get_cached_by_username(username)
-
-  def get_cached_by_username(username) do
-    key = "username:#{username}"
-
-    try do
-      case cachex_fetch(:ap_actor_cache, key, fn ->
-             case get_by_username(username) do
-               {:ok, actor} -> {:commit, actor}
-               {:error, _error} -> {:ignore, nil}
-             end
-           end) do
-        {:ok, actor} -> {:ok, actor}
-        {:commit, actor} -> {:ok, actor}
-        {:ignore, _} -> {:error, :not_found}
-        msg -> error(msg)
-      end
-    catch e ->
-      warn(e, "workaround for :nodedown errors")
-      get_by_username(username)
-    rescue e ->
-      warn(e, "workaround")
-      get_by_username(username)
-    end
-  end
-
-  def get_by_local_id!(id) do
-    with {:ok, actor} <- get_cached_by_local_id(id) do
-      actor
-    else
-      {:error, _e} -> nil
-    end
-  end
 
   @doc false
   def add_public_key(%{data: _} = actor) do
@@ -447,8 +421,8 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def get_actor_from_follow(follow) do
-    with {:ok, actor} <- get_cached_by_local_id(follow.creator_id) do
+  defp get_actor_from_follow(follow) do
+    with {:ok, actor} <- get_cached(pointer: follow.creator_id) do
       actor
     else
       _ -> nil
@@ -458,7 +432,7 @@ defmodule ActivityPub.Actor do
   def get_followings(actor) do
     followings =
       Adapter.get_following_local_ids(actor)
-      |> Enum.map(&get_by_local_id!/1)
+      |> Enum.map(&get_cached!(pointer: &1))
       |> Enum.filter(fn x -> x end)
 
     {:ok, followings}
@@ -468,7 +442,7 @@ defmodule ActivityPub.Actor do
     followers =
       Adapter.get_follower_local_ids(actor)
       |> debug("followers")
-      |> Enum.map(&get_by_local_id!/1)
+      |> Enum.map(&get_cached!(pointer: &1))
       # Filter nils
       |> Enum.filter(fn x -> x end)
 
@@ -478,7 +452,7 @@ defmodule ActivityPub.Actor do
   def get_external_followers(actor) do
     followers =
       Adapter.get_follower_local_ids(actor)
-      |> Enum.map(&get_by_local_id!/1)
+      |> Enum.map(&get_cached!(pointer: &1))
       # Filter nils
       |> Enum.filter(fn x -> x end)
       # Filter locals
@@ -494,10 +468,9 @@ defmodule ActivityPub.Actor do
     [to, cc]
     |> Enum.concat()
     |> List.delete(@public_uri)
-    |> Enum.map(&get_by_ap_id/1)
+    |> Enum.map(&get_cached!(ap_id: &1))
     |> Enum.filter(fn
       %{local: local} -> !local
-      {:ok, %{local: local}} -> !local
       actor ->
         warn(actor, "Invalid actor")
         false
@@ -513,17 +486,17 @@ defmodule ActivityPub.Actor do
   end
 
   # TODO
-  def get_and_format_collections_for_actor(_actor) do
+  defp get_and_format_collections_for_actor(_actor) do
     []
   end
 
   # TODO
-  def get_and_format_resources_for_actor(_actor) do
+  defp get_and_format_resources_for_actor(_actor) do
     []
   end
 
   def update_actor_data_by_ap_id(ap_id, data) when is_binary(ap_id) do
-    with {:ok, object} <- Object.single_by_ap_id(ap_id) do
+    with {:ok, object} <- Object.get_uncached(ap_id: ap_id) do
       update_actor_data_by_ap_id(object, data)
     else e ->
       warn(e)
@@ -551,7 +524,7 @@ defmodule ActivityPub.Actor do
 
     update_actor_data_by_ap_id(actor.ap_id, new_data)
     # Return Actor
-    set_cache(get_by_ap_id(actor.ap_id))
+    set_cache(get(ap_id: actor.ap_id))
   end
 
   def reactivate(%Actor{local: false} = actor) do
@@ -561,19 +534,19 @@ defmodule ActivityPub.Actor do
 
     update_actor_data_by_ap_id(actor.ap_id, new_data)
     # Return Actor
-    set_cache(get_by_ap_id(actor.ap_id))
+    set_cache(get(ap_id: actor.ap_id))
   end
 
-  def get_creator_ap_id(actor) do
-    with {:ok, actor} <- get_cached_by_local_id(actor.creator_id) do
+  defp get_creator_ap_id(actor) do
+    with {:ok, actor} <- get_cached(pointer: actor.creator_id) do
       actor.ap_id
     else
       {:error, _} -> nil
     end
   end
 
-  def get_community_ap_id(actor) do
-    with {:ok, actor} <- get_cached_by_local_id(actor.community_id) do
+  defp get_community_ap_id(actor) do
+    with {:ok, actor} <- get_cached(pointer: actor.community_id) do
       actor.ap_id
     else
       {:error, _} -> nil

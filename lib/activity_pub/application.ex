@@ -23,7 +23,7 @@ defmodule ActivityPub.Application do
                 interval: 1000
               )
 
-  if Mix.env() == :test do
+  if Mix.env() == :test and Application.get_env(:activity_pub, :disable_test_apps) !=true do
     def start(_type, _args) do
       children = [
         # Start the Ecto repository
@@ -36,32 +36,9 @@ defmodule ActivityPub.Application do
         ActivityPubWeb.Endpoint,
         # Start a worker by calling: ActivityPub.Worker.start_link(arg)
         # {ActivityPub.Worker, arg}
-        {Oban, oban_config()},
-        %{
-          id: :cachex_actor,
-          start:
-            {Cachex, :start_link,
-             [
-               :ap_actor_cache,
-               [
-                 expiration: @expiration,
-                 limit: 2500
-               ]
-             ]}
-        },
-        %{
-          id: :cachex_object,
-          start:
-            {Cachex, :start_link,
-             [
-               :ap_object_cache,
-               [
-                 expiration: @expiration,
-                 limit: 2500
-               ]
-             ]}
-        }
-      ]
+        {Oban, oban_config()}
+      ] ++ cachex()
+
 
       # See https://hexdocs.pm/elixir/Supervisor.html
       # for other strategies and supported options
@@ -70,9 +47,18 @@ defmodule ActivityPub.Application do
     end
   else
     def start(_type, _args) do
-      children = [
-        %{
-          id: :cachex_actor,
+      children = cachex()
+
+      # See https://hexdocs.pm/elixir/Supervisor.html
+      # for other strategies and supported options
+      opts = [strategy: :one_for_one, name: ActivityPub.Supervisor]
+      Supervisor.start_link(children, opts)
+    end
+  end
+
+  def cachex() do
+    if Application.get_env(:activity_pub, :disable_cache) !=true, do: [%{
+          id: :ap_actor_cache,
           start:
             {Cachex, :start_link,
              [
@@ -84,7 +70,7 @@ defmodule ActivityPub.Application do
              ]}
         },
         %{
-          id: :cachex_object,
+          id: :ap_object_cache,
           start:
             {Cachex, :start_link,
              [
@@ -95,13 +81,7 @@ defmodule ActivityPub.Application do
                ]
              ]}
         }
-      ]
-
-      # See https://hexdocs.pm/elixir/Supervisor.html
-      # for other strategies and supported options
-      opts = [strategy: :one_for_one, name: ActivityPub.Supervisor]
-      Supervisor.start_link(children, opts)
-    end
+      ], else: []
   end
 
   defp oban_config() do

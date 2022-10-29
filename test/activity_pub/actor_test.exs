@@ -16,7 +16,7 @@ defmodule ActivityPub.ActorTest do
 
     username = actor.username
 
-    {:ok, fetched_actor} = ActivityPub.Actor.get_by_username(username)
+    {:ok, fetched_actor} = ActivityPub.Actor.get_cached(username: username)
 
     assert fetched_actor.data["preferredUsername"] == username
   end
@@ -29,7 +29,7 @@ defmodule ActivityPub.ActorTest do
     follow(actor_1, actor_2)
     follow(actor_3, actor_2)
 
-    {:ok, ap_actor_2} = Actor.single_by_ap_id(actor_2.data["id"])
+    {:ok, ap_actor_2} = Actor.get_cached(ap_id: actor_2.data["id"])
 
     {:ok, actors} = Actor.get_followers(ap_actor_2)
     assert length(actors) == 2
@@ -44,7 +44,7 @@ defmodule ActivityPub.ActorTest do
   #   follow(actor_2, actor_1)
   #   follow(actor_2, actor_3)
 
-  #   {:ok, ap_actor_2} = Actor.get_by_ap_id(actor_2.data["id"])
+  #   {:ok, ap_actor_2} = Actor.get_cached(ap_id: actor_2.data["id"])
 
   #   {:ok, actors} = Actor.get_followings(ap_actor_2)
   #   assert length(actors) == 2

@@ -50,7 +50,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       {:ok, %Object{local: false}} = Transmogrifier.handle_incoming(data)
 
-      object = Object.get_by_ap_id(note.data["id"])
+      object = Object.get_cached!(ap_id: note.data["id"])
       assert object.data["type"] == "Tombstone"
     end
 
@@ -84,7 +84,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
           data: %{"id" => "https://mastodon.local/users/karen"}
         })
 
-      assert Object.get_by_ap_id(ap_id)
+      assert Object.get_cached!(ap_id: ap_id)
 
       data =
         file("fixtures/mastodon-delete-user.json")
@@ -92,7 +92,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       {:ok, _} = Transmogrifier.handle_incoming(data)
 
-      refute Object.get_by_ap_id(ap_id)
+      refute Object.get_cached!(ap_id: ap_id)
     end
 
     test "it returns an error for incoming unlikes wihout a like activity" do
@@ -105,7 +105,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it works for incoming likes" do
       actor = local_actor()
-      {:ok, note_actor} = Actor.get_by_username(actor.username)
+      {:ok, note_actor} = Actor.get_cached(username: actor.username)
       note_activity = insert(:note_activity, %{actor: note_actor})
       delete_actor = insert(:actor)
 
@@ -125,7 +125,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it works for incoming unlikes with an existing like activity" do
       actor = local_actor()
-      {:ok, note_actor} = Actor.get_by_username(actor.username)
+      {:ok, note_actor} = Actor.get_cached(username: actor.username)
       note_activity = insert(:note_activity, %{actor: note_actor})
       delete_actor = insert(:actor)
 
@@ -179,7 +179,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it works for incoming announces with an existing activity" do
       actor = local_actor()
-      {:ok, note_actor} = Actor.get_by_username(actor.username)
+      {:ok, note_actor} = Actor.get_cached(username: actor.username)
       note_activity = insert(:note_activity, %{actor: note_actor})
       announce_actor = insert(:actor)
 
@@ -202,7 +202,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
     test "it works for incoming unannounces with an existing notice" do
       actor = local_actor()
-      {:ok, note_actor} = Actor.get_by_username(actor.username)
+      {:ok, note_actor} = Actor.get_cached(username: actor.username)
       note_activity = insert(:note_activity, %{actor: note_actor})
       announce_actor = insert(:actor)
 
@@ -278,7 +278,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(update_data)
 
-      {:ok, actor} = Actor.single_by_ap_id(data["actor"])
+      {:ok, actor} = Actor.get_cached(ap_id: data["actor"])
       assert actor.data["name"] == "gargle"
 
       assert actor.data["icon"]["url"] ==

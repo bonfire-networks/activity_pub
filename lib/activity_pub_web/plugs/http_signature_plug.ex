@@ -14,6 +14,7 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
   end
 
   def call(conn, _opts) do
+    Logger.metadata(action: info("HTTPSignaturePlug"))
     if has_signature_header?(conn) do
       # set (request-target) header to the appropriate value
       # we also replace the digest header with the one we computed

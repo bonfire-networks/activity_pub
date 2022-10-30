@@ -48,11 +48,21 @@ defmodule ActivityPub.Config do
                                 "View"
                               ]
 
+  @collection_types Application.compile_env(:activity_pub, :instance)[
+                      :supported_collection_types
+                    ] ||
+                      [
+                        "Collection",
+                        "OrderedCollection",
+                        "CollectionPage",
+                        "OrderedCollectionPage"
+                      ]
   # @supported_object_types Application.compile_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
 
   def supported_actor_types, do: @supported_actor_types
   def supported_activity_types, do: @supported_activity_types
   # def supported_object_types, do: @supported_object_types
+  def collection_types, do: @collection_types
 
 
   def federating? do

@@ -1,9 +1,9 @@
 defmodule ActivityPub do
   @moduledoc """
-  ActivityPub API
+  Entrypoint to the ActivityPub API for processing incoming and outgoing federated objects (normalising, saving the the Object storage, passing them to the adapter, and queueing outgoing activities to be pushed out).
 
-  In general, the functions in this module take object-like formatted struct as the input for actor parameters.
-  Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_cached/1` for example) to retrieve those.
+  In general, the functions in this module take object-like map.
+  That includes a struct as the input for actor parameters.  Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_cached/1` for example) to retrieve those.
   """
   import Untangle
   alias ActivityPub.Config

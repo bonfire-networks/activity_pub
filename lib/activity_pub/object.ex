@@ -104,7 +104,7 @@ defmodule ActivityPub.Object do
     @doc false
   def insert(map, local?, pointer \\ nil, upsert? \\ false)
       when is_map(map) and is_boolean(local?) do
-    with activity_id <- pointer || Ecto.UUID.generate(),
+    with activity_id <- Ecto.UUID.generate(),
         map <- normalize_actors(map),
          %{} = map <- lazy_put_activity_defaults(map, pointer || activity_id),
          :ok <- Actor.check_actor_is_active(map["actor"]),

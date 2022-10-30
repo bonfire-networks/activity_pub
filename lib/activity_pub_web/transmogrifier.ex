@@ -12,15 +12,8 @@ defmodule ActivityPubWeb.Transmogrifier do
   import Untangle
 
   @supported_actor_types ActivityPub.Config.supported_actor_types()
-  @collection_types Application.compile_env(:activity_pub, :instance)[
-                      :supported_collection_types
-                    ] ||
-                      [
-                        "Collection",
-                        "OrderedCollection",
-                        "CollectionPage",
-                        "OrderedCollectionPage"
-                      ]
+  @collection_types ActivityPub.Config.collection_types()
+
 
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.

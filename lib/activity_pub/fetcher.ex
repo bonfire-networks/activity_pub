@@ -11,6 +11,7 @@ defmodule ActivityPub.Fetcher do
 
   @supported_activity_types ActivityPub.Config.supported_activity_types()
   @supported_actor_types ActivityPub.Config.supported_actor_types()
+  @collection_types ActivityPub.Config.collection_types()
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.
@@ -126,10 +127,20 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
-  # Wrapping object in a create activity to easily pass it to the app's relational database.
-  defp insert_object(%{"type" => type} = data)
-       when type not in @supported_activity_types and
-              type not in @supported_actor_types and type not in ["Collection"] do
+  # Save activities (and their object)
+  defp insert_object(%{"type" => type} = data) when type in @supported_activity_types do
+    with {:ok, activity} <- Transmogrifier.handle_incoming(data),
+         object <- Map.get(activity, :object, activity) do
+      {:ok, object}
+    end
+  end
+
+  @actors_and_collections @supported_actor_types ++ @collection_types
+  # Save actors and collections without an activity
+  defp insert_object(%{"type" => type} = data) when type in @actors_and_collections, do: Transmogrifier.handle_object(data)
+
+  # Wrap standalone objects in a create activity to easily pass it to the app's relational database.
+  defp insert_object(data) do
     with params <- %{
            "type" => "Create",
            "to" => data["to"],
@@ -142,10 +153,6 @@ defmodule ActivityPub.Fetcher do
       {:ok, object}
     end
   end
-
-  # QUESTION: does calling handle_object here instead of handle_incoming mean activities (or objects not in @create_object_types) won't be handled in the same way?
-  defp insert_object(data), do: Transmogrifier.handle_object(data)
-
 
 
   defp check_if_public(public) when public == true, do: :ok

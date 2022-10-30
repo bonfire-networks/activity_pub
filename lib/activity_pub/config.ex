@@ -3,6 +3,68 @@ defmodule ActivityPub.Config do
     defexception [:message]
   end
 
+  # TODO: make configurable
+  @supported_actor_types Application.compile_env(:activity_pub, :instance)[
+                           :supported_actor_types
+                         ] ||
+                           [
+                             "Person",
+                             "Application",
+                             "Service",
+                             "Organization",
+                             "Group"
+                           ]
+  @supported_activity_types Application.compile_env(:activity_pub, :instance)[
+                              :supported_activity_types
+                            ] ||
+                              [
+                                "Create",
+                                "Update",
+                                "Delete",
+                                "Follow",
+                                "Accept",
+                                "Reject",
+                                "Add",
+                                "Remove",
+                                "Like",
+                                "Announce",
+                                "Undo",
+                                "Arrive",
+                                "Block",
+                                "Flag",
+                                "Dislike",
+                                "Ignore",
+                                "Invite",
+                                "Join",
+                                "Leave",
+                                "Listen",
+                                "Move",
+                                "Offer",
+                                "Question",
+                                "Read",
+                                "TentativeReject",
+                                "TentativeAccept",
+                                "Travel",
+                                "View"
+                              ]
+
+  # @supported_object_types Application.compile_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
+
+  def supported_actor_types, do: @supported_actor_types
+  def supported_activity_types, do: @supported_activity_types
+  # def supported_object_types, do: @supported_object_types
+
+
+  def federating? do
+    (
+      Application.get_env(:activity_pub, :instance)[:federating] ||
+      (Application.get_env(:activity_pub, :env) == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
+       System.get_env("TEST_INSTANCE") == "yes"
+    )
+    # |> IO.inspect(label: "Federating?")
+  end
+
+
   def get(key), do: get(key, nil)
 
   def get([key], default), do: get(key, default)

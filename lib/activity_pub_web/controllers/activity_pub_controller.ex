@@ -174,7 +174,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       "Signature missing or not from author, so fetching object from source"
     )
 
-    if Utils.federating?() do
+    if Config.federating?() do
       Fetcher.fetch_object_from_id(params["object"]["id"] || params["object"])
       json(conn, "ok")
     else
@@ -203,7 +203,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   defp process_incoming(conn, params) do
     Logger.metadata(action: info("process_incoming"))
-    if Utils.federating?() do
+    if Config.federating?() do
       Federator.incoming_ap_doc(params)
       json(conn, "ok")
     else

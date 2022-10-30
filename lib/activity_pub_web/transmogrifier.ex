@@ -11,7 +11,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Utils
   import Untangle
 
-  @supported_actor_types ActivityPub.Utils.supported_actor_types()
+  @supported_actor_types ActivityPub.Config.supported_actor_types()
   @collection_types Application.compile_env(:activity_pub, :instance)[
                       :supported_collection_types
                     ] ||
@@ -31,7 +31,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def fix_actor(%{"attributedTo" => actor} = object) do
-    Map.put(object, "actor", Utils.actor_from_data(%{"actor" => actor}))
+    Map.put(object, "actor", Object.actor_from_data(%{"actor" => actor}))
   end
 
   @doc """
@@ -112,7 +112,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   defp get_follow_activity(follow_object, followed) do
     info(follow_object)
-    with object_id when not is_nil(object_id) <- Utils.get_ap_id(follow_object) |> info,
+    with object_id when not is_nil(object_id) <- Object.get_ap_id(follow_object) |> info,
          %Object{} = activity <- Object.get_cached!(ap_id: object_id) |> info do
       {:ok, activity}
     else
@@ -191,7 +191,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   def handle_incoming(%{"type" => "Create", "object" => object} = data) do
     info("Handle incoming creation of an object")
-    data = Utils.normalize_actors(data)
+    data = Object.normalize_actors(data)
     {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])
     object = fix_object(object)
 
@@ -235,7 +235,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming Accept")
-    with followed_actor <- Utils.actor_from_data(data) |> info(),
+    with followed_actor <- Object.actor_from_data(data) |> info(),
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed_actor) |> info(),
          {:ok, follow_activity} <- get_follow_activity(follow_object, followed) |> info() do
       ActivityPub.accept(%{
@@ -264,7 +264,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming like")
-    with actor <- Utils.actor_from_data(data),
+    with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
          {:ok, activity, _object} <- ActivityPub.like(%{actor: actor, object: object, activity_id: id, local: false}) do
@@ -283,7 +283,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming boost")
-    with actor <- Utils.actor_from_data(data),
+    with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
          public <- Utils.public?(data, object),
@@ -350,10 +350,10 @@ defmodule ActivityPubWeb.Transmogrifier do
       ) do
     info("Handle incoming deletion")
 
-    object_id = Utils.get_ap_id(object_id)
+    object_id = Object.get_ap_id(object_id)
 
     with {:ok, object} <- get_obj_helper(object_id),
-         {:actor, false} <- {:actor, Utils.actor?(object)},
+         {:actor, false} <- {:actor, Actor.actor?(object)},
          true <- can_delete_object?(object_id),
          {:ok, activity} <- ActivityPub.delete(object, false) do
       {:ok, activity}
@@ -386,7 +386,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming unboost")
-    with actor <- Utils.actor_from_data(data),
+    with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
          {:ok, activity, _} <- ActivityPub.unannounce(%{actor: actor, object: object, activity_id: id, local: false}) do
@@ -405,7 +405,7 @@ defmodule ActivityPubWeb.Transmogrifier do
         } = data
       ) do
     info("Handle incoming unlike")
-    with actor <- Utils.actor_from_data(data),
+    with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
          {:ok, activity, _, _} <- ActivityPub.unlike(%{actor: actor, object: object, activity_id: id, local: false}) do
@@ -454,7 +454,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_incoming(data) do
     warn("ActivityPub - Unknown incoming activity type - Storing it anyway...")
 
-    {:ok, activity, _object} = Utils.insert_full_object(data)
+    {:ok, activity, _object} = Object.insert_full_object(data)
     {:ok, activity} = handle_object(activity)
 
     if Keyword.get(
@@ -475,14 +475,14 @@ defmodule ActivityPubWeb.Transmogrifier do
   Normalises and inserts an incoming AS2 object. Returns Object.
   """
   def handle_object(%{"type" => type} = data) when type in @collection_types do
-    with {:ok, object} <- Utils.prepare_data(data) do
+    with {:ok, object} <- Object.prepare_data(data) do
       {:ok, object}
     end
   end
 
   def handle_object(data) do
-    with {:ok, object} <- Utils.prepare_data(data),
-         {:ok, object} <- Object.insert(object) do
+    with {:ok, object} <- Object.prepare_data(data),
+         {:ok, object} <- Object.do_insert(object) do
       {:ok, object}
     end
   end

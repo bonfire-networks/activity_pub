@@ -3,7 +3,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
   @moduledoc "Filter activities depending on their origin instance"
   @behaviour MRF
 
-  @supported_actor_types ActivityPub.Utils.supported_actor_types()
+  @supported_actor_types ActivityPub.Config.supported_actor_types()
 
   @impl true
   def filter(%{"actor" => actor} = object, _is_local?) do

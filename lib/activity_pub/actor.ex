@@ -15,7 +15,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.Object
   alias ActivityPub.Utils
 
-  @supported_actor_types ActivityPub.Utils.supported_actor_types()
+  @supported_actor_types ActivityPub.Config.supported_actor_types()
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
@@ -552,4 +552,30 @@ defmodule ActivityPub.Actor do
       {:error, _} -> nil
     end
   end
+
+  def check_actor_is_active(actor) do
+    if not is_nil(actor) do
+      with {:ok, %{deactivated: true}} <- get_cached(ap_id: actor) do
+        error(actor, "Actor deactivated")
+          :reject
+      else
+        _ ->
+          :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  def actor_url(%{preferred_username: username}), do: actor_url(username)
+
+  def actor_url(username) when is_binary(username),
+    do: Utils.ap_base_url() <> "/actors/" <> username
+
+  def actor?(%{data: %{"type" => type}} = _object)
+      when type in @supported_actor_types,
+      do: true
+
+  def actor?(_), do: false
+
 end

@@ -9,8 +9,8 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPubWeb.Transmogrifier
   import Untangle
 
-  @supported_activity_types ActivityPub.Utils.supported_activity_types()
-  @supported_actor_types ActivityPub.Utils.supported_actor_types()
+  @supported_activity_types ActivityPub.Config.supported_activity_types()
+  @supported_actor_types ActivityPub.Config.supported_actor_types()
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.
@@ -114,7 +114,7 @@ defmodule ActivityPub.Fetcher do
     if data["type"] in @skipped_types do
       {:ok, data}
     else
-      actor = Utils.actor_from_data(data)
+      actor = Object.actor_from_data(data)
       actor_uri = URI.parse(actor)
       id_uri = URI.parse(id)
 
@@ -134,7 +134,7 @@ defmodule ActivityPub.Fetcher do
            "type" => "Create",
            "to" => data["to"],
            "cc" => data["cc"],
-           "actor" => Utils.actor_from_data(data),
+           "actor" => Object.actor_from_data(data),
            "object" => data
          },
          {:ok, activity} <- Transmogrifier.handle_incoming(params),

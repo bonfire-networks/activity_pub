@@ -10,6 +10,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   import Untangle
 
+  alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Fetcher
   alias ActivityPub.Object

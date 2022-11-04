@@ -264,9 +264,9 @@ defmodule ActivityPub.Actor do
   defp get_remote_actor(ap_id, maybe_create \\ true) do
     with {:ok, actor} <- Object.get_cached(ap_id: ap_id),
          false <- check_if_time_to_update(actor),
-         actor <- format_remote_actor(actor) do
-
-      if maybe_create, do: Adapter.maybe_create_remote_actor(actor)
+         actor <- format_remote_actor(actor),
+         {:ok, adapter_actor} <- (if maybe_create, do: Adapter.maybe_create_remote_actor(actor), else: {:ok, nil}),
+         actor <- Map.put(actor, :pointer, adapter_actor) do
 
       {:ok, actor}
     else
@@ -317,6 +317,9 @@ defmodule ActivityPub.Actor do
       pointer_id: Map.get(object, :pointer_id)
     }
   end
+  def format_remote_actor(%__MODULE__{} = actor) do
+    actor
+  end
 
   defp fetch_by_ap_id(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) |> info() do
@@ -324,34 +327,36 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def maybe_create_actor_from_object_tuple(%{data: %{"type" => type}} = actor)
-      when type in @supported_actor_types do
-    with actor <- format_remote_actor(actor) do
-      {ok_unwrap(Adapter.maybe_create_remote_actor(actor)), ok_unwrap(set_cache(actor))}
-    end
-  end
-
-  def maybe_create_actor_from_object_tuple(ap_id) when is_binary(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> info() do
-      maybe_create_actor_from_object_tuple(object)
-    end
-  end
-
-  def maybe_create_actor_from_object_tuple(object) do
-    warn(object, "Skip creating usupported actor type")
-    {nil, ok_unwrap(object)}
-  end
-
-   def maybe_create_actor_from_object(actor) do
-    case maybe_create_actor_from_object_tuple(actor) do
-      {_, %Actor{} = actor} ->
+  def maybe_create_actor_from_object(actor) do
+    case do_maybe_create_actor_from_object(actor) do
+      {:ok, %Actor{} = actor} ->
         {:ok, actor}
-      {_, %{} = object} ->
+      {:ok, %{} = object} ->
          warn(object, "Not an actor?")
          {:ok, object}
       e ->
         error(e, "Could not find or create an actor")
     end
+  end
+
+  defp do_maybe_create_actor_from_object(%{data: %{"type" => type}} = actor)
+      when type in @supported_actor_types do
+    with actor <- format_remote_actor(actor),
+    {:ok, adapter_actor} <- Adapter.maybe_create_remote_actor(actor),
+    {:ok, actor} <- set_cache(actor) do
+      {:ok, actor |> Map.put(:pointer, adapter_actor) }
+    end
+  end
+
+  defp do_maybe_create_actor_from_object(ap_id) when is_binary(ap_id) do
+    with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> info() do
+      do_maybe_create_actor_from_object(object)
+    end
+  end
+
+  defp do_maybe_create_actor_from_object(object) do
+    warn(object, "Skip creating usupported actor type")
+    {:ok, ok_unwrap(object)}
   end
 
   def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true) do

@@ -91,12 +91,12 @@ defmodule ActivityPub.Factory do
   end
 
   def actor_factory(attrs \\ %{}) do
-    username = sequence(:username, &"actor_#{&1}")
+    username = sequence(:username, &"actor_#{&1}_#{Pointers.ULID.generate()}")
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
     id =
       attrs[:data]["id"] ||
-        "https://example.tld" <> ap_base_path <> "/actors/#{username}"
+        "https://example.local" <> ap_base_path <> "/actors/#{username}"
 
     actor_object(id, username, attrs, false)
   end

@@ -221,10 +221,10 @@ defmodule ActivityPub.Object do
   end
 
   def invalidate_cache(%{id: id, data: %{"id" => ap_id}} = object) do
-     Cachex.del(:ap_object_cache, "id:#{id}")
-     Cachex.del(:ap_object_cache, "ap_id:#{ap_id}")
+    Cachex.del(:ap_object_cache, "id:#{id}")
+    Cachex.del(:ap_object_cache, "ap_id:#{ap_id}")
     Cachex.del(:ap_object_cache, "pointer:#{object.pointer_id}")
-      :ok
+    :ok
   end
 
 
@@ -400,8 +400,14 @@ defmodule ActivityPub.Object do
 
   def delete(%Object{} = object) do
     with {:ok, _obj} <- swap_object_with_tombstone(object),
-         :ok <- invalidate_cache(object) do
+    :ok <- invalidate_cache(object) do
       {:ok, object}
+    end
+  end
+
+  def hard_delete(%Object{} = object) do
+    with :ok <- invalidate_cache(object) do
+      repo().delete(object)
     end
   end
 
@@ -484,7 +490,7 @@ defmodule ActivityPub.Object do
   @doc """
   Returns an existing like if a user already liked an object
   """
-  def get_existing_like(actor, %{data: %{"id" => id}}) do
+  def get_existing_like(actor, object_id) do
     query =
       from(
         object in Object,
@@ -495,10 +501,11 @@ defmodule ActivityPub.Object do
             "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
             object.data,
             object.data,
-            ^id
+            ^object_id
           ),
         where: fragment("(?)->>'type' = 'Like'", object.data)
       )
+      |> info()
 
     repo().one(query)
   end

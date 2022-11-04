@@ -110,8 +110,8 @@ defmodule ActivityPub.Adapter do
   # FIXME: implicity returning `:ok` here means we don't know if the worker fails which isn't great
   def maybe_handle_activity(%Object{local: false} = activity) do
     handle_activity(activity)
-    :ok
   end
 
-  def maybe_handle_activity(_), do: :ok
+  def maybe_handle_activity(_), do: {:ok, :local}
+
 end

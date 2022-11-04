@@ -75,7 +75,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
         |> Map.put("object", object)
         |> Map.put("actor", activity.data["actor"])
 
-      :error = Transmogrifier.handle_incoming(data)
+      assert {:error, _} = Transmogrifier.handle_incoming(data)
     end
 
     test "it works for incoming user deletes" do
@@ -100,7 +100,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
         file("fixtures/mastodon-undo-like.json")
         |> Jason.decode!()
 
-      assert Transmogrifier.handle_incoming(data) == :error
+      assert {:error, _} = Transmogrifier.handle_incoming(data)
     end
 
     test "it works for incoming likes" do
@@ -256,7 +256,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       assert activity.data["cc"] == [actor.data["id"]]
     end
 
-    test "it works for incoming update activities" do
+    test "update activities for an actor ignores the given object and re-fetches the remote actor instead" do
       data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 
       assert %Object{data: data, local: false} = ok_unwrap(Transmogrifier.handle_incoming(data))
@@ -265,7 +265,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
       {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])
 
-      object =
+      update_object =
         update_data["object"]
         |> Map.put("actor", data["actor"])
         |> Map.put("id", data["actor"])
@@ -274,20 +274,24 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       update_data =
         update_data
         |> Map.put("actor", data["actor"])
-        |> Map.put("object", object)
+        |> Map.put("object", update_object)
 
       {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(update_data)
 
-      {:ok, actor} = Actor.get_cached(ap_id: data["actor"])
-      assert actor.data["name"] == "gargle"
+      {:ok, updated_actor} = Actor.get_cached(ap_id: data["actor"])
 
-      assert actor.data["icon"]["url"] ==
-               "https://cd.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+      assert updated_actor.data == actor.data
 
-      assert actor.data["image"]["url"] ==
-               "https://cd.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+      # TODO: test the case where the remote changed and we actually do an update
+      # assert updated_actor.data["name"] == "gargle"
 
-      assert actor.data["summary"] == "<p>Some bio</p>"
+      # assert updated_actor.data["icon"]["url"] ==
+      #          "https://cd.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+
+      # assert updated_actor.data["image"]["url"] ==
+      #          "https://cd.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+
+      # assert updated_actor.data["summary"] == "<p>Some bio</p>"
     end
   end
 end

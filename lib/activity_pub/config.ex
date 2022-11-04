@@ -45,7 +45,8 @@ defmodule ActivityPub.Config do
                                 "TentativeReject",
                                 "TentativeAccept",
                                 "Travel",
-                                "View"
+                                "View",
+                                "EmojiReact"
                               ]
 
   @collection_types Application.compile_env(:activity_pub, :instance)[

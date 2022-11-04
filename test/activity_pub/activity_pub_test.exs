@@ -23,7 +23,7 @@ defmodule ActivityPubTest do
         to: to
       }
 
-      {:ok, activity} = ActivityPub.create(params)
+      assert {:ok, activity} = ActivityPub.create(params)
 
       assert actor.data["id"] == activity.data["actor"]
       assert activity.data["object"] == activity.object.data["id"]
@@ -43,11 +43,11 @@ defmodule ActivityPubTest do
       }
 
       # First time the function goes through fine and returns a Create activity and new object
-      {:ok, created} = ActivityPub.create(params)
+      assert {:ok, created} = ActivityPub.create(params)
       assert %{data: %{"type" => "Create"}} = created
 
       # Second time the function return the same object (in a new create activity)
-      {:ok, second} = ActivityPub.create(params)
+      assert {:ok, second} = ActivityPub.create(params)
       assert created.object == second.object
     end
   end
@@ -57,7 +57,7 @@ defmodule ActivityPubTest do
       follower = context[:actor1]
       followed = context[:actor2]
 
-      {:ok, activity} = ActivityPub.follow(%{actor: follower, object: followed})
+      assert {:ok, activity} = ActivityPub.follow(%{actor: follower, object: followed})
       assert activity.data["type"] == "Follow"
       assert activity.data["actor"] == follower.data["id"]
       assert activity.data["object"] == followed.data["id"]
@@ -68,8 +68,8 @@ defmodule ActivityPubTest do
     follower = context[:actor1]
     followed = context[:actor2]
 
-    {:ok, follow_activity} = ActivityPub.follow(%{actor: follower, object: followed})
-    {:ok, activity} = ActivityPub.unfollow(%{actor: follower, object: followed})
+    assert {:ok, follow_activity} = ActivityPub.follow(%{actor: follower, object: followed})
+    assert {:ok, activity} = ActivityPub.unfollow(%{actor: follower, object: followed})
 
     assert activity.data["type"] == "Undo"
     assert activity.data["actor"] == follower.data["id"]
@@ -86,7 +86,7 @@ defmodule ActivityPubTest do
       blocker = context[:actor1]
       blocked = context[:actor2]
 
-      {:ok, activity} = ActivityPub.block(%{actor: blocker, object: blocked})
+      assert {:ok, activity} = ActivityPub.block(%{actor: blocker, object: blocked})
 
       assert activity.data["type"] == "Block"
       assert activity.data["actor"] == blocker.data["id"]
@@ -97,8 +97,8 @@ defmodule ActivityPubTest do
       blocker = context[:actor1]
       blocked = context[:actor2]
 
-      {:ok, block_activity} = ActivityPub.block(%{actor: blocker, object: blocked})
-      {:ok, activity} = ActivityPub.unblock(%{actor: blocker, object: blocked})
+      assert {:ok, block_activity} = ActivityPub.block(%{actor: blocker, object: blocked})
+      assert {:ok, activity} = ActivityPub.unblock(%{actor: blocker, object: blocked})
 
       assert activity.data["type"] == "Undo"
       assert activity.data["actor"] == blocker.data["id"]
@@ -131,9 +131,9 @@ defmodule ActivityPubTest do
         to: to
       }
 
-      {:ok, activity} = ActivityPub.create(params)
+      assert {:ok, activity} = ActivityPub.create(params)
       object = activity.object
-      {:ok, delete} = ActivityPub.delete(object)
+      assert {:ok, delete} = ActivityPub.delete(object)
 
       assert delete.data["type"] == "Delete"
       assert delete.data["actor"] == object.data["actor"]
@@ -146,9 +146,9 @@ defmodule ActivityPubTest do
 
     test "it creates a delete activity for a local actor", context do
       actor = local_actor()
-      {:ok, actor} = Actor.get_cached(username: actor.username)
+      assert {:ok, actor} = Actor.get_cached(username: actor.username)
 
-      {:ok, activity} = ActivityPub.delete(actor)
+      assert {:ok, activity} = ActivityPub.delete(actor)
 
       assert activity.data["type"] == "Delete"
       assert activity.data["actor"] == actor.data["id"]
@@ -165,7 +165,7 @@ defmodule ActivityPubTest do
 
       actor = context[:actor1]
 
-      {:ok, like_activity, object} = ActivityPub.like(%{actor: actor, object: object})
+      assert {:ok, like_activity} = ActivityPub.like(%{actor: actor, object: object})
 
       assert like_activity.data["actor"] == actor.data["id"]
       assert like_activity.data["type"] == "Like"
@@ -179,9 +179,9 @@ defmodule ActivityPubTest do
       assert like_activity.data["context"] == object.data["context"]
 
       # Just return the original activity if the user already liked it.
-      {:ok, same_like_activity, _object} = ActivityPub.like(%{actor: actor, object: object})
+      assert {:ok, same_like_activity} = ActivityPub.like(%{actor: actor, object: object})
 
-      assert like_activity == same_like_activity
+      assert like_activity.data == same_like_activity.data
     end
   end
 
@@ -193,12 +193,12 @@ defmodule ActivityPubTest do
       object = Object.normalize(note_activity)
       actor = context[:actor1]
 
-      # Unliking something that hasn't been liked does nothing
-      {:ok, object} = ActivityPub.unlike(%{actor: actor, object: object})
+      # cannot unlike something that hasn't been liked
+      assert {:error, nil} = ActivityPub.unlike(%{actor: actor, object: object})
 
-      {:ok, like_activity, object} = ActivityPub.like(%{actor: actor, object: object})
+      assert {:ok, like_activity} = ActivityPub.like(%{actor: actor, object: object})
 
-      {:ok, _, _, _object} = ActivityPub.unlike(%{actor: actor, object: object})
+      assert {:ok, _} = ActivityPub.unlike(%{actor: actor, object: object})
 
       assert Object.get_cached!(id: like_activity.id) == nil
     end
@@ -210,7 +210,7 @@ defmodule ActivityPubTest do
       object = Object.normalize(note_activity)
       actor = context[:actor1]
 
-      {:ok, announce_activity, object} = ActivityPub.announce(%{actor: actor, object: object})
+      {:ok, announce_activity} = ActivityPub.announce(%{actor: actor, object: object})
 
       assert announce_activity.data["to"] == [
                actor.data["followers"],
@@ -229,9 +229,9 @@ defmodule ActivityPubTest do
       object = Object.normalize(note_activity)
       actor = context[:actor1]
 
-      {:ok, announce_activity, object} = ActivityPub.announce(%{actor: actor, object: object})
+      assert {:ok, announce_activity} = ActivityPub.announce(%{actor: actor, object: object})
 
-      {:ok, unannounce_activity, _object} = ActivityPub.unannounce(%{actor: actor, object: object})
+      assert {:ok, unannounce_activity} = ActivityPub.unannounce(%{actor: actor, object: object})
 
       assert unannounce_activity.data["to"] == [
                actor.data["followers"],
@@ -252,12 +252,12 @@ defmodule ActivityPubTest do
   describe "update" do
     test "it creates an update activity with the new user data", context do
       actor = local_actor()
-      {:ok, actor} = Actor.get_cached(username: actor.username)
+      assert {:ok, actor} = Actor.get_cached(username: actor.username)
       actor = Actor.add_public_key(actor)
 
       actor_data = ActivityPubWeb.ActorView.render("actor.json", %{actor: actor})
 
-      {:ok, update} =
+      assert {:ok, update} =
         ActivityPub.update(%{
           actor: actor,
           to: [actor.data["followers"]],

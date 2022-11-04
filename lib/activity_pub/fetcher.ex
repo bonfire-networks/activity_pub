@@ -9,9 +9,7 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPubWeb.Transmogrifier
   import Untangle
 
-  @supported_activity_types ActivityPub.Config.supported_activity_types()
   @supported_actor_types ActivityPub.Config.supported_actor_types()
-  @collection_types ActivityPub.Config.collection_types()
 
   @doc """
   Checks if an object exists in the database and fetches it if it doesn't.
@@ -28,19 +26,19 @@ defmodule ActivityPub.Fetcher do
   def fetch_fresh_object_from_id(%{"id"=>id}), do: fetch_fresh_object_from_id(id)
   def fetch_fresh_object_from_id(id) do
         with {:ok, data} <- fetch_remote_object_from_id(id) |> info,
-           {:ok, object} <- maybe_store_data(data) do
+           {:ok, object} <- maybe_handle_incoming(data) do
         {:ok, object}
     end
   end
 
-  defp maybe_store_data(data) do
+  defp maybe_handle_incoming(data) do
     with {:ok, object} <- Object.get_cached(ap_id: data) do
       info("object was already cached under another ID")
       # TODO: update in some specific cases?
       {:ok, object}
     else _ ->
-      with {:ok, data} <- contain_origin(data),
-           {:ok, object} <- insert_object(data) do
+      with {:ok, data} <- contain_origin(data) |> info(),
+           {:ok, object} <- Transmogrifier.handle_incoming(data) |> info() do
         #  :ok <- check_if_public(object.public) do # huh?
         {:ok, object}
       else
@@ -52,19 +50,14 @@ defmodule ActivityPub.Fetcher do
 
   def get_or_fetch_and_create(id) do
     with {:ok, object} <- fetch_object_from_id(id) do
-      with %{data: %{"type" => type}} when type in @supported_actor_types <-
-             object do
-        {:ok, ActivityPub.Actor.maybe_create_actor_from_object(object)}
-      else
-        _ ->
+      # with %{data: %{"type" => type}} when type in @supported_actor_types <-
+      #        object do
+      #   # FIXME: shouldn't the actor already have been created by handle_incoming?
+      #   {:ok, ActivityPub.Actor.maybe_create_actor_from_object(object)}
+      # else
+      #   _ ->
           {:ok, object}
-      end
-    end
-  end
-
-  def get_or_fetch_and_create_tuple(id) do
-    with {:ok, object} <- fetch_object_from_id(id) |> info do
-        ActivityPub.Actor.maybe_create_actor_from_object_tuple(object)
+      # end
     end
   end
 
@@ -127,32 +120,6 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
-  # Save activities (and their object)
-  defp insert_object(%{"type" => type} = data) when type in @supported_activity_types do
-    with {:ok, activity} <- Transmogrifier.handle_incoming(data),
-         object <- Map.get(activity, :object, activity) do
-      {:ok, object}
-    end
-  end
-
-  @actors_and_collections @supported_actor_types ++ @collection_types
-  # Save actors and collections without an activity
-  defp insert_object(%{"type" => type} = data) when type in @actors_and_collections, do: Transmogrifier.handle_object(data)
-
-  # Wrap standalone objects in a create activity to easily pass it to the app's relational database.
-  defp insert_object(data) do
-    with params <- %{
-           "type" => "Create",
-           "to" => data["to"],
-           "cc" => data["cc"],
-           "actor" => Object.actor_from_data(data),
-           "object" => data
-         },
-         {:ok, activity} <- Transmogrifier.handle_incoming(params),
-         object <- Map.get(activity, :object, activity) do
-      {:ok, object}
-    end
-  end
 
 
   defp check_if_public(public) when public == true, do: :ok

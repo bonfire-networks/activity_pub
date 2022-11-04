@@ -74,11 +74,13 @@ defmodule ActivityPub do
            ),
          {:ok, activity} <- Object.insert(create_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     else
-      %Object{} = activity -> {:ok, activity}
-      {:error, message} -> {:error, message}
+      {:ok, %Object{} = object} -> {:ok, object}
+      %Object{} = object -> {:ok, object}
+      other -> error(other)
     end
   end
 
@@ -98,7 +100,8 @@ defmodule ActivityPub do
     with data <- make_follow_data(follower, followed, Map.get(params, :activity_id)),
          {:ok, activity} <- Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -124,7 +127,8 @@ defmodule ActivityPub do
            ),
          {:ok, activity} <- Object.insert(unfollow_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -148,7 +152,8 @@ defmodule ActivityPub do
          },
          {:ok, activity} <- Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -168,7 +173,8 @@ defmodule ActivityPub do
          },
          {:ok, activity} <- Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -186,17 +192,19 @@ defmodule ActivityPub do
     #       {:ok, activity :: Object.t(), object :: Object.t()} | {:error, any()}
   def like(%{
        actor: %{data: %{"id" => ap_id}} = actor,
-       object: %Object{data: %{"id" => _}} = object
+       object: %Object{data: %{"id" => object_id}} = object
      }=params ) do
-    with nil <- Object.get_existing_like(ap_id, object),
+    with nil <- Object.get_existing_like(ap_id, object_id),
          like_data <- make_like_data(actor, object, Map.get(params, :activity_id)),
          {:ok, activity} <- Object.insert(like_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
-      {:ok, activity, object}
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
     else
-      %Object{} = activity -> {:ok, activity, object}
-      error -> {:error, error}
+      {:ok, %Object{} = object} -> {:ok, object}
+      %Object{} = object -> {:ok, object}
+      error -> error(error)
     end
   end
 
@@ -210,18 +218,19 @@ defmodule ActivityPub do
   #         | {:error, any()}
   def unlike(%{
        actor: %{data: %{"id" => ap_id}} = actor,
-       object: %Object{data: %{"id" => _}} = object
+       object: %Object{data: %{"id" => object_id}} = object
      }=params) do
-    with %Object{} = like_activity <- Object.get_existing_like(ap_id, object),
+    with %Object{} = like_activity <- Object.get_existing_like(ap_id, object_id) |> info(),
          unlike_data <-
            make_unlike_data(actor, like_activity, Map.get(params, :activity_id)),
-         {:ok, unlike_activity} <- Object.insert(unlike_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         {:ok, _activity} <- repo().delete(like_activity),
-         :ok <- maybe_federate(unlike_activity),
-         :ok <- Adapter.maybe_handle_activity(unlike_activity) do
-      {:ok, unlike_activity, like_activity, object}
+         {:ok, activity} <- Object.insert(unlike_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+         {:ok, _activity} <- Object.hard_delete(like_activity),
+         :ok <- maybe_federate(activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
     else
-      _e -> {:ok, object}
+      error -> error(error)
     end
   end
 
@@ -246,10 +255,13 @@ defmodule ActivityPub do
            make_announce_data(actor, object, Map.get(params, :activity_id), Map.get(params, :public, true), Map.get(params, :summary, nil)),
          {:ok, activity} <- Object.insert(announce_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
-      {:ok, activity, object}
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
     else
-      error -> {:error, error}
+      {:ok, %Object{} = object} -> {:ok, object}
+      %Object{} = object -> {:ok, object}
+      error -> error(error)
     end
   end
 
@@ -271,13 +283,12 @@ defmodule ActivityPub do
            Object.get_existing_announce(ap_id, object),
          unannounce_data <-
            make_unannounce_data(actor, announce_activity, Map.get(params, :activity_id)),
-         {:ok, unannounce_activity} <- Object.insert(unannounce_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(unannounce_activity),
-         {:ok, _activity} <- repo().delete(announce_activity),
-         :ok <- Adapter.maybe_handle_activity(unannounce_activity) do
-      {:ok, unannounce_activity, object}
-    else
-      _e -> {:ok, object}
+         {:ok, activity} <- Object.insert(unannounce_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+         :ok <- maybe_federate(activity),
+         {:ok, _activity} <- Object.hard_delete(announce_activity) |> info("deleted?"),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
     end
   end
 
@@ -299,7 +310,8 @@ defmodule ActivityPub do
          },
          {:ok, activity} <- Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), true),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -317,10 +329,13 @@ defmodule ActivityPub do
     with block_data <- make_block_data(blocker, blocked, Map.get(params, :activity_id)),
          {:ok, activity} <- Object.insert(block_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     else
-      _e -> {:ok, nil}
+      {:ok, %Object{} = object} -> {:ok, object}
+      %Object{} = object -> {:ok, object}
+      error -> error(error)
     end
   end
 
@@ -341,7 +356,8 @@ defmodule ActivityPub do
            ),
          {:ok, activity} <- Object.insert(unblock_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -366,7 +382,8 @@ defmodule ActivityPub do
          },
          {:ok, activity} <- Object.insert(data, local),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -389,7 +406,8 @@ defmodule ActivityPub do
          },
          {:ok, activity} <- Object.insert(data, local),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
@@ -435,13 +453,14 @@ defmodule ActivityPub do
     with flag_data <- make_flag_data(params, additional),
          {:ok, activity} <- Object.insert(flag_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         :ok <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end
 
 
-  def make_like_data(
+  defp make_like_data(
         %{data: %{"id" => ap_id}} = actor,
         %{data: %{"id" => id}} = object,
         activity_id
@@ -473,7 +492,7 @@ defmodule ActivityPub do
     if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 
-  def make_unlike_data(
+  defp make_unlike_data(
         %{data: %{"id" => ap_id}} = actor,
         %{data: %{"context" => context}} = activity,
         activity_id
@@ -495,7 +514,7 @@ defmodule ActivityPub do
   Make announce activity data for the given actor and object
   """
   # for relayed messages, we only want to send to subscribers
-  def make_announce_data(
+  defp make_announce_data(
         actor,
         object,
         activity_id,
@@ -503,7 +522,7 @@ defmodule ActivityPub do
         summary \\ nil
       )
 
-  def make_announce_data(
+  defp make_announce_data(
         %{data: %{"id" => ap_id}} = actor,
         %Object{data: %{"id" => id}} = object,
         activity_id,
@@ -523,7 +542,7 @@ defmodule ActivityPub do
     if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 
-  def make_announce_data(
+  defp make_announce_data(
         %{data: %{"id" => ap_id}} = actor,
         %Object{data: %{"id" => id}} = object,
         activity_id,
@@ -546,7 +565,7 @@ defmodule ActivityPub do
   @doc """
   Make unannounce activity data for the given actor and object
   """
-  def make_unannounce_data(
+  defp make_unannounce_data(
         %{data: %{"id" => ap_id}} = actor,
         %Object{data: %{"context" => context}} = activity,
         activity_id
@@ -564,7 +583,7 @@ defmodule ActivityPub do
   end
 
   #### Follow-related helpers
-  def make_follow_data(
+  defp make_follow_data(
         %{data: %{"id" => follower_id}},
         %{data: %{"id" => followed_id}} = _followed,
         activity_id
@@ -585,7 +604,7 @@ defmodule ActivityPub do
   end
 
 
-  def make_unfollow_data(follower, followed, follow_activity, activity_id) do
+  defp make_unfollow_data(follower, followed, follow_activity, activity_id) do
     data = %{
       "type" => "Undo",
       "actor" => follower.data["id"],
@@ -597,7 +616,7 @@ defmodule ActivityPub do
   end
 
 
-  def make_block_data(blocker, blocked, activity_id) do
+  defp make_block_data(blocker, blocked, activity_id) do
     data = %{
       "type" => "Block",
       "actor" => blocker.data["id"],
@@ -608,7 +627,7 @@ defmodule ActivityPub do
     if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 
-  def make_unblock_data(blocker, blocked, block_activity, activity_id) do
+  defp make_unblock_data(blocker, blocked, block_activity, activity_id) do
     data = %{
       "type" => "Undo",
       "actor" => blocker.data["id"],
@@ -620,7 +639,7 @@ defmodule ActivityPub do
   end
 
   #### Create-related helpers
-  def make_create_data(params, additional) do
+  defp make_create_data(params, additional) do
     published = params.published || Utils.make_date()
 
     %{
@@ -635,7 +654,7 @@ defmodule ActivityPub do
   end
 
   #### Flag-related helpers
-  def make_flag_data(params, additional) do
+  defp make_flag_data(params, additional) do
     status_ap_ids =
       Enum.map(params.statuses || [], fn
         %Object{} = act -> act.data["id"]

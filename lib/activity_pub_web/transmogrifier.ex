@@ -10,10 +10,12 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Object
   alias ActivityPub.Utils
   import Untangle
+  use Arrows
 
+  @supported_activity_types ActivityPub.Config.supported_activity_types()
   @supported_actor_types ActivityPub.Config.supported_actor_types()
   @collection_types ActivityPub.Config.collection_types()
-
+  @actors_and_collections @supported_actor_types ++ @collection_types
 
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.
@@ -25,6 +27,9 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   def fix_actor(%{"attributedTo" => actor} = object) do
     Map.put(object, "actor", Object.actor_from_data(%{"actor" => actor}))
+  end
+  def fix_actor(object) do
+    object
   end
 
   @doc """
@@ -169,11 +174,11 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   # disallow objects with bogus IDs
-  def handle_incoming(%{"id" => nil}), do: :error
-  def handle_incoming(%{"id" => ""}), do: :error
+  def handle_incoming(%{"id" => nil}), do: {:error, "No object ID"}
+  def handle_incoming(%{"id" => ""}), do: {:error, "No object ID"}
   # length of https:// = 8, should validate better, but good enough for now.
   def handle_incoming(%{"id" => id}) when is_binary(id) and byte_size(id) < 8,
-    do: :error
+    do: {:error, "No object ID"}
 
   # Incoming actor create, just fetch from source
   def handle_incoming(%{
@@ -242,7 +247,6 @@ defmodule ActivityPubWeb.Transmogrifier do
     else
       e ->
         error(e, "Could not handle incoming Accept")
-        :error
     end
   end
 
@@ -260,10 +264,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         {:ok, activity, _object} <- ActivityPub.like(%{actor: actor, object: object, activity_id: id, local: false}) do
+         {:ok, activity} <- ActivityPub.like(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
@@ -280,11 +284,11 @@ defmodule ActivityPubWeb.Transmogrifier do
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
          public <- Utils.public?(data, object),
-         {:ok, activity, _object} <-
+         {:ok, activity} <-
            ActivityPub.announce(%{actor: actor, object: object, activity_id: id, local: false, public: public}) do
       {:ok, activity}
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
@@ -311,7 +315,6 @@ defmodule ActivityPubWeb.Transmogrifier do
     else
       e ->
         error(e, "could not update")
-        :error
     end
   end
 
@@ -329,7 +332,7 @@ defmodule ActivityPubWeb.Transmogrifier do
          {:ok, activity} <- ActivityPub.block(%{actor: blocker, object: blocked, activity_id: id, local: false}) do
       {:ok, activity}
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
@@ -361,12 +364,10 @@ defmodule ActivityPubWeb.Transmogrifier do
             ActivityPub.delete(actor, false)
             Actor.delete(actor)
 
-          {:error, _} ->
-            :error
+          e -> error(e)
         end
 
-      _e ->
-        :error
+      e -> error(e)
     end
   end
 
@@ -382,10 +383,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         {:ok, activity, _} <- ActivityPub.unannounce(%{actor: actor, object: object, activity_id: id, local: false}) do
+         {:ok, activity} <- ActivityPub.unannounce(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
@@ -401,10 +402,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- get_obj_helper(object_id),
-         {:ok, activity, _, _} <- ActivityPub.unlike(%{actor: actor, object: object, activity_id: id, local: false}) do
+         {:ok, activity} <- ActivityPub.unlike(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
@@ -421,7 +422,7 @@ defmodule ActivityPubWeb.Transmogrifier do
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed) do
       ActivityPub.unfollow(%{actor: follower, object: followed, activity_id: id, local: false})
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
@@ -440,12 +441,13 @@ defmodule ActivityPubWeb.Transmogrifier do
          {:ok, activity} <- ActivityPub.unblock(%{actor: blocker, object: blocked, activity_id: id, local: false}) do
       {:ok, activity}
     else
-      _e -> :error
+      e -> error(e)
     end
   end
 
-  def handle_incoming(data) do
-    warn("ActivityPub - Unknown incoming activity type - Storing it anyway...")
+  # Handle other activity types (and their object)
+  def handle_incoming(%{"type" => type} = data) when type in @supported_activity_types do
+    info("ActivityPub - some other Activity - store it and pass to adapter anyway...")
 
     {:ok, activity, _object} = Object.insert_full_object(data)
     {:ok, activity} = handle_object(activity)
@@ -454,10 +456,32 @@ defmodule ActivityPubWeb.Transmogrifier do
          Application.get_env(:activity_pub, :instance),
          :handle_unknown_activities
        ) do
-      Adapter.maybe_handle_activity(activity)
-    end
 
-    {:ok, activity}
+        with {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+           {:ok, activity}
+         end
+
+    else
+          {:ok, activity}
+    end
+  end
+
+  # Save actors and collections without an activity
+  def handle_incoming(%{"type" => type} = data) when type in @actors_and_collections do
+    handle_object(data)
+    ~> ActivityPub.Actor.maybe_create_actor_from_object()
+  end
+
+  # Wrap standalone non-actor objects in a create activity
+  def handle_incoming(data) do
+    handle_incoming(%{
+           "type" => "Create",
+           "to" => data["to"],
+           "cc" => data["cc"],
+           "actor" => Object.actor_from_data(data),
+           "object" => data
+         })
   end
 
   defp get_obj_helper(id) do
@@ -468,6 +492,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   Normalises and inserts an incoming AS2 object. Returns Object.
   """
   def handle_object(%{"type" => type} = data) when type in @collection_types do
+    # don't store Collections
     with {:ok, object} <- Object.prepare_data(data) do
       {:ok, object}
     end

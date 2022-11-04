@@ -14,12 +14,11 @@ defmodule ActivityPub.SharedDataCase do
     # from each test so the data doesn't exist for each test.
     Ecto.Adapters.SQL.Sandbox.mode(repo(), :auto)
 
-
     actor1 = insert(:actor)
     actor2 = insert(:actor)
 
-    u1 = "https://example.tld/pub/actors/#{actor1.data["preferredUsername"]}/inbox" |> info()
-    u2 = "https://example.tld/pub/actors/#{actor2.data["preferredUsername"]}/inbox"
+    u1 = "https://example.local/pub/actors/#{actor1.data["preferredUsername"]}/inbox" |> info()
+    u2 = "https://example.local/pub/actors/#{actor2.data["preferredUsername"]}/inbox"
 
     mock(fn
       %{method: :post, url: ^u1} ->

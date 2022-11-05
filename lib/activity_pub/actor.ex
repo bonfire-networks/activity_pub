@@ -41,7 +41,8 @@ defmodule ActivityPub.Actor do
     :ap_id,
     :username,
     :deactivated,
-    :pointer_id
+    :pointer_id,
+    :pointer
   ]
 
   def get_cached(id: id), do: do_get_cached(:id, id)
@@ -289,15 +290,13 @@ defmodule ActivityPub.Actor do
     "#{nick}@#{uri.host}#{port}"
   end
 
-  def format_remote_actor(%Object{} = object) do
+  def format_remote_actor(%Object{data: data} = object) do
     # debug(actor)
-
-    data = object.data
 
     data =
       cond do
         Map.has_key?(data, "collections") ->
-          Map.put(data, "type", "Group")
+          Map.put_new(data, "type", "Group")
 
         # Map.has_key?(data, "resources") ->
         #   Map.put(data, "type", "MN:Collection")
@@ -310,11 +309,12 @@ defmodule ActivityPub.Actor do
       id: object.id,
       data: data,
       keys: nil,
-      local: false,
+      local: object.local,
       ap_id: data["id"],
       username: format_username(data),
       deactivated: deactivated?(object),
-      pointer_id: Map.get(object, :pointer_id)
+      pointer_id: object.pointer_id,
+      pointer: object.pointer
     }
   end
   def format_remote_actor(%__MODULE__{} = actor) do
@@ -464,22 +464,6 @@ defmodule ActivityPub.Actor do
       |> Enum.filter(fn x -> !x.local end)
 
     {:ok, followers}
-  end
-
-  # TODO: add bcc
-  def remote_users(_actor, %{data: %{"to" => to}} = data) do
-    cc = Map.get(data, "cc", [])
-
-    [to, cc]
-    |> Enum.concat()
-    |> List.delete(@public_uri)
-    |> Enum.map(&get_cached!(ap_id: &1))
-    |> Enum.filter(fn
-      %{local: local} -> !local
-      actor ->
-        warn(actor, "Invalid actor")
-        false
-    end)
   end
 
   def delete(%Actor{local: false} = actor) do

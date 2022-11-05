@@ -40,11 +40,21 @@ defmodule ActivityPub.Object do
   def get_cached([{_, %{ap_id: ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
   def get_cached([{_, %{"id" => ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
   def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
-  def get_cached(opts) do
-    error(opts, "Unexpected args")
-    raise "Unexpected args for get_cached"
+  def get_cached(id) when is_binary(id) do
+    if Utils.is_ulid?(id) do
+      get(pointer: id)
+    else
+      if String.starts_with?(id, "http") do
+        get(ap_id: id)
+      else
+        get(id: id)
+      end
+    end
   end
-
+  # def get_cached(opts) do
+  #   error(opts, "Unexpected args")
+  #   raise "Unexpected args for get_cached"
+  # end
   def get_cached(opts), do: get(opts)
 
   defp do_get_cached(key, val), do: Utils.get_with_cache(&get/1, :ap_object_cache, key, val)
@@ -102,17 +112,16 @@ defmodule ActivityPub.Object do
 
 
     @doc false
-  def insert(map, local?, pointer \\ nil, upsert? \\ false)
-      when is_map(map) and is_boolean(local?) do
+  def insert(params, local?, pointer \\ nil, upsert? \\ false)
+      when is_map(params) and is_boolean(local?) do
     with activity_id <- Ecto.UUID.generate(),
-        map <- normalize_actors(map),
-         %{} = map <- lazy_put_activity_defaults(map, pointer || activity_id),
-         :ok <- Actor.check_actor_is_active(map["actor"]),
+        params <- normalize_params(params, pointer || activity_id),
+         :ok <- Actor.check_actor_is_active(params["actor"]),
          # set some healthy boundaries
-         {:ok, map} <- MRF.filter(map, local?),
+         {:ok, params} <- MRF.filter(params, local?),
          # first insert the object
          {:ok, activity, object} <-
-           insert_full_object(map, local?, pointer, upsert?),
+           insert_full_object(params, local?, pointer, upsert?),
          # then insert the activity (containing only an ID as object)
          # for activities without an object
          {:ok, activity} <-
@@ -174,14 +183,15 @@ defmodule ActivityPub.Object do
       when is_map(object_data) and
              type not in @supported_actor_types and
              type not in @supported_activity_types do
-    # we're taking a shortcut by assuming that anything that doesn't seem like an actor or activity is an object (which is better than only supporting a specific list of object types)
+    # we're taking a shortcut by assuming that anything that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
     # check that it doesn't already exist
-    with maybe_existing_object <- normalize(object_data, false) |> info("maybe_existing_object"),
-         {:ok, data} <- prepare_data(object_data, local, pointer, activity),
+    debug(object_data, "object to #{if upsert?, do: "update", else: "insert"}")
+    with maybe_existing_object <- normalize(object_data, false, pointer) |> info("maybe_existing_object"),
+         {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
-           maybe_upsert(upsert?, maybe_existing_object, data) do
+           maybe_upsert(upsert?, maybe_existing_object, object_params) |> info("maybe_upserted") do
       # return an activity that contains the ID as object rather than the actual object
-      {:ok, Map.put(activity, "object", object.data["id"]), object}
+      {:ok, Map.put(activity, "object", object_params.data["id"]), object}
     end
   end
 
@@ -227,6 +237,10 @@ defmodule ActivityPub.Object do
     :ok
   end
 
+  def purge_cache() do
+    Cachex.clear(:ap_object_cache)
+    Cachex.clear(:ap_actor_cache)
+  end
 
   def changeset(attrs) do
     %__MODULE__{}
@@ -238,7 +252,7 @@ defmodule ActivityPub.Object do
     |> cast(attrs, [:id, :data, :local, :public, :pointer_id])
     |> validate_required(:data)
     |> unique_constraint(:pointer_id)
-    |> unique_constraint(:ap_object__data____id_index, match: :exact)
+    |> unique_constraint(:_data____id, match: :exact)
   end
 
   def update_existing(object_id, attrs) do
@@ -289,7 +303,7 @@ defmodule ActivityPub.Object do
 
 
   def lazy_put_activity_defaults(map, activity_id) do
-    context = create_context(map["context"])
+    context = map["context"] #|| Utils.generate_id("contexts")
 
     map =
       map
@@ -301,12 +315,14 @@ defmodule ActivityPub.Object do
       object = map["object"]
       |> lazy_put_object_defaults(map["context"])
       |> normalize_actors()
+
       %{map | "object" => object}
     else
       map
     end
   end
 
+  def lazy_put_object_defaults(%{data: data}, context), do: lazy_put_object_defaults(data, context)
   def lazy_put_object_defaults(map, context) do
     map
     |> Map.put_new_lazy("id", &Utils.generate_object_id/0)
@@ -314,27 +330,29 @@ defmodule ActivityPub.Object do
     |> Utils.maybe_put("context", context)
   end
 
-  def create_context(context) do
-    context || Utils.generate_id("contexts")
-  end
+  def normalize(_, fetch_remote? \\ true, pointer \\ nil)
+  def normalize({:ok, object}, _, _), do: object
+  def normalize(%Object{} = object, _, _), do: object
 
-  def normalize(_, fetch_remote \\ true)
-  def normalize({:ok, object}, _), do: object
-  def normalize(%Object{} = object, _), do: object
-
-  def normalize(%{"id" => ap_id} = object, fetch_remote)
+  def normalize(%{"id" => ap_id} = object, fetch_remote, pointer)
       when is_binary(ap_id) do
     # if(length(Map.keys(object))==1) do # we only have an ID
-    normalize(ap_id, fetch_remote)
+    normalize(ap_id, fetch_remote, pointer)
     # else
     #   %{data: object}
     # end
   end
 
-  def normalize(ap_id, false) when is_binary(ap_id),
+  def normalize(ap_id, _, pointer) when is_binary(ap_id) and is_binary(pointer),
+    do: get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id)
+
+  def normalize(_, _, pointer) when is_binary(pointer),
+    do: get_cached!(pointer: pointer)
+
+  def normalize(ap_id, _, _) when is_binary(ap_id),
     do: get_cached!(ap_id: ap_id)
 
-  def normalize(ap_id, true) when is_binary(ap_id) do
+  def normalize(ap_id, true, _) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
     else
@@ -342,7 +360,7 @@ defmodule ActivityPub.Object do
     end
   end
 
-  def normalize(_, _), do: nil
+  def normalize(_, _, _), do: nil
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(%{data: data}), do: get_ap_id(data)
@@ -366,6 +384,15 @@ defmodule ActivityPub.Object do
 
   def actor_from_data(%{data: data}), do: actor_from_data(data)
 
+  def normalize_params(%{data: data} = _params, id) do
+    normalize_params(data, id)
+  end
+  def normalize_params(params, id) do
+    normalize_actors(params)
+    |> lazy_put_activity_defaults(id)
+  end
+
+  def normalize_actors(%{data: data}), do: normalize_actors(data)
   def normalize_actors(params) do
     # Some implementations include actors as URIs, others inline the entire actor object, this function figures out what the URIs are based on what we have.
     params

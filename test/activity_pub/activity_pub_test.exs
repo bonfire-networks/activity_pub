@@ -277,7 +277,6 @@ defmodule ActivityPubTest do
     reporter = context[:actor1]
     target_account = context[:actor1]
     note_activity = insert(:note_activity, %{actor: target_account})
-    context = Utils.generate_context_id()
     content = "foobar"
 
     reporter_ap_id = reporter.data["id"]
@@ -287,7 +286,6 @@ defmodule ActivityPubTest do
     assert {:ok, activity} =
              ActivityPub.flag(%{
                actor: reporter,
-               context: context,
                account: target_account,
                statuses: [note_activity],
                content: content
@@ -298,7 +296,6 @@ defmodule ActivityPubTest do
                "actor" => ^reporter_ap_id,
                "type" => "Flag",
                "content" => ^content,
-               "context" => ^context,
                "object" => [^target_ap_id, ^activity_ap_id]
              }
            } = activity

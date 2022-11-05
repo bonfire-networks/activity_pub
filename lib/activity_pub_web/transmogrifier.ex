@@ -141,7 +141,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them
   # with nil ID.
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data) do
-    with context <- data["context"] || Utils.generate_context_id(),
+    with context <- data["context"],
          content <- data["content"] || "",
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
 

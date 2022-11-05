@@ -16,13 +16,11 @@ defmodule ActivityPub.Utils do
     DateTime.utc_now() |> DateTime.to_iso8601()
   end
 
-  def generate_context_id, do: generate_id("contexts")
+  # def generate_context_id, do: generate_id("contexts")
 
   def generate_object_id, do: generate_id("objects")
 
   def generate_id(type), do: ap_base_url() <> "/#{type}/#{UUID.generate()}"
-
-
 
   def ap_base_url() do
     ActivityPubWeb.base_url() <> System.get_env("AP_BASE_PATH", "/pub")

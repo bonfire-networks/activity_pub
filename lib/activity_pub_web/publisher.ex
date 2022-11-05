@@ -25,13 +25,11 @@ defmodule ActivityPubWeb.Publisher do
     # Utils.maybe_forward_activity(activity)
 
     recipients(actor, activity)
-    # |> info("recipients")
-    |> Enum.map(fn actor ->
-      determine_inbox(activity, actor)
-    end)
     |> info("initial recipients")
-    |> Enum.uniq()
+    |> Enum.map(&determine_inbox(activity, &1))
     |> maybe_federate_to_search_index(activity)
+    |> Enum.uniq()
+    |> info("possible recipients")
     |> Instances.filter_reachable()
     |> info("enqueue for")
     |> Enum.each(fn {inbox, unreachable_since} ->
@@ -109,32 +107,48 @@ defmodule ActivityPubWeb.Publisher do
     {:ok, followers} =
       if actor.data["followers"] in ((activity.data["to"] || []) ++
                                        (activity.data["cc"] || [])) do
-        Actor.get_external_followers(actor)
+        Actor.get_external_followers(actor) |> info("external_followers")
       else
         {:ok, []}
       end
 
-    Actor.remote_users(actor, activity) ++ followers
+    (remote_recipients(actor, activity) |> info("remote_recipients"))
+    ++ followers
   end
 
-  defp maybe_use_sharedinbox(%{data: data}),
-    do:
-      (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) ||
-        data["inbox"]
+  # TODO: add bcc
+  defp remote_recipients(_actor, %{data: data}) do
+
+    ( [Map.get(data, "to", nil)] ++ [Map.get(data, "bto", nil)] ++ [Map.get(data, "cc", nil)] ++ [Map.get(data, "bcc", nil)] ++ [Map.get(data, "audience", nil)] ++ [Map.get(data, "context", nil)] )
+    |> List.flatten()
+    |> Enum.reject(&is_nil/1)
+    |> List.delete(@public_uri)
+    |> Enum.map(& Actor.get_cached!(ap_id: &1) || &1)
+    |> Enum.reject(fn
+      %{local: local} = actor ->
+        info(actor, "Local actor?")
+
+        local
+
+      actor ->
+        warn(actor, "Invalid actor")
+        true
+    end)
+  end
 
   @doc """
   If you put the URL of the shared inbox of an ActivityPub instance in the following env variable, all public content will be pushed there via AP federation for search indexing purposes: PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE
   #TODO: move to adapter
   """
   def maybe_federate_to_search_index(recipients, activity) do
-    index_inbox = System.get_env("PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE", "false")
+    index = System.get_env("PUSH_ALL_PUBLIC_CONTENT_TO_INSTANCE", "false")
 
-    if index_inbox !== "false" and
+    if index !== "false" and
          activity.public and
          activity.data["type"] in ["Create", "Update", "Delete"] do
       recipients ++
         [
-          index_inbox
+          index
         ]
     else
       recipients
@@ -174,6 +188,11 @@ defmodule ActivityPubWeb.Publisher do
         inbox
     end
   end
+
+  defp maybe_use_sharedinbox(%{data: data}),
+    do:
+      (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) ||
+        data["inbox"]
 
   def gather_webfinger_links(actor) do
     base_url = ActivityPubWeb.base_url()

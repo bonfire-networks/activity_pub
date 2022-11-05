@@ -301,14 +301,15 @@ defmodule ActivityPub do
   #       }) ::
   #         {:ok, Object.t()} | {:error, any()}
   def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
-    with data <- %{
+    with activity_data <- %{
+           "id" => Utils.generate_object_id(), # avoid ID conflicts with updates
            "to" => to,
            "cc" => cc,
            "type" => "Update",
            "actor" => actor.data["id"],
            "object" => object
          },
-         {:ok, activity} <- Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), true),
+         {:ok, activity} <- Object.insert(activity_data, Map.get(params, :local, true), Map.get(params, :pointer), true),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -423,11 +424,7 @@ defmodule ActivityPub do
         }) :: {:ok, Object.t()} | {:error, any()}
   def flag(
         %{
-          actor: actor,
-          context: context,
-          account: account,
-          statuses: statuses,
-          content: content
+          actor: actor
         } = params
       ) do
     # only accept false as false value
@@ -437,20 +434,18 @@ defmodule ActivityPub do
 
     params = %{
       actor: actor,
-      context: context,
-      account: account,
-      statuses: statuses,
-      content: content
+      context: params[:context],
+      content: params[:content]
     }
 
     additional =
-      if forward do
-        Map.merge(additional, %{"to" => [], "cc" => [account.data["id"]]})
+      if is_map(params[:account]) and forward do
+        Map.merge(additional, %{"to" => [], "cc" => [params[:account].data["id"]]})
       else
         Map.merge(additional, %{"to" => [], "cc" => []})
       end
 
-    with flag_data <- make_flag_data(params, additional),
+    with flag_data <- make_flag_data(params, [params[:account]] ++ (params[:statuses] || []), additional),
          {:ok, activity} <- Object.insert(flag_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
@@ -654,21 +649,24 @@ defmodule ActivityPub do
   end
 
   #### Flag-related helpers
-  defp make_flag_data(params, additional) do
-    status_ap_ids =
-      Enum.map(params.statuses || [], fn
+  defp make_flag_data(params, objects, additional) do
+    objects =
+      Enum.map(objects || [], fn
+        %Actor{} = act -> act.data["id"]
         %Object{} = act -> act.data["id"]
         act when is_map(act) -> act["id"]
         act when is_binary(act) -> act
+        other ->
+          error(other, "dunno how to flag this")
+          nil
       end)
-
-    object = [params.account.data["id"]] ++ status_ap_ids
+      |> Enum.reject(&is_nil/1)
 
     %{
       "type" => "Flag",
       "actor" => params.actor.data["id"],
       "content" => params.content,
-      "object" => object,
+      "object" => objects,
       "context" => params.context,
       "state" => "open"
     }

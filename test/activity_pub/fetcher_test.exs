@@ -61,7 +61,7 @@ defmodule ActivityPub.FetcherTest do
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
 
-      assert object1 == object2
+      assert object1.data == object2.data
     end
 
     test "fetches a same mastodon actor by AP ID and friendly URL" do
@@ -69,7 +69,7 @@ defmodule ActivityPub.FetcherTest do
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 
-      assert object1 == object2
+      assert object1.data == object2.data
     end
 
     test "fetches a same mastodon actor by AP ID and a 3rd URL" do
@@ -77,7 +77,7 @@ defmodule ActivityPub.FetcherTest do
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/user/karen")
 
-      assert object1 == object2
+      assert object1.data == object2.data
     end
 
     test "fetches a same mastodon actor by webfinger, AP ID and friendly URL" do
@@ -88,7 +88,7 @@ defmodule ActivityPub.FetcherTest do
 
       {:ok, object3} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 
-      assert object1 == object2
+      assert object1.data == object2.data
       assert object2 == object3
     end
 
@@ -100,7 +100,7 @@ defmodule ActivityPub.FetcherTest do
       {:ok, fingered} = WebFinger.finger("karen@mastodon.local")
       {:ok, object3} = Fetcher.fetch_object_from_id(fingered["id"])
 
-      assert object1 == object2
+      assert object1.data == object2.data
       assert object2 == object3
     end
 

@@ -28,7 +28,8 @@
   "id": "http://home.local/1",
   "inbox": "http://home.local/6",
   "liked": "http://home.local/2",
-  "name": "Mayel",
+  "name": "Tester",
+  "preferredUsername": "tester",
   "outbox": "http://home.local/5",
   "summary": "Hello world!",
   "type": "Person"

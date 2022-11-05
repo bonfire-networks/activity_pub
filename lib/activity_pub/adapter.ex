@@ -23,7 +23,7 @@ defmodule ActivityPub.Adapter do
   end
 
   defp validate_actor({:ok, %Actor{local: false} = actor}) do
-    {:ok, actor_object} = Object.get_cached(id: actor.id)
+    {:ok, actor_object} = Object.get_cached(actor.id)
     {:ok, Actor.format_remote_actor(actor_object)}
   end
 

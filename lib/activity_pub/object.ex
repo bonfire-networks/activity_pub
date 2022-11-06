@@ -302,18 +302,18 @@ defmodule ActivityPub.Object do
   end
 
 
-  def lazy_put_activity_defaults(map, activity_id) do
+  defp lazy_put_activity_defaults(map, activity_id) do
     context = map["context"] #|| Utils.generate_id("contexts")
 
     map =
       map
-      |> Map.put_new("id", object_url(activity_id))
+      |> Map.put_new_lazy("id", fn -> object_url(activity_id) end)
       |> Map.put_new_lazy("published", &Utils.make_date/0)
       |> Map.put_new("context", context)
 
     if is_map(map["object"]) do
       object = map["object"]
-      |> lazy_put_object_defaults(map["context"])
+      |> lazy_put_object_defaults(map["id"], map["context"])
       |> normalize_actors()
 
       %{map | "object" => object}
@@ -322,10 +322,13 @@ defmodule ActivityPub.Object do
     end
   end
 
-  def lazy_put_object_defaults(%{data: data}, context), do: lazy_put_object_defaults(data, context)
-  def lazy_put_object_defaults(map, context) do
+  defp lazy_put_object_defaults(%{data: data}, activity_id, context), do: lazy_put_object_defaults(data, activity_id, context)
+  defp lazy_put_object_defaults(map, activity_id, context) do
     map
-    |> Map.put_new_lazy("id", &Utils.generate_object_id/0)
+    |> Map.put("id", (
+      if is_binary(map["id"]) and map["id"] !=activity_id, do: map["id"],
+      else: Utils.generate_object_id()
+    ))
     |> Map.put_new_lazy("published", &Utils.make_date/0)
     |> Utils.maybe_put("context", context)
   end

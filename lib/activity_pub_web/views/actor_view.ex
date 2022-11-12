@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-
 defmodule ActivityPubWeb.ActorView do
   use ActivityPubWeb, :view
+
   import Untangle
   alias ActivityPub.Actor
   alias ActivityPub.Utils

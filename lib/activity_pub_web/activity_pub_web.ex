@@ -28,9 +28,10 @@ defmodule ActivityPubWeb do
 
   def view do
     quote do
-      use Phoenix.View,
-        root: "lib/activity_pub_web/templates",
-        namespace: ActivityPubWeb
+      # use Phoenix.View,
+      #   root: "lib/activity_pub_web/templates",
+      #   namespace: ActivityPubWeb
+      use Phoenix.Component
 
       # Import convenience functions from controllers
       import Phoenix.Controller,
@@ -59,7 +60,7 @@ defmodule ActivityPubWeb do
   defp view_helpers do
     quote do
       # Import basic rendering functionality (render, render_layout, etc)
-      import Phoenix.View
+      # import Phoenix.View
 
       alias ActivityPubWeb.Router.Helpers, as: Routes
     end

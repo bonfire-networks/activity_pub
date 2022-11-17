@@ -115,7 +115,7 @@ defmodule ActivityPub.Object do
   def insert(params, local?, pointer \\ nil, upsert? \\ false)
       when is_map(params) and is_boolean(local?) do
     with activity_id <- Ecto.UUID.generate(),
-        params <- normalize_params(params, pointer || activity_id),
+        params <- normalize_params(params, activity_id, pointer),
          :ok <- Actor.check_actor_is_active(params["actor"]),
          # set some healthy boundaries
          {:ok, params} <- MRF.filter(params, local?),
@@ -204,17 +204,20 @@ defmodule ActivityPub.Object do
   end
 
   def maybe_upsert(true, %ActivityPub.Object{} = existing_object, attrs) do
+    debug(existing_object, "Object to upsert")
+    debug(attrs, "attrs to upsert")
     changeset(existing_object, attrs)
     |> update_and_set_cache()
   end
 
   def maybe_upsert(_, %ActivityPub.Object{} = existing_object, _attrs) do
-    error("Attempted to insert an object that already exists")
+    warn("Will not insert an object that already exists")
     debug(existing_object)
     {:ok, existing_object}
   end
 
   def maybe_upsert(_, _, attrs) do
+    debug("Insert")
     do_insert(attrs)
   end
 
@@ -274,7 +277,7 @@ defmodule ActivityPub.Object do
     with {:ok, object} <- repo().update(changeset) do
       set_cache(object)
     else
-      e -> e
+      e -> error(e, "Could not update the AP object")
     end
   rescue
     e in Ecto.ConstraintError ->
@@ -302,7 +305,7 @@ defmodule ActivityPub.Object do
   end
 
 
-  defp lazy_put_activity_defaults(map, activity_id) do
+  defp lazy_put_activity_defaults(map, activity_id, pointer) do
     context = map["context"] #|| Utils.generate_id("contexts")
 
     map =
@@ -313,7 +316,7 @@ defmodule ActivityPub.Object do
 
     if is_map(map["object"]) do
       object = map["object"]
-      |> lazy_put_object_defaults(map["id"], map["context"])
+      |> lazy_put_object_defaults(map["id"], pointer, map["context"])
       |> normalize_actors()
 
       %{map | "object" => object}
@@ -322,13 +325,13 @@ defmodule ActivityPub.Object do
     end
   end
 
-  defp lazy_put_object_defaults(%{data: data}, activity_id, context), do: lazy_put_object_defaults(data, activity_id, context)
-  defp lazy_put_object_defaults(map, activity_id, context) do
+  defp lazy_put_object_defaults(%{data: data}, activity_id, pointer, context), do: lazy_put_object_defaults(data, activity_id, pointer, context)
+  defp lazy_put_object_defaults(map, activity_id, pointer, context) do
     map
-    |> Map.put("id", (
-      if is_binary(map["id"]) and map["id"] !=activity_id, do: map["id"],
+    |> Map.put_new_lazy("id", fn ->
+      if is_binary(pointer) or is_map(pointer), do: object_url(pointer),
       else: Utils.generate_object_id()
-    ))
+    end)
     |> Map.put_new_lazy("published", &Utils.make_date/0)
     |> Utils.maybe_put("context", context)
   end
@@ -387,12 +390,12 @@ defmodule ActivityPub.Object do
 
   def actor_from_data(%{data: data}), do: actor_from_data(data)
 
-  def normalize_params(%{data: data} = _params, id) do
-    normalize_params(data, id)
+  def normalize_params(%{data: data} = _params, activity_id, pointer) do
+    normalize_params(data, activity_id, pointer)
   end
-  def normalize_params(params, id) do
+  def normalize_params(params, activity_id, pointer) do
     normalize_actors(params)
-    |> lazy_put_activity_defaults(id)
+    |> lazy_put_activity_defaults(activity_id, pointer)
   end
 
   def normalize_actors(%{data: data}), do: normalize_actors(data)

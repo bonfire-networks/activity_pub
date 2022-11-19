@@ -193,7 +193,6 @@ defmodule ActivityPubWeb.ActivityPubController do
 
     error("TODO: should we ignore incoming unsigned or invalidly signed activities?")
     process_incoming(conn, params)
-    |> info("processed")
 
     # json(conn, "invalid signature")
   end
@@ -203,9 +202,11 @@ defmodule ActivityPubWeb.ActivityPubController do
   end
 
   defp process_incoming(conn, params) do
-    Logger.metadata(action: info("process_incoming"))
+    Logger.metadata(action: info("incoming_ap_doc"))
     if Config.federating?() do
       Federator.incoming_ap_doc(params)
+      |> info("processed")
+
       json(conn, "ok")
     else
       json(conn, "not federating")

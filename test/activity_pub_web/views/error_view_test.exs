@@ -5,11 +5,11 @@ defmodule ActivityPubWeb.ErrorViewTest do
   # import Phoenix.View
 
   test "renders 404.json" do
-    assert render(ActivityPubWeb.ErrorView, "404.json", []) == "Not Found"
+    assert ActivityPubWeb.ErrorView.render("404.json", []) =~ "Not Found"
   end
 
   test "renders 500.json" do
-    assert render(ActivityPubWeb.ErrorView, "500.json", []) ==
+    assert ActivityPubWeb.ErrorView.render("500.json", []) =~
              "Internal Server Error"
   end
 end

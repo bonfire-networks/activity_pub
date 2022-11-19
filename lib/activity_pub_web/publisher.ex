@@ -188,6 +188,10 @@ defmodule ActivityPubWeb.Publisher do
         inbox
     end
   end
+  def determine_inbox(_, user) do
+    warn(user, "No inbox")
+    nil
+  end
 
   defp maybe_use_sharedinbox(%{data: data}),
     do:

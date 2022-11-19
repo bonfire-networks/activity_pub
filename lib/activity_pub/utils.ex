@@ -2,6 +2,7 @@ defmodule ActivityPub.Utils do
   @moduledoc """
   Misc functions used for federation
   """
+  alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Object
   alias Ecto.UUID
@@ -142,14 +143,19 @@ defmodule ActivityPub.Utils do
   end
 
   def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
-    p = Process.get()
-    Cachex.fetch(cache, key, fn _ ->
-      # Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
-      set_repo(p[:ecto_repo_module])
+    if Config.env() == :test do
+      # FIXME: temporary workaround for Ecto sandbox / ExUnit issues
+      fallback.()
+    else
+      p = Process.get()
+      Cachex.fetch(cache, key, fn _ ->
+        # Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
+        set_repo(p[:ecto_repo_module])
 
-       fallback.()
+        fallback.()
       end,
       options)
+    end
   end
 
   # TODO: avoid storing multiple copies of things in cache
@@ -178,6 +184,7 @@ defmodule ActivityPub.Utils do
       {:commit, object} -> {:ok, object}
       {:ignore, _} -> {:error, :not_found}
       {:error, :no_cache} -> get_fun.([{key, identifier}])
+      # {:error, "cannot find ownership process"<>_} -> get_fun.([{key, identifier}])
       msg -> error(msg)
     end
   catch
@@ -188,7 +195,6 @@ defmodule ActivityPub.Utils do
     _ ->
       get_fun.([{key, identifier}])
   end
-
 
 
   @doc "conditionally update a map"

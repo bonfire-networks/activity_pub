@@ -671,5 +671,6 @@ defmodule ActivityPub do
       "state" => "open"
     }
     |> Map.merge(additional)
+    |> debug()
   end
 end

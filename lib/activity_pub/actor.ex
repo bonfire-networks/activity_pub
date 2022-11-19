@@ -289,6 +289,10 @@ defmodule ActivityPub.Actor do
 
     "#{nick}@#{uri.host}#{port}"
   end
+  def format_username(other) do
+    warn(other, "Dunno how to format_username for")
+    nil
+  end
 
   def format_remote_actor(%Object{data: data} = object) do
     # debug(actor)

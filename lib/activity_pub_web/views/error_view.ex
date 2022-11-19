@@ -10,6 +10,14 @@ defmodule ActivityPubWeb.ErrorView do
     "Internal Server Error - ActivityPub"
   end
 
+  def render("404.json", _assigns) do
+    "Not Found - ActivityPub"
+  end
+
+  def render("500.json", _assigns) do
+    "Internal Server Error - ActivityPub"
+  end
+
   @doc """
     By default, Phoenix returns the status message from the template name. For example, "404.html" becomes "Not Found".
   """

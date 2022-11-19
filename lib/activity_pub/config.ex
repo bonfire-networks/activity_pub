@@ -69,12 +69,13 @@ defmodule ActivityPub.Config do
   def federating? do
     (
       Application.get_env(:activity_pub, :instance)[:federating] ||
-      (Application.get_env(:activity_pub, :env) == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
+      (env() == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
        System.get_env("TEST_INSTANCE") == "yes"
     )
     # |> IO.inspect(label: "Federating?")
   end
 
+  def env, do: Application.get_env(:activity_pub, :env)
 
   def get(key), do: get(key, nil)
 

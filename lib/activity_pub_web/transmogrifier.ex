@@ -473,15 +473,15 @@ defmodule ActivityPubWeb.Transmogrifier do
     ~> ActivityPub.Actor.maybe_create_actor_from_object()
   end
 
-  # Wrap standalone non-actor objects in a create activity
+  # Wrap standalone non-actor objects in a create activity, returns the Object
   def handle_incoming(data) do
     handle_incoming(%{
-           "type" => "Create",
-           "to" => data["to"],
-           "cc" => data["cc"],
-           "actor" => Object.actor_from_data(data),
-           "object" => data
-         })
+      "type" => "Create",
+      "to" => data["to"],
+      "cc" => data["cc"],
+      "actor" => Object.actor_from_data(data),
+      "object" => data
+    })
   end
 
   defp get_obj_helper(id) do

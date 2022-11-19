@@ -36,11 +36,17 @@ defmodule ActivityPub.Fetcher do
       info("object was already cached under another ID")
       # TODO: update in some specific cases?
       {:ok, object}
-    else _ ->
+    else other ->
+      info(other, "seems like a new object")
       with {:ok, data} <- contain_origin(data) |> info(),
-           {:ok, object} <- Transmogrifier.handle_incoming(data) |> info() do
+           {:ok, object} <- Transmogrifier.handle_incoming(data) do
         #  :ok <- check_if_public(object.public) do # huh?
-        {:ok, object}
+        case object do
+          # return the object rather than Create activity
+           %{object: object} = activity -> {:ok, object
+           |> Utils.maybe_put(:pointer, Map.get(activity, :pointer)) }
+           _ -> {:ok, object}
+         end
       else
         e ->
           error(e)

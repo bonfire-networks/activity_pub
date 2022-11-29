@@ -1,0 +1,150 @@
+digraph "xref graph" {
+  "lib/activity_pub/activity_pub.ex"
+  "lib/activity_pub/activity_pub.ex" -> "lib/activity_pub/actor.ex" [label="(export)"]
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub/adapter.ex" -> "lib/activity_pub/actor.ex" [label="(export)"]
+  "lib/activity_pub/adapter.ex" -> "lib/activity_pub/object.ex" [label="(export)"]
+  "lib/activity_pub/object.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub/object.ex" -> "lib/activity_pub/config.ex" [label="(compile)"]
+  "lib/activity_pub/object.ex" -> "lib/activity_pub/fetcher.ex"
+  "lib/activity_pub/fetcher.ex" -> "lib/activity_pub/config.ex" [label="(compile)"]
+  "lib/activity_pub/fetcher.ex" -> "lib/activity_pub/http/http.ex"
+  "lib/activity_pub/http/http.ex" -> "lib/activity_pub/http/connection.ex"
+  "lib/activity_pub/http/http.ex" -> "lib/activity_pub/http/request_builder.ex"
+  "lib/activity_pub/fetcher.ex" -> "lib/activity_pub/object.ex"
+  "lib/activity_pub/fetcher.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/utils.ex" -> "lib/activity_pub/config.ex"
+  "lib/activity_pub/utils.ex" -> "lib/activity_pub_web/activity_pub_web.ex"
+  "lib/activity_pub_web/activity_pub_web.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub_web/activity_pub_web.ex" -> "lib/activity_pub_web/endpoint.ex"
+  "lib/activity_pub_web/endpoint.ex" -> "lib/activity_pub_web/channels/user_socket.ex"
+  "lib/activity_pub/utils.ex" -> "lib/common.ex" [label="(export)"]
+  "lib/common.ex" -> "lib/activity_pub/config.ex"
+  "lib/activity_pub/fetcher.ex" -> "lib/activity_pub_web/transmogrifier.ex"
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/activity_pub.ex"
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/actor.ex" [label="(export)"]
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/config.ex" [label="(compile)"]
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/fetcher.ex"
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/object.ex" [label="(export)"]
+  "lib/activity_pub_web/transmogrifier.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/object.ex" -> "lib/activity_pub/mrf/mrf.ex"
+  "lib/activity_pub/object.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/object.ex" -> "lib/activity_pub_web/activity_pub_web.ex"
+  "lib/activity_pub/object.ex" -> "lib/common.ex" [label="(export)"]
+  "lib/activity_pub/adapter.ex" -> "lib/common.ex"
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/config.ex" [label="(compile)"]
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/fetcher.ex"
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/keys.ex"
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/object.ex" [label="(export)"]
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/actor.ex" -> "lib/activity_pub/webfinger.ex"
+  "lib/activity_pub/webfinger.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub/webfinger.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub/webfinger.ex" -> "lib/activity_pub/http/http.ex"
+  "lib/activity_pub/webfinger.ex" -> "lib/activity_pub_web/federator/publisher.ex"
+  "lib/activity_pub_web/federator/publisher.ex" -> "lib/activity_pub/workers/publisher_worker.ex"
+  "lib/activity_pub/workers/publisher_worker.ex" -> "lib/activity_pub/object.ex"
+  "lib/activity_pub/workers/publisher_worker.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/workers/publisher_worker.ex" -> "lib/activity_pub/workers/worker_helper.ex" [label="(compile)"]
+  "lib/activity_pub/workers/worker_helper.ex" -> "lib/activity_pub/config.ex"
+  "lib/activity_pub/workers/publisher_worker.ex" -> "lib/activity_pub_web/federator/federator.ex"
+  "lib/activity_pub_web/federator/federator.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub_web/federator/federator.ex" -> "lib/activity_pub/workers/publisher_worker.ex"
+  "lib/activity_pub_web/federator/federator.ex" -> "lib/activity_pub/workers/receiver_worker.ex"
+  "lib/activity_pub/workers/receiver_worker.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/workers/receiver_worker.ex" -> "lib/activity_pub/workers/worker_helper.ex" [label="(compile)"]
+  "lib/activity_pub/workers/receiver_worker.ex" -> "lib/activity_pub_web/federator/federator.ex"
+  "lib/activity_pub/workers/receiver_worker.ex" -> "lib/common.ex"
+  "lib/activity_pub_web/federator/federator.ex" -> "lib/activity_pub_web/federator/publisher.ex"
+  "lib/activity_pub_web/federator/federator.ex" -> "lib/activity_pub_web/transmogrifier.ex"
+  "lib/activity_pub/workers/publisher_worker.ex" -> "lib/common.ex"
+  "lib/activity_pub_web/federator/publisher.ex" -> "lib/activity_pub_web/publisher.ex"
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub/actor.ex" [label="(export)"]
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub/http/http.ex"
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub/instances/instances.ex"
+  "lib/activity_pub/instances/instances.ex" -> "lib/activity_pub/instances/instance.ex" [label="(compile)"]
+  "lib/activity_pub/instances/instance.ex" -> "lib/activity_pub/instances/instances.ex"
+  "lib/activity_pub/instances/instance.ex" -> "lib/common.ex" [label="(export)"]
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub/signature.ex"
+  "lib/activity_pub/signature.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub/signature.ex" -> "lib/activity_pub/fetcher.ex"
+  "lib/activity_pub/signature.ex" -> "lib/activity_pub/keys.ex"
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub_web/activity_pub_web.ex"
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub_web/federator/publisher.ex" [label="(compile)"]
+  "lib/activity_pub_web/publisher.ex" -> "lib/activity_pub_web/transmogrifier.ex"
+  "lib/activity_pub/actor.ex" -> "lib/common.ex" [label="(export)"]
+  "lib/activity_pub/activity_pub.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub/activity_pub.ex" -> "lib/activity_pub/config.ex" [label="(compile)"]
+  "lib/activity_pub/activity_pub.ex" -> "lib/activity_pub/object.ex" [label="(export)"]
+  "lib/activity_pub/activity_pub.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub/activity_pub.ex" -> "lib/activity_pub_web/federator/federator.ex"
+  "lib/activity_pub/activity_pub.ex" -> "lib/common.ex" [label="(export)"]
+  "lib/activity_pub/actor.ex"
+  "lib/activity_pub/adapter.ex"
+  "lib/activity_pub/application.ex"
+  "lib/activity_pub/application.ex" -> "lib/activity_pub_web/endpoint.ex"
+  "lib/activity_pub/config.ex"
+  "lib/activity_pub/fetcher.ex"
+  "lib/activity_pub/http/connection.ex"
+  "lib/activity_pub/http/http.ex"
+  "lib/activity_pub/http/request_builder.ex"
+  "lib/activity_pub/instances/instance.ex"
+  "lib/activity_pub/instances/instances.ex"
+  "lib/activity_pub/keys.ex"
+  "lib/activity_pub/migrations.ex"
+  "lib/activity_pub/mrf/mrf.ex"
+  "lib/activity_pub/mrf/simple_policy.ex"
+  "lib/activity_pub/mrf/simple_policy.ex" -> "lib/activity_pub/config.ex" [label="(compile)"]
+  "lib/activity_pub/mrf/simple_policy.ex" -> "lib/activity_pub/mrf/mrf.ex" [label="(compile)"]
+  "lib/activity_pub/object.ex"
+  "lib/activity_pub/signature.ex"
+  "lib/activity_pub/utils.ex"
+  "lib/activity_pub/webfinger.ex"
+  "lib/activity_pub/workers/publisher_worker.ex"
+  "lib/activity_pub/workers/receiver_worker.ex"
+  "lib/activity_pub/workers/worker_helper.ex"
+  "lib/activity_pub_web/activity_pub_web.ex"
+  "lib/activity_pub_web/channels/user_socket.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub/config.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub/fetcher.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub/object.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub_web/activity_pub_web.ex" [label="(compile)"]
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub_web/federator/federator.ex"
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub_web/views/actor_view.ex"
+  "lib/activity_pub_web/views/actor_view.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub_web/views/actor_view.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub_web/views/actor_view.ex" -> "lib/activity_pub_web/activity_pub_web.ex" [label="(compile)"]
+  "lib/activity_pub_web/controllers/activity_pub_controller.ex" -> "lib/activity_pub_web/views/object_view.ex"
+  "lib/activity_pub_web/views/object_view.ex" -> "lib/activity_pub/object.ex"
+  "lib/activity_pub_web/views/object_view.ex" -> "lib/activity_pub/utils.ex"
+  "lib/activity_pub_web/views/object_view.ex" -> "lib/activity_pub_web/activity_pub_web.ex" [label="(compile)"]
+  "lib/activity_pub_web/views/object_view.ex" -> "lib/activity_pub_web/transmogrifier.ex"
+  "lib/activity_pub_web/controllers/redirect_controller.ex"
+  "lib/activity_pub_web/controllers/redirect_controller.ex" -> "lib/activity_pub/actor.ex"
+  "lib/activity_pub_web/controllers/redirect_controller.ex" -> "lib/activity_pub/adapter.ex"
+  "lib/activity_pub_web/controllers/redirect_controller.ex" -> "lib/activity_pub/object.ex"
+  "lib/activity_pub_web/controllers/redirect_controller.ex" -> "lib/activity_pub/webfinger.ex"
+  "lib/activity_pub_web/controllers/redirect_controller.ex" -> "lib/activity_pub_web/activity_pub_web.ex" [label="(compile)"]
+  "lib/activity_pub_web/controllers/webfinger_controller.ex"
+  "lib/activity_pub_web/controllers/webfinger_controller.ex" -> "lib/activity_pub/webfinger.ex"
+  "lib/activity_pub_web/controllers/webfinger_controller.ex" -> "lib/activity_pub_web/activity_pub_web.ex" [label="(compile)"]
+  "lib/activity_pub_web/endpoint.ex"
+  "lib/activity_pub_web/federator/federator.ex"
+  "lib/activity_pub_web/federator/publisher.ex"
+  "lib/activity_pub_web/plugs/http_signature_plug.ex"
+  "lib/activity_pub_web/publisher.ex"
+  "lib/activity_pub_web/router.ex"
+  "lib/activity_pub_web/telemetry.ex"
+  "lib/activity_pub_web/transmogrifier.ex"
+  "lib/activity_pub_web/views/actor_view.ex"
+  "lib/activity_pub_web/views/error_helpers.ex"
+  "lib/activity_pub_web/views/error_view.ex"
+  "lib/activity_pub_web/views/error_view.ex" -> "lib/activity_pub_web/activity_pub_web.ex" [label="(compile)"]
+  "lib/activity_pub_web/views/object_view.ex"
+  "lib/common.ex"
+}

@@ -1,12 +1,12 @@
 defmodule ActivityPub.Test.Helpers do
-
   def endpoint,
     do:
-      Process.get(:phoenix_endpoint_module) || Application.get_env(
-        :activity_pub,
-        :endpoint_module,
-        ActivityPubWeb.Endpoint
-      )
+      Process.get(:phoenix_endpoint_module) ||
+        Application.get_env(
+          :activity_pub,
+          :endpoint_module,
+          ActivityPubWeb.Endpoint
+        )
 
   def test_path, do: Path.expand("../", __DIR__)
 
@@ -19,5 +19,4 @@ defmodule ActivityPub.Test.Helpers do
       ActivityPub.LocalActor.follow(actor_1, actor_2)
     end
   end
-
 end

@@ -12,7 +12,6 @@ defmodule ActivityPub.Utils do
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
-
   def make_date do
     DateTime.utc_now() |> DateTime.to_iso8601()
   end
@@ -42,8 +41,6 @@ defmodule ActivityPub.Utils do
       ]
     }
   end
-
-
 
   @doc """
   Determines if an object or an activity is public.
@@ -91,8 +88,6 @@ defmodule ActivityPub.Utils do
     false
   end
 
-
-
   def is_ulid?(str) when is_binary(str) and byte_size(str) == 26 do
     with :error <- Pointers.ULID.cast(str) do
       false
@@ -132,14 +127,16 @@ defmodule ActivityPub.Utils do
     String.to_existing_atom(repo)
     |> set_repo()
   end
+
   def set_repo(nil), do: nil
+
   def set_repo(repo) do
     if is_atom(repo) and Code.ensure_loaded?(repo) do
       Process.put(:ecto_repo_module, repo)
       ActivityPub.Config.get!(:repo).put_dynamic_repo(repo)
     else
       error(repo, "invalid module")
-  end
+    end
   end
 
   def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
@@ -148,13 +145,18 @@ defmodule ActivityPub.Utils do
       fallback.()
     else
       p = Process.get()
-      Cachex.fetch(cache, key, fn _ ->
-        # Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
-        set_repo(p[:ecto_repo_module])
 
-        fallback.()
-      end,
-      options)
+      Cachex.fetch(
+        cache,
+        key,
+        fn _ ->
+          # Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
+          set_repo(p[:ecto_repo_module])
+
+          fallback.()
+        end,
+        options
+      )
     end
   end
 
@@ -171,15 +173,16 @@ defmodule ActivityPub.Utils do
     cache_key = "#{key}:#{identifier}"
 
     case cachex_fetch(cache_bucket, cache_key, fn ->
-      case get_fun.([{key, identifier}]) do
-        {:ok, object} ->
-          info(object, "got with #{key} - #{identifier} :")
-          {:commit, object}
-      e ->
-        info(e, "nothing with #{key} - #{identifier} ")
-        {:ignore, e}
-      end
-    end) do
+           case get_fun.([{key, identifier}]) do
+             {:ok, object} ->
+               info(object, "got with #{key} - #{identifier} :")
+               {:commit, object}
+
+             e ->
+               info(e, "nothing with #{key} - #{identifier} ")
+               {:ignore, e}
+           end
+         end) do
       {:ok, object} -> {:ok, object}
       {:commit, object} -> {:ok, object}
       {:ignore, _} -> {:error, :not_found}
@@ -196,11 +199,9 @@ defmodule ActivityPub.Utils do
       get_fun.([{key, identifier}])
   end
 
-
   @doc "conditionally update a map"
   def maybe_put(map, _key, nil), do: map
   def maybe_put(map, _key, []), do: map
   def maybe_put(map, _key, ""), do: map
   def maybe_put(map, key, value), do: Map.put(map, key, value)
-
 end

@@ -2,6 +2,7 @@ defmodule ActivityPub.TestAdapter do
   @behaviour ActivityPub.Adapter
 
   defp format_actor({:ok, actor}), do: actor
+
   defp format_actor(actor) do
     %ActivityPub.Actor{
       id: actor.id,

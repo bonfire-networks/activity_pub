@@ -1,6 +1,8 @@
 defmodule ActivityPubTest do
   use ActivityPub.DataCase
-  use ActivityPub.SharedDataCase # SharedDataCase creates fake actors for this whole test suite, and sets up mock endpoints for them
+
+  # SharedDataCase creates fake actors for this whole test suite, and sets up mock endpoints for them
+  use ActivityPub.SharedDataCase
   import ActivityPub.Factory
   import Tesla.Mock
   alias ActivityPub.Actor
@@ -82,7 +84,7 @@ defmodule ActivityPubTest do
   end
 
   describe "blocking / unblocking" do
-    test "creates a block activity", context  do
+    test "creates a block activity", context do
       blocker = context[:actor1]
       blocked = context[:actor2]
 
@@ -258,12 +260,12 @@ defmodule ActivityPubTest do
       actor_data = ActivityPubWeb.ActorView.render("actor.json", %{actor: actor})
 
       assert {:ok, update} =
-        ActivityPub.update(%{
-          actor: actor,
-          to: [actor.data["followers"]],
-          cc: [],
-          object: actor_data
-        })
+               ActivityPub.update(%{
+                 actor: actor,
+                 to: [actor.data["followers"]],
+                 cc: [],
+                 object: actor_data
+               })
 
       assert update.data["actor"] == actor.data["id"]
       assert update.data["to"] == [actor.data["followers"]]

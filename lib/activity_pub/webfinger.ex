@@ -12,7 +12,8 @@ defmodule ActivityPub.WebFinger do
   import Untangle
 
   def base_url(account) do
-    host = with [_name, domain] <- String.split(account, "@") do
+    host =
+      with [_name, domain] <- String.split(account, "@") do
         domain
       else
         _e ->
@@ -21,8 +22,8 @@ defmodule ActivityPub.WebFinger do
       end
 
     if String.starts_with?(host, "localhost"),
-        do: "http://#{host}",
-        else: "https://#{host}"
+      do: "http://#{host}",
+      else: "https://#{host}"
   end
 
   @doc """

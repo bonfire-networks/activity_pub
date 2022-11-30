@@ -23,7 +23,6 @@ defmodule ActivityPubWeb.TransmogrifierTest do
   end
 
   describe "handle incoming" do
-
     test "it works for incoming create activity" do
       data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
 

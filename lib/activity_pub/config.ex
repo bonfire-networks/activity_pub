@@ -58,6 +58,7 @@ defmodule ActivityPub.Config do
                         "CollectionPage",
                         "OrderedCollectionPage"
                       ]
+
   # @supported_object_types Application.compile_env(:activity_pub, :instance)[:supported_object_types] || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
 
   def supported_actor_types, do: @supported_actor_types
@@ -65,13 +66,11 @@ defmodule ActivityPub.Config do
   # def supported_object_types, do: @supported_object_types
   def collection_types, do: @collection_types
 
-
   def federating? do
-    (
-      Application.get_env(:activity_pub, :instance)[:federating] ||
+    Application.get_env(:activity_pub, :instance)[:federating] ||
       (env() == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
-       System.get_env("TEST_INSTANCE") == "yes"
-    )
+      System.get_env("TEST_INSTANCE") == "yes"
+
     # |> IO.inspect(label: "Federating?")
   end
 

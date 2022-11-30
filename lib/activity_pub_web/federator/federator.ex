@@ -17,9 +17,11 @@ defmodule ActivityPubWeb.Federator do
   def publish(%{id: activity}) do
     publish(activity)
   end
-  def publish(%{"id"=>_}=activity) do
+
+  def publish(%{"id" => _} = activity) do
     PublisherWorker.enqueue("publish", %{"activity" => activity})
   end
+
   def publish(activity) when is_binary(activity) do
     PublisherWorker.enqueue("publish", %{"activity_id" => activity})
   end

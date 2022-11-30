@@ -6,8 +6,9 @@ defmodule ActivityPubWeb.RedirectController do
 
   def object(conn, %{"uuid" => uuid}) do
     object =
-      ActivityPub.Object.get_cached!(id: uuid) || ActivityPub.Object.get_cached!(pointer: uuid)
-      |> debug()
+      ActivityPub.Object.get_cached!(id: uuid) ||
+        ActivityPub.Object.get_cached!(pointer: uuid)
+        |> debug()
 
     case Adapter.get_redirect_url(object || uuid) do
       nil ->

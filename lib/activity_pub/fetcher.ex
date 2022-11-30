@@ -16,18 +16,21 @@ defmodule ActivityPub.Fetcher do
   """
   def fetch_object_from_id(id) do
     case Object.get_cached(ap_id: id) do
-      {:ok, actor} -> {:ok, actor}
+      {:ok, actor} ->
+        {:ok, actor}
+
       _ ->
         fetch_fresh_object_from_id(id)
     end
   end
 
-  def fetch_fresh_object_from_id(%{data: %{"id"=>id}}), do: fetch_fresh_object_from_id(id)
-  def fetch_fresh_object_from_id(%{"id"=>id}), do: fetch_fresh_object_from_id(id)
+  def fetch_fresh_object_from_id(%{data: %{"id" => id}}), do: fetch_fresh_object_from_id(id)
+  def fetch_fresh_object_from_id(%{"id" => id}), do: fetch_fresh_object_from_id(id)
+
   def fetch_fresh_object_from_id(id) do
-        with {:ok, data} <- fetch_remote_object_from_id(id) |> info,
-           {:ok, object} <- maybe_handle_incoming(data) do
-        {:ok, object}
+    with {:ok, data} <- fetch_remote_object_from_id(id) |> info,
+         {:ok, object} <- maybe_handle_incoming(data) do
+      {:ok, object}
     end
   end
 
@@ -36,21 +39,27 @@ defmodule ActivityPub.Fetcher do
       info("object was already cached under another ID")
       # TODO: update in some specific cases?
       {:ok, object}
-    else other ->
-      info(other, "seems like a new object")
-      with {:ok, data} <- contain_origin(data) |> info(),
-           {:ok, object} <- Transmogrifier.handle_incoming(data) do
-        #  :ok <- check_if_public(object.public) do # huh?
-        case object do
-          # return the object rather than Create activity
-           %{object: object} = activity -> {:ok, object
-           |> Utils.maybe_put(:pointer, Map.get(activity, :pointer)) }
-           _ -> {:ok, object}
-         end
-      else
-        e ->
-          error(e)
-      end
+    else
+      other ->
+        info(other, "seems like a new object")
+
+        with {:ok, data} <- contain_origin(data) |> info(),
+             {:ok, object} <- Transmogrifier.handle_incoming(data) do
+          #  :ok <- check_if_public(object.public) do # huh?
+          case object do
+            # return the object rather than Create activity
+            %{object: object} = activity ->
+              {:ok,
+               object
+               |> Utils.maybe_put(:pointer, Map.get(activity, :pointer))}
+
+            _ ->
+              {:ok, object}
+          end
+        else
+          e ->
+            error(e)
+        end
     end
   end
 
@@ -62,7 +71,7 @@ defmodule ActivityPub.Fetcher do
       #   {:ok, ActivityPub.Actor.maybe_create_actor_from_object(object)}
       # else
       #   _ ->
-          {:ok, object}
+      {:ok, object}
       # end
     end
   end
@@ -125,8 +134,6 @@ defmodule ActivityPub.Fetcher do
       end
     end
   end
-
-
 
   defp check_if_public(public) when public == true, do: :ok
 

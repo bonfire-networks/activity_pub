@@ -38,7 +38,7 @@ defmodule ActivityPub.Signature do
          actor_id <- key_id_to_actor_id(kid),
          # Ensure the remote actor is freshly fetched before updating
          {:ok, actor} <- Fetcher.fetch_fresh_object_from_id(actor_id) |> info,
-        #  {:ok, actor} <- Actor.update_actor(actor_id) |> info,
+         #  {:ok, actor} <- Actor.update_actor(actor_id) |> info,
          # FIXME: This might update the actor twice in a row ^
          {:ok, actor} <- Actor.update_actor(actor_id, actor) |> info,
          {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor) do

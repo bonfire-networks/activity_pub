@@ -203,6 +203,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   defp process_incoming(conn, params) do
     Logger.metadata(action: info("incoming_ap_doc"))
+
     if Config.federating?() do
       Federator.incoming_ap_doc(params)
       |> info("processed")

@@ -15,6 +15,7 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
 
   def call(conn, _opts) do
     Logger.metadata(action: info("HTTPSignaturePlug"))
+
     if has_signature_header?(conn) do
       # set (request-target) header to the appropriate value
       # we also replace the digest header with the one we computed
@@ -31,8 +32,9 @@ defmodule ActivityPubWeb.Plugs.HTTPSignaturePlug do
             conn
         end
 
-      validate = HTTPSignatures.validate_conn(conn)
-      |> info("valid_signature?")
+      validate =
+        HTTPSignatures.validate_conn(conn)
+        |> info("valid_signature?")
 
       assign(conn, :valid_signature, validate)
     else

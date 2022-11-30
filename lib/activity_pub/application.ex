@@ -23,22 +23,22 @@ defmodule ActivityPub.Application do
                 interval: 1000
               )
 
-  if Mix.env() == :test and Application.get_env(:activity_pub, :disable_test_apps) !=true do
+  if Mix.env() == :test and Application.get_env(:activity_pub, :disable_test_apps) != true do
     def start(_type, _args) do
-      children = [
-        # Start the Ecto repository
-        repo(),
-        # Start the Telemetry supervisor
-        ActivityPubWeb.Telemetry,
-        # Start the PubSub system
-        {Phoenix.PubSub, name: ActivityPub.PubSub},
-        # Start the Endpoint (http/https)
-        ActivityPubWeb.Endpoint,
-        # Start a worker by calling: ActivityPub.Worker.start_link(arg)
-        # {ActivityPub.Worker, arg}
-        {Oban, oban_config()}
-      ] ++ cachex()
-
+      children =
+        [
+          # Start the Ecto repository
+          repo(),
+          # Start the Telemetry supervisor
+          ActivityPubWeb.Telemetry,
+          # Start the PubSub system
+          {Phoenix.PubSub, name: ActivityPub.PubSub},
+          # Start the Endpoint (http/https)
+          ActivityPubWeb.Endpoint,
+          # Start a worker by calling: ActivityPub.Worker.start_link(arg)
+          # {ActivityPub.Worker, arg}
+          {Oban, oban_config()}
+        ] ++ cachex()
 
       # See https://hexdocs.pm/elixir/Supervisor.html
       # for other strategies and supported options
@@ -57,7 +57,9 @@ defmodule ActivityPub.Application do
   end
 
   def cachex() do
-    if Application.get_env(:activity_pub, :disable_cache) !=true, do: [%{
+    if Application.get_env(:activity_pub, :disable_cache) != true,
+      do: [
+        %{
           id: :ap_actor_cache,
           start:
             {Cachex, :start_link,
@@ -81,7 +83,8 @@ defmodule ActivityPub.Application do
                ]
              ]}
         }
-      ], else: []
+      ],
+      else: []
   end
 
   defp oban_config() do

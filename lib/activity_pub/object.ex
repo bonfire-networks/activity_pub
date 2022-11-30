@@ -33,13 +33,16 @@ defmodule ActivityPub.Object do
   def get_cached(ap_id: id) when is_binary(id), do: do_get_cached(:ap_id, id)
   def get_cached(pointer: id) when is_binary(id), do: do_get_cached(:pointer, id)
 
-  def get_cached([_: %Object{} = o]), do: o
+  def get_cached(_: %Object{} = o), do: o
 
   def get_cached(id: %{id: id}) when is_binary(id), do: get_cached(id: id)
   def get_cached(pointer: %{id: id}) when is_binary(id), do: get_cached(pointer: id)
   def get_cached([{_, %{ap_id: ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
   def get_cached([{_, %{"id" => ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
-  def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+
+  def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id),
+    do: get_cached(ap_id: ap_id)
+
   def get_cached(id) when is_binary(id) do
     if Utils.is_ulid?(id) do
       get(pointer: id)
@@ -51,6 +54,7 @@ defmodule ActivityPub.Object do
       end
     end
   end
+
   # def get_cached(opts) do
   #   error(opts, "Unexpected args")
   #   raise "Unexpected args for get_cached"
@@ -62,9 +66,10 @@ defmodule ActivityPub.Object do
   def get_cached!(opts) do
     with {:ok, object} <- get_cached(opts) do
       object
-    else e ->
-      error(e)
-      nil
+    else
+      e ->
+        error(e)
+        nil
     end
   end
 
@@ -77,31 +82,35 @@ defmodule ActivityPub.Object do
       get(id: id)
     end
   end
+
   defp get(id: id) when is_binary(id) do
     case repo().get(Object, id) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
   end
+
   defp get(pointer: id) when is_binary(id) do
     case repo().get_by(Object, pointer_id: id) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
   end
+
   defp get(ap_id: ap_id) when is_binary(ap_id) do
     case repo().one(
-      from(object in Object,
-        # support for looking up by non-canonical URL
-        where:
-          fragment("(?)->>'id' = ?", object.data, ^ap_id) or
-            fragment("(?)->>'url' = ?", object.data, ^ap_id)
-      )
-    ) do
+           from(object in Object,
+             # support for looking up by non-canonical URL
+             where:
+               fragment("(?)->>'id' = ?", object.data, ^ap_id) or
+                 fragment("(?)->>'url' = ?", object.data, ^ap_id)
+           )
+         ) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
   end
+
   defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
 
@@ -110,12 +119,11 @@ defmodule ActivityPub.Object do
     raise "Unexpected args for Actor.get"
   end
 
-
-    @doc false
+  @doc false
   def insert(params, local?, pointer \\ nil, upsert? \\ false)
       when is_map(params) and is_boolean(local?) do
     with activity_id <- Ecto.UUID.generate(),
-        params <- normalize_params(params, activity_id, pointer),
+         params <- normalize_params(params, activity_id, pointer),
          :ok <- Actor.check_actor_is_active(params["actor"]),
          # set some healthy boundaries
          {:ok, params} <- MRF.filter(params, local?),
@@ -126,8 +134,8 @@ defmodule ActivityPub.Object do
          # for activities without an object
          {:ok, activity} <-
            (if is_nil(object) do
-            do_insert(%{
-              # activities without an object
+              do_insert(%{
+                # activities without an object
                 id: activity_id,
                 data: activity,
                 local: local?,
@@ -151,7 +159,7 @@ defmodule ActivityPub.Object do
           activity
         end
 
-        info(activity, "inserted activity in #{repo()}")
+      info(activity, "inserted activity in #{repo()}")
 
       {:ok, activity}
     else
@@ -186,7 +194,9 @@ defmodule ActivityPub.Object do
     # we're taking a shortcut by assuming that anything that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
     # check that it doesn't already exist
     debug(object_data, "object to #{if upsert?, do: "update", else: "insert"}")
-    with maybe_existing_object <- normalize(object_data, false, pointer) |> info("maybe_existing_object"),
+
+    with maybe_existing_object <-
+           normalize(object_data, false, pointer) |> info("maybe_existing_object"),
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> info("maybe_upserted") do
@@ -206,6 +216,7 @@ defmodule ActivityPub.Object do
   def maybe_upsert(true, %ActivityPub.Object{} = existing_object, attrs) do
     debug(existing_object, "Object to upsert")
     debug(attrs, "attrs to upsert")
+
     changeset(existing_object, attrs)
     |> update_and_set_cache()
   end
@@ -260,9 +271,11 @@ defmodule ActivityPub.Object do
 
   def update_existing(object_id, attrs) do
     case get(id: object_id) do
-      {:ok, object} -> do_update_existing(object, attrs)
-    e ->
-      error(object_id, "Could not find the object to update")
+      {:ok, object} ->
+        do_update_existing(object, attrs)
+
+      e ->
+        error(object_id, "Could not find the object to update")
     end
   end
 
@@ -284,11 +297,11 @@ defmodule ActivityPub.Object do
       error(e, "Could not update the AP object")
   end
 
-  @doc false # for debugging
+  # for debugging
+  @doc false
   def all() do
     repo().many(from(object in Object))
   end
-
 
   @doc """
   Prepares a struct to be inserted into the objects table
@@ -304,9 +317,9 @@ defmodule ActivityPub.Object do
     {:ok, data}
   end
 
-
   defp lazy_put_activity_defaults(map, activity_id, pointer) do
-    context = map["context"] #|| Utils.generate_id("contexts")
+    # || Utils.generate_id("contexts")
+    context = map["context"]
 
     map =
       map
@@ -315,9 +328,10 @@ defmodule ActivityPub.Object do
       |> Map.put_new("context", context)
 
     if is_map(map["object"]) do
-      object = map["object"]
-      |> lazy_put_object_defaults(map["id"], pointer, map["context"])
-      |> normalize_actors()
+      object =
+        map["object"]
+        |> lazy_put_object_defaults(map["id"], pointer, map["context"])
+        |> normalize_actors()
 
       %{map | "object" => object}
     else
@@ -325,12 +339,15 @@ defmodule ActivityPub.Object do
     end
   end
 
-  defp lazy_put_object_defaults(%{data: data}, activity_id, pointer, context), do: lazy_put_object_defaults(data, activity_id, pointer, context)
+  defp lazy_put_object_defaults(%{data: data}, activity_id, pointer, context),
+    do: lazy_put_object_defaults(data, activity_id, pointer, context)
+
   defp lazy_put_object_defaults(map, activity_id, pointer, context) do
     map
     |> Map.put_new_lazy("id", fn ->
-      if is_binary(pointer) or is_map(pointer), do: object_url(pointer),
-      else: Utils.generate_object_id()
+      if is_binary(pointer) or is_map(pointer),
+        do: object_url(pointer),
+        else: Utils.generate_object_id()
     end)
     |> Map.put_new_lazy("published", &Utils.make_date/0)
     |> Utils.maybe_put("context", context)
@@ -393,12 +410,14 @@ defmodule ActivityPub.Object do
   def normalize_params(%{data: data} = _params, activity_id, pointer) do
     normalize_params(data, activity_id, pointer)
   end
+
   def normalize_params(params, activity_id, pointer) do
     normalize_actors(params)
     |> lazy_put_activity_defaults(activity_id, pointer)
   end
 
   def normalize_actors(%{data: data}), do: normalize_actors(data)
+
   def normalize_actors(params) do
     # Some implementations include actors as URIs, others inline the entire actor object, this function figures out what the URIs are based on what we have.
     params
@@ -409,7 +428,6 @@ defmodule ActivityPub.Object do
     |> Utils.maybe_put("bcc", get_ap_ids(params["bcc"]))
     |> Utils.maybe_put("audience", get_ap_ids(params["audience"]))
   end
-
 
   def make_tombstone(
         %Object{data: %{"id" => id, "type" => type}},
@@ -433,7 +451,7 @@ defmodule ActivityPub.Object do
 
   def delete(%Object{} = object) do
     with {:ok, _obj} <- swap_object_with_tombstone(object),
-    :ok <- invalidate_cache(object) do
+         :ok <- invalidate_cache(object) do
       {:ok, object}
     end
   end
@@ -445,6 +463,7 @@ defmodule ActivityPub.Object do
   end
 
   def get_outbox_for_actor(%{ap_id: ap_id}), do: get_outbox_for_actor(ap_id)
+
   def get_outbox_for_actor(ap_id) when is_binary(ap_id) do
     from(object in Object,
       where:
@@ -456,7 +475,8 @@ defmodule ActivityPub.Object do
   end
 
   def get_outbox_for_actor(%{ap_id: ap_id}, page), do: get_outbox_for_actor(ap_id, page)
-  def get_outbox_fox_actor(ap_id, page) when is_binary(ap_id)  do
+
+  def get_outbox_fox_actor(ap_id, page) when is_binary(ap_id) do
     offset = (page - 1) * 10
 
     from(object in Object,
@@ -485,8 +505,6 @@ defmodule ActivityPub.Object do
   def object_url(%{pointer_id: id}) when is_binary(id), do: object_url(id)
   def object_url(%{id: id}) when is_binary(id), do: object_url(id)
   def object_url(id) when is_binary(id), do: Utils.ap_base_url() <> "/objects/" <> id
-
-
 
   def fetch_latest_follow(%{data: %{"id" => follower_id}}, %{
         data: %{"id" => followed_id}
@@ -543,7 +561,7 @@ defmodule ActivityPub.Object do
     repo().one(query)
   end
 
-    #### Announce-related helpers
+  #### Announce-related helpers
 
   @doc """
   Retruns an existing announce activity if the notice has already been announced
@@ -566,7 +584,6 @@ defmodule ActivityPub.Object do
 
     repo().one(query)
   end
-
 
   #### Block-related helpers
   def fetch_latest_block(%{data: %{"id" => blocker_id}}, %{

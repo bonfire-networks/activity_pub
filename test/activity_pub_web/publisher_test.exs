@@ -38,7 +38,8 @@ defmodule ActivityPubWeb.PublisherTest do
     assert :ok == Publisher.publish(actor, activity)
 
     queue = Oban.drain_queue(queue: :federator_outgoing)
-    assert queue[:success] == 1 #(previous_queue[:success] || 0) + 1
+    # (previous_queue[:success] || 0) + 1
+    assert queue[:success] == 1
     assert queue[:failure] == (previous_queue[:failure] || 0)
   end
 

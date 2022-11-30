@@ -31,8 +31,7 @@ defmodule ActivityPub.SharedDataCase do
         apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)
 
-
-    on_exit fn ->
+    on_exit(fn ->
       # this callback needs to checkout its own connection since it
       # runs in its own process
       :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
@@ -43,11 +42,11 @@ defmodule ActivityPub.SharedDataCase do
       Object.delete(actor1)
       Object.delete(actor2)
       :ok
-    end
+    end)
 
     [
       actor1: actor1,
       actor2: actor2
     ]
-   end
+  end
 end

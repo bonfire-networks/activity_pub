@@ -112,18 +112,21 @@ defmodule ActivityPubWeb.Publisher do
         {:ok, []}
       end
 
-    (remote_recipients(actor, activity) |> info("remote_recipients"))
-    ++ followers
+    (remote_recipients(actor, activity) |> info("remote_recipients")) ++
+      followers
   end
 
   # TODO: add bcc
   defp remote_recipients(_actor, %{data: data}) do
-
-    ( [Map.get(data, "to", nil)] ++ [Map.get(data, "bto", nil)] ++ [Map.get(data, "cc", nil)] ++ [Map.get(data, "bcc", nil)] ++ [Map.get(data, "audience", nil)] ++ [Map.get(data, "context", nil)] )
+    ([Map.get(data, "to", nil)] ++
+       [Map.get(data, "bto", nil)] ++
+       [Map.get(data, "cc", nil)] ++
+       [Map.get(data, "bcc", nil)] ++
+       [Map.get(data, "audience", nil)] ++ [Map.get(data, "context", nil)])
     |> List.flatten()
     |> Enum.reject(&is_nil/1)
     |> List.delete(@public_uri)
-    |> Enum.map(& Actor.get_cached!(ap_id: &1) || &1)
+    |> Enum.map(&(Actor.get_cached!(ap_id: &1) || &1))
     |> Enum.reject(fn
       %{local: local} = actor ->
         info(actor, "Local actor?")
@@ -188,6 +191,7 @@ defmodule ActivityPubWeb.Publisher do
         inbox
     end
   end
+
   def determine_inbox(_, user) do
     warn(user, "No inbox")
     nil

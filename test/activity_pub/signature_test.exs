@@ -29,7 +29,7 @@ defmodule ActivityPub.SignatureTest do
     test "it returns {:ok, :nil} when not found user" do
       assert capture_log(fn ->
                assert Signature.fetch_public_key(make_fake_conn("test-ap_id")) ==
-                        {:ok, :nil}
+                        {:ok, nil}
              end)
     end
   end

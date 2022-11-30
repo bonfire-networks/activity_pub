@@ -50,18 +50,19 @@ defmodule ActivityPub.Actor do
   def get_cached(username: username), do: do_get_cached(:username, username)
   def get_cached(ap_id: ap_id) when is_binary(ap_id), do: do_get_cached(:ap_id, ap_id)
 
-  def get_cached([_: %Actor{} = actor]), do: actor
+  def get_cached(_: %Actor{} = actor), do: actor
 
   def get_cached(id: %{id: id}) when is_binary(id), do: get_cached(id: id)
   def get_cached(pointer: %{id: id}) when is_binary(id), do: get_cached(pointer: id)
   def get_cached([{_, %{ap_id: ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
   def get_cached([{_, %{"id" => ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
-  def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
+
+  def get_cached([{_, %{data: %{"id" => ap_id}}}]) when is_binary(ap_id),
+    do: get_cached(ap_id: ap_id)
 
   def get_cached(username: "@" <> username), do: get_cached(username: username)
 
   def get_cached(opts), do: get(opts)
-
 
   defp do_get_cached(key, val), do: Utils.get_with_cache(&get/1, :ap_actor_cache, key, val)
 
@@ -77,8 +78,8 @@ defmodule ActivityPub.Actor do
   Fetches a local actor given its preferred username.
   """
   defp get(username: "@" <> username), do: get_cached(username: username)
-  defp get(username: username) do
 
+  defp get(username: username) do
     with {:ok, actor} <- Adapter.get_actor_by_username(username) do
       {:ok, actor}
     else
@@ -91,7 +92,8 @@ defmodule ActivityPub.Actor do
   defp get(id: id) when not is_nil(id) do
     with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
       {:ok, format_remote_actor(actor)}
-    else e ->
+    else
+      e ->
         error(e, "Not a remote actor (so cannot query by UUID)")
         {:error, :not_found}
     end
@@ -100,14 +102,15 @@ defmodule ActivityPub.Actor do
   defp get(pointer: id) when not is_nil(id) do
     with {:ok, actor} <- ActivityPub.Object.get_cached(pointer: id) do
       {:ok, format_remote_actor(actor)}
-    else _ ->
-       with {:ok, actor} <- Adapter.get_actor_by_id(id) do
-        {:ok, actor}
-      else
-        e ->
-          error(e, "Adapter did not find a local actor")
-          {:error, :not_found}
-      end
+    else
+      _ ->
+        with {:ok, actor} <- Adapter.get_actor_by_id(id) do
+          {:ok, actor}
+        else
+          e ->
+            error(e, "Adapter did not find a local actor")
+            {:error, :not_found}
+        end
     end
   end
 
@@ -134,21 +137,18 @@ defmodule ActivityPub.Actor do
   """
   @spec get(ap_id: String.t()) :: {:ok, Actor.t()} | {:error, any()}
   defp get(ap_id: ap_id) when is_binary(ap_id) do
-
     with {:ok, actor} <- get_remote_actor(ap_id) do
       {:ok, actor}
-    else e ->
+    else
+      e ->
         Adapter.get_actor_by_ap_id(ap_id)
     end
-
   end
-
 
   defp get(opts) do
     error(opts, "Unexpected args")
     raise "Unexpected args for Actor.get"
   end
-
 
   @doc """
   Updates an existing actor struct by its AP ID.
@@ -162,8 +162,10 @@ defmodule ActivityPub.Actor do
       update_actor(actor_id, data)
     end
   end
+
   def update_actor(actor_id, %{data: data}), do: update_actor(actor_id, data)
-  def update_actor(actor_id, %{"id"=>_} = data) do
+
+  def update_actor(actor_id, %{"id" => _} = data) do
     # TODO: make better
     debug(actor_id, "Updating actor")
     # dump(ActivityPub.Object.all())
@@ -261,14 +263,13 @@ defmodule ActivityPub.Actor do
   #   |> List.last()
   # end
 
-
   defp get_remote_actor(ap_id, maybe_create \\ true) do
     with {:ok, actor} <- Object.get_cached(ap_id: ap_id),
          false <- check_if_time_to_update(actor),
          actor <- format_remote_actor(actor),
-         {:ok, adapter_actor} <- (if maybe_create, do: Adapter.maybe_create_remote_actor(actor), else: {:ok, nil}),
+         {:ok, adapter_actor} <-
+           if(maybe_create, do: Adapter.maybe_create_remote_actor(actor), else: {:ok, nil}),
          actor <- Map.put(actor, :pointer, adapter_actor) do
-
       {:ok, actor}
     else
       true ->
@@ -283,12 +284,14 @@ defmodule ActivityPub.Actor do
   end
 
   def format_username(%{data: data}), do: format_username(data)
-  def format_username(%{"id"=> id, "preferredUsername"=>nick}) do
+
+  def format_username(%{"id" => id, "preferredUsername" => nick}) do
     uri = URI.parse(id)
     port = if uri.port not in [80, 443], do: ":#{uri.port}"
 
     "#{nick}@#{uri.host}#{port}"
   end
+
   def format_username(other) do
     warn(other, "Dunno how to format_username for")
     nil
@@ -321,6 +324,7 @@ defmodule ActivityPub.Actor do
       pointer: object.pointer
     }
   end
+
   def format_remote_actor(%__MODULE__{} = actor) do
     actor
   end
@@ -335,20 +339,22 @@ defmodule ActivityPub.Actor do
     case do_maybe_create_actor_from_object(actor) do
       {:ok, %Actor{} = actor} ->
         {:ok, actor}
+
       {:ok, %{} = object} ->
-         warn(object, "Not an actor?")
-         {:ok, object}
+        warn(object, "Not an actor?")
+        {:ok, object}
+
       e ->
         error(e, "Could not find or create an actor")
     end
   end
 
   defp do_maybe_create_actor_from_object(%{data: %{"type" => type}} = actor)
-      when type in @supported_actor_types do
+       when type in @supported_actor_types do
     with actor <- format_remote_actor(actor),
-    {:ok, adapter_actor} <- Adapter.maybe_create_remote_actor(actor),
-    {:ok, actor} <- set_cache(actor) do
-      {:ok, actor |> Map.put(:pointer, adapter_actor) }
+         {:ok, adapter_actor} <- Adapter.maybe_create_remote_actor(actor),
+         {:ok, actor} <- set_cache(actor) do
+      {:ok, actor |> Map.put(:pointer, adapter_actor)}
     end
   end
 
@@ -380,6 +386,7 @@ defmodule ActivityPub.Actor do
     Cachex.put(:ap_actor_cache, "username:#{actor.username}", actor)
     {:ok, actor}
   end
+
   def set_cache(e), do: error(e, "Not an actor")
 
   def invalidate_cache(%Actor{} = actor) do
@@ -390,26 +397,31 @@ defmodule ActivityPub.Actor do
     Object.invalidate_cache(actor)
   end
 
-
   @doc false
   def add_public_key(%{data: _} = actor) do
-
     with {:ok, actor} <- ensure_keys_present(actor),
          {:ok, _, public_key} <- ActivityPub.Keys.keys_from_pem(actor.keys) do
       public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
       public_key = :public_key.pem_encode([public_key])
 
-      Map.put(actor, :data,
-        Map.merge(actor.data,
-          %{"publicKey"=> %{
-          "id" => "#{actor.data["id"]}#main-key",
-          "owner" => actor.data["id"],
-          "publicKeyPem" => public_key
-        }}
-      ))
-    else e ->
-      error(e, "Could not add public key")
-      actor
+      Map.put(
+        actor,
+        :data,
+        Map.merge(
+          actor.data,
+          %{
+            "publicKey" => %{
+              "id" => "#{actor.data["id"]}#main-key",
+              "owner" => actor.data["id"],
+              "publicKeyPem" => public_key
+            }
+          }
+        )
+      )
+    else
+      e ->
+        error(e, "Could not add public key")
+        actor
     end
   end
 
@@ -491,9 +503,10 @@ defmodule ActivityPub.Actor do
   def update_actor_data_by_ap_id(ap_id, data) when is_binary(ap_id) do
     with {:ok, object} <- Object.get_uncached(ap_id: ap_id) do
       update_actor_data_by_ap_id(object, data)
-    else e ->
-      warn(e)
-      maybe_create_actor_from_object(data)
+    else
+      e ->
+        warn(e)
+        maybe_create_actor_from_object(data)
     end
   end
 
@@ -550,7 +563,7 @@ defmodule ActivityPub.Actor do
     if not is_nil(actor) do
       with {:ok, %{deactivated: true}} <- get_cached(ap_id: actor) do
         error(actor, "Actor deactivated")
-          :reject
+        :reject
       else
         _ ->
           :ok
@@ -570,5 +583,4 @@ defmodule ActivityPub.Actor do
       do: true
 
   def actor?(_), do: false
-
 end

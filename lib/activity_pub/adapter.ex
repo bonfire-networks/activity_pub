@@ -113,5 +113,4 @@ defmodule ActivityPub.Adapter do
   end
 
   def maybe_handle_activity(_), do: {:ok, :local}
-
 end

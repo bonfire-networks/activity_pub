@@ -58,7 +58,7 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
-  def create(%{to: to, actor: actor, context: context, object: object} = params) do
+  def create(%{to: to, actor: actor, object: object} = params) do
     additional = params[:additional] || %{}
 
     with nil <- Object.normalize(additional["id"], false),
@@ -68,7 +68,7 @@ defmodule ActivityPub do
                to: to,
                actor: actor,
                published: params[:published],
-               context: context,
+               context: Map.get(params, :context),
                object: object
              },
              additional

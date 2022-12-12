@@ -6,12 +6,12 @@ defmodule ActivityPub.HTTPTest do
     mock(fn
       %{
         method: :get,
-        url: "http://example.com/hello",
+        url: "http://example.local/hello",
         headers: [{"content-type", "application/json"}]
       } ->
         json(%{"my" => "data"})
 
-      %{method: :get, url: "http://example.com/hello"} ->
+      %{method: :get, url: "http://example.local/hello"} ->
         %Tesla.Env{status: 200, body: "hello"}
     end)
 
@@ -20,7 +20,7 @@ defmodule ActivityPub.HTTPTest do
 
   describe "get/1" do
     test "returns successfully result" do
-      assert ActivityPub.HTTP.get("http://example.com/hello") == {
+      assert ActivityPub.HTTP.get("http://example.local/hello") == {
                :ok,
                %Tesla.Env{status: 200, body: "hello"}
              }
@@ -29,7 +29,7 @@ defmodule ActivityPub.HTTPTest do
 
   describe "get/2 (with headers)" do
     test "returns successfully result for json content-type" do
-      assert ActivityPub.HTTP.get("http://example.com/hello", [
+      assert ActivityPub.HTTP.get("http://example.local/hello", [
                {"content-type", "application/json"}
              ]) ==
                {

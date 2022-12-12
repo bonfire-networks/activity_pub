@@ -7,18 +7,21 @@ defmodule ActivityPub.FetcherTest do
 
   setup do
     mock(fn
-      %{method: :get, url: "https://pleroma.example/userisgone404"} ->
+      %{method: :get, url: "https://fedi.local/userisgone404"} ->
         %Tesla.Env{status: 404}
 
-      %{method: :get, url: "https://pleroma.example/userisgone410"} ->
+      %{method: :get, url: "https://fedi.local/userisgone410"} ->
         %Tesla.Env{status: 410}
+
+      %{method: :get, url: "https://fedi.local/userisgone502"} ->
+        %Tesla.Env{status: 502}
 
       %{method: :get, url: "https://mastodon.local/user/karen"} ->
         ActivityPub.Test.HttpRequestMock.get(
           "https://mastodon.local/users/karen",
           nil,
           nil,
-          Accept: "application/activity+json"
+          nil
         )
 
       env ->
@@ -142,12 +145,17 @@ defmodule ActivityPub.FetcherTest do
   describe "handles errors" do
     test "handle HTTP 410 Gone response" do
       assert {:error, "Object not found or deleted"} ==
-               Fetcher.fetch_remote_object_from_id("https://pleroma.example/userisgone410")
+               Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone410")
     end
 
     test "handle HTTP 404 response" do
       assert {:error, "Object not found or deleted"} ==
-               Fetcher.fetch_remote_object_from_id("https://pleroma.example/userisgone404")
+               Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone404")
+    end
+
+    test "handle HTTP 502 response" do
+      assert {:error, _} =
+               Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone502")
     end
   end
 end

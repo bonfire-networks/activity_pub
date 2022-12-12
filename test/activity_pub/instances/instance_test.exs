@@ -42,11 +42,11 @@ defmodule ActivityPub.Instances.InstanceTest do
 
   describe "set_unreachable/1" do
     test "creates new record having `unreachable_since` to current time if record does not exist" do
-      assert {:ok, instance} = Instance.set_unreachable("https://domain.com/path")
+      assert {:ok, instance} = Instance.set_unreachable("https://domain.local/path")
 
       instance = repo().get(Instance, instance.id)
       assert instance.unreachable_since
-      assert "domain.com" == instance.host
+      assert "domain.local" == instance.host
     end
 
     test "sets `unreachable_since` of existing record having nil `unreachable_since`" do

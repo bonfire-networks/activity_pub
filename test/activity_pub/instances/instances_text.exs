@@ -15,8 +15,8 @@ defmodule ActivityPub.InstancesTest do
 
   describe "reachable?/1" do
     test "returns `true` for host / url with unknown reachability status" do
-      assert Instances.reachable?("unknown.site")
-      assert Instances.reachable?("http://unknown.site")
+      assert Instances.reachable?("unknown.local")
+      assert Instances.reachable?("http://unknown.local")
     end
 
     test "returns `false` for host / url marked unreachable for at least `reachability_datetime_threshold()`" do
@@ -28,7 +28,7 @@ defmodule ActivityPub.InstancesTest do
     end
 
     test "returns `true` for host / url marked unreachable for less than `reachability_datetime_threshold()`" do
-      url = "http://eventually-unreachable.name/path"
+      url = "http://eventually-unreachable.local/path"
 
       Instances.set_unreachable(url)
 
@@ -45,8 +45,8 @@ defmodule ActivityPub.InstancesTest do
   describe "filter_reachable/1" do
     setup do
       host = "consistently-unreachable.name"
-      url1 = "http://eventually-unreachable.com/path"
-      url2 = "http://domain.com/path"
+      url1 = "http://eventually-unreachable.local/path"
+      url2 = "http://domain.local/path"
 
       Instances.set_consistently_unreachable(host)
       Instances.set_unreachable(url1)
@@ -76,7 +76,7 @@ defmodule ActivityPub.InstancesTest do
 
   describe "set_reachable/1" do
     test "sets unreachable url or host reachable" do
-      host = "domain.com"
+      host = "domain.local"
       Instances.set_consistently_unreachable(host)
       refute Instances.reachable?(host)
 
@@ -85,7 +85,7 @@ defmodule ActivityPub.InstancesTest do
     end
 
     test "keeps reachable url or host reachable" do
-      url = "https://site.name?q="
+      url = "https://site.local?q="
       assert Instances.reachable?(url)
 
       Instances.set_reachable(url)
@@ -109,7 +109,7 @@ defmodule ActivityPub.InstancesTest do
 
   describe "set_consistently_unreachable/1" do
     test "sets reachable url or host unreachable" do
-      url = "http://domain.com?q="
+      url = "http://domain.local?q="
       assert Instances.reachable?(url)
 
       Instances.set_consistently_unreachable(url)
@@ -117,7 +117,7 @@ defmodule ActivityPub.InstancesTest do
     end
 
     test "keeps unreachable url or host unreachable" do
-      host = "site.name"
+      host = "site.local"
       Instances.set_consistently_unreachable(host)
       refute Instances.reachable?(host)
 

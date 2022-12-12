@@ -33,7 +33,7 @@ defmodule ActivityPub.HTTP do
 
       %{}
       |> Builder.method(method)
-      |> Builder.headers(headers ++ [{"User-Agent", Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub elixir library"}])
+      |> Builder.headers(headers ++ [{"User-Agent", Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"}])
       |> Builder.opts(options)
       |> Builder.url(url)
       |> Builder.add_param(:body, :body, body)
@@ -42,7 +42,7 @@ defmodule ActivityPub.HTTP do
       |> (&Tesla.request(Connection.new(options), &1)).()
     rescue
       e in Tesla.Mock.Error ->
-        error(e, :test_mock_error)
+        error(e, "Test mock HTTP error")
 
       e ->
         error(e, "HTTP request failed")

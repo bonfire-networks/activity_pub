@@ -93,21 +93,22 @@ defmodule ActivityPub.Fetcher do
       {:ok, data}
     else
       {:ok, %{status: code}} when code in [404, 410] ->
-        warn(id, "404")
-
+        warn(id, "ActivityPub remote replied with 404")
         {:error, "Object not found or deleted"}
 
       %Jason.DecodeError{} = error ->
-        error("Invalid AP JSON")
+        error("Invalid ActivityPub JSON")
 
       {:error, :econnrefused} = e ->
-        error("Could not connect")
+        error("Could not connect to ActivityPub remote")
 
       {:error, e} ->
         error(e)
 
+      {:ok, %{status: code} = e} ->
+        error(e, "ActivityPub remote replied with HTTP #{code}")
       e ->
-        error(e)
+        error(e, "Error trying to connect with ActivityPub remote")
     end
   end
 

@@ -27,14 +27,13 @@ defmodule ActivityPub.HTTP do
       options =
         process_request_options(options)
         |> process_sni_options(url)
-
       # |> info("options")
 
       params = Keyword.get(options, :params, [])
 
       %{}
       |> Builder.method(method)
-      |> Builder.headers(headers)
+      |> Builder.headers(headers ++ [{"User-Agent", Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub elixir library"}])
       |> Builder.opts(options)
       |> Builder.url(url)
       |> Builder.add_param(:body, :body, body)

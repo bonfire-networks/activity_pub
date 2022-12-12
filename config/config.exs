@@ -59,6 +59,7 @@ config :activity_pub, :instance,
 
 config :activity_pub, :http,
   proxy_url: nil,
+  user_agent: "ActivityPub elixir library",
   send_user_agent: true,
   adapter: [
     ssl_options: [

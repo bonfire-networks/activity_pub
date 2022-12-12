@@ -140,7 +140,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.local/users/karen", _, _, Accept: "application/activity+json") do
+  def get("https://mastodon.local/users/karen", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -148,7 +148,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.local/@karen", _, _, Accept: "application/activity+json") do
+  def get("https://mastodon.local/@karen", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,

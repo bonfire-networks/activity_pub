@@ -229,7 +229,7 @@ defmodule ActivityPub.Factory do
 
   def instance_factory do
     %ActivityPub.Instances.Instance{
-      host: "domain.com",
+      host: "domain.local",
       unreachable_since: nil
     }
   end

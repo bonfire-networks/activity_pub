@@ -12,7 +12,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
 
   setup do
     mock(fn
-      %{method: :get, url: "https://pleroma.example/objects/410"} ->
+      %{method: :get, url: "https://fedi.local/objects/410"} ->
         %Tesla.Env{status: 410}
 
       env ->
@@ -30,7 +30,7 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     end
 
     test "it works for incoming deletes when object was deleted on origin instance" do
-      note = insert(:note, %{data: %{"id" => "https://pleroma.example/objects/410"}})
+      note = insert(:note, %{data: %{"id" => "https://fedi.local/objects/410"}})
 
       activity = insert(:note_activity, %{note: note})
 

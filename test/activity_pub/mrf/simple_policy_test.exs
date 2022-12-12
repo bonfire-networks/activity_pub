@@ -33,18 +33,18 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
   end
 
   defp build_remote_message do
-    %{"actor" => "https://remote.instance/users/bob"}
+    %{"actor" => "https://remote.instance.local/users/bob"}
   end
 
   defp build_remote_user do
     %{
-      "id" => "https://remote.instance/users/bob",
+      "id" => "https://remote.instance.local/users/bob",
       "icon" => %{
-        "url" => "http://example.com/image.jpg",
+        "url" => "http://example.local/image.jpg",
         "type" => "Image"
       },
       "image" => %{
-        "url" => "http://example.com/image.jpg",
+        "url" => "http://example.local/image.jpg",
         "type" => "Image"
       },
       "type" => "Person"
@@ -53,7 +53,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
   defp build_media_message do
     %{
-      "actor" => "https://remote.instance/users/bob",
+      "actor" => "https://remote.instance.local/users/bob",
       "type" => "Create",
       "object" => %{
         "attachment" => [%{}],
@@ -65,7 +65,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
 
   defp build_report_message do
     %{
-      "actor" => "https://remote.instance/users/bob",
+      "actor" => "https://remote.instance.local/users/bob",
       "type" => "Flag"
     }
   end
@@ -81,7 +81,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "has a matching host" do
-      Config.put([:mrf_simple, :media_removal], ["remote.instance"])
+      Config.put([:mrf_simple, :media_removal], ["remote.instance.local"])
       media_message = build_media_message()
       local_message = build_local_message()
 
@@ -97,7 +97,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :media_removal], ["*remote.instance"])
+      Config.put([:mrf_simple, :media_removal], ["*remote.instance.local"])
       media_message = build_media_message()
       local_message = build_local_message()
 
@@ -124,7 +124,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "has a matching host" do
-      Config.put([:mrf_simple, :media_nsfw], ["remote.instance"])
+      Config.put([:mrf_simple, :media_nsfw], ["remote.instance.local"])
       media_message = build_media_message()
       local_message = build_local_message()
 
@@ -138,7 +138,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :media_nsfw], ["*remote.instance"])
+      Config.put([:mrf_simple, :media_nsfw], ["*remote.instance.local"])
       media_message = build_media_message()
       local_message = build_local_message()
 
@@ -163,7 +163,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "has a matching host" do
-      Config.put([:mrf_simple, :report_removal], ["remote.instance"])
+      Config.put([:mrf_simple, :report_removal], ["remote.instance.local"])
       report_message = build_report_message()
       local_message = build_local_message()
 
@@ -172,7 +172,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :report_removal], ["*remote.instance"])
+      Config.put([:mrf_simple, :report_removal], ["*remote.instance.local"])
       report_message = build_report_message()
       local_message = build_local_message()
 
@@ -191,7 +191,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "has a matching host" do
-      Config.put([:mrf_simple, :reject], ["remote.instance"])
+      Config.put([:mrf_simple, :reject], ["remote.instance.local"])
 
       remote_message = build_remote_message()
 
@@ -199,7 +199,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :reject], ["*remote.instance"])
+      Config.put([:mrf_simple, :reject], ["*remote.instance.local"])
 
       remote_message = build_remote_message()
 
@@ -225,7 +225,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "has a matching host" do
-      Config.put([:mrf_simple, :avatar_removal], ["remote.instance"])
+      Config.put([:mrf_simple, :avatar_removal], ["remote.instance.local"])
 
       remote_user = build_remote_user()
       {:ok, filtered} = SimplePolicy.filter(remote_user, false)
@@ -234,7 +234,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :avatar_removal], ["*remote.instance"])
+      Config.put([:mrf_simple, :avatar_removal], ["*remote.instance.local"])
 
       remote_user = build_remote_user()
       {:ok, filtered} = SimplePolicy.filter(remote_user, false)
@@ -261,7 +261,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "has a matching host" do
-      Config.put([:mrf_simple, :banner_removal], ["remote.instance"])
+      Config.put([:mrf_simple, :banner_removal], ["remote.instance.local"])
 
       remote_user = build_remote_user()
       {:ok, filtered} = SimplePolicy.filter(remote_user, false)
@@ -270,7 +270,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     end
 
     test "match with wildcard domain" do
-      Config.put([:mrf_simple, :banner_removal], ["*remote.instance"])
+      Config.put([:mrf_simple, :banner_removal], ["*remote.instance.local"])
 
       remote_user = build_remote_user()
       {:ok, filtered} = SimplePolicy.filter(remote_user, false)

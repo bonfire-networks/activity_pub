@@ -170,6 +170,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   # only accept relayed Creates
   def inbox(conn, %{"type" => "Create"} = params) do
+    # info(conn)
     warn(
       params,
       "Signature missing or not from author, so fetching object from source"
@@ -191,7 +192,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   def inbox(conn, params) do
     invalid_signature(conn.req_headers, params)
 
-    error("TODO: should we ignore incoming unsigned or invalidly signed activities?")
+    error("TODO: should we discard incoming unsigned or invalidly signed activities?")
     process_incoming(conn, params)
 
     # json(conn, "invalid signature")

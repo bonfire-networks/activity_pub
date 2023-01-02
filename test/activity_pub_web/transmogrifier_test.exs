@@ -256,28 +256,29 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     end
 
     test "update activities for an actor ignores the given object and re-fetches the remote actor instead" do
-      data = file("fixtures/mastodon-post-activity.json") |> Jason.decode!()
+      original_actor = file("fixtures/mastodon-actor.json") |> Jason.decode!()
 
-      assert %Object{data: data, local: false} = ok_unwrap(Transmogrifier.handle_incoming(data))
+      assert %Actor{data: original_actor, local: false} = ok_unwrap(Transmogrifier.handle_incoming(original_actor))
 
       update_data = file("fixtures/mastodon-update.json") |> Jason.decode!()
 
-      {:ok, actor} = Actor.get_or_fetch_by_ap_id(data["actor"])
+      {:ok, actor} = Actor.get_or_fetch_by_ap_id(original_actor)
 
       update_object =
-        update_data["object"]
-        |> Map.put("actor", data["actor"])
-        |> Map.put("id", data["actor"])
+        update_data["object"] 
+        # |> Map.put("actor", original_actor["id"]) 
+        |> Map.put("id", original_actor["id"])
         |> Map.put("preferredUsername", actor.data["preferredUsername"])
 
-      update_data =
+      update_activity =
         update_data
-        |> Map.put("actor", data["actor"])
+        |> Map.put("actor", original_actor["id"]) 
         |> Map.put("object", update_object)
+        |> info("update_activity")
 
-      {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(update_data)
+      {:ok, %Object{data: data, local: false}} = Transmogrifier.handle_incoming(update_activity)
 
-      {:ok, updated_actor} = Actor.get_cached(ap_id: data["actor"])
+      {:ok, updated_actor} = Actor.get_cached(ap_id: original_actor["id"])
 
       assert updated_actor.data == actor.data
 
@@ -285,10 +286,10 @@ defmodule ActivityPubWeb.TransmogrifierTest do
       # assert updated_actor.data["name"] == "gargle"
 
       # assert updated_actor.data["icon"]["url"] ==
-      #          "https://cd.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+      #          "https://cdn.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
 
       # assert updated_actor.data["image"]["url"] ==
-      #          "https://cd.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+      #          "https://cdn.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
 
       # assert updated_actor.data["summary"] == "<p>Some bio</p>"
     end

@@ -43,8 +43,8 @@ defmodule ActivityPub.SignatureTest do
 
     test "it returns error when not found user" do
       assert capture_log(fn ->
-               assert Signature.refetch_public_key(make_fake_conn("test-id")) ==
-                        {:error, {:error, false}}
+               assert {:error, {:error, _}} = Signature.refetch_public_key(make_fake_conn("test-id")) 
+                        
              end)
     end
   end

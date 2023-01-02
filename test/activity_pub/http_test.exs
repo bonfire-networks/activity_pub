@@ -7,9 +7,9 @@ defmodule ActivityPub.HTTPTest do
       %{
         method: :get,
         url: "http://example.local/hello",
-        headers: [{"content-type", "application/json"}]
+        headers: [{"content-type", "application/json"}, _]
       } ->
-        json(%{"my" => "data"})
+        json(%{"my" => "hello"})
 
       %{method: :get, url: "http://example.local/hello"} ->
         %Tesla.Env{status: 200, body: "hello"}
@@ -36,7 +36,7 @@ defmodule ActivityPub.HTTPTest do
                  :ok,
                  %Tesla.Env{
                    status: 200,
-                   body: "{\"my\":\"data\"}",
+                   body: "{\"my\":\"hello\"}",
                    headers: [{"content-type", "application/json"}]
                  }
                }

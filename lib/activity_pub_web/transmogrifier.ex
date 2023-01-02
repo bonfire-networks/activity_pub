@@ -305,20 +305,44 @@ defmodule ActivityPubWeb.Transmogrifier do
     end
   end
 
-  # This feels bad
+  def handle_incoming(
+        %{
+          "type" => "Update",
+          "object" => %{"type" => object_type, "id" => update_actor_id} = object,
+          "actor" => actor_id
+        } = data
+      )
+      when object_type in @supported_actor_types and actor_id == update_actor_id do
+    info("Handle incoming update an Actor")
+
+    with {:ok, actor} <- Actor.update_actor_data_by_ap_id(actor_id, object) do
+        #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
+        #  {:ok, _} <- Actor.set_cache(actor) do
+      ActivityPub.update(%{
+        local: false,
+        to: data["to"] || [],
+        cc: data["cc"] || [],
+        object: object,
+        actor: actor
+      })
+    else
+      e ->
+        error(e, "could not update")
+    end
+  end
+
   def handle_incoming(
         %{
           "type" => "Update",
           "object" => %{"type" => object_type} = object,
-          "actor" => actor_id
+          "actor" => actor
         } = data
-      )
-      when object_type in @supported_actor_types do
-    info("Handle incoming update")
+      ) do
+    info("Handle incoming update of an Object")
 
-    with {:ok, _} <- Actor.update_actor_data_by_ap_id(actor_id, object),
-         {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
-         {:ok, _} <- Actor.set_cache(actor) do
+    with {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor) do
+        #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
+        #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
         local: false,
         to: data["to"] || [],

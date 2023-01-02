@@ -1,4 +1,5 @@
 defmodule ActivityPub.MRF.SimplePolicy do
+  import Untangle
   alias ActivityPub.MRF
   @moduledoc "Filter activities depending on their origin instance"
   @behaviour MRF
@@ -8,6 +9,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
   @impl true
   def filter(%{"actor" => actor} = object, _is_local?) do
     actor_info = URI.parse(actor)
+      # |> info()
 
     with {:ok, object} <- check_reject(actor_info, object),
          {:ok, object} <- check_media_removal(actor_info, object),

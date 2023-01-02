@@ -444,7 +444,7 @@ defmodule ActivityPub do
     end
   end
 
-  # Not 100% sure about the types here
+  # Not sure about the types here
   @spec flag(%{
           :actor => Actor.t(),
           :context => binary(),
@@ -454,20 +454,12 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) :: {:ok, Object.t()} | {:error, any()}
   def flag(
-        %{
-          actor: actor
-        } = params
+        %{} = params
       ) do
     # only accept false as false value
     forward = !(params[:forward] == false)
 
     additional = params[:additional] || %{}
-
-    params = %{
-      actor: actor,
-      context: params[:context],
-      content: params[:content]
-    }
 
     additional =
       if is_map(params[:account]) and forward do
@@ -702,12 +694,12 @@ defmodule ActivityPub do
     %{
       "type" => "Flag",
       "actor" => params.actor.data["id"],
-      "content" => params.content,
+      "content" => params[:content],
       "object" => objects,
-      "context" => params.context,
+      "context" => params[:context],
       "state" => "open"
     }
     |> Map.merge(additional)
-    |> debug()
+    # |> debug()
   end
 end

@@ -503,6 +503,7 @@ defmodule ActivityPub.Actor do
   def update_actor_data_by_ap_id(ap_id, data) when is_binary(ap_id) do
     with {:ok, object} <- Object.get_uncached(ap_id: ap_id) do
       update_actor_data_by_ap_id(object, data)
+      {:ok, object}
     else
       e ->
         warn(e)

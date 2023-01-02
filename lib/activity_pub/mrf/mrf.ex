@@ -1,4 +1,6 @@
 defmodule ActivityPub.MRF do
+  import Untangle
+
   @callback filter(Map.t(), boolean()) :: {:ok | :reject, Map.t()}
 
   def filter(policies, %{} = object, is_local?) do
@@ -33,7 +35,8 @@ defmodule ActivityPub.MRF do
     for domain <- domains do
       domain =
         domain
-        |> String.replace("*", "(.*)*")
+        |> String.replace(".", "\\.")
+        |> String.replace("*", ".*")
 
       ~r(^#{domain}$)
     end
@@ -41,6 +44,11 @@ defmodule ActivityPub.MRF do
 
   @spec subdomain_match?([Regex.t()], String.t()) :: boolean()
   def subdomain_match?(domains, host) do
-    Enum.any?(domains, fn domain -> Regex.match?(domain, host) end)
+    Enum.any?(domains, fn domain -> 
+      # info(domains)
+      # info(host)
+      Regex.match?(domain, host) 
+      # |> info()
+    end)
   end
 end

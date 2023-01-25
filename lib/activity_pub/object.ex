@@ -44,7 +44,7 @@ defmodule ActivityPub.Object do
     do: get_cached(ap_id: ap_id)
 
   def get_cached(id) when is_binary(id) do
-    if Utils.is_ulid?(id) do
+    if Types.is_ulid?(id) do
       get(pointer: id)
     else
       if String.starts_with?(id, "http") do
@@ -76,7 +76,7 @@ defmodule ActivityPub.Object do
   def get_uncached(opts), do: get(opts)
 
   defp get(id) when is_binary(id) do
-    if Utils.is_ulid?(id) do
+    if Types.is_ulid?(id) do
       get(pointer: id)
     else
       get(id: id)

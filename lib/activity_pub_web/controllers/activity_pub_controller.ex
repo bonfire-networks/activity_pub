@@ -42,7 +42,7 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   defp object_json(conn, %{"uuid" => uuid}) do
     # querying by pointer
-    if Utils.is_ulid?(uuid) do
+    if Types.is_ulid?(uuid) do
       with {:ok, object} <-
              Object.get_cached(pointer: uuid) ||
                Adapter.maybe_publish_object(uuid),

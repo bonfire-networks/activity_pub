@@ -16,8 +16,12 @@ defmodule ActivityPub.Fetcher do
   """
   def fetch_object_from_id(id) do
     case Object.get_cached(ap_id: id) do
-      {:ok, actor} ->
-        {:ok, actor}
+      {:ok, %{pointer_id: nil, data: data} = _object} ->
+        # in case the object was already cached but not processed/saved by the adapter
+        handle_incoming(data)
+
+      {:ok, object} ->
+        {:ok, object}
 
       _ ->
         fetch_fresh_object_from_id(id)
@@ -42,24 +46,27 @@ defmodule ActivityPub.Fetcher do
     else
       other ->
         info(other, "seems like a new object")
+        handle_incoming(data)
+    end
+  end
 
-        with {:ok, data} <- contain_origin(data) |> info(),
-             {:ok, object} <- Transmogrifier.handle_incoming(data) do
-          #  :ok <- check_if_public(object.public) do # huh?
-          case object do
-            # return the object rather than Create activity
-            %{object: object} = activity ->
-              {:ok,
-               object
-               |> Utils.maybe_put(:pointer, Map.get(activity, :pointer))}
+  defp handle_incoming(data) do
+    with {:ok, data} <- contain_origin(data) |> debug(),
+          {:ok, object} <- Transmogrifier.handle_incoming(data) do
+      #  :ok <- check_if_public(object.public) do # huh?
+      case object do
+        # return the object rather than Create activity
+        %{object: object} = activity ->
+          {:ok,
+            object
+            |> Utils.maybe_put(:pointer, Map.get(activity, :pointer))}
 
-            _ ->
-              {:ok, object}
-          end
-        else
-          e ->
-            error(e)
-        end
+        _ ->
+          {:ok, object}
+      end
+    else
+      e ->
+        error(e)
     end
   end
 

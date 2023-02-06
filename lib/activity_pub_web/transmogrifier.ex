@@ -549,6 +549,9 @@ defmodule ActivityPubWeb.Transmogrifier do
     with {:ok, object} <- Object.prepare_data(data),
          {:ok, object} <- Object.do_insert(object) do
       {:ok, object}
+    else 
+      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} -> Object.get_cached(data)
+      other -> other
     end
   end
 end

@@ -1,15 +1,14 @@
 defmodule ActivityPubWeb.Transmogrifier.AddRemoveHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo(), async: true
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo(), async: true
 
   import ActivityPub.Factory
   import Tesla.Mock
 
   alias ActivityPubWeb.Transmogrifier
-  
+
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
-  
   test "it accepts Add/Remove activities" do
     user =
       "fixtures/actor.json"
@@ -96,7 +95,7 @@ use Oban.Testing, repo: repo(), async: true
     assert activity.data == remove
 
     user = refresh_record(user)
-     # TODO
+    # TODO
     # refute user.pinned_objects[object_url]
   end
 
@@ -177,7 +176,7 @@ use Oban.Testing, repo: repo(), async: true
     assert {:ok, activity} = Transmogrifier.handle_incoming(message)
     assert activity.data == message
     user = user_by_ap_id(actor)
-     # TODO
+    # TODO
     # assert user.pinned_objects[object_url]
   end
 end

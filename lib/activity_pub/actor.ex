@@ -46,7 +46,10 @@ defmodule ActivityPub.Actor do
   ]
 
   def get_cached(id: id), do: do_get_cached(:id, id)
-  def get_cached(pointer: %{id: id} = pointer), do: get_cached(pointer: id) ~> Map.put(:pointer, pointer) |> ok()
+
+  def get_cached(pointer: %{id: id} = pointer),
+    do: get_cached(pointer: id) ~> Map.put(:pointer, pointer) |> ok()
+
   def get_cached(pointer: id), do: do_get_cached(:pointer, id)
   def get_cached(username: username), do: do_get_cached(:username, username)
   def get_cached(ap_id: ap_id) when is_binary(ap_id), do: do_get_cached(:ap_id, ap_id)
@@ -282,9 +285,11 @@ defmodule ActivityPub.Actor do
       nil ->
         error(ap_id, "Remote actor not found")
 
-      {:ok, actor} -> {:ok, actor}
+      {:ok, actor} ->
+        {:ok, actor}
 
-      %Actor{} = actor -> {:ok, actor}
+      %Actor{} = actor ->
+        {:ok, actor}
 
       {:error, e} ->
         {:error, e}
@@ -343,7 +348,7 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp fetch_fresh_by_ap_id(ap_id) when is_binary(ap_id) do 
+  defp fetch_fresh_by_ap_id(ap_id) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> debug("fetched actor") do
       maybe_create_actor_from_object(object)
     end
@@ -384,13 +389,17 @@ defmodule ActivityPub.Actor do
   end
 
   def get_or_fetch_by_ap_id(%Actor{data: _} = actor), do: actor
-  def get_or_fetch_by_ap_id(%{"id"=> id}), do: get_or_fetch_by_ap_id(id)
+  def get_or_fetch_by_ap_id(%{"id" => id}), do: get_or_fetch_by_ap_id(id)
+
   def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true) do
     case get_remote_actor(ap_id, maybe_create) |> debug() do
-      {:ok, actor} -> {:ok, actor}
-      other -> 
+      {:ok, actor} ->
+        {:ok, actor}
+
+      other ->
         debug(ap_id, "not an known remote actor, try fetching")
-        fetch_fresh_by_ap_id(ap_id) 
+
+        fetch_fresh_by_ap_id(ap_id)
         |> debug()
     end
   end

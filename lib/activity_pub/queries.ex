@@ -12,7 +12,6 @@ defmodule ActivityPub.Queries do
 
   @type query :: Ecto.Queryable.t() | Object.t()
 
-
   @spec by_id(query(), String.t()) :: query()
   def by_id(query \\ Object, id) do
     from(a in query, where: a.id == ^id)
@@ -25,7 +24,6 @@ defmodule ActivityPub.Queries do
       where: fragment("(?)->>'id' = ?", activity.data, ^to_string(ap_id))
     )
   end
-
 
   def find_by_object_ap_id(activities, object_ap_id) do
     Enum.find(
@@ -100,8 +98,7 @@ defmodule ActivityPub.Queries do
     )
   end
 
-
-    def with_preloaded_object(query, join_type \\ :left) do
+  def with_preloaded_object(query, join_type \\ :left) do
     query
     |> has_named_binding?(:object)
     |> if(do: query, else: with_joined_object(query, join_type))
@@ -137,6 +134,4 @@ defmodule ActivityPub.Queries do
       as: :activity
     )
   end
-
-
 end

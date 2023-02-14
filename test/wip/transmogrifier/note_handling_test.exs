@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Transmogrifier.NoteHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo()
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
@@ -36,7 +36,7 @@ use Oban.Testing, repo: repo()
              }
 
       data = file("fixtures/kroeg-array-less-hashtag.json") |> Jason.decode!()
- 
+
       {:ok, %Activity{data: data, local: false}} = Transmogrifier.handle_incoming(data)
       object = Object.normalize(data["object"], fetch: false)
 
@@ -47,15 +47,15 @@ use Oban.Testing, repo: repo()
       activity = insert(:note_activity)
 
       data =
-        file("fixtures/mastodon/mastodon-post-activity.json") 
+        file("fixtures/mastodon/mastodon-post-activity.json")
         |> Jason.decode!()
         |> Map.put("object", Object.normalize(activity, fetch: false).data)
 
       {:ok, returned_activity} = Transmogrifier.handle_incoming(data)
-      
-      assert activity  |> Map.drop([:object, :pointer]) == returned_activity |> debug() |> Map.drop([:object, :pointer])
-    end
 
+      assert activity |> Map.drop([:object, :pointer]) ==
+               returned_activity |> debug() |> Map.drop([:object, :pointer])
+    end
 
     @tag :todo
     test "it does not work for deactivated users" do
@@ -79,10 +79,11 @@ use Oban.Testing, repo: repo()
 
       assert data["to"] == ["https://www.w3.org/ns/activitystreams#Public"]
 
-      assert Enum.sort(data["cc"]) == Enum.sort([
-               "http://testing.local/users/lain",
-               "https://mastodon.local/users/admin/followers"
-             ])
+      assert Enum.sort(data["cc"]) ==
+               Enum.sort([
+                 "http://testing.local/users/lain",
+                 "https://mastodon.local/users/admin/followers"
+               ])
 
       assert data["actor"] == "https://mastodon.local/users/admin"
 
@@ -93,10 +94,11 @@ use Oban.Testing, repo: repo()
 
       assert object_data["to"] == ["https://www.w3.org/ns/activitystreams#Public"]
 
-      assert Enum.sort(object_data["cc"]) == Enum.sort([
-               "http://testing.local/users/lain",
-               "https://mastodon.local/users/admin/followers"
-             ])
+      assert Enum.sort(object_data["cc"]) ==
+               Enum.sort([
+                 "http://testing.local/users/lain",
+                 "https://mastodon.local/users/admin/followers"
+               ])
 
       assert object_data["actor"] == "https://mastodon.local/users/admin"
       assert object_data["attributedTo"] == "https://mastodon.local/users/admin"
@@ -282,8 +284,6 @@ use Oban.Testing, repo: repo()
     end
   end
 
-
-
   describe "fix_attachments/1" do
     test "returns not modified object" do
       data = Jason.decode!(file("fixtures/mastodon/mastodon-post-activity.json"))
@@ -379,7 +379,6 @@ use Oban.Testing, repo: repo()
     end
   end
 
-
   @tag :todo
   test "take_emoji_tags/1" do
     user = local_actor(%{emoji: %{"firefox" => "https://exampleorg.local/firefox.png"}})
@@ -394,5 +393,4 @@ use Oban.Testing, repo: repo()
              }
            ]
   end
-
 end

@@ -61,7 +61,8 @@ defmodule ActivityPubWeb.Transmogrifier.QuestionHandlingTest do
 
     user = local_actor()
 
-    reply_activity = insert(:note_activity, %{actor: user, status: "hewwo", in_reply_to_id: activity.id})
+    reply_activity =
+      insert(:note_activity, %{actor: user, status: "hewwo", in_reply_to_id: activity.id})
 
     reply_object = Object.normalize(reply_activity, fetch: false)
 
@@ -158,14 +159,14 @@ defmodule ActivityPubWeb.Transmogrifier.QuestionHandlingTest do
   test "returns same activity if received a second time" do
     data = file("fixtures/mastodon/mastodon-question-activity.json") |> Jason.decode!()
 
-    assert {:ok, %Activity{local: false} = activity} = Transmogrifier.handle_incoming(data) 
+    assert {:ok, %Activity{local: false} = activity} = Transmogrifier.handle_incoming(data)
 
     {:ok, activity_2} = Transmogrifier.handle_incoming(data)
 
     assert activity
-    |> Map.drop([:pointer, :pointer_id])
-      == activity_2
-      |> Map.drop([:pointer, :pointer_id])
+           |> Map.drop([:pointer, :pointer_id]) ==
+             activity_2
+             |> Map.drop([:pointer, :pointer_id])
   end
 
   test "accepts a Question with no content" do

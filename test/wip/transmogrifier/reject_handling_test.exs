@@ -11,28 +11,28 @@ defmodule ActivityPubWeb.Transmogrifier.RejectHandlingTest do
   import ActivityPub.Factory
   import Tesla.Mock
 
-    setup_all do
+  setup_all do
     Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
     :ok
   end
 
   test "it rejects incoming follow requests from blocked users " do
-      user = local_actor()
-      {:ok, target} = ActivityPub.Actor.get_or_fetch_by_ap_id("https://mastodon.local/users/admin")
+    user = local_actor()
+    {:ok, target} = ActivityPub.Actor.get_or_fetch_by_ap_id("https://mastodon.local/users/admin")
 
-      {:ok, _user_relationship} = block(user, target)
+    {:ok, _user_relationship} = block(user, target)
 
-      data =
-        file("fixtures/mastodon/mastodon-follow-activity.json")
-        |> Jason.decode!()
-        |> Map.put("object", ap_id(user))
+    data =
+      file("fixtures/mastodon/mastodon-follow-activity.json")
+      |> Jason.decode!()
+      |> Map.put("object", ap_id(user))
 
-      {:ok, %Activity{data: %{"id" => id}}} = Transmogrifier.handle_incoming(data)
+    {:ok, %Activity{data: %{"id" => id}}} = Transmogrifier.handle_incoming(data)
 
-      %Activity{} = activity = Activity.get_cached(id: id)
+    %Activity{} = activity = Activity.get_cached(id: id)
 
-      assert activity.data["state"] == "reject"
-    end
+    assert activity.data["state"] == "reject"
+  end
 
   test "it fails for incoming rejects which cannot be correlated" do
     follower = local_actor()

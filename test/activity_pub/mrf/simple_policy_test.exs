@@ -177,7 +177,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
       local_message = build_local_message()
 
       assert {:reject, _} = SimplePolicy.filter(report_message, false)
-      assert {:ok, local_message} == SimplePolicy.filter(local_message, true) 
+      assert {:ok, local_message} == SimplePolicy.filter(local_message, true)
     end
   end
 

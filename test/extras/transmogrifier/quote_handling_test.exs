@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo()
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
@@ -24,12 +24,12 @@ use Oban.Testing, repo: repo()
 
   setup do: clear_config([:instance, :max_remote_account_fields])
 
-
   describe "fix_quote_url/1" do
     test "a misskey quote should work", _ do
       Tesla.Mock.mock(fn %{
                            method: :get,
-                           url: "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+                           url:
+                             "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
                          } ->
         %Tesla.Env{
           status: 200,
@@ -53,7 +53,8 @@ use Oban.Testing, repo: repo()
     test "a fedibird quote should work", _ do
       Tesla.Mock.mock(fn %{
                            method: :get,
-                           url: "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+                           url:
+                             "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
                          } ->
         %Tesla.Env{
           status: 200,

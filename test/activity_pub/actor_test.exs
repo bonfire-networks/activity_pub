@@ -8,12 +8,13 @@ defmodule ActivityPub.ActorTest do
 
   setup do
     mock(fn
-          %{method: :get, url: "https://fedi.local/userisgone502"} ->
+      %{method: :get, url: "https://fedi.local/userisgone502"} ->
         %Tesla.Env{status: 502}
 
-        env ->
-      apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end
-    )
+      env ->
+        apply(ActivityPub.Test.HttpRequestMock, :request, [env])
+    end)
+
     :ok
   end
 
@@ -73,6 +74,4 @@ defmodule ActivityPub.ActorTest do
   #   {:ok, actors} = Actor.get_followings(ap_actor_2)
   #   assert length(actors) == 2
   # end
-
-
 end

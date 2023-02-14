@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo()
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
@@ -25,7 +25,6 @@ use Oban.Testing, repo: repo()
   setup do: clear_config([:instance, :max_remote_account_fields])
 
   describe "handle_incoming" do
-
     @tag capture_log: true
     test "it fetches reply-to activities if we don't have them" do
       data =
@@ -90,7 +89,6 @@ use Oban.Testing, repo: repo()
 
       assert {:ok, _returned_activity} = Transmogrifier.handle_incoming(data)
     end
-
   end
 
   describe "`handle_incoming/2`, Mastodon format `replies` handling" do
@@ -104,7 +102,7 @@ use Oban.Testing, repo: repo()
         |> Jason.decode!()
 
       items = get_in(data, ["object", "replies", "first", "items"])
-      assert is_list(items) and items !=[]
+      assert is_list(items) and items != []
 
       %{data: data, items: items}
     end
@@ -293,7 +291,6 @@ use Oban.Testing, repo: repo()
     end
   end
 
-
   describe "set_replies/1" do
     setup do: clear_config([:activitypub, :note_replies_output_limit], 2)
 
@@ -306,42 +303,43 @@ use Oban.Testing, repo: repo()
     test "sets `replies` collection with a limited number of self-replies" do
       [user, another_user] = insert_list(2, :local_actor)
 
-      %{id: _, data: %{"object"=> id1}} = activity = insert(:note_activity, %{actor: user, status: "1"})
+      %{id: _, data: %{"object" => id1}} =
+        activity = insert(:note_activity, %{actor: user, status: "1"})
 
-      %{id: _, data: %{"object"=> id2}} = self_reply2 =
-        insert(:note_activity, %{"inReplyTo"=> id1, actor: user, status: "self-reply 1"})
+      %{id: _, data: %{"object" => id2}} =
+        self_reply2 =
+        insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 1"})
 
-      %{id: _, data: %{"object"=> id3}} = self_reply3 =
-        insert(:note_activity, %{"inReplyTo"=> id1, actor: user, status: "self-reply 2"})
+      %{id: _, data: %{"object" => id3}} =
+        self_reply3 =
+        insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 2"})
 
       # should _not_ be present in `replies` due to :note_replies_output_limit set to 2
-      insert(:note_activity, %{"inReplyTo"=> id1, actor: user, status: "self-reply 3", })
+      insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 3"})
 
-      
-        insert(:note_activity, %{
-          "inReplyTo"=> id2,
-          actor: user, 
-          status: "self-reply to self-reply"
-        })
+      insert(:note_activity, %{
+        "inReplyTo" => id2,
+        actor: user,
+        status: "self-reply to self-reply"
+      })
 
-        insert(:note_activity, %{
-          "inReplyTo"=> id1,
-          actor: another_user, 
-          status: "another user's reply"
-        })
+      insert(:note_activity, %{
+        "inReplyTo" => id1,
+        actor: another_user,
+        status: "another user's reply"
+      })
 
-      object = Object.normalize(activity, fetch: false)
-      |> debug("normalized")
+      object =
+        Object.normalize(activity, fetch: false)
+        |> debug("normalized")
 
       replies_uris = [id2, id3]
 
-      prepped = Transmogrifier.set_replies(object)
-      |> debug("prepped")
+      prepped =
+        Transmogrifier.set_replies(object)
+        |> debug("prepped")
 
       assert %{"type" => "Collection", "items" => ^replies_uris} = prepped["replies"]
-               
     end
   end
-
-
 end

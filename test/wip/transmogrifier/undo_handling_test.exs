@@ -45,7 +45,7 @@ defmodule ActivityPubWeb.Transmogrifier.UndoHandlingTest do
       |> Jason.decode!()
       |> Map.put("object", activity.data["object"])
 
-    {:error, _} = assert Transmogrifier.handle_incoming(data) 
+    {:error, _} = assert Transmogrifier.handle_incoming(data)
   end
 
   test "it works for incoming unlikes with an existing like activity" do

@@ -21,7 +21,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   @actors_and_collections @supported_actor_types ++ @collection_types
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
-
   @doc """
   Translates MN Entity to an AP compatible format
   """
@@ -36,7 +35,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def prepare_outgoing(%{"type" => "Create", "object" => object} = data) do
-
     data =
       data
       |> Map.put("object", prepare_object(object))
@@ -48,7 +46,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def prepare_outgoing(%{"object" => object} = data) do
-
     data =
       data
       |> Map.put("object", prepare_object(object))
@@ -80,21 +77,26 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   # We currently do not perform any transformations on objects
   def prepare_object(nil), do: nil
+
   def prepare_object(%Object{} = object) do
     object
     |> set_replies()
     # |> Map.get(:data) # done by set_replies/2
     |> Map.delete("bto")
     |> Map.delete("bcc")
+
     # |> debug
   end
+
   def prepare_object(object) do
     case Object.normalize(object, true) do
-      %Object{} = object -> prepare_object(object)
-      other ->  
+      %Object{} = object ->
+        prepare_object(object)
+
+      other ->
         error(other, "Unexpected object")
         nil
-      end
+    end
   end
 
   # incoming activities
@@ -128,12 +130,12 @@ defmodule ActivityPubWeb.Transmogrifier do
     end
   end
 
-
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.
   """
-  def fix_object(object, options \\ []) 
-  def fix_object(%{} = object, options ) do
+  def fix_object(object, options \\ [])
+
+  def fix_object(%{} = object, options) do
     object
     |> fix_actor()
     |> fix_url()
@@ -148,6 +150,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     |> fix_addressing()
     |> fix_summary()
   end
+
   def fix_object(object, _options), do: object
 
   def fix_summary(%{"summary" => nil} = object) do
@@ -199,7 +202,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     |> Map.put("cc", final_cc)
   end
 
-    @spec determine_explicit_mentions(map()) :: [any]
+  @spec determine_explicit_mentions(map()) :: [any]
   def determine_explicit_mentions(%{"tag" => tag}) when is_list(tag) do
     Enum.flat_map(tag, fn
       %{"type" => "Mention", "href" => href} -> [href]
@@ -226,6 +229,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     |> fix_addressing_list("cc")
     |> fix_addressing_list("bto")
     |> fix_addressing_list("bcc")
+
     # |> fix_explicit_addressing(follower_collection)
     # |> CommonFixes.fix_implicit_addressing(follower_collection)
   end
@@ -267,8 +271,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   def fix_in_reply_to(object, _options), do: object
 
-
-    def fix_quote_url(object, options \\ [])
+  def fix_quote_url(object, options \\ [])
 
   def fix_quote_url(%{"quoteUri" => quote_url} = object, options)
       when not is_nil(quote_url) do
@@ -314,8 +317,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   def fix_quote_url(object, _), do: object
-
-
 
   defp prepare_in_reply_to(in_reply_to) do
     cond do
@@ -452,9 +453,9 @@ defmodule ActivityPubWeb.Transmogrifier do
   def fix_tag(%{"tag" => tag} = object) when is_list(tag) do
     tags =
       tag
-      |> Enum.map(fn 
-        %{"type"=>"Hashtag", "name"=> "#"<>name} -> name
-        %{"type"=>"Hashtag", "name"=>name} -> name
+      |> Enum.map(fn
+        %{"type" => "Hashtag", "name" => "#" <> name} -> name
+        %{"type" => "Hashtag", "name" => name} -> name
         _ -> nil
       end)
       |> Enum.reject(&is_nil/1)
@@ -498,12 +499,12 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   defp fix_type(object, _options), do: object
 
-
   def take_emoji_tags(%{emoji: emoji}) do
     emoji
     |> Map.to_list()
     |> Enum.map(&build_emoji_tag/1)
   end
+
   def take_emoji_tags(_) do
     []
   end
@@ -529,10 +530,12 @@ defmodule ActivityPubWeb.Transmogrifier do
     }
   end
 
-  defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies !=[], do: maybe_fetch_replies_async(data)
+  defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies != [],
+    do: maybe_fetch_replies_async(data)
 
-  defp fix_replies(%{"replies" => %{"items" => replies}} = data) when is_list(replies) and replies !=[],
-    do: Map.put(data, "replies", maybe_fetch_replies_async(replies))
+  defp fix_replies(%{"replies" => %{"items" => replies}} = data)
+       when is_list(replies) and replies != [],
+       do: Map.put(data, "replies", maybe_fetch_replies_async(replies))
 
   defp fix_replies(%{"replies" => %{"first" => first}} = data) do
     with {:ok, replies} <- Fetcher.fetch_collection(first) do
@@ -549,7 +552,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   defp maybe_fetch_replies_async(replies, depth \\ 10) do
     reply_depth = (depth || 0) + 1
 
-      if is_list(replies) and replies !=[] and allowed_thread_distance?(reply_depth) do
+    if is_list(replies) and replies != [] and allowed_thread_distance?(reply_depth) do
       for reply_id <- replies do
         Workers.RemoteFetcherWorker.enqueue("fetch_remote", %{
           "id" => reply_id,
@@ -561,7 +564,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     replies
   end
 
-  defp set_replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)  
+  defp set_replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)
 
   @doc """
   Serialized Mastodon-compatible `replies` collection containing _self-replies_.
@@ -569,7 +572,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   """
   def set_replies(%Object{} = object) do
     replies_uris =
-      with limit when limit >0 <- set_replies_limit() do
+      with limit when limit > 0 <- set_replies_limit() do
         object
         |> Object.self_replies_ids(limit)
         |> debug("self_replies_ids")
@@ -579,9 +582,10 @@ defmodule ActivityPubWeb.Transmogrifier do
 
     set_replies(object.data, replies_uris)
   end
-  def set_replies(%{"id"=>id} = obj_data) do
+
+  def set_replies(%{"id" => id} = obj_data) do
     replies_uris =
-      with limit when limit >0 <- set_replies_limit(),
+      with limit when limit > 0 <- set_replies_limit(),
            %Object{} = object <- Object.get_cached(ap_id: id) do
         object
         |> Object.self_replies_ids(limit)
@@ -592,7 +596,6 @@ defmodule ActivityPubWeb.Transmogrifier do
 
     set_replies(obj_data, replies_uris)
   end
-
 
   defp set_replies(obj, []) do
     obj
@@ -674,14 +677,18 @@ defmodule ActivityPubWeb.Transmogrifier do
   def handle_incoming(%{"type" => "Create", "object" => object} = data) do
     info("Handle incoming creation of an object")
     info(object, "the incoming object")
-    data = Object.normalize_actors(data)
-    |> debug("actors normalized")
 
-    actor_id = Object.actor_id_from_data(data)
-    |> debug("got actor_id_from_data")
+    data =
+      Object.normalize_actors(data)
+      |> debug("actors normalized")
 
-    {:ok, actor} = Actor.get_or_fetch_by_ap_id(actor_id)
-    |> debug("got or fetched actor")
+    actor_id =
+      Object.actor_id_from_data(data)
+      |> debug("got actor_id_from_data")
+
+    {:ok, actor} =
+      Actor.get_or_fetch_by_ap_id(actor_id)
+      |> debug("got or fetched actor")
 
     object = fix_object(object)
 
@@ -689,7 +696,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       to: data["to"],
       object: object,
       actor: actor,
-      context: (if is_map(object), do: object["context"] || object["conversation"]),
+      context: if(is_map(object), do: object["context"] || object["conversation"]),
       local: false,
       published: data["published"],
       additional:
@@ -705,11 +712,10 @@ defmodule ActivityPubWeb.Transmogrifier do
     with nil <- Object.get_activity_for_object_ap_id(object) do
       ActivityPub.create(params)
     else
-      %Object{} = activity -> {:ok, activity} # a Create for this Object already exists
+      # a Create for this Object already exists
+      %Object{} = activity -> {:ok, activity}
       e -> error(e)
     end
-
-    
   end
 
   def handle_incoming(%{
@@ -815,8 +821,8 @@ defmodule ActivityPubWeb.Transmogrifier do
     info("Handle incoming update an Actor")
 
     with {:ok, actor} <- Actor.update_actor_data_by_ap_id(actor_id, object) do
-        #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
-        #  {:ok, _} <- Actor.set_cache(actor) do
+      #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
+      #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
         local: false,
         to: data["to"] || [],
@@ -840,8 +846,8 @@ defmodule ActivityPubWeb.Transmogrifier do
     info("Handle incoming update of an Object")
 
     with {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor) do
-        #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
-        #  {:ok, _} <- Actor.set_cache(actor) do
+      #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
+      #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
         local: false,
         to: data["to"] || [],
@@ -1014,6 +1020,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   def handle_incoming(%{"type" => type} = data) when type in @actors_and_collections do
     info("Save actor or collection without an activity")
+
     maybe_handle_other(data)
     ~> ActivityPub.Actor.maybe_create_actor_from_object()
   end
@@ -1030,7 +1037,9 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   defp get_obj_helper(id, opts \\ []) do
-    if object = Object.normalize(id, allowed_thread_distance?(opts[:depth])), do: {:ok, object}, else: nil
+    if object = Object.normalize(id, allowed_thread_distance?(opts[:depth])),
+      do: {:ok, object},
+      else: nil
   end
 
   @doc """
@@ -1047,13 +1056,16 @@ defmodule ActivityPubWeb.Transmogrifier do
     with {:ok, object} <- Object.prepare_data(data),
          {:ok, object} <- Object.do_insert(object) do
       {:ok, object}
-    else 
-      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} -> Object.get_cached(data)
-      other -> other
+    else
+      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
+        Object.get_cached(data)
+
+      other ->
+        other
     end
   end
 
-    @doc """
+  @doc """
   Returns `true` if the distance to target object does not exceed max configured value.
   Serves to prevent fetching of very long threads, especially useful on smaller instances.
   Addresses memory leaks on recursive replies fetching.
@@ -1069,5 +1081,4 @@ defmodule ActivityPubWeb.Transmogrifier do
       true
     end
   end
-
 end

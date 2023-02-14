@@ -37,8 +37,6 @@ defmodule ActivityPub.Object do
     timestamps()
   end
 
-
-
   def get_cached(id: id) when is_binary(id), do: do_get_cached(:id, id)
   def get_cached(ap_id: id) when is_binary(id), do: do_get_cached(:ap_id, id)
   def get_cached(pointer: id) when is_binary(id), do: do_get_cached(:pointer, id)
@@ -130,12 +128,13 @@ defmodule ActivityPub.Object do
     raise "Unexpected args when attempting to get an object"
   end
 
-  def get_activity_for_object_ap_id(%{"id" => ap_id}) when is_binary(ap_id), do: get_activity_for_object_ap_id(ap_id)
+  def get_activity_for_object_ap_id(%{"id" => ap_id}) when is_binary(ap_id),
+    do: get_activity_for_object_ap_id(ap_id)
+
   def get_activity_for_object_ap_id(ap_id, verb \\ "Create") when is_binary(ap_id) do
     Queries.activity_by_object_ap_id(ap_id, verb)
     |> repo().one()
   end
-
 
   @doc false
   def insert(params, local?, pointer \\ nil, upsert? \\ false)
@@ -186,7 +185,7 @@ defmodule ActivityPub.Object do
 
       {:reject, e} when is_binary(e) ->
         error(e)
-        
+
       {:reject, e} ->
         error(e, "Cannot federate due to local boundaries and filters")
 
@@ -199,21 +198,21 @@ defmodule ActivityPub.Object do
   Inserts a full object if it is contained in an activity.
   """
   defp do_insert_object(
-        activity,
-        local \\ false,
-        pointer \\ nil,
-        upsert? \\ false
-      )
+         activity,
+         local \\ false,
+         pointer \\ nil,
+         upsert? \\ false
+       )
 
   defp do_insert_object(
-        %{"object" => %{"type" => type} = object_data} = activity,
-        local,
-        pointer,
-        upsert?
-      )
-      when is_map(object_data) and
-             type not in @supported_actor_types and
-             type not in @supported_activity_types do
+         %{"object" => %{"type" => type} = object_data} = activity,
+         local,
+         pointer,
+         upsert?
+       )
+       when is_map(object_data) and
+              type not in @supported_actor_types and
+              type not in @supported_activity_types do
     # we're taking a shortcut by assuming that anything that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
     # check that it doesn't already exist
     debug(object_data, "object to #{if upsert?, do: "update", else: "insert"}")
@@ -320,7 +319,7 @@ defmodule ActivityPub.Object do
       error(e, "Could not update the AP object")
   end
 
-    @doc """
+  @doc """
   Updates a follow activity's state (for locked accounts).
   """
   @spec update_follow_state_for_all(Object.t(), String.t()) :: {:ok, Object | nil}
@@ -358,7 +357,7 @@ defmodule ActivityPub.Object do
       |> Map.put(:local, local)
       |> Map.put(:public, Utils.public?(data, associated_activity))
       |> Map.put(:pointer_id, pointer)
-      |> Map.put(:is_object, associated_activity !=nil)
+      |> Map.put(:is_object, associated_activity != nil)
 
     {:ok, data}
   end
@@ -368,7 +367,8 @@ defmodule ActivityPub.Object do
       map
       |> Map.put_new_lazy("id", fn -> object_url(activity_id) end)
       |> Map.put_new_lazy("published", &Utils.make_date/0)
-      # |> Map.put_new_lazy("context", &Utils.generate_id("contexts"))
+
+    # |> Map.put_new_lazy("context", &Utils.generate_id("contexts"))
 
     if is_map(map["object"]) do
       object =
@@ -398,8 +398,9 @@ defmodule ActivityPub.Object do
 
   def normalize(_, fetch_remote? \\ true, pointer \\ nil)
   def normalize({:ok, object}, _, _), do: object
-  def normalize(%{__struct__: Object, data: %{"object"=> object}}, _, _), do: normalize(object)
+  def normalize(%{__struct__: Object, data: %{"object" => object}}, _, _), do: normalize(object)
   def normalize(%{__struct__: Object} = object, _, _), do: object
+
   def normalize(%{"id" => ap_id} = object, fetch_remote, pointer)
       when is_binary(ap_id) do
     # if(length(Map.keys(object))==1) do # we only have an ID
@@ -408,12 +409,16 @@ defmodule ActivityPub.Object do
     #   %{data: object}
     # end
   end
+
   def normalize(ap_id, _, pointer) when is_binary(ap_id) and is_binary(pointer),
     do: get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id)
+
   def normalize(_, _, pointer) when is_binary(pointer),
     do: get_cached!(pointer: pointer)
+
   def normalize(ap_id, _, _) when is_binary(ap_id),
     do: get_cached!(ap_id: ap_id)
+
   def normalize(ap_id, true, _) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
@@ -421,6 +426,7 @@ defmodule ActivityPub.Object do
       _e -> nil
     end
   end
+
   def normalize(_, _, _), do: nil
 
   def get_ap_id(%{"id" => id} = _), do: id
@@ -435,45 +441,58 @@ defmodule ActivityPub.Object do
     |> Enum.map(&get_ap_id/1)
   end
 
-  def actor_from_data(%{"actor" => actor}) when not is_nil(actor) and actor !=[], do: actor_from_data(actor)
-  def actor_from_data(%{"attributedTo" => actor}) when not is_nil(actor) and actor !=[], do: actor_from_data(actor)
+  def actor_from_data(%{"actor" => actor}) when not is_nil(actor) and actor != [],
+    do: actor_from_data(actor)
+
+  def actor_from_data(%{"attributedTo" => actor}) when not is_nil(actor) and actor != [],
+    do: actor_from_data(actor)
+
   def actor_from_data(%{"id" => _, "type" => type} = actor)
       when type in @supported_actor_types,
       do: actor
+
   def actor_from_data(actors) when is_list(actors) do
     Enum.map(actors, &actor_from_data/1)
     |> Enum.reject(&is_nil/1)
     |> List.first()
+
     # ignores any secondary actors
   end
+
   def actor_from_data(%{data: data}), do: actor_from_data(data)
+
   def actor_id_from_data(id) when is_binary(id) do
     id
   end
+
   def actor_from_data(e) do
     warn(e, "No actor found")
   end
-  
 
   def actor_id_from_data(data) do
     case actor_from_data(data) do
-      %{"id" => id} -> id
-      id when is_binary(id) -> id
-      e -> warn(e, "No actor ID found")
-      nil
+      %{"id" => id} ->
+        id
+
+      id when is_binary(id) ->
+        id
+
+      e ->
+        warn(e, "No actor ID found")
+        nil
     end
   end
 
+  def normalize_params(params, activity_id \\ nil, pointer \\ nil)
 
-  def normalize_params(params, activity_id \\ nil, pointer \\ nil) 
   def normalize_params(%{data: data} = _params, activity_id, pointer) do
     normalize_params(data, activity_id, pointer)
   end
+
   def normalize_params(params, activity_id, pointer) do
     normalize_actors(params)
     |> lazy_put_activity_defaults(activity_id, pointer)
   end
-
 
   def normalize_actors(%{data: data}), do: normalize_actors(data)
 
@@ -487,7 +506,6 @@ defmodule ActivityPub.Object do
     |> Utils.maybe_put("bcc", get_ap_ids(params["bcc"]))
     |> Utils.maybe_put("audience", get_ap_ids(params["audience"]))
   end
-
 
   def make_tombstone(
         %Object{data: %{"id" => id, "type" => type}},
@@ -526,7 +544,8 @@ defmodule ActivityPub.Object do
 
   def get_outbox_for_actor(ap_id, page \\ 1)
   def get_outbox_for_actor(%{ap_id: ap_id}, page), do: get_outbox_for_actor(ap_id, page)
-  def get_outbox_for_actor(%{"id"=> ap_id}, page), do: get_outbox_for_actor(ap_id, page)
+  def get_outbox_for_actor(%{"id" => ap_id}, page), do: get_outbox_for_actor(ap_id, page)
+
   def get_outbox_for_actor(ap_id, page) when is_binary(ap_id) do
     offset = (page - 1) * 10
 
@@ -671,8 +690,7 @@ defmodule ActivityPub.Object do
     repo().one(query)
   end
 
-
-  def hashtags(%{"tag" => tags}) when is_list(tags) and tags !=[] do
+  def hashtags(%{"tag" => tags}) when is_list(tags) and tags != [] do
     tags
     |> Enum.filter(fn
       %{"type" => "Hashtag"} = data -> Map.has_key?(data, "name")
@@ -680,18 +698,18 @@ defmodule ActivityPub.Object do
       _ -> false
     end)
     |> Enum.map(fn
-      %{"name" => "#" <> hashtag} -> (hashtag)
-      %{"name" => hashtag} -> (hashtag)
-      "#" <> hashtag -> (hashtag)
-      hashtag when is_bitstring(hashtag) -> (hashtag)
+      %{"name" => "#" <> hashtag} -> hashtag
+      %{"name" => hashtag} -> hashtag
+      "#" <> hashtag -> hashtag
+      hashtag when is_bitstring(hashtag) -> hashtag
     end)
     |> Enum.uniq()
     # Note: "" elements (plain text) might occur in `data.tag` for incoming objects
     |> Enum.filter(&(&1 not in [nil, ""]))
   end
+
   def hashtags(%{data: data}), do: hashtags(data)
   def hashtags(_), do: []
-
 
   def replies(object, opts \\ []) do
     # object = normalize(object, fetch: false)
@@ -716,11 +734,10 @@ defmodule ActivityPub.Object do
     do: replies(object, self_only: true)
 
   def self_replies_ids(object, limit),
-    do: object
-        |> self_replies()
-        |> select([o], fragment("?->>'id'", o.data))
-        |> limit(^limit)
-        |> repo().all()
-
-    
+    do:
+      object
+      |> self_replies()
+      |> select([o], fragment("?->>'id'", o.data))
+      |> limit(^limit)
+      |> repo().all()
 end

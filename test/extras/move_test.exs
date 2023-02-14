@@ -23,16 +23,16 @@ defmodule ActivityPub.MoveTest do
       assert {:ok, activity} = ActivityPub.move(old_user, new_user)
 
       assert %Object{
-              #  actor: ^old_ap_id,
+               #  actor: ^old_ap_id,
                data: %{
                  "actor" => ^old_ap_id,
                  "object" => ^old_ap_id,
                  "target" => ^new_ap_id,
-                 "to"=> recipients,
+                 "to" => recipients,
                  "type" => "Move"
                },
                local: true
-              #  recipients: recipients
+               #  recipients: recipients
              } = activity
 
       assert old_user.follower_address in recipients
@@ -80,7 +80,7 @@ defmodule ActivityPub.MoveTest do
       assert {:ok, activity} = ActivityPub.move(old_user, new_user)
 
       assert %Object{
-              #  actor: ^old_ap_id,
+               #  actor: ^old_ap_id,
                data: %{
                  "actor" => ^old_ap_id,
                  "object" => ^old_ap_id,
@@ -104,5 +104,4 @@ defmodule ActivityPub.MoveTest do
       refute following?(follower_remote, new_user)
     end
   end
-
 end

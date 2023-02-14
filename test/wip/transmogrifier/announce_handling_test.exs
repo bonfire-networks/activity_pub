@@ -13,10 +13,10 @@ defmodule ActivityPubWeb.Transmogrifier.AnnounceHandlingTest do
   import ActivityPub.Factory
   import Tesla.Mock
 
-    setup_all do
+  setup_all do
     Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
     :ok
-  end 
+  end
 
   test "it works for incoming honk announces" do
     user = local_actor(ap_id: "https://honktest/u/test", local: false)
@@ -38,7 +38,7 @@ defmodule ActivityPubWeb.Transmogrifier.AnnounceHandlingTest do
     {:ok, object} = Object.get_cached(ap_id: post.data["object"])
 
     assert length(object.data["announcements"]) == 1
-    assert (ap_id(user)) in object.data["announcements"]
+    assert ap_id(user) in object.data["announcements"]
   end
 
   test "it works for incoming announces with actor being inlined (kroeg)" do
@@ -71,7 +71,9 @@ defmodule ActivityPubWeb.Transmogrifier.AnnounceHandlingTest do
           body: file("fixtures/mastodon/mastodon-note-object.json"),
           headers: HttpRequestMock.activitypub_object_headers()
         }
-        env -> apply(HttpRequestMock, :request, [env])
+
+      env ->
+        apply(HttpRequestMock, :request, [env])
     end)
 
     _user = local_actor(local: false, ap_id: data["actor"])

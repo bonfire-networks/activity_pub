@@ -44,10 +44,10 @@ defmodule ActivityPub.MRF do
 
   @spec subdomain_match?([Regex.t()], String.t()) :: boolean()
   def subdomain_match?(domains, host) do
-    Enum.any?(domains, fn domain -> 
+    Enum.any?(domains, fn domain ->
       # info(domains)
       # info(host)
-      Regex.match?(domain, host) 
+      Regex.match?(domain, host)
       # |> info()
     end)
   end

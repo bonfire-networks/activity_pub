@@ -4,13 +4,12 @@
 defmodule ActivityPubWeb.Transmogrifier.AcceptHandlingTest do
   use ActivityPub.DataCase, async: true
 
-  
   alias ActivityPubWeb.Transmogrifier
 
   import ActivityPub.Factory
   import Tesla.Mock
 
-    setup_all do
+  setup_all do
     Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
     :ok
   end
@@ -66,50 +65,48 @@ defmodule ActivityPubWeb.Transmogrifier.AcceptHandlingTest do
     assert Object.get_ap_id(accept_activity.data["object"]) =~ follow_activity.data["id"]
 
     assert following?(follower, followed) == true
-
   end
 
+  test "it works for follow requests when you are already followed, creating a new accept activity" do
+    # This is important because the remote might have the wrong idea about the
+    # current follow status. This can lead to instance A thinking that x@A is
+    # followed by y@B, but B thinks they are not. In this case, the follow can
+    # never go through again because it will never get an Accept.
+    user = local_actor()
 
-    test "it works for follow requests when you are already followed, creating a new accept activity" do
-      # This is important because the remote might have the wrong idea about the
-      # current follow status. This can lead to instance A thinking that x@A is
-      # followed by y@B, but B thinks they are not. In this case, the follow can
-      # never go through again because it will never get an Accept.
-      user = local_actor()
+    data =
+      file("fixtures/mastodon/mastodon-follow-activity.json")
+      |> Jason.decode!()
+      |> Map.put("object", ap_id(user))
 
-      data =
-        file("fixtures/mastodon/mastodon-follow-activity.json")
-        |> Jason.decode!()
-        |> Map.put("object", ap_id(user))
+    {:ok, %Object{local: false}} = Transmogrifier.handle_incoming(data)
 
-      {:ok, %Object{local: false}} = Transmogrifier.handle_incoming(data)
+    accepts =
+      from(
+        a in Object,
+        where: fragment("?->>'type' = ?", a.data, "Accept")
+      )
+      |> repo().all()
 
-      accepts =
-        from(
-          a in Object,
-          where: fragment("?->>'type' = ?", a.data, "Accept")
-        )
-        |> repo().all()
+    assert length(accepts) == 1
 
-      assert length(accepts) == 1
+    data =
+      file("fixtures/mastodon/mastodon-follow-activity.json")
+      |> Jason.decode!()
+      |> Map.put("id", String.replace(data["id"], "2", "3"))
+      |> Map.put("object", ap_id(user))
 
-      data =
-        file("fixtures/mastodon/mastodon-follow-activity.json")
-        |> Jason.decode!()
-        |> Map.put("id", String.replace(data["id"], "2", "3"))
-        |> Map.put("object", ap_id(user))
+    {:ok, %Object{local: false}} = Transmogrifier.handle_incoming(data)
 
-      {:ok, %Object{local: false}} = Transmogrifier.handle_incoming(data)
+    accepts =
+      from(
+        a in Object,
+        where: fragment("?->>'type' = ?", a.data, "Accept")
+      )
+      |> repo().all()
 
-      accepts =
-        from(
-          a in Object,
-          where: fragment("?->>'type' = ?", a.data, "Accept")
-        )
-        |> repo().all()
-
-      assert length(accepts) == 2
-    end
+    assert length(accepts) == 2
+  end
 
   test "it fails for incoming accepts which cannot be correlated" do
     follower = local_actor()
@@ -121,7 +118,11 @@ defmodule ActivityPubWeb.Transmogrifier.AcceptHandlingTest do
       |> Map.put("actor", followed.data["id"] || ap_id(followed))
 
     accept_data =
-      Map.put(accept_data, "object", Map.put(accept_data["object"], "actor", follower.data["id"] || ap_id(follower)))
+      Map.put(
+        accept_data,
+        "object",
+        Map.put(accept_data["object"], "actor", follower.data["id"] || ap_id(follower))
+      )
 
     {:error, _} = Transmogrifier.handle_incoming(accept_data)
 

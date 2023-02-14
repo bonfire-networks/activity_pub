@@ -7,7 +7,6 @@ defmodule ActivityPubWeb.TransmogrifierTest do
   import ActivityPub.Factory
   import Tesla.Mock
 
-
   setup do
     mock(fn
       %{method: :get, url: "https://fedi.local/objects/410"} ->
@@ -256,21 +255,22 @@ defmodule ActivityPubWeb.TransmogrifierTest do
     test "update activities for an actor ignores the given object and re-fetches the remote actor instead" do
       original_actor = file("fixtures/mastodon/mastodon-actor.json") |> Jason.decode!()
 
-      assert %Actor{data: original_actor, local: false} = ok_unwrap(Transmogrifier.handle_incoming(original_actor))
+      assert %Actor{data: original_actor, local: false} =
+               ok_unwrap(Transmogrifier.handle_incoming(original_actor))
 
       update_data = file("fixtures/mastodon/mastodon-update.json") |> Jason.decode!()
 
       {:ok, actor} = Actor.get_or_fetch_by_ap_id(original_actor)
 
       update_object =
-        update_data["object"] 
+        update_data["object"]
         # |> Map.put("actor", original_actor["id"]) 
         |> Map.put("id", original_actor["id"])
         |> Map.put("preferredUsername", actor.data["preferredUsername"])
 
       update_activity =
         update_data
-        |> Map.put("actor", original_actor["id"]) 
+        |> Map.put("actor", original_actor["id"])
         |> Map.put("object", update_object)
         |> info("update_activity")
 

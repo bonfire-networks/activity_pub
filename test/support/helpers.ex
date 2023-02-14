@@ -1,7 +1,7 @@
 defmodule ActivityPub.Test.Helpers do
-    alias ActivityPub.Config
-    alias ActivityPub.Utils
-    alias ActivityPub.Common
+  alias ActivityPub.Config
+  alias ActivityPub.Utils
+  alias ActivityPub.Common
   require Logger
 
   @mod_path __DIR__
@@ -43,7 +43,9 @@ defmodule ActivityPub.Test.Helpers do
   def block(actor_1, actor_2) do
     # TODO: make into a generic adapter callback?
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do
-      Bonfire.Boundaries.Blocks.block(user_by_ap_id(actor_2), :all, current_user: user_by_ap_id(actor_1))
+      Bonfire.Boundaries.Blocks.block(user_by_ap_id(actor_2), :all,
+        current_user: user_by_ap_id(actor_1)
+      )
     else
       # TODO
     end
@@ -51,16 +53,17 @@ defmodule ActivityPub.Test.Helpers do
 
   def is_blocked?(actor_1, actor_2) do
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do
-      Bonfire.Boundaries.Blocks.is_blocked?(user_by_ap_id(actor_2), :any, current_user: user_by_ap_id(actor_1))
+      Bonfire.Boundaries.Blocks.is_blocked?(user_by_ap_id(actor_2), :any,
+        current_user: user_by_ap_id(actor_1)
+      )
     else
       # TODO
     end
   end
 
-  
+  def user_by_ap_id(%{user: %{} = user, actor: actor} = map), do: user |> Map.put(:actor, actor)
 
-   def user_by_ap_id(%{user: %{} = user, actor: actor} = map), do: user |> Map.put(:actor, actor)
-   def user_by_ap_id(id) when is_binary(id) do
+  def user_by_ap_id(id) when is_binary(id) do
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do
       Bonfire.Federate.ActivityPub.AdapterUtils.get_character_by_ap_id(id)
     else
@@ -68,20 +71,20 @@ defmodule ActivityPub.Test.Helpers do
     end
     |> Common.ok_unwrap()
   end
-   def user_by_ap_id(%{"id"=>id}), do: user_by_ap_id(id)
-   def user_by_ap_id(user), do: user
 
-  def ap_id(%{data: %{"id"=>id}}), do: id
-  def ap_id(%{data: %{"id"=>id}}), do: id
+  def user_by_ap_id(%{"id" => id}), do: user_by_ap_id(id)
+  def user_by_ap_id(user), do: user
+
+  def ap_id(%{data: %{"id" => id}}), do: id
+  def ap_id(%{data: %{"id" => id}}), do: id
   def ap_id(%{ap_id: id}), do: id
 
+  def refresh_record(%{id: id, __struct__: model} = _),
+    do: refresh_record(model, id)
 
-      def refresh_record(%{id: id, __struct__: model} = _),
-        do: refresh_record(model, id)
-
-      def refresh_record(model, id) do
-        Common.repo().get_by(model, id: id)
-      end
+  def refresh_record(model, id) do
+    Common.repo().get_by(model, id: id)
+  end
 
   defmacro clear_config(config_path) do
     quote do

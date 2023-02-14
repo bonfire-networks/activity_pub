@@ -70,7 +70,7 @@ defmodule ActivityPub.Migrations do
 
   def drop_object_boolean do
     alter(table("ap_object")) do
-      remove :is_object
+      remove(:is_object)
     end
   end
 end

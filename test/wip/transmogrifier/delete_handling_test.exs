@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Transmogrifier.DeleteHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo()
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
-  
+
   alias ActivityPubWeb.Transmogrifier
   alias ActivityPub.Test.HttpRequestMock
   alias ActivityPub.Tests.ObanHelpers
@@ -30,7 +30,7 @@ use Oban.Testing, repo: repo()
       |> Map.put("actor", ap_id(deleting_user))
       |> put_in(["object", "id"], activity.data["object"])
 
-    {:ok, %Activity{local: false, data: %{"id" => id, "actor"=>actor}}} =
+    {:ok, %Activity{local: false, data: %{"id" => id, "actor" => actor}}} =
       Transmogrifier.handle_incoming(data)
 
     assert id == data["id"]
@@ -63,7 +63,7 @@ use Oban.Testing, repo: repo()
       |> Map.put("actor", ap_id(deleting_user))
       |> put_in(["object", "id"], activity.data["object"])
 
-    {:ok, %Activity{local: false, data: %{"id" => id, "actor"=>actor}}} =
+    {:ok, %Activity{local: false, data: %{"id" => id, "actor" => actor}}} =
       Transmogrifier.handle_incoming(data)
 
     assert id == data["id"]

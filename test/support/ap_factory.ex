@@ -19,8 +19,13 @@ defmodule ActivityPub.Factory do
     # TODO: make into a generic adapter callback?
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Me.Fake) do
-          attrs = attrs |> Enum.into(%{})
-      user = Bonfire.Me.Fake.fake_user!(attrs, attrs, request_before_follow: attrs[:request_before_follow] || false)
+      attrs = attrs |> Enum.into(%{})
+
+      user =
+        Bonfire.Me.Fake.fake_user!(attrs, attrs,
+          request_before_follow: attrs[:request_before_follow] || false
+        )
+
       # |> debug()
       {:ok, actor} = ActivityPub.Actor.get_cached(username: user.character.username)
 
@@ -145,7 +150,14 @@ defmodule ActivityPub.Factory do
 
     if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Social.Fake) do
-      %{id: id} = post = Bonfire.Social.Fake.fake_post!(user_by_ap_id(actor), attrs[:boundary] || "public", attrs |> Enum.into(%{html_body: note.data["content"]}), to_circles: attrs[:to_circles] || []) 
+      %{id: id} =
+        post =
+        Bonfire.Social.Fake.fake_post!(
+          user_by_ap_id(actor),
+          attrs[:boundary] || "public",
+          attrs |> Enum.into(%{html_body: note.data["content"]}),
+          to_circles: attrs[:to_circles] || []
+        )
 
       {:ok, object} = ActivityPub.Object.get_cached(pointer: id)
 
@@ -183,32 +195,40 @@ defmodule ActivityPub.Factory do
     text = attrs[:status] || sequence(:text, &"This is note #{&1}")
     actor = attrs[:actor] || insert(:actor)
 
-      data = %{
-        "type" => "Note",
-        "content" => text,
-        "id" => ActivityPub.Utils.generate_object_id(),
-        "actor" => actor.data["id"],
-        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
-        "published" => DateTime.utc_now() |> DateTime.to_iso8601(),
-        # "likes" => [],
-        # "like_count" => 0,
-        "context" => "context",
-        "summary" => "summary",
-        "tag" => ["tag"]
-      }
+    data = %{
+      "type" => "Note",
+      "content" => text,
+      "id" => ActivityPub.Utils.generate_object_id(),
+      "actor" => actor.data["id"],
+      "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+      "published" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      # "likes" => [],
+      # "like_count" => 0,
+      "context" => "context",
+      "summary" => "summary",
+      "tag" => ["tag"]
+    }
 
-      %ActivityPub.Object{
-        data: merge_attributes(data, Map.get(attrs, :data, Map.drop(attrs, [:actor, :status, :note]))),
-        local: actor.local,
-        public: ActivityPub.Utils.public?(data),
-        is_object: true
-      }
+    %ActivityPub.Object{
+      data:
+        merge_attributes(data, Map.get(attrs, :data, Map.drop(attrs, [:actor, :status, :note]))),
+      local: actor.local,
+      public: ActivityPub.Utils.public?(data),
+      is_object: true
+    }
   end
 
   def local_direct_note(attrs \\ %{}) do
     to = attrs[:to] || local_actor()
 
-    local_note(attrs |> Enum.into(%{boundary: "mentions", to_circles: user_by_ap_id(to).id, actor: attrs[:actor] || local_actor()}))
+    local_note(
+      attrs
+      |> Enum.into(%{
+        boundary: "mentions",
+        to_circles: user_by_ap_id(to).id,
+        actor: attrs[:actor] || local_actor()
+      })
+    )
   end
 
   def direct_note_factory(attrs \\ %{}) do
@@ -223,8 +243,10 @@ defmodule ActivityPub.Factory do
   end
 
   def note_activity_factory(attrs \\ %{}) do
-    note = attrs[:note] || insert(:note, attrs |> Enum.into(%{actor: attrs[:actor] || insert(:actor)}))
-    actor = note.data["actor"] 
+    note =
+      attrs[:note] || insert(:note, attrs |> Enum.into(%{actor: attrs[:actor] || insert(:actor)}))
+
+    actor = note.data["actor"]
 
     attrs = attrs |> Enum.into(%{}) |> Map.drop([:actor, :note, :data_attrs])
     data_attrs = attrs[:data_attrs] || attrs |> Map.drop([:status])
@@ -241,12 +263,15 @@ defmodule ActivityPub.Factory do
       }
       |> Map.merge(data_attrs)
 
-    struct(%ActivityPub.Object{
-      data: data,
-      local: note.local,
-      public: note.public
-      # object: note
-    }, attrs)
+    struct(
+      %ActivityPub.Object{
+        data: data,
+        local: note.local,
+        public: note.public
+        # object: note
+      },
+      attrs
+    )
   end
 
   def announce_activity_factory(attrs \\ %{}) do

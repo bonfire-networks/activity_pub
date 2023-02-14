@@ -65,7 +65,12 @@ defmodule ActivityPubWeb.ControllerTest do
       user = local_actor()
       reader = local_actor(local: false)
 
-      post = local_note_activity(%{actor: user, status: "test @#{reader|> nickname()}", boundary: "local"})
+      post =
+        local_note_activity(%{
+          actor: user,
+          status: "test @#{reader |> nickname()}",
+          boundary: "local"
+        })
 
       object = Object.normalize(post, fetch: false)
       uuid = String.split(object.data["id"], "/") |> List.last()
@@ -247,7 +252,7 @@ defmodule ActivityPubWeb.ControllerTest do
 
       uuid = String.split(post.data["id"], "/") |> List.last()
 
-      conn = 
+      conn =
         conn
         |> put_req_header("accept", "application/json")
         |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
@@ -296,7 +301,9 @@ defmodule ActivityPubWeb.ControllerTest do
     end
 
     @tag :todo
-    test "returns visible non-public posts or messages when correctly authenticated", %{conn: conn} do
+    test "returns visible non-public posts or messages when correctly authenticated", %{
+      conn: conn
+    } do
       author = local_actor()
       to = local_actor()
       third_party = local_actor()
@@ -444,7 +451,6 @@ defmodule ActivityPubWeb.ControllerTest do
       assert Instances.reachable?(sender_url)
     end
 
-
     # FIXME!
     @tag capture_log: true
     test "without valid signature, it only accepts Create activities (if federation enabled, otherwise accepts nothing)",
@@ -472,8 +478,6 @@ defmodule ActivityPubWeb.ControllerTest do
       conn
       |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
       |> json_response(403)
-
-      
     end
 
     test "accepts Add/Remove activities", %{conn: conn} do
@@ -539,7 +543,7 @@ defmodule ActivityPubWeb.ControllerTest do
         "to" => [@public_uri]
       }
 
-      assert "ok" == 
+      assert "ok" ==
                conn
                |> assign(:valid_signature, true)
                |> put_req_header("signature", "keyId=\"#{actor}/main-key\"")
@@ -587,7 +591,7 @@ defmodule ActivityPubWeb.ControllerTest do
       [data: data]
     end
 
-      test "it inserts an incoming activity into the database", %{conn: conn, data: data} do
+    test "it inserts an incoming activity into the database", %{conn: conn, data: data} do
       user = local_actor()
 
       data =
@@ -649,7 +653,7 @@ defmodule ActivityPubWeb.ControllerTest do
       assert "ok" == json_response(conn, 200)
       ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
       %Object{} = activity = Object.get_cached!(ap_id: data["id"])
-      assert (ap_id(user) in activity.data["to"] || ap_id(user) in activity.data["cc"])
+      assert ap_id(user) in activity.data["to"] || ap_id(user) in activity.data["cc"]
     end
 
     test "it accepts messages with bcc as string instead of array", %{conn: conn, data: data} do
@@ -677,8 +681,6 @@ defmodule ActivityPubWeb.ControllerTest do
     end
   end
 
-
-
   describe "GET /users/:nickname/outbox" do
     test "it paginates correctly", %{conn: conn} do
       user = local_actor()
@@ -692,7 +694,7 @@ defmodule ActivityPubWeb.ControllerTest do
         end
 
       result =
-        conn  
+        conn
         |> put_req_header("accept", "application/activity+json")
         |> get(outbox_endpoint <> "?page=true")
         |> json_response(200)
@@ -784,7 +786,7 @@ defmodule ActivityPubWeb.ControllerTest do
         |> put_req_header("accept", "application/activity+json")
         |> get("#{Utils.ap_base_url()}/actors/#{user |> nickname()}/outbox?page=true")
 
-      list = response(conn, 200) 
+      list = response(conn, 200)
       # |> debug("lissst")
 
       assert list =~ status
@@ -812,7 +814,8 @@ defmodule ActivityPubWeb.ControllerTest do
       voter = local_actor()
 
       {:ok, activity} =
-        insert(:note_activity, %{actor: poller, 
+        insert(:note_activity, %{
+          actor: poller,
           status: "suya...",
           poll: %{options: ["suya", "suya.", "suya.."], expires_in: 10}
         })
@@ -831,9 +834,7 @@ defmodule ActivityPubWeb.ControllerTest do
       assert [answer_outbox] = outbox_get["orderedItems"]
       assert answer_outbox["id"] == activity.data["id"]
     end
-
   end
-
 
   describe "/users/:nickname/followers" do
     test "it returns the followers in a collection", %{conn: conn} do
@@ -844,7 +845,7 @@ defmodule ActivityPubWeb.ControllerTest do
       result =
         conn
         |> assign(:user, user_two)
-        |> get("#{Utils.ap_base_url()}/actors/#{user_two|> nickname()}/followers")
+        |> get("#{Utils.ap_base_url()}/actors/#{user_two |> nickname()}/followers")
         |> json_response(200)
 
       assert result["first"]["orderedItems"] == [ap_id(user)]
@@ -859,14 +860,14 @@ defmodule ActivityPubWeb.ControllerTest do
       result =
         conn
         |> assign(:current_user, user)
-        |> get("#{Utils.ap_base_url()}/actors/#{user_two|> nickname()}/followers")
+        |> get("#{Utils.ap_base_url()}/actors/#{user_two |> nickname()}/followers")
         |> json_response(200)
 
       assert is_binary(result["first"])
     end
 
-@tag :todo
-      test "it returns a 403 error on pages, if the user has 'hide_followers' set and the request is from another user",
+    @tag :todo
+    test "it returns a 403 error on pages, if the user has 'hide_followers' set and the request is from another user",
          %{conn: conn} do
       user = local_actor()
       other_user = local_actor(hide_followers: true)
@@ -879,6 +880,7 @@ defmodule ActivityPubWeb.ControllerTest do
       assert result.status == 403
       assert result.resp_body == ""
     end
+
     @tag :todo
     test "it renders the page, if the user has 'hide_followers' set and the request is authenticated with the same user",
          %{conn: conn} do
@@ -957,7 +959,7 @@ defmodule ActivityPubWeb.ControllerTest do
       result =
         conn
         |> assign(:current_user, user)
-        |> get("#{Utils.ap_base_url()}/actors/#{user_two|> nickname()}/following")
+        |> get("#{Utils.ap_base_url()}/actors/#{user_two |> nickname()}/following")
         |> json_response(200)
 
       assert is_binary(result["first"])
@@ -972,7 +974,7 @@ defmodule ActivityPubWeb.ControllerTest do
       result =
         conn
         |> assign(:current_user, user)
-        |> get("#{Utils.ap_base_url()}/actors/#{user_two|> nickname()}/following?page=1")
+        |> get("#{Utils.ap_base_url()}/actors/#{user_two |> nickname()}/following?page=1")
 
       assert result.status == 403
       assert result.resp_body == ""
@@ -1032,6 +1034,4 @@ defmodule ActivityPubWeb.ControllerTest do
       |> json_response(200)
     end
   end
-
-
 end

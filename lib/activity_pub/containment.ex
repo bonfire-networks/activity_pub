@@ -12,12 +12,11 @@ defmodule ActivityPub.Object.Containment do
   """
   import Untangle
   alias ActivityPub.Object
-alias ActivityPub.Config
-alias ActivityPub.Utils
+  alias ActivityPub.Config
+  alias ActivityPub.Utils
 
   @supported_actor_types ActivityPub.Config.supported_actor_types()
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
-
 
   @spec is_public?(Object.t() | Activity.t() | map()) :: boolean()
   def is_public?(%{public: true}), do: true
@@ -28,10 +27,8 @@ alias ActivityPub.Utils
   def is_public?(%Object{data: data}), do: is_public?(data)
 
   def is_public?(data) do
-    Utils.label_in_message?(@public_uri, data) 
+    Utils.label_in_message?(@public_uri, data)
   end
-
-
 
   def get_object(%{"object" => %{"id" => id}}) when is_binary(id) do
     id
@@ -42,7 +39,9 @@ alias ActivityPub.Utils
   end
 
   defp compare_uris(%URI{host: host} = _id_uri, %URI{host: host} = _other_uri), do: :ok
-  defp compare_uris(_id_uri, _other_uri), do: {:error, "The object doesn't seem to come from the same instance as the actor"}
+
+  defp compare_uris(_id_uri, _other_uri),
+    do: {:error, "The object doesn't seem to come from the same instance as the actor"}
 
   @doc """
   Checks that an imported AP object's actor matches the host it came from.
@@ -62,8 +61,6 @@ alias ActivityPub.Utils
     do: :ok
 
   def contain_origin(_id, _data), do: {:error, "Missing an actor or attributedTo"}
-
-
 
   # @skipped_types [
   #   "Person",
@@ -111,8 +108,8 @@ alias ActivityPub.Utils
 
   def contain_child(_), do: :ok
 
+  def contain_uri(id, data) when data == %{} or is_nil(data), do: :ok
 
-  def contain_uri(id, data) when data==%{} or is_nil(data), do: :ok
   def contain_uri(id, %{"id" => json_id} = data) do
     id_uri = URI.parse(id)
     json_id_uri = URI.parse(json_id)
@@ -124,10 +121,9 @@ alias ActivityPub.Utils
     end
   end
 
-
-
   @spec visible_for_user?(Object.t() | nil, User.t() | nil) :: boolean()
   def visible_for_user?(%Object{data: %{"type" => "Tombstone"}}, _), do: false
+
   # def visible_for_user?(%Object{data: %{"actor" => ap_id}}, %User{ap_id: user_ap_id}) when ap_id==user_ap_id, do: true # TODO
   def visible_for_user?(nil, _), do: false
   # def visible_for_user?(%Activity{data: %{"listMessage" => _}}, nil), do: false
@@ -146,19 +142,30 @@ alias ActivityPub.Utils
       when module in [Object] do
     if restrict_unauthenticated_access?(object),
       do: false,
-      else: is_public?(object) 
+      else: is_public?(object)
   end
 
   def visible_for_user?(object, %{actor: actor}), do: visible_for_user?(object, actor)
+
   def visible_for_user?(%{__struct__: module} = object, actor)
       when module in [Object] do
     user_ap_id = actor.data["id"]
-    x = [user_ap_id, "#{user_ap_id}/followers"]
-        |> debug("me")
 
-    y = [object.data["actor"], object.data["to"], object.data["cc"], object.data["bto"], object.data["bcc"], object.data["audience"]]
-    |> List.flatten()
-    |> debug("audiences")
+    x =
+      [user_ap_id, "#{user_ap_id}/followers"]
+      |> debug("me")
+
+    y =
+      [
+        object.data["actor"],
+        object.data["to"],
+        object.data["cc"],
+        object.data["bto"],
+        object.data["bcc"],
+        object.data["audience"]
+      ]
+      |> List.flatten()
+      |> debug("audiences")
 
     (is_public?(object) || Enum.any?(x, &(&1 in y))) and actor.local
   end
@@ -184,5 +191,4 @@ alias ActivityPub.Utils
       setting
     end
   end
-
 end

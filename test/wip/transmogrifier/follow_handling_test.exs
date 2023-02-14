@@ -19,7 +19,6 @@ defmodule ActivityPubWeb.Transmogrifier.FollowHandlingTest do
   end
 
   describe "handle_incoming" do
-
     test "it works for osada follow request" do
       user = local_actor()
 
@@ -89,7 +88,6 @@ defmodule ActivityPubWeb.Transmogrifier.FollowHandlingTest do
       # [notification] = Notification.for_user(user)
       # assert notification.type == "follow_request"
     end
-
 
     # TODO?
     # test "it rejects incoming follow requests if the following errors for some reason" do

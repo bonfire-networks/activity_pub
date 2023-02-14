@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Transmogrifier.VideoHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo()
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
@@ -33,11 +33,13 @@ use Oban.Testing, repo: repo()
   test "it converts content of object to html" do
     data = file("fixtures/tesla_mock/framatube.org-video.json") |> Jason.decode!()
 
-    {:ok, %Activity{local: false} = activity} = Transmogrifier.handle_incoming(data)
-    |> debug()
+    {:ok, %Activity{local: false} = activity} =
+      Transmogrifier.handle_incoming(data)
+      |> debug()
 
-    assert object = Object.normalize(activity, fetch: false)
-    |> debug()
+    assert object =
+             Object.normalize(activity, fetch: false)
+             |> debug()
 
     assert object.data["name"] ==
              "Déframasoftisons Internet [Framasoft]"

@@ -46,6 +46,7 @@ defmodule ActivityPub.Utils do
   @doc """
   Determines if an object or an activity is public.
   """
+
   # TODO: consolidate this and the others below?
   # def public?(data) do
   #   recipients = List.wrap(data["to"]) ++ List.wrap(data["cc"])
@@ -100,7 +101,6 @@ defmodule ActivityPub.Utils do
       label_in_message?(as_local_public(), data)
   end
 
-
   @spec label_in_collection?(any(), any()) :: boolean()
   defp label_in_collection?(ap_id, coll) when is_binary(coll), do: ap_id == coll
   defp label_in_collection?(ap_id, coll) when is_list(coll), do: ap_id in coll
@@ -111,7 +111,6 @@ defmodule ActivityPub.Utils do
     do:
       [params["to"], params["cc"], params["bto"], params["bcc"]]
       |> Enum.any?(&label_in_collection?(label, &1))
-
 
   def is_ulid?(str) when is_binary(str) and byte_size(str) == 26 do
     with :error <- Pointers.ULID.cast(str) do

@@ -11,7 +11,7 @@ defmodule ActivityPubWeb.Transmogrifier.EmojiReactHandlingTest do
   import ActivityPub.Factory
   import Tesla.Mock
 
-    setup_all do
+  setup_all do
     Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
     :ok
   end

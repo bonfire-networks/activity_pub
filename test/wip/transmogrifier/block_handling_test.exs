@@ -5,7 +5,7 @@ defmodule ActivityPubWeb.Transmogrifier.BlockHandlingTest do
   use ActivityPub.DataCase, async: true
 
   alias ActivityPub.Object, as: Activity
-  
+
   alias ActivityPubWeb.Transmogrifier
 
   import ActivityPub.Factory
@@ -30,7 +30,7 @@ defmodule ActivityPubWeb.Transmogrifier.BlockHandlingTest do
     {:ok, %Activity{data: data, local: false}} = Transmogrifier.handle_incoming(data)
 
     assert data["type"] == "Block"
-    assert Object.get_ap_id(data["object"]) =~ (ap_id(user))
+    assert Object.get_ap_id(data["object"]) =~ ap_id(user)
     assert data["actor"] == "https://mastodon.local/users/admin"
 
     assert is_blocked?(blocker, user)

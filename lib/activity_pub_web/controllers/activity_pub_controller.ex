@@ -48,9 +48,10 @@ defmodule ActivityPubWeb.ActivityPubController do
       with {:ok, object} <-
              Object.get_cached(pointer: uuid) ||
                Adapter.maybe_publish_object(uuid),
-          #  true <- object.id != uuid, # huh?
-          #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
-           true <- object.public do # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") do
+           #  true <- object.id != uuid, # huh?
+           #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
+           # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") do
+           true <- object.public do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
@@ -98,8 +99,7 @@ defmodule ActivityPubWeb.ActivityPubController do
       |> render("actor.json", %{actor: actor})
     else
       _ ->
-                  ret_error(conn, "not found", 404)
-
+        ret_error(conn, "not found", 404)
     end
   end
 
@@ -123,7 +123,6 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def followers(conn, %{"username" => username, "page" => page}) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -142,15 +141,14 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def outbox(conn, %{"username" => username, "page" => page}) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
       |> render("outbox.json", %{actor: actor, page: page_number(page)})
-
-      else e ->
+    else
+      e ->
         ret_error(conn, "Invalid actor", 500)
-      end
+    end
   end
 
   def outbox(conn, %{"username" => username}) do
@@ -239,5 +237,4 @@ defmodule ActivityPubWeb.ActivityPubController do
   defp page_number("true"), do: 1
   defp page_number(page) when is_binary(page), do: Integer.parse(page) |> elem(0)
   defp page_number(_), do: 1
-
 end

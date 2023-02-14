@@ -7,8 +7,7 @@ defmodule ActivityPub.Tests.ObanHelpers do
   """
 
   require Ecto.Query
-      import ActivityPub.Common
-
+  import ActivityPub.Common
 
   def wipe_all do
     repo().delete_all(Oban.Job)

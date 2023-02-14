@@ -148,15 +148,15 @@ defmodule ActivityPub do
           {:ok, Object.t()} | {:error, any()}
   def accept(%{to: to, actor: actor, object: follow_activity_id} = params) do
     with actor_id <- actor.data["id"],
-        data <- %{
+         data <- %{
            "to" => to,
            "type" => "Accept",
            "actor" => actor_id,
            "object" => follow_activity_id
          },
-         %Object{data: %{"actor"=>actor_id}} = follow_activity <-
+         %Object{data: %{"actor" => actor_id}} = follow_activity <-
            Object.get_cached!(ap_id: follow_activity_id),
-        {:ok, accept_activity} <-
+         {:ok, accept_activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(accept_activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity),
@@ -456,10 +456,8 @@ defmodule ActivityPub do
           :content => binary(),
           optional(atom()) => any()
         }) :: {:ok, Object.t()} | {:error, any()}
-  def flag(
-        %{} = params
-      ) do
-    forward = (params[:forward] == true)
+  def flag(%{} = params) do
+    forward = params[:forward] == true
 
     additional = params[:additional] || %{}
 
@@ -702,6 +700,7 @@ defmodule ActivityPub do
       "state" => "open"
     }
     |> Map.merge(additional)
+
     # |> debug()
   end
 end

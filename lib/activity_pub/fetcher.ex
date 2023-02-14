@@ -20,7 +20,6 @@ defmodule ActivityPub.Fetcher do
   """
   def fetch_object_from_id(id, _opts \\ []) do
     case cached_or_handle_incoming(id) do
-
       {:ok, object} ->
         {:ok, object}
 
@@ -34,7 +33,6 @@ defmodule ActivityPub.Fetcher do
   """
   def fetch_ap_object_from_id(id, opts \\ []) do
     case Object.get_cached(ap_id: id) do
-
       {:ok, object} ->
         {:ok, object}
 
@@ -44,12 +42,15 @@ defmodule ActivityPub.Fetcher do
   end
 
   def fetch_fresh_object_from_id(id, opts \\ [])
-  def fetch_fresh_object_from_id(%{data: %{"id" => id}}, opts), do: fetch_fresh_object_from_id(id, opts)
+
+  def fetch_fresh_object_from_id(%{data: %{"id" => id}}, opts),
+    do: fetch_fresh_object_from_id(id, opts)
+
   def fetch_fresh_object_from_id(%{"id" => id}, opts), do: fetch_fresh_object_from_id(id, opts)
+
   def fetch_fresh_object_from_id(id, opts) do
     with {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <- cached_or_handle_incoming(data) do
-
       Instances.set_reachable(id)
 
       {:ok, object}
@@ -59,7 +60,10 @@ defmodule ActivityPub.Fetcher do
   defp cached_or_handle_incoming(id_or_data) do
     case Object.get_cached(ap_id: id_or_data) do
       {:ok, %{pointer_id: nil, data: data} = _object} ->
-        warn("seems the object was already cached in object table, but not processed/saved by the adapter")
+        warn(
+          "seems the object was already cached in object table, but not processed/saved by the adapter"
+        )
+
         handle_incoming(data)
         |> debug("handled")
 
@@ -68,6 +72,7 @@ defmodule ActivityPub.Fetcher do
 
       {:error, :not_found} when is_map(id_or_data) ->
         debug("seems like a new object")
+
         handle_incoming(id_or_data)
         |> debug("handled")
 
@@ -83,8 +88,8 @@ defmodule ActivityPub.Fetcher do
         # return the object rather than a Create activity (do we want this?)
         %{object: %{id: _} = object, pointer: pointer} = activity ->
           {:ok,
-            object
-            |> Utils.maybe_put(:pointer, pointer)}
+           object
+           |> Utils.maybe_put(:pointer, pointer)}
 
         _ ->
           {:ok, object}
@@ -102,19 +107,23 @@ defmodule ActivityPub.Fetcher do
     debug(id, "Attempting to fetch ActivityPub object")
 
     with true <- Transmogrifier.allowed_thread_distance?(options[:depth]),
-        {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(URI.parse(id)), # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
+         # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
+         {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(URI.parse(id)),
          true <- String.starts_with?(id, "http"),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
            HTTP.get(
              id,
-             [{:"Accept", "application/activity+json"}]
+             [{:Accept, "application/activity+json"}]
            ),
          {:ok, data} <- Jason.decode(body) |> debug(body),
          :ok <- Containment.contain_origin(id, data) |> debug("contain_origin?") do
       {:ok, data}
     else
-      {:ok, %{status: 304}} -> 
-        debug("HTTP I am a teapot - we use this for unavailable mocks in tests - return cached object or ID")
+      {:ok, %{status: 304}} ->
+        debug(
+          "HTTP I am a teapot - we use this for unavailable mocks in tests - return cached object or ID"
+        )
+
         case Object.get_cached(ap_id: id) do
           {:ok, object} -> {:ok, object}
           _ -> {:ok, id}
@@ -138,18 +147,16 @@ defmodule ActivityPub.Fetcher do
 
       {:reject, e} ->
         {:reject, e}
+
       e ->
         error(e, "Error trying to connect with ActivityPub remote")
     end
   end
 
-
-
   defp check_if_public(public) when public == true, do: :ok
 
   # discard for now, to avoid privacy leaks
   defp check_if_public(_public), do: {:error, "Not public"}
-
 
   @spec fetch_collection(String.t() | map()) :: {:ok, [Object.t()]} | {:error, any()}
   def fetch_collection(ap_id) when is_binary(ap_id) do
@@ -223,5 +230,4 @@ defmodule ActivityPub.Fetcher do
   end
 
   defp maybe_next_page(_, items), do: items
-
 end

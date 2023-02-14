@@ -61,7 +61,7 @@ defmodule ActivityPub.FetcherTest do
 
     test "fetches a same mastodon actor by friendly URL and AP ID" do
       {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
- 
+
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       assert object1.data == object2.data
@@ -154,8 +154,7 @@ defmodule ActivityPub.FetcherTest do
     end
 
     test "handle HTTP 502 response" do
-      assert {:error, _} =
-               Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone502")
+      assert {:error, _} = Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone502")
     end
   end
 end

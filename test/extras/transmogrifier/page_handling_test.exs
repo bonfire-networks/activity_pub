@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPubWeb.Transmogrifier.PageHandlingTest do
-    use ActivityPub.DataCase
-use Oban.Testing, repo: repo()
+  use ActivityPub.DataCase
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Fetcher
   import Tesla.Mock
@@ -23,7 +23,9 @@ use Oban.Testing, repo: repo()
           headers: [{"content-type", "application/activity+json"}],
           body: file("fixtures/tesla_mock/lemmy-user.json")
         }
-        env -> apply(HttpRequestMock, :request, [env])
+
+      env ->
+        apply(HttpRequestMock, :request, [env])
     end)
 
     {:ok, object} = Fetcher.fetch_object_from_id("https://lemmy.local/post/3")

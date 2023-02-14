@@ -21,7 +21,8 @@ defmodule ActivityPubWeb.Transmogrifier.AnswerHandlingTest do
     user = local_actor()
 
     activity =
-      insert(:note_activity, %{actor: user, 
+      insert(:note_activity, %{
+        actor: user,
         status: "suya...",
         poll: %{options: ["suya", "suya.", "suya.."], expires_in: 10}
       })
@@ -57,7 +58,8 @@ defmodule ActivityPubWeb.Transmogrifier.AnswerHandlingTest do
     user = local_actor()
 
     poll_activity =
-      insert(:note_activity, %{actor: user, 
+      insert(:note_activity, %{
+        actor: user,
         status: "suya...",
         poll: %{options: ["suya", "suya.", "suya.."], expires_in: 10}
       })

@@ -134,9 +134,6 @@
 #            end)
 #   end
 
-
-
-
 #     test "fetches user featured collection" do
 #       ap_id = "https://example.local/users/lain"
 

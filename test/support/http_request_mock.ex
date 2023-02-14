@@ -6,8 +6,8 @@ defmodule ActivityPub.Test.HttpRequestMock do
   alias Phoenix.ConnTest
 
   alias ActivityPub.Utils
-  
-      @endpoint endpoint()
+
+  @endpoint endpoint()
 
   def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
 
@@ -29,12 +29,16 @@ defmodule ActivityPub.Test.HttpRequestMock do
     end
   end
 
-
   # GET Requests
   #
   def get(url, query \\ [], body \\ [], headers \\ [])
 
-  def get(url, _, _, _) when url in ["https://mastodon.local/@admin/99541947525187367", "https://mastodon.local/users/admin/statuses/99541947525187367", "https://mastodon.local/users/admin/statuses/99541947525187367/activity"] do
+  def get(url, _, _, _)
+      when url in [
+             "https://mastodon.local/@admin/99541947525187367",
+             "https://mastodon.local/users/admin/statuses/99541947525187367",
+             "https://mastodon.local/users/admin/statuses/99541947525187367/activity"
+           ] do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -43,7 +47,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get(url, _, _, _) when url in ["https://mastodon.local/@admin/99512778738411822", "https://mastodon.local/users/admin/statuses/99512778738411822", "https://mastodon.local/users/admin/statuses/99512778738411822/activity"] do
+  def get(url, _, _, _)
+      when url in [
+             "https://mastodon.local/@admin/99512778738411822",
+             "https://mastodon.local/users/admin/statuses/99512778738411822",
+             "https://mastodon.local/users/admin/statuses/99512778738411822/activity"
+           ] do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -68,7 +77,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-
   def get(
         "https://mocked.local/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779",
         _,
@@ -81,7 +89,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
        body: file("fixtures/pleroma_note.json")
      }}
   end
-
 
   def get(
         "https://testing.local/objects/d953809b-d968-49c8-aa8f-7545b9480a12",
@@ -184,9 +191,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
        body: file("fixtures/mastodon/mastodon-actor.json")
      }}
   end
-
-
-
 
   def get("https://osada.local/channel/mike", _, _, _) do
     {:ok,
@@ -419,10 +423,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body:
-         file(
-           "fixtures/tesla_mock/http___mastodon.example.org_users_admin_status_1234.json"
-         )
+       body: file("fixtures/tesla_mock/http___mastodon.example.org_users_admin_status_1234.json")
      }}
   end
 
@@ -560,8 +561,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
        headers: activitypub_object_headers()
      }}
   end
-
-
 
   def get(
         "https://mastodon.local/users/admin/statuses/99512778738411822/replies?min_id=99512778738411824&page=true",
@@ -863,8 +862,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body:
-         file("fixtures/tesla_mock/https___mastodon.social_users_lambadalambda.xml")
+       body: file("fixtures/tesla_mock/https___mastodon.social_users_lambadalambda.xml")
      }}
   end
 
@@ -894,8 +892,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body:
-         file("fixtures/tesla_mock/http___gs.example.org_4040_index.php_user_1.xml")
+       body: file("fixtures/tesla_mock/http___gs.example.org_4040_index.php_user_1.xml")
      }}
   end
 
@@ -909,8 +906,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get("https://me.local/.well-known/host-meta", _, _, _) do
-    {:ok,
-     %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/squeet.me_host_meta")}}
+    {:ok, %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/squeet.me_host_meta")}}
   end
 
   def get(
@@ -1211,8 +1207,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   end
 
   def get("http://example.local/malformed", _, _, _) do
-    {:ok,
-     %Tesla.Env{status: 200, body: file("fixtures/rich_media/malformed-data.html")}}
+    {:ok, %Tesla.Env{status: 200, body: file("fixtures/rich_media/malformed-data.html")}}
   end
 
   def get("http://example.local/empty", _, _, _) do
@@ -1397,8 +1392,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok, %Tesla.Env{status: 200, body: ""}}
   end
 
-
-
   def get("https://akkoma.local/activity4.json", _, _, _) do
     {:ok, %Tesla.Env{status: 500, body: "Error occurred"}}
   end
@@ -1551,15 +1544,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
        headers: activitypub_object_headers()
      }}
   end
-  
 
-  def get(url, query, body, headers) when is_list(headers) and headers !=[] do
-    
+  def get(url, query, body, headers) when is_list(headers) and headers != [] do
     case [{"Accept", headers[:Accept]}] do
       ^headers -> maybe_get_local(url, query, body, headers)
       head -> get(url, query, body, head)
     end
-    
   end
 
   def get(url, query, body, headers) do
@@ -1569,18 +1559,23 @@ defmodule ActivityPub.Test.HttpRequestMock do
   def maybe_get_local(url, query, body, headers) do
     # there must be a better way to bypass mocks for local URLs?
     base_url = ActivityPubWeb.base_url()
-    if String.starts_with?(url, base_url )  do
-        # TODO: use headers?
-    with %{resp_body: resp_body, status: status} <- ConnTest.build_conn()
-    |> ConnTest.get(String.trim(url, base_url)) do
-      {:ok, %Tesla.Env{status: status, body: resp_body}}
-    end
+
+    if String.starts_with?(url, base_url) do
+      # TODO: use headers?
+      with %{resp_body: resp_body, status: status} <-
+             ConnTest.build_conn()
+             |> ConnTest.get(String.trim(url, base_url)) do
+        {:ok, %Tesla.Env{status: status, body: resp_body}}
+      end
     else
-        error(
-     "No implemented mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}")
+      error(
+        "No implemented mock response for get #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}"
+      )
+
       {:ok, %Tesla.Env{status: 304, body: "{}"}}
     end
   end
+
   # POST Requests
   #
 
@@ -1647,7 +1642,6 @@ defmodule ActivityPub.Test.HttpRequestMock do
      "Mock response not implemented for POST #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}"}
   end
 
-
   # Most of the rich media mocks are missing HEAD requests, so we just return 404.
   @rich_media_mocks [
     "https://example.local/ogp",
@@ -1662,9 +1656,4 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:error,
      "Mock response not implemented for HEAD #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}"}
   end
-
-
-
-
-
 end

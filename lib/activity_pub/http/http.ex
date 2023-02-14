@@ -30,35 +30,41 @@ defmodule ActivityPub.HTTP do
     def request(method, url, body \\ "", headers \\ [], options \\ []) do
       do_request(method, url, body, headers, options)
     rescue
-        e in Tesla.Mock.Error ->
-          error(e, "Test mock HTTP error")
+      e in Tesla.Mock.Error ->
+        error(e, "Test mock HTTP error")
 
-        e ->
-          error(e, "HTTP request failed")
+      e ->
+        error(e, "HTTP request failed")
     catch
-        :exit, e ->
-          error(e, "HTTP request exited")
+      :exit, e ->
+        error(e, "HTTP request exited")
     end
   end
-  
 
   defp do_request(method, url, body \\ "", headers \\ [], options \\ []) do
-      options =
-        process_request_options(options)
-        |> process_sni_options(url)
-      # |> info("options")
+    options =
+      process_request_options(options)
+      |> process_sni_options(url)
 
-      params = Keyword.get(options, :params, [])
+    # |> info("options")
 
-      %{}
-      |> Builder.method(method)
-      |> Builder.headers(headers ++ [{"User-Agent", Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"}])
-      |> Builder.opts(options)
-      |> Builder.url(url)
-      |> Builder.add_param(:body, :body, body)
-      |> Builder.add_param(:query, :query, params)
-      |> Enum.into([])
-      |> (&Tesla.request(Connection.new(options), &1)).()
+    params = Keyword.get(options, :params, [])
+
+    %{}
+    |> Builder.method(method)
+    |> Builder.headers(
+      headers ++
+        [
+          {"User-Agent",
+           Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"}
+        ]
+    )
+    |> Builder.opts(options)
+    |> Builder.url(url)
+    |> Builder.add_param(:body, :body, body)
+    |> Builder.add_param(:query, :query, params)
+    |> Enum.into([])
+    |> (&Tesla.request(Connection.new(options), &1)).()
   end
 
   defp process_request_options(options) do

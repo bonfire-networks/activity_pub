@@ -11,29 +11,28 @@ defmodule ActivityPubWeb.Transmogrifier.ArticleHandlingTest do
   alias ActivityPubWeb.Transmogrifier
   alias ActivityPub.Test.HttpRequestMock
   import Tesla.Mock
- 
+
   test "Pterotype (Wordpress Plugin) Article" do
-    Tesla.Mock.mock(fn 
-      
+    Tesla.Mock.mock(fn
       %{url: "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog"} ->
-      %Tesla.Env{
-        status: 200,
-        body: file("fixtures/tesla_mock/wedistribute-user.json"),
-        headers: HttpRequestMock.activitypub_object_headers()
-      }
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/wedistribute-user.json"),
+          headers: HttpRequestMock.activitypub_object_headers()
+        }
 
       %{url: "https://wedistribute.local/wp-json/pterotype/v1/object/85809"} ->
-      %Tesla.Env{
-        status: 200,
-        body: file("fixtures/tesla_mock/wedistribute-create-article.json"),
-        headers: HttpRequestMock.activitypub_object_headers()
-      }
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/wedistribute-create-article.json"),
+          headers: HttpRequestMock.activitypub_object_headers()
+        }
 
-      env -> apply(HttpRequestMock, :request, [env])
+      env ->
+        apply(HttpRequestMock, :request, [env])
     end)
 
-    data =
-      file("fixtures/tesla_mock/wedistribute-create-article.json") |> Jason.decode!()
+    data = file("fixtures/tesla_mock/wedistribute-create-article.json") |> Jason.decode!()
 
     {:ok, %Activity{data: data, local: false}} = Transmogrifier.handle_incoming(data)
 
@@ -62,7 +61,9 @@ defmodule ActivityPubWeb.Transmogrifier.ArticleHandlingTest do
           body: file("fixtures/tesla_mock/baptiste.gelex.xyz-user.json"),
           headers: HttpRequestMock.activitypub_object_headers()
         }
-        env -> apply(HttpRequestMock, :request, [env])
+
+      env ->
+        apply(HttpRequestMock, :request, [env])
     end)
 
     {:ok, object} =
@@ -77,13 +78,16 @@ defmodule ActivityPubWeb.Transmogrifier.ArticleHandlingTest do
   end
 
   test "Prismo Article" do
-    Tesla.Mock.mock(fn %{url: "https://prismo.local/@mxb"} ->
-      %Tesla.Env{
-        status: 200,
-        body: file("fixtures/tesla_mock/https___prismo.news__mxb.json"),
-        headers: HttpRequestMock.activitypub_object_headers()
-      }
-      env -> apply(HttpRequestMock, :request, [env])
+    Tesla.Mock.mock(fn
+      %{url: "https://prismo.local/@mxb"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/https___prismo.news__mxb.json"),
+          headers: HttpRequestMock.activitypub_object_headers()
+        }
+
+      env ->
+        apply(HttpRequestMock, :request, [env])
     end)
 
     data = file("fixtures/prismo-url-map.json") |> Jason.decode!()

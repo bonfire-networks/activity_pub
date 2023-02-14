@@ -3,7 +3,6 @@ defmodule ActivityPub.Config do
     defexception [:message]
   end
 
-
   # TODO: make configurable
   @supported_actor_types Application.compile_env(:activity_pub, :instance)[
                            :supported_actor_types
@@ -78,8 +77,6 @@ defmodule ActivityPub.Config do
 
     # |> IO.inspect(label: "Federating?")
   end
-
-
 
   def get(key), do: get(key, nil)
 

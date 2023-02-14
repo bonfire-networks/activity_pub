@@ -80,7 +80,7 @@ defmodule ActivityPub.FetcherTest do
             status: 500
           }
 
-          env ->
+        env ->
           apply(HttpRequestMock, :request, [env])
       end)
 
@@ -91,9 +91,7 @@ defmodule ActivityPub.FetcherTest do
     test "it works when fetching the OP actor errors out" do
       # Here we simulate a case where the author of the OP can't be read
       assert {:ok, _} =
-               Fetcher.fetch_object_from_id(
-                 "https://sakamoto.local/notice/9wTkLEnuq47B25EehM"
-               )
+               Fetcher.fetch_object_from_id("https://sakamoto.local/notice/9wTkLEnuq47B25EehM")
     end
   end
 
@@ -123,7 +121,9 @@ defmodule ActivityPub.FetcherTest do
       # assert is_list(attachment["url"])
 
       {:ok, object_by_id} =
-        Fetcher.fetch_object_from_id("https://mastodon.local/users/admin/statuses/99541947525187367")
+        Fetcher.fetch_object_from_id(
+          "https://mastodon.local/users/admin/statuses/99541947525187367"
+        )
 
       assert object == object_by_id
 
@@ -139,9 +139,7 @@ defmodule ActivityPub.FetcherTest do
       clear_config([:mrf, :policies], [ActivityPubWeb.MRF.KeywordPolicy])
 
       assert {:reject, "[KeywordPolicy] Matches with rejected keyword"} ==
-               Fetcher.fetch_object_from_id(
-                 "https://mastodon.local/@admin/99541947525187367"
-               )
+               Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99541947525187367")
     end
 
     test "it does not fetch a spoofed object uploaded on an instance as an attachment" do
@@ -158,7 +156,7 @@ defmodule ActivityPub.FetcherTest do
                Fetcher.fetch_object_from_id("http://evil.example.org/@admin/99541947525187367")
     end
 
-    @tag :todo 
+    @tag :todo
     test "does not fetch anything if mrf_simple accept is on" do
       clear_config([:mrf_simple, :accept], [{"mastodon.local", "i said so"}])
       clear_config([:mrf_simple, :reject], [])
@@ -169,9 +167,7 @@ defmodule ActivityPub.FetcherTest do
                )
 
       assert {:ok, _object} =
-               Fetcher.fetch_object_from_id(
-                 "https://mastodon.local/@admin/99541947525187367"
-               )
+               Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99541947525187367")
     end
 
     test "it resets instance reachability on successful fetch" do
@@ -183,7 +179,7 @@ defmodule ActivityPub.FetcherTest do
         Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99541947525187367")
 
       assert Instances.reachable?(id)
-    end 
+    end
   end
 
   describe "implementation quirks" do
@@ -216,32 +212,26 @@ defmodule ActivityPub.FetcherTest do
 
     test "it can fetch wedistribute articles" do
       {:ok, object} =
-        Fetcher.fetch_object_from_id("https://wedistribute.local/wp-json/pterotype/v1/object/85810")
+        Fetcher.fetch_object_from_id(
+          "https://wedistribute.local/wp-json/pterotype/v1/object/85810"
+        )
 
       assert object
     end
 
     test "all objects with fake directions are rejected by the object fetcher" do
-      assert {:error, _} =
-               Fetcher.fetch_object_from_id(
-                 "https://akkoma.local/activity4.json"
-               )
+      assert {:error, _} = Fetcher.fetch_object_from_id("https://akkoma.local/activity4.json")
     end
 
     test "handle HTTP 410 Gone response" do
       # TODO: {:error, {"Object has been deleted", "https://mastodon.local/users/userisgone", 410}}
-      assert {:error, _} =
-               Fetcher.fetch_object_from_id(
-                 "https://mastodon.local/users/userisgone"
-               )
+      assert {:error, _} = Fetcher.fetch_object_from_id("https://mastodon.local/users/userisgone")
     end
 
     test "handle HTTP 404 response" do
       # TODO: assert {:error, {"Object has been deleted", "https://mastodon.local/users/userisgone404", 404}} == 
       assert {:error, _} =
-               Fetcher.fetch_object_from_id(
-                 "https://mastodon.local/users/userisgone404"
-               )
+               Fetcher.fetch_object_from_id("https://mastodon.local/users/userisgone404")
     end
 
     test "it can fetch pleroma polls with attachments" do
@@ -310,7 +300,7 @@ defmodule ActivityPub.FetcherTest do
         "bcc" => [],
         "bto" => [],
         "cc" => [],
-"to" => @public_uri,
+        "to" => @public_uri,
         "summary" => ""
       }
 
@@ -323,7 +313,7 @@ defmodule ActivityPub.FetcherTest do
         "bcc" => [],
         "bto" => [],
         "cc" => [],
-"to" => @public_uri,
+        "to" => @public_uri,
         "summary" => "",
         "formerRepresentations" => %{
           "type" => "OrderedCollection",
@@ -468,7 +458,7 @@ defmodule ActivityPub.FetcherTest do
           "formerRepresentations" => %{
             "type" => "OrderedCollection",
             "orderedItems" => [
-              %{"type" => "Note", "content" => "mew mew 1", "to"=>@public_uri}
+              %{"type" => "Note", "content" => "mew mew 1", "to" => @public_uri}
             ],
             "totalItems" => 1
           }
@@ -584,6 +574,7 @@ defmodule ActivityPub.FetcherTest do
             headers: [{"content-type", "application/activity+json"}],
             body: @sample_object
           }
+
         env ->
           apply(HttpRequestMock, :request, [env])
       end)
@@ -605,7 +596,8 @@ defmodule ActivityPub.FetcherTest do
             ],
             body: @sample_object
           }
-          env ->
+
+        env ->
           apply(HttpRequestMock, :request, [env])
       end)
 
@@ -624,7 +616,8 @@ defmodule ActivityPub.FetcherTest do
             ],
             body: @sample_object
           }
-          env ->
+
+        env ->
           apply(HttpRequestMock, :request, [env])
       end)
 

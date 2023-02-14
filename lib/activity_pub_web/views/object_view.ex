@@ -7,9 +7,11 @@ defmodule ActivityPubWeb.ObjectView do
   alias ActivityPub.Object
 
   def render("object.json", %{object: object}) do
-    {:ok, additional} = object
-    # |> debug
-    |> Transmogrifier.prepare_outgoing()
+    {:ok, additional} =
+      object
+      # |> debug
+      |> Transmogrifier.prepare_outgoing()
+
     # |> debug
 
     Map.merge(Utils.make_json_ld_header(), additional)
@@ -59,12 +61,12 @@ defmodule ActivityPubWeb.ObjectView do
     offset = (page - 1) * 10
 
     items =
-    collection 
-    |> debug()
-    |> Enum.map(fn object ->
+      collection
+      |> debug()
+      |> Enum.map(fn object ->
         render("object.json", %{object: object})
       end)
-    |> debug()
+      |> debug()
 
     total = total || length(collection)
 

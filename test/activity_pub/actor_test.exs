@@ -35,7 +35,7 @@ defmodule ActivityPub.ActorTest do
   end
 
   test "get_or_fetch_by_ap_id/1" do
-    actor = ok_unwrap(Actor.get_or_fetch_by_ap_id("https://mastodon.local/users/karen"))
+    actor = ok_unwrap(Actor.get_or_fetch_by_ap_id("https://mastodon.local/users/admin"))
     assert %ActivityPub.Actor{} = actor
 
     assert actor.data["preferredUsername"] == "karen"

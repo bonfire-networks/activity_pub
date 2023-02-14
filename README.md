@@ -103,7 +103,7 @@ config :activity_pub, :http,
 8. If you don't already have Oban set up, follow the [Oban installation intructions](https://hexdocs.pm/oban/installation.html#content) and add the AP queues:
 
 ```
-config :my_app, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]
+config :my_app, Oban, queues: [federator_incoming: 50, federator_outgoing: 50, remote_fetcher: 20]
 ```
 
 Now you should be able to compile and run your app and move over to integration.

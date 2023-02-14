@@ -48,7 +48,7 @@ defmodule ActivityPub.WebFingerTest do
 
       {:ok, data} = WebFinger.finger(user)
 
-      assert data["id"] == "https://mastodon.local/users/karen"
+      assert data["id"] == "https://mastodon.local/users/admin"
     end
 
     test "works with mastodon, with leading @" do
@@ -56,7 +56,7 @@ defmodule ActivityPub.WebFingerTest do
 
       {:ok, data} = WebFinger.finger(user)
 
-      assert data["id"] == "https://mastodon.local/users/karen"
+      assert data["id"] == "https://mastodon.local/users/admin"
     end
   end
 end

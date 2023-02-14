@@ -27,6 +27,13 @@ defmodule ActivityPub.DataCase do
       import Ecto.Query
       # import ActivityPub.DataCase
       import Untangle
+
+      @endpoint endpoint()
+
+      alias ActivityPub.Utils
+      alias ActivityPub.Object
+      alias ActivityPub.Test.HttpRequestMock
+
     end
   end
 

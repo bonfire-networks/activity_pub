@@ -46,6 +46,7 @@ defmodule ActivityPub.Actor do
   ]
 
   def get_cached(id: id), do: do_get_cached(:id, id)
+  def get_cached(pointer: %{id: id} = pointer), do: get_cached(pointer: id) ~> Map.put(:pointer, pointer) |> ok()
   def get_cached(pointer: id), do: do_get_cached(:pointer, id)
   def get_cached(username: username), do: do_get_cached(:username, username)
   def get_cached(ap_id: ap_id) when is_binary(ap_id), do: do_get_cached(:ap_id, ap_id)
@@ -53,7 +54,6 @@ defmodule ActivityPub.Actor do
   def get_cached(_: %Actor{} = actor), do: actor
 
   def get_cached(id: %{id: id}) when is_binary(id), do: get_cached(id: id)
-  def get_cached(pointer: %{id: id}) when is_binary(id), do: get_cached(pointer: id)
   def get_cached([{_, %{ap_id: ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
   def get_cached([{_, %{"id" => ap_id}}]) when is_binary(ap_id), do: get_cached(ap_id: ap_id)
 
@@ -145,9 +145,13 @@ defmodule ActivityPub.Actor do
     end
   end
 
+  defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
+  defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
+  defp get(ap_id: ap_id), do: get(ap_id)
+
   defp get(opts) do
     error(opts, "Unexpected args")
-    raise "Unexpected args for Actor.get"
+    raise "Unexpected args when attempting to get an actor"
   end
 
   @doc """
@@ -276,7 +280,11 @@ defmodule ActivityPub.Actor do
         update_actor(ap_id)
 
       nil ->
-        {:error, "Remote actor not found: " <> ap_id}
+        error(ap_id, "Remote actor not found")
+
+      {:ok, actor} -> {:ok, actor}
+
+      %Actor{} = actor -> {:ok, actor}
 
       {:error, e} ->
         {:error, e}
@@ -329,8 +337,14 @@ defmodule ActivityPub.Actor do
     actor
   end
 
-  defp fetch_by_ap_id(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) |> info() do
+  defp fetch_by_ap_id(ap_id) when is_binary(ap_id) do
+    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) |> debug("fetched actor") do
+      maybe_create_actor_from_object(object)
+    end
+  end
+
+  defp fetch_fresh_by_ap_id(ap_id) when is_binary(ap_id) do 
+    with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> debug("fetched actor") do
       maybe_create_actor_from_object(object)
     end
   end
@@ -369,10 +383,15 @@ defmodule ActivityPub.Actor do
     {:ok, ok_unwrap(object)}
   end
 
+  def get_or_fetch_by_ap_id(%Actor{data: _} = actor), do: actor
+  def get_or_fetch_by_ap_id(%{"id"=> id}), do: get_or_fetch_by_ap_id(id)
   def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true) do
-    case get_remote_actor(ap_id, maybe_create) |> info() do
+    case get_remote_actor(ap_id, maybe_create) |> debug() do
       {:ok, actor} -> {:ok, actor}
-      _ -> fetch_by_ap_id(ap_id) |> info()
+      other -> 
+        debug(ap_id, "not an known remote actor, try fetching")
+        fetch_fresh_by_ap_id(ap_id) 
+        |> debug()
     end
   end
 

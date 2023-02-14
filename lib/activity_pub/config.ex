@@ -3,6 +3,7 @@ defmodule ActivityPub.Config do
     defexception [:message]
   end
 
+
   # TODO: make configurable
   @supported_actor_types Application.compile_env(:activity_pub, :instance)[
                            :supported_actor_types
@@ -66,6 +67,10 @@ defmodule ActivityPub.Config do
   # def supported_object_types, do: @supported_object_types
   def collection_types, do: @collection_types
 
+  # defdelegate repo, to: ActivityPub.Common
+  @compile_env Mix.env()
+  def env, do: Application.get_env(:activity_pub, :env) || @compile_env
+
   def federating? do
     Application.get_env(:activity_pub, :instance)[:federating] ||
       (env() == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
@@ -74,7 +79,7 @@ defmodule ActivityPub.Config do
     # |> IO.inspect(label: "Federating?")
   end
 
-  def env, do: Application.get_env(:activity_pub, :env)
+
 
   def get(key), do: get(key, nil)
 

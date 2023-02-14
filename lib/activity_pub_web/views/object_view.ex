@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule ActivityPubWeb.ObjectView do
   use ActivityPubWeb, :view
-
+  import Untangle
   alias ActivityPub.Utils
   alias ActivityPubWeb.Transmogrifier
   alias ActivityPub.Object
 
   def render("object.json", %{object: object}) do
-    base = Utils.make_json_ld_header()
+    {:ok, additional} = object
+    # |> debug
+    |> Transmogrifier.prepare_outgoing()
+    # |> debug
 
-    {:ok, additional} = Transmogrifier.prepare_outgoing(object.data)
-    Map.merge(base, additional)
+    Map.merge(Utils.make_json_ld_header(), additional)
   end
 
   def render("outbox.json", %{actor: actor, page: page}) do
@@ -37,8 +39,9 @@ defmodule ActivityPubWeb.ObjectView do
   end
 
   # only for testing purposes
-  def render("outbox.json", %{outbox: :shared_outbox}) do
+  def render("outbox.json", %{outbox: :shared_outbox} = params) do
     instance = ActivityPubWeb.base_url()
+    page = params[:page] || 1
     outbox = Object.get_outbox_for_instance()
 
     total = length(outbox)
@@ -46,7 +49,7 @@ defmodule ActivityPubWeb.ObjectView do
     %{
       "id" => "#{instance}/shared_outbox",
       "type" => "Collection",
-      "first" => collection(outbox, "#{instance}/shared_outbox", 1, total),
+      "first" => collection(outbox, "#{instance}/shared_outbox", page, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header())
@@ -56,9 +59,12 @@ defmodule ActivityPubWeb.ObjectView do
     offset = (page - 1) * 10
 
     items =
-      Enum.map(collection, fn object ->
+    collection 
+    |> debug()
+    |> Enum.map(fn object ->
         render("object.json", %{object: object})
       end)
+    |> debug()
 
     total = total || length(collection)
 

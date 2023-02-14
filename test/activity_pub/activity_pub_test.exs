@@ -28,7 +28,7 @@ defmodule ActivityPubTest do
       assert {:ok, activity} = ActivityPub.create(params)
 
       assert actor.data["id"] == activity.data["actor"]
-      assert activity.data["object"] == activity.object.data["id"]
+      assert Object.get_ap_id(activity.data["object"]) =~ activity.object.data["id"]
     end
 
     test "it doesn't insert an object with the same ID twice", context do
@@ -62,7 +62,7 @@ defmodule ActivityPubTest do
       assert {:ok, activity} = ActivityPub.follow(%{actor: follower, object: followed})
       assert activity.data["type"] == "Follow"
       assert activity.data["actor"] == follower.data["id"]
-      assert activity.data["object"] == followed.data["id"]
+      assert Object.get_ap_id(activity.data["object"]) =~ followed.data["id"]
     end
   end
 
@@ -92,7 +92,7 @@ defmodule ActivityPubTest do
 
       assert activity.data["type"] == "Block"
       assert activity.data["actor"] == blocker.data["id"]
-      assert activity.data["object"] == blocked.data["id"]
+      assert Object.get_ap_id(activity.data["object"]) =~ blocked.data["id"]
     end
 
     test "creates an undo activity for the last block", context do
@@ -139,7 +139,7 @@ defmodule ActivityPubTest do
 
       assert delete.data["type"] == "Delete"
       assert delete.data["actor"] == object.data["actor"]
-      assert delete.data["object"] == object.data["id"]
+      assert delete.Object.get_ap_id(data["object"]) =~ object.data["id"]
 
       assert Object.get_cached!(id: delete.id) != nil
 
@@ -154,7 +154,7 @@ defmodule ActivityPubTest do
 
       assert activity.data["type"] == "Delete"
       assert activity.data["actor"] == actor.data["id"]
-      assert activity.data["object"] == actor.data["id"]
+      assert Object.get_ap_id(activity.data["object"]) =~ actor.data["id"]
     end
   end
 
@@ -171,7 +171,7 @@ defmodule ActivityPubTest do
 
       assert like_activity.data["actor"] == actor.data["id"]
       assert like_activity.data["type"] == "Like"
-      assert like_activity.data["object"] == object.data["id"]
+      assert like_activity.Object.get_ap_id(data["object"]) =~ object.data["id"]
 
       assert like_activity.data["to"] == [
                actor.data["followers"],
@@ -219,7 +219,7 @@ defmodule ActivityPubTest do
                note_activity.data["actor"]
              ]
 
-      assert announce_activity.data["object"] == object.data["id"]
+      assert announce_activity.Object.get_ap_id(data["object"]) =~ object.data["id"]
       assert announce_activity.data["actor"] == actor.data["id"]
       assert announce_activity.data["context"] == object.data["context"]
     end
@@ -241,7 +241,7 @@ defmodule ActivityPubTest do
              ]
 
       assert unannounce_activity.data["type"] == "Undo"
-      assert unannounce_activity.data["object"] == announce_activity.data
+      assert unannounce_activity.Object.get_ap_id(data["object"]) =~ announce_activity.data
       assert unannounce_activity.data["actor"] == actor.data["id"]
 
       assert unannounce_activity.data["context"] ==
@@ -318,7 +318,7 @@ defmodule ActivityPubTest do
 
   #     assert forwarded_activity.data["actor"] == group_actor.ap_id
   #     assert forwarded_activity.data["attributedTo"] == activity.data["actor"]
-  #     assert forwarded_activity.data["object"] == activity.data["object"]
+  #     assert forwarded_activity.Object.get_ap_id(data["object"]) =~ activity.data["object"]
   #   end
   # end
 end

@@ -85,11 +85,10 @@ defmodule ActivityPub.Instances.Instance do
         |> repo().update()
     end
   end
-
+  def set_reachable(%{"id"=>id}), do: set_reachable(id)
   def set_reachable(_), do: {:error, nil}
 
   def set_unreachable(url_or_host, unreachable_since \\ nil)
-
   def set_unreachable(url_or_host, unreachable_since)
       when is_binary(url_or_host) do
     unreachable_since = unreachable_since || DateTime.utc_now()

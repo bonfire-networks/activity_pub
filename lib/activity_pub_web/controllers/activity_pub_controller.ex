@@ -16,6 +16,8 @@ defmodule ActivityPubWeb.ActivityPubController do
   alias ActivityPub.Object
   alias ActivityPub.Utils
   alias ActivityPub.Adapter
+  alias ActivityPub.Instances
+  alias ActivityPub.Object.Containment
 
   alias ActivityPubWeb.ActorView
   alias ActivityPubWeb.Federator
@@ -42,12 +44,13 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   defp object_json(conn, %{"uuid" => uuid}) do
     # querying by pointer
-    if Types.is_ulid?(uuid) do
+    if Utils.is_ulid?(uuid) do
       with {:ok, object} <-
              Object.get_cached(pointer: uuid) ||
                Adapter.maybe_publish_object(uuid),
-           true <- object.public,
-           true <- object.id != uuid do
+          #  true <- object.id != uuid, # huh?
+          #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
+           true <- object.public do # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
@@ -56,10 +59,9 @@ defmodule ActivityPubWeb.ActivityPubController do
         # |> Phoenix.Controller.redirect(external: ap_route_helper(object.id))
         # |> halt()
       else
-        _ ->
-          conn
-          |> put_status(404)
-          |> json(%{error: "not found"})
+        e ->
+          error(e, "not found")
+          ret_error(conn, "not found", 404)
       end
     else
       with ap_id <- ap_route_helper(uuid),
@@ -71,9 +73,7 @@ defmodule ActivityPubWeb.ActivityPubController do
         |> render("object.json", %{object: object})
       else
         _ ->
-          conn
-          |> put_status(404)
-          |> json(%{error: "not found"})
+          ret_error(conn, "not found", 404)
       end
     end
   end
@@ -98,20 +98,17 @@ defmodule ActivityPubWeb.ActivityPubController do
       |> render("actor.json", %{actor: actor})
     else
       _ ->
-        conn
-        |> put_status(404)
-        |> json(%{error: "not found"})
+                  ret_error(conn, "not found", 404)
+
     end
   end
 
   def following(conn, %{"username" => username, "page" => page}) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-      {page, _} = Integer.parse(page)
-
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
-      |> render("following.json", %{actor: actor, page: page})
+      |> render("following.json", %{actor: actor, page: page_number(page)})
     end
   end
 
@@ -126,12 +123,11 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def followers(conn, %{"username" => username, "page" => page}) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-      {page, _} = Integer.parse(page)
 
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
-      |> render("followers.json", %{actor: actor, page: page})
+      |> render("followers.json", %{actor: actor, page: page_number(page)})
     end
   end
 
@@ -146,13 +142,15 @@ defmodule ActivityPubWeb.ActivityPubController do
 
   def outbox(conn, %{"username" => username, "page" => page}) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-      {page, _} = Integer.parse(page)
 
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
-      |> render("outbox.json", %{actor: actor, page: page})
-    end
+      |> render("outbox.json", %{actor: actor, page: page_number(page)})
+
+      else e ->
+        ret_error(conn, "Invalid actor", 500)
+      end
   end
 
   def outbox(conn, %{"username" => username}) do
@@ -209,6 +207,8 @@ defmodule ActivityPubWeb.ActivityPubController do
       Federator.incoming_ap_doc(params)
       |> info("processed")
 
+      Instances.set_reachable(params["actor"])
+
       json(conn, "ok")
     else
       json(conn, "not federating")
@@ -218,7 +218,7 @@ defmodule ActivityPubWeb.ActivityPubController do
   defp invalid_signature(req_headers, params) do
     headers = Enum.into(req_headers, %{})
 
-    if String.contains?(headers["signature"], params["actor"]) do
+    if is_binary(headers["signature"]) and String.contains?(headers["signature"], params["actor"]) do
       error(
         params,
         "Signature validation error (make sure you are forwarding the HTTP Host header)"
@@ -229,4 +229,15 @@ defmodule ActivityPubWeb.ActivityPubController do
 
     info(req_headers)
   end
+
+  defp ret_error(conn, error, status \\ 500) do
+    conn
+    |> put_status(status)
+    |> json(%{error: error})
+  end
+
+  defp page_number("true"), do: 1
+  defp page_number(page) when is_binary(page), do: Integer.parse(page) |> elem(0)
+  defp page_number(_), do: 1
+
 end

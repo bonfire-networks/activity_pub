@@ -39,7 +39,8 @@ config :mime, :types, %{
   "application/jrd+json" => ["jrd+json"]
 }
 
-config :activity_pub, Oban, queues: [federator_incoming: 50, federator_outgoing: 50]
+config :activity_pub, Oban, queues: [federator_incoming: 50, federator_outgoing: 50,
+    remote_fetcher: 20]
 
 config :activity_pub, :mrf_simple,
   media_removal: [],

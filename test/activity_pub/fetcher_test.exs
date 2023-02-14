@@ -18,7 +18,7 @@ defmodule ActivityPub.FetcherTest do
 
       %{method: :get, url: "https://mastodon.local/user/karen"} ->
         ActivityPub.Test.HttpRequestMock.get(
-          "https://mastodon.local/users/karen",
+          "https://mastodon.local/users/admin",
           nil,
           nil,
           nil
@@ -48,7 +48,7 @@ defmodule ActivityPub.FetcherTest do
     end
 
     test "fetches a mastodon actor by AP ID" do
-      {:ok, object} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
+      {:ok, object} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       assert object
     end
@@ -61,14 +61,14 @@ defmodule ActivityPub.FetcherTest do
 
     test "fetches a same mastodon actor by friendly URL and AP ID" do
       {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
-
-      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
+ 
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       assert object1.data == object2.data
     end
 
     test "fetches a same mastodon actor by AP ID and friendly URL" do
-      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 
@@ -76,7 +76,7 @@ defmodule ActivityPub.FetcherTest do
     end
 
     test "fetches a same mastodon actor by AP ID and a 3rd URL" do
-      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/user/karen")
 
@@ -87,7 +87,7 @@ defmodule ActivityPub.FetcherTest do
       {:ok, fingered} = WebFinger.finger("karen@mastodon.local")
       {:ok, object1} = Fetcher.fetch_object_from_id(fingered["id"])
 
-      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       {:ok, object3} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 
@@ -96,7 +96,7 @@ defmodule ActivityPub.FetcherTest do
     end
 
     test "fetches a same mastodon actor by AP ID and friendly URL and webfinger" do
-      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/karen")
+      {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 

@@ -22,8 +22,27 @@ defmodule ActivityPub.HTTP do
   `{:ok, %Tesla.Env{}}` or `{:error, error}`
 
   """
-  def request(method, url, body \\ "", headers \\ [], options \\ []) do
-    try do
+  if ActivityPub.Config.env() == :test do
+    def request(method, url, body \\ "", headers \\ [], options \\ []) do
+      do_request(method, url, body, headers, options)
+    end
+  else
+    def request(method, url, body \\ "", headers \\ [], options \\ []) do
+      do_request(method, url, body, headers, options)
+    rescue
+        e in Tesla.Mock.Error ->
+          error(e, "Test mock HTTP error")
+
+        e ->
+          error(e, "HTTP request failed")
+    catch
+        :exit, e ->
+          error(e, "HTTP request exited")
+    end
+  end
+  
+
+  defp do_request(method, url, body \\ "", headers \\ [], options \\ []) do
       options =
         process_request_options(options)
         |> process_sni_options(url)
@@ -40,16 +59,6 @@ defmodule ActivityPub.HTTP do
       |> Builder.add_param(:query, :query, params)
       |> Enum.into([])
       |> (&Tesla.request(Connection.new(options), &1)).()
-    rescue
-      e in Tesla.Mock.Error ->
-        error(e, "Test mock HTTP error")
-
-      e ->
-        error(e, "HTTP request failed")
-    catch
-      :exit, e ->
-        error(e, "HTTP request exited")
-    end
   end
 
   defp process_request_options(options) do

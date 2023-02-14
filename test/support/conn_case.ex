@@ -33,6 +33,12 @@ defmodule ActivityPubWeb.ConnCase do
 
       # The default endpoint for testing
       @endpoint endpoint()
+
+      alias ActivityPub.Utils
+      alias ActivityPub.Object
+      alias ActivityPub.Test.HttpRequestMock
+
+
     end
   end
 

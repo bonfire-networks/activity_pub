@@ -37,7 +37,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
 
   def filter(object, _is_local?), do: {:ok, object}
 
-  defp check_reject(%{host: actor_host} = _actor_info, object) do
+  def check_reject(%{host: actor_host} = _actor_info, object \\ nil) do
     rejects =
       ActivityPub.Config.get([:mrf_simple, :reject])
       |> MRF.subdomains_regex()

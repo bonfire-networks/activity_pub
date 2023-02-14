@@ -19,8 +19,8 @@ defmodule ActivityPub.Migrations do
     create table("ap_object", primary_key: false) do
       add(:id, :uuid, primary_key: true)
       add(:data, :map)
-      add(:local, :boolean)
-      add(:public, :boolean)
+      add(:local, :boolean, default: false, null: false)
+      add(:public, :boolean, default: false, null: false)
       add(:pointer_id, weak_pointer())
 
       timestamps(type: :utc_datetime_usec)
@@ -47,7 +47,7 @@ defmodule ActivityPub.Migrations do
       add(:id, :uuid, primary_key: true)
       add(:username, :citext)
       add(:data, :map)
-      add(:local, :boolean)
+      add(:local, :boolean, default: false, null: false)
       add(:keys, :text)
       add(:followers, {:array, :string})
     end
@@ -62,7 +62,15 @@ defmodule ActivityPub.Migrations do
     # drop index("ap_instance", [:unreachable_since])
   end
 
-  def upgrade do
-    rename(table("ap_object"), :mn_pointer_id, to: :pointer_id)
+  def add_object_boolean do
+    alter(table("ap_object")) do
+      add(:is_object, :boolean, default: false, null: false)
+    end
+  end
+
+  def drop_object_boolean do
+    alter(table("ap_object")) do
+      remove :is_object
+    end
   end
 end

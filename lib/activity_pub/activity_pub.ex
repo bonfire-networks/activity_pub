@@ -146,19 +146,22 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
-  def accept(%{to: to, actor: actor, object: object} = params) do
-    with data <- %{
+  def accept(%{to: to, actor: actor, object: follow_activity_id} = params) do
+    with actor_id <- actor.data["id"],
+        data <- %{
            "to" => to,
            "type" => "Accept",
-           "actor" => actor.data["id"],
-           "object" => object
+           "actor" => actor_id,
+           "object" => follow_activity_id
          },
-         {:ok, activity} <-
+         %Object{data: %{"actor"=>actor_id}} = follow_activity <-
+           Object.get_cached!(ap_id: follow_activity_id),
+        {:ok, accept_activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
-         activity <- Map.put(activity, :pointer, adapter_object) do
-      {:ok, activity}
+         :ok <- maybe_federate(accept_activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity),
+         {:ok, _follow_activity} <- Object.update_follow_state_for_all(follow_activity, "accept") do
+      {:ok, Map.put(accept_activity, :pointer, adapter_object)}
     end
   end
 
@@ -327,7 +330,7 @@ defmodule ActivityPub do
            "to" => to,
            "cc" => cc,
            "type" => "Update",
-           "actor" => actor.data["id"],
+           "actor" => Map.get(actor, :data, actor)["id"],
            "object" => object
          },
          {:ok, activity} <-
@@ -456,8 +459,7 @@ defmodule ActivityPub do
   def flag(
         %{} = params
       ) do
-    # only accept false as false value
-    forward = !(params[:forward] == false)
+    forward = (params[:forward] == true)
 
     additional = params[:additional] || %{}
 

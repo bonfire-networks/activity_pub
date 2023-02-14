@@ -11,6 +11,7 @@ defmodule ActivityPub.Utils do
   import Ecto.Query
 
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
+  def as_local_public, do: ActivityPubWeb.base_url() <> "/#Public"
 
   def make_date do
     DateTime.utc_now() |> DateTime.to_iso8601()
@@ -45,24 +46,25 @@ defmodule ActivityPub.Utils do
   @doc """
   Determines if an object or an activity is public.
   """
-  def public?(data) do
-    recipients = List.wrap(data["to"]) ++ List.wrap(data["cc"])
+  # TODO: consolidate this and the others below?
+  # def public?(data) do
+  #   recipients = List.wrap(data["to"]) ++ List.wrap(data["cc"])
 
-    cond do
-      recipients == [] ->
-        # let's NOT assume things are public by default?
-        false
+  #   cond do
+  #     recipients == [] ->
+  #       # let's NOT assume things are public by default?
+  #       false
 
-      Enum.member?(recipients, @public_uri) or
-        Enum.member?(recipients, "Public") or
-          Enum.member?(recipients, "as:Public") ->
-        # see note at https://www.w3.org/TR/activitypub/#public-addressing
-        true
+  #     Enum.member?(recipients, @public_uri) or
+  #       Enum.member?(recipients, "Public") or
+  #         Enum.member?(recipients, "as:Public") ->
+  #       # see note at https://www.w3.org/TR/activitypub/#public-addressing
+  #       true
 
-      true ->
-        false
-    end
-  end
+  #     true ->
+  #       false
+  #   end
+  # end
 
   def public?(activity_data, %{data: object_data}) do
     public?(activity_data, object_data)
@@ -87,6 +89,29 @@ defmodule ActivityPub.Utils do
   def public?(_, _) do
     false
   end
+
+  def public?(%{data: %{"type" => "Tombstone"}}), do: false
+  def public?(%{data: %{"type" => "Move"}}), do: true
+  def public?(%{data: data}), do: public?(data)
+  def public?(%{"directMessage" => true}), do: false
+
+  def public?(data) do
+    label_in_message?(@public_uri, data) or
+      label_in_message?(as_local_public(), data)
+  end
+
+
+  @spec label_in_collection?(any(), any()) :: boolean()
+  defp label_in_collection?(ap_id, coll) when is_binary(coll), do: ap_id == coll
+  defp label_in_collection?(ap_id, coll) when is_list(coll), do: ap_id in coll
+  defp label_in_collection?(_, _), do: false
+
+  @spec label_in_message?(String.t(), map()) :: boolean()
+  def label_in_message?(label, params),
+    do:
+      [params["to"], params["cc"], params["bto"], params["bcc"]]
+      |> Enum.any?(&label_in_collection?(label, &1))
+
 
   def is_ulid?(str) when is_binary(str) and byte_size(str) == 26 do
     with :error <- Pointers.ULID.cast(str) do
@@ -190,12 +215,12 @@ defmodule ActivityPub.Utils do
       # {:error, "cannot find ownership process"<>_} -> get_fun.([{key, identifier}])
       msg -> error(msg)
     end
+  rescue
+    _ ->
+      get_fun.([{key, identifier}])
   catch
     _ ->
       # workaround :nodedown errors
-      get_fun.([{key, identifier}])
-  rescue
-    _ ->
       get_fun.([{key, identifier}])
   end
 
@@ -204,4 +229,20 @@ defmodule ActivityPub.Utils do
   def maybe_put(map, _key, []), do: map
   def maybe_put(map, _key, ""), do: map
   def maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  def put_if_present(map, key, value, value_function \\ &{:ok, &1}) when is_map(map) do
+    with false <- is_nil(key),
+         false <- is_nil(value),
+         {:ok, new_value} <- value_function.(value) do
+      Map.put(map, key, new_value)
+    else
+      _ -> map
+    end
+  end
+
+  def safe_put_in(data, keys, value) when is_map(data) and is_list(keys) do
+    Kernel.put_in(data, keys, value)
+  rescue
+    _ -> data
+  end
 end

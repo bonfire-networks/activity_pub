@@ -90,7 +90,7 @@ defmodule ActivityPubWeb.Publisher do
     else
       {_post_result, response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
-        {:error, response}
+        error(response)
     end
   end
 

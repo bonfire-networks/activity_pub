@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+ <Subject>https://sposter.local/user/5381</Subject>
+ <Alias>acct:shpuld@shitposter.club</Alias>
+ <Alias>https://sposter.local/shpuld</Alias>
+ <Alias>https://sposter.local/index.php/user/5381</Alias>
+ <Alias>https://sposter.local/index.php/shpuld</Alias>
+ <Link rel="http://webfinger.net/rel/profile-page" type="text/html" href="https://sposter.local/shpuld"/>
+ <Link rel="http://gmpg.org/xfn/11" type="text/html" href="https://sposter.local/shpuld"/>
+ <Link rel="describedby" type="application/rdf+xml" href="https://sposter.local/shpuld/foaf"/>
+ <Link rel="http://apinamespace.org/atom" type="application/atomsvc+xml" href="https://sposter.local/api/statusnet/app/service/shpuld.xml"/>
+ <Link rel="http://apinamespace.org/twitter" href="https://sposter.local/api/"/>
+ <Link rel="http://specs.openid.net/auth/2.0/provider" href="https://sposter.local/shpuld"/>
+ <Link rel="http://schemas.google.com/g/2010#updates-from" type="application/atom+xml" href="https://sposter.local/api/statuses/user_timeline/5381.atom"/>
+ <Link rel="magic-public-key" href="data:application/magic-public-key,RSA.pkJ_xCKxFzcOKuKPKFhUTkWLWyWAIRDS8onxRLxVvxITQAkHIO1Rl9FS_1DAT3MK_wBcbzXm1TwlVOQFY5I2zrZQGxUvGDUlqcsf9sQyQaNvVVoU83nAV2w9bQZ-GlaLCMHWKN4yBBCTPfu9J6XbItxbHhJg5ub8z5drDF45te8=.AQAB"/>
+ <Link rel="salmon" href="https://sposter.local/main/salmon/user/5381"/>
+ <Link rel="http://salmon-protocol.org/ns/salmon-replies" href="https://sposter.local/main/salmon/user/5381"/>
+ <Link rel="http://salmon-protocol.org/ns/salmon-mention" href="https://sposter.local/main/salmon/user/5381"/>
+ <Link rel="http://ostatus.org/schema/1.0/subscribe" template="https://sposter.local/main/ostatussub?profile={uri}"/>
+</XRD>

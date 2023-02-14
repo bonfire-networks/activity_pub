@@ -1,0 +1,44 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "sensitive": "as:sensitive",
+            "Hashtag": "as:Hashtag",
+            "quoteUrl": "as:quoteUrl",
+            "toot": "http://joinmastodon.org/ns#",
+            "Emoji": "toot:Emoji",
+            "featured": "toot:featured",
+            "discoverable": "toot:discoverable",
+            "schema": "http://schema.org#",
+            "PropertyValue": "schema:PropertyValue",
+            "value": "schema:value",
+            "misskey": "https://misskey-hub.net/ns#",
+            "_misskey_content": "misskey:_misskey_content",
+            "_misskey_quote": "misskey:_misskey_quote",
+            "_misskey_reaction": "misskey:_misskey_reaction",
+            "_misskey_votes": "misskey:_misskey_votes",
+            "_misskey_talk": "misskey:_misskey_talk",
+            "isCat": "misskey:isCat",
+            "vcard": "http://www.w3.org/2006/vcard/ns#"
+        }
+    ],
+    "id": "https://mk.local/notes/93e7nm8wqg",
+    "type": "Note",
+    "attributedTo": "https://mk.local/users/8ozbzjs3o8",
+    "summary": null,
+    "content": "<p><span>meow</span></p>",
+    "_misskey_content": "meow",
+    "published": "2022-08-01T11:06:49.568Z",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+        "https://mk.local/users/8ozbzjs3o8/followers"
+    ],
+    "inReplyTo": null,
+    "attachment": [],
+    "sensitive": false,
+    "tag": []
+}

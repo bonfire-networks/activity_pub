@@ -1,0 +1,67 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "toot": "http://joinmastodon.org/ns#",
+      "featured": {
+        "@id": "toot:featured",
+        "@type": "@id"
+      },
+      "alsoKnownAs": {
+        "@id": "as:alsoKnownAs",
+        "@type": "@id"
+      },
+      "movedTo": {
+        "@id": "as:movedTo",
+        "@type": "@id"
+      },
+      "schema": "http://schema.org#",
+      "PropertyValue": "schema:PropertyValue",
+      "value": "schema:value",
+      "IdentityProof": "toot:IdentityProof",
+      "discoverable": "toot:discoverable",
+      "Device": "toot:Device",
+      "Ed25519Signature": "toot:Ed25519Signature",
+      "Ed25519Key": "toot:Ed25519Key",
+      "Curve25519Key": "toot:Curve25519Key",
+      "EncryptedMessage": "toot:EncryptedMessage",
+      "publicKeyBase64": "toot:publicKeyBase64",
+      "deviceId": "toot:deviceId",
+      "claim": {
+        "@type": "@id",
+        "@id": "toot:claim"
+      },
+      "fingerprintKey": {
+        "@type": "@id",
+        "@id": "toot:fingerprintKey"
+      },
+      "identityKey": {
+        "@type": "@id",
+        "@id": "toot:identityKey"
+      },
+      "devices": {
+        "@type": "@id",
+        "@id": "toot:devices"
+      },
+      "messageFranking": "toot:messageFranking",
+      "messageType": "toot:messageType",
+      "cipherText": "toot:cipherText"
+    }
+  ],
+  "id": "https://{{DOMAIN}}/actor",
+  "type": "Application",
+  "inbox": "https://{{DOMAIN}}/actor/inbox",
+  "preferredUsername": "{{DOMAIN}}",
+  "url": "https://{{DOMAIN}}/about/more?instance_actor=true",
+  "manuallyApprovesFollowers": true,
+  "publicKey": {
+    "id": "https://{{DOMAIN}}/actor#main-key",
+    "owner": "https://{{DOMAIN}}/actor",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAA0CA08AMIIBCgKCAQEAyi2T2FFZJgRPY+96YQrn\n6J6eF2P60J+nz+/pRc/acv/Nx+NLxxPyXby0F2s60MV7uALRQbBBnf7oNKCd/T4S\nvbr7UXMCWTdaJBpYubMKWT9uBlaUUkUfqL+WTV+IQnlcKtssQ4+AwrAKAZXza8ws\nZypevOsLHzayyEzztmm1KQC9GCUOITCLf7Q6qEhy8z/HuqLBEC0Own0pD7QsbfcS\no1peuZY7g1E/jJ9HR9GqJccMaR0H28KmJ7tT1Yzlyf5uZMRIdPxsoMR9sGLjR2B8\noegSwaf9SogR3ScP395Tt/9Ud1VVzuhpoS8Uy7jKSs+3CuLJsEGoMrib8VyOwadS\n9wIDAQAB\n-----END PUBLIC KEY-----\n"
+  },
+  "endpoints": {
+    "sharedInbox": "https://{{DOMAIN}}/inbox"
+  }
+}

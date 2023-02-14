@@ -1,0 +1,12 @@
+{
+    "subject":"acct:snowdusk@mastodon.sdf.org",
+    "aliases":["https://masto.local/@snowdusk","https://masto.local/users/snowdusk"],
+    "links":[
+        {"rel":"http://webfinger.net/rel/profile-page","type":"text/html","href":"https://masto.local/@snowdusk"},
+        {"rel":"http://schemas.google.com/g/2010#updates-from","type":"application/atom+xml","href":"https://masto.local/users/snowdusk.atom"},
+        {"rel":"self","type":"application/activity+json","href":"https://masto.local/users/snowdusk"},
+        {"rel":"salmon","href":"https://masto.local/api/salmon/2"},
+        {"rel":"magic-public-key","href":"data:application/magic-public-key,RSA.k4_Hr0WQUHumAD4uwWIz7OybovIKgIuanbXhX5pl7oGyb2TuifBf3nAqEhD6eLSo6-_6160L4BvPPV_l_6rlZEi6_nbeJUgVkayZgcZN3oou3IErSt8L0IbUdWT5s4fWM2zpkndLCkVbeeNQ3DOBccvJw7iA_QNTao8wr3ILvQaKEDnf-H5QBd9Tj3seyo4-7E0e6wCKOH_uBm8pSRgpdMdl2CehiFzaABBkmCeUKH-buU7iNQGi0fsV5VIHn6zffrv6p0EVNkjTDi1vTmmfrp9W0mcKZJ9DtvdehOKSgh3J7Mem-ILbPy6FSL2Oi6Ekj_Wh4M8Ie-YKuxI3N_0Baw==.AQAB"},
+        {"rel":"http://ostatus.org/schema/1.0/subscribe","template":"https://masto.local/authorize_interaction?uri={uri}"}
+    ]
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+ <Link rel="lrdd" type="application/jrd+json" template="http://gs.local/.well-known/webfinger?resource={uri}"/>
+ <Link rel="lrdd" type="application/json" template="http://gs.local/.well-known/webfinger?resource={uri}"/>
+ <Link rel="lrdd" type="application/xrd+xml" template="http://gs.local/.well-known/webfinger?resource={uri}"/>
+ <Link rel="http://apinamespace.org/oauth/access_token" href="http://gs.local/api/oauth/access_token"/>
+ <Link rel="http://apinamespace.org/oauth/request_token" href="http://gs.local/api/oauth/request_token"/>
+ <Link rel="http://apinamespace.org/oauth/authorize" href="http://gs.local/api/oauth/authorize"/>
+</XRD>

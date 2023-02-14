@@ -1,0 +1,31 @@
+{
+    "links":[
+        {
+            "rel":"lrdd",
+            "type":"application\/jrd+json",
+            "template":"https:\/\/social.stopwatchingus-heidelberg.de\/.well-known\/webfinger?resource={uri}"
+        },
+        {
+            "rel":"lrdd",
+            "type":"application\/json",
+            "template":"https:\/\/social.stopwatchingus-heidelberg.de\/.well-known\/webfinger?resource={uri}"
+        },
+        {
+            "rel":"lrdd",
+            "type":"application\/xrd+xml",
+            "template":"https:\/\/social.stopwatchingus-heidelberg.de\/.well-known\/webfinger?resource={uri}"
+        },
+        {
+            "rel":"http:\/\/apinamespace.org\/oauth\/access_token",
+            "href":"https:\/\/social.stopwatchingus-heidelberg.de\/api\/oauth\/access_token"
+        },
+        {
+            "rel":"http:\/\/apinamespace.org\/oauth\/request_token",
+            "href":"https:\/\/social.stopwatchingus-heidelberg.de\/api\/oauth\/request_token"
+        },
+        {
+            "rel":"http:\/\/apinamespace.org\/oauth\/authorize",
+            "href":"https:\/\/social.stopwatchingus-heidelberg.de\/api\/oauth\/authorize"
+        }
+    ]
+}

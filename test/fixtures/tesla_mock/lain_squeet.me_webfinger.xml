@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0"> 
+	<Subject>lain@squeet.me</Subject>
+ 	<Alias>https://me.local/profile/lain</Alias>
+	<Alias>https://me.local/profile/lain</Alias>
+ 
+    <Link rel="http://purl.org/macgirvin/dfrn/1.0"
+          href="https://me.local/profile/lain" />
+    <Link rel="http://schemas.google.com/g/2010#updates-from" 
+          type="application/atom+xml" 
+          href="https://me.local/dfrn_poll/lain" />
+    <Link rel="http://webfinger.net/rel/profile-page"
+          type="text/html"
+          href="https://me.local/profile/lain" />
+    <Link rel="http://microformats.org/profile/hcard"
+          type="text/html"
+          href="https://me.local/hcard/lain" />
+    <Link rel="http://portablecontacts.net/spec/1.0"
+          href="https://me.local/poco/lain" />
+    <Link rel="http://webfinger.net/rel/avatar"
+          type="image/jpeg"
+          href="https://me.local/photo/profile/301.jpg" />
+		<Link rel="http://joindiaspora.com/seed_location" type="text/html" href="https://me.local/" />
+	<Link rel="http://joindiaspora.com/guid" type="text/html" href="962c3e1016599bd8cede8a9274362922" />
+	<Link rel="diaspora-public-key" type="RSA" href="LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1JSUNDZ0tDQWdFQTNkM0JPUkdITHJSWXZYNUFGcEhzeTlpQy9wSlVBSHl4dlhYQW04S3RvRkpqTFZZc2N0bS8KclJwTE81OE5rTUZlTTZOQWJMWmROOFArdEdLNFBORWhsSWNqek9DdS82UmxjVGZwWU9yaDdaeWtWNmk1UlVHRApKQ3JJcjJ5OUVURXBFL09zZ25QNVEwVmpJWWwxdVJLNytPeGZHOGVUTjhDVnpnY2pjM205MnM0MjBXS2dKTHA1CmFaVkRESS9OcHYwektlVi9Pb21Fb2N6U1ZuckEzZGZKSkltQ3IxdWpvUEoyOVJzb1dpeCtLMjJWZU5BdVlOYmUKeWdXY3F3cTlZeWRNaDNqUEVNRVZXUzMvRjZuTE9VS084MDAzY2p1V1NxNXhvZkptVnJkMVlCVFFWR0wzOUNXMAorQUFVcEJhMXc0YWcvc1Nya0xsMFk1QUs0akJKcHVpbHFZcXFtRXlVS2NTWElHVlIyNG5UWWdlWExCRDFtcS80CmVnaTc1eUtWbysrRVdYUTlyb0oxblUxVHYvbkRDY0lYSWE4Zi9uNEpMTk8wTG1DR01aWjVjS3dnMFBmVUZkdEoKK3UwL2UrczFyWmk5d0JZb1B5RGhGM1ZPS0Z5REs1b0xUVEJ6ZERlTklYUjdDc004VElSZnkyaU1rSTh4NTRCQgp3TkFrZGV0b3owZXFrZmFyejd2TUdWajB0SWRZZWRmTFpFYk1jSUVWTk1kWXhqUWJnSGZ3aGUxZ2xZS2RLdmNECjhCanpZU1VDR2Q2ZitSR2ZrYXBvaFBqanBSbW1QaHhlZHNlTEVpZkZMQ2JvWTlUSUIrR1V2NXJPTG1iblVsL3IKdE42dzRsRzlqQ2F1a25UYU5LSmVYVlRmRGRBSE9FbFZLdTN2L05taTA2dnlkMzhWS1JlSFc3OENBd0VBQVE9PQotLS0tLUVORCBSU0EgUFVCTElDIEtFWS0tLS0tCg==" />
+
+    <Link rel="salmon" 
+          href="https://me.local/salmon/lain" />
+    <Link rel="http://salmon-protocol.org/ns/salmon-replies" 
+          href="https://me.local/salmon/lain" />
+    <Link rel="http://salmon-protocol.org/ns/salmon-mention" 
+          href="https://me.local/salmon/lain/mention" />
+    <Link rel="http://ostatus.org/schema/1.0/subscribe"
+          template="https://me.local/follow?url={uri}" />
+    <Link rel="magic-public-key" 
+          href="data:application/magic-public-key,RSA.AMwa8FUs2fWEjX0xN7yRQgegQffhBpuKNC6fa5VNSVorFjGZhRrlPMn7TQOeihlc9lBz2OsHlIedbYn2uJ7yCs0.AQAB" />
+ 
+	<Property xmlns:mk="http://salmon-protocol.org/ns/magic-key"
+          type="http://salmon-protocol.org/ns/magic-key"
+          mk:key_id="1">RSA.AN3dwTkRhy60WL1-QBaR7MvYgv6SVAB8sb11wJvCraBSYy1WLHLZv60aSzufDZDBXjOjQGy2XTfD_rRiuDzRIZSHI8zgrv-kZXE36WDq4e2cpFeouUVBgyQqyK9svRExKRPzrIJz-UNFYyGJdbkSu_jsXxvHkzfAlc4HI3N5vdrONtFioCS6eWmVQwyPzab9MynlfzqJhKHM0lZ6wN3XySSJgq9bo6DydvUbKFosfittlXjQLmDW3soFnKsKvWMnTId4zxDBFVkt_xepyzlCjvNNN3I7lkqucaHyZla3dWAU0FRi9_QltPgAFKQWtcOGoP7Eq5C5dGOQCuIwSabopamKqphMlCnElyBlUduJ02IHlywQ9Zqv-HoIu-cilaPvhFl0Pa6CdZ1NU7_5wwnCFyGvH_5-CSzTtC5ghjGWeXCsIND31BXbSfrtP3vrNa2YvcAWKD8g4Rd1TihcgyuaC00wc3Q3jSF0ewrDPEyEX8tojJCPMeeAQcDQJHXraM9HqpH2q8-7zBlY9LSHWHnXy2RGzHCBFTTHWMY0G4B38IXtYJWCnSr3A_AY82ElAhnen_kRn5GqaIT446UZpj4cXnbHixInxSwm6GPUyAfhlL-azi5m51Jf67TesOJRvYwmrpJ02jSiXl1U3w3QBzhJVSrt7_zZotOr8nd_FSkXh1u_.AQAB</Property>
+
+</XRD>

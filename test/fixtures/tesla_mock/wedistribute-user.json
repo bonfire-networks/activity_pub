@@ -1,0 +1,31 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers"
+    }
+  ],
+  "type": "Organization",
+  "id": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog",
+  "following": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog/following",
+  "followers": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog/followers",
+  "liked": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog/liked",
+  "inbox": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog/inbox",
+  "outbox": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog/outbox",
+  "name": "We Distribute",
+  "preferredUsername": "blog",
+  "summary": "<p>Connecting many threads in the federated web. We Distribute is an independent publication dedicated to the fediverse, decentralization, P2P technologies, and Free Software!</p>",
+  "url": "https://wedistribute.local/",
+  "publicKey": {
+    "id": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog#publicKey",
+    "owner": "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\r\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1bmUJ+y8PS8JFVi0KugN\r\nFl4pLvLog3V2lsV9ftmCXpveB/WJx66Tr1fQLsU3qYvQFc8UPGWD52zV4RENR1SN\r\nx0O6T2f97KUbRM+Ckow7Jyjtssgl+Mqq8UBZQ/+H8I/1Vpvt5E5hUykhFgwzx9qg\r\nzoIA3OK7alOpQbSoKXo0QcOh6yTRUnMSRMJAgUoZJzzXI/FmH/DtKr7ziQ1T2KWs\r\nVs8mWnTb/OlCxiheLuMlmJNMF+lPyVthvMIxF6Z5gV9d5QAmASSCI628e6uH2EUF\r\nDEEF5jo+Z5ffeNv28953lrnM+VB/wTjl3tYA+zCQeAmUPksX3E+YkXGxj+4rxBAY\r\n8wIDAQAB\r\n-----END PUBLIC KEY-----"
+  },
+  "manuallyApprovesFollowers": false,
+  "icon": {
+    "url": "https://wedistribute.local/wp-content/uploads/2019/02/b067de423757a538.png",
+    "type": "Image",
+    "mediaType": "image/png"
+  }
+}

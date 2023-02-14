@@ -1,0 +1,50 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://moe.local/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "alsoKnownAs": [],
+    "attachment": [
+        {
+            "name": "Timezone",
+            "type": "PropertyValue",
+            "value": "UTC+2 (Paris/Berlin)"
+        }
+    ],
+    "capabilities": {
+        "acceptsChatMessages": true
+    },
+    "discoverable": true,
+    "endpoints": {
+        "oauthAuthorizationEndpoint": "https://moe.local/oauth/authorize",
+        "oauthRegistrationEndpoint": "https://moe.local/api/v1/apps",
+        "oauthTokenEndpoint": "https://moe.local/oauth/token",
+        "sharedInbox": "https://moe.local/inbox",
+        "uploadMedia": "https://moe.local/api/ap/upload_media"
+    },
+    "featured": "https://moe.local/users/helene/collections/featured",
+    "followers": "https://moe.local/users/helene/followers",
+    "following": "https://moe.local/users/helene/following",
+    "icon": {
+        "type": "Image",
+        "url": "https://moe.local/media/9a39209daa5a66b7ebb0547b08bf8360aa9d8d65a4ffba2603c6ffbe6aecb432.jpg"
+    },
+    "id": "https://moe.local/users/helene",
+    "inbox": "https://moe.local/users/helene/inbox",
+    "manuallyApprovesFollowers": false,
+    "name": "Hélène",
+    "outbox": "https://moe.local/users/helene/outbox",
+    "preferredUsername": "helene",
+    "publicKey": {
+        "id": "https://moe.local/users/helene#main-key",
+        "owner": "https://moe.local/users/helene",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtoSBPU/VS2Kx3f6ap3zv\nZVacJsgUfaoFb3c2ii/FRh9RmRVlarq8sJXcjsQt1e0oxWaWJaIDDwyKZPt6hXae\nrY/AiGGeNu+NA+BtY7l7+9Yu67HUyT62+1qAwYHKBXX3fLOPs/YmQI0Tt0c4wKAG\nKEkiYsRizghgpzUC6jqdKV71DJkUZ8yhckCGb2fLko1ajbWEssdaP51aLsyRMyC2\nuzeWrxtD4O/HG0ea4S6y5X6hnsAHIK4Y3nnyIQ6pn4tOsl3HgqkjXE9MmZSvMCFx\nBq89TfZrVXNa2gSZdZLdbbJstzEScQWNt1p6tA6rM+e4JXYGr+rMdF3G+jV7afI2\nFQIDAQAB\n-----END PUBLIC KEY-----\n\n"
+    },
+    "summary": "I can speak: Français, English, Deutsch (nicht sehr gut), 日本語 (not very well)",
+    "tag": [],
+    "type": "Person",
+    "url": "https://moe.local/users/helene"
+}

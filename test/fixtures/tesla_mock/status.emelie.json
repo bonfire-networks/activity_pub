@@ -1,0 +1,64 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        {
+            "ostatus": "http://ostatus.org#",
+            "atomUri": "ostatus:atomUri",
+            "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+            "conversation": "ostatus:conversation",
+            "sensitive": "as:sensitive",
+            "Hashtag": "as:Hashtag",
+            "toot": "http://joinmastodon.org/ns#",
+            "Emoji": "toot:Emoji",
+            "focalPoint": {
+                "@container": "@list",
+                "@id": "toot:focalPoint"
+            }
+        }
+    ],
+    "id": "https://mocked.local/users/emelie/statuses/101849165031453009",
+    "type": "Note",
+    "summary": null,
+    "inReplyTo": null,
+    "published": "2019-04-01T05:02:05Z",
+    "url": "https://mocked.local/@emelie/101849165031453009",
+    "attributedTo": "https://mocked.local/users/emelie",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+        "https://mocked.local/users/emelie/followers"
+    ],
+    "sensitive": false,
+    "atomUri": "https://mocked.local/users/emelie/statuses/101849165031453009",
+    "inReplyToAtomUri": null,
+    "conversation": "tag:mocked.local,2019-04-01:objectId=94350309:objectType=Conversation",
+    "content": "<p>You gotta take whatever bellyrubbing opportunity you can get before she changes her mind 🦁 <a href=\"https://mocked.local/tags/mastocats\" class=\"mention hashtag\" rel=\"tag\">#<span>mastocats</span></a></p>",
+    "contentMap": {
+        "en": "<p>You gotta take whatever bellyrubbing opportunity you can get before she changes her mind 🦁 <a href=\"https://mocked.local/tags/mastocats\" class=\"mention hashtag\" rel=\"tag\">#<span>mastocats</span></a></p>"
+    },
+    "attachment": [
+        {
+            "type": "Document",
+            "mediaType": "video/mp4",
+            "url": "https://files.mocked.local/media_attachments/files/013/049/816/original/e7831178a5e0d6d4.mp4",
+            "name": null
+        }
+    ],
+    "tag": [
+        {
+            "type": "Hashtag",
+            "href": "https://mocked.local/tags/mastocats",
+            "name": "#mastocats"
+        }
+    ],
+    "replies": {
+        "id": "https://mocked.local/users/emelie/statuses/101849165031453009/replies",
+        "type": "Collection",
+        "first": {
+            "type": "CollectionPage",
+            "partOf": "https://mocked.local/users/emelie/statuses/101849165031453009/replies",
+            "items": []
+        }
+    }
+}

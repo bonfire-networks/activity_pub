@@ -1,0 +1,53 @@
+{
+    "subject": "acct:mike@osada.macgirvin.com",
+    "aliases": [
+        "https://osada.local/channel/mike",
+        "https://osada.local/~mike",
+        "https://osada.local/@mike"
+    ],
+    "properties": {
+        "http://webfinger.net/ns/name": "Mike Macgirvin (Osada)",
+        "http://xmlns.com/foaf/0.1/name": "Mike Macgirvin (Osada)",
+        "https://w3id.org/security/v1#publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAskSyK2VwBNKbzZl9XNJk\nvxU5AAilmRArMmmKSzphdHaVBHakeafUfixvqNrQ/oX2srJvJKcghNmEMrJ6MJ7r\npeEndVOo7pcP4PwVjtnC06p3J711q5tBehqM25BfCLCrB2YqWF6c8zk3CPN3Na21\n8k5s4cO95N/rGN+Po0XFAX/HjKjlpgNpKRDrpxmXxTU8NZfAqeQGJ5oiMBZI9vVB\n+eU7t1L6F5/XWuUCeP4OMrG8oZX822AREba8rknS6DpkWGES0Rx2eNOyYTf6ue75\nI6Ek6rlO+da5wMWr+3BvYMq4JMIwTHzAO+ZqqJPFpzKSiVuAWb2DOX/MDFecVWJE\ntF/R60lONxe4e/00MPCoDdqkLKdwROsk1yGL7z4Zk6jOWFEhIcWy/d2Ya5CpPvS3\nu4wNN4jkYAjra+8TiloRELhV4gpcEk8nkyNwLXOhYm7zQ5sIc5rfXoIrFzALB86W\nG05Nnqg+77zZIaTZpD9qekYlaEt+0OVtt9TTIeTiudQ983l6mfKwZYymrzymH1dL\nVgxBRYo+Z53QOSLiSKELfTBZxEoP1pBw6RiOHXydmJ/39hGgc2YAY/5ADwW2F2yb\nJ7+gxG6bPJ3ikDLYcD4CB5iJQdnTcDsFt3jyHAT6wOCzFAYPbHUqtzHfUM30dZBn\nnJhQF8udPLcXLaj6GW75JacCAwEAAQ==\n-----END PUBLIC KEY-----\n",
+        "http://purl.org/zot/federation": "zot6,activitypub"
+    },
+    "links": [
+        {
+            "rel": "http://webfinger.net/rel/avatar",
+            "type": "image/jpeg",
+            "href": "https://osada.local/photo/profile/l/2"
+        },
+        {
+            "rel": "http://webfinger.net/rel/blog",
+            "href": "https://osada.local/channel/mike"
+        },
+        {
+            "rel": "http://openid.net/specs/connect/1.0/issuer",
+            "href": "https://osada.local"
+        },
+        {
+            "rel": "http://purl.org/zot/protocol/6.0",
+            "type": "application/x-zot+json",
+            "href": "https://osada.local/channel/mike"
+        },
+        {
+            "rel": "http://purl.org/openwebauth/v1",
+            "type": "application/x-zot+json",
+            "href": "https://osada.local/owa"
+        },
+        {
+            "rel": "http://ostatus.org/schema/1.0/subscribe",
+            "template": "https://osada.local/follow?url={uri}"
+        },
+        {
+            "rel": "self",
+            "type": "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
+            "href": "https://osada.local/channel/mike"
+        },
+        {
+            "rel": "self",
+            "type": "application/activity+json",
+            "href": "https://osada.local/channel/mike"
+        }
+    ]
+}

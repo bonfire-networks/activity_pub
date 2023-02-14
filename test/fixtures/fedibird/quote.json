@@ -1,0 +1,73 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    {
+      "ostatus": "http://ostatus.org#",
+      "atomUri": "ostatus:atomUri",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "sensitive": "as:sensitive",
+      "toot": "http://joinmastodon.org/ns#",
+      "votersCount": "toot:votersCount",
+      "fedibird": "http://fedibird.local/ns#",
+      "quoteUri": "fedibird:quoteUri",
+      "expiry": "fedibird:expiry",
+      "references": {
+        "@id": "fedibird:references",
+        "@type": "@id"
+      },
+      "emojiReactions": {
+        "@id": "fedibird:emojiReactions",
+        "@type": "@id"
+      }
+    }
+  ],
+  "id": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674",
+  "type": "Note",
+  "summary": null,
+  "inReplyTo": null,
+  "published": "2022-07-25T11:12:26Z",
+  "url": "https://fedibird.local/@akkoma_ap_integration_tester/108707679228362674",
+  "attributedTo": "https://fedibird.local/users/akkoma_ap_integration_tester",
+  "to": [
+    "https://fedibird.local/users/akkoma_ap_integration_tester/followers"
+  ],
+  "cc": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "sensitive": false,
+  "atomUri": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674",
+  "inReplyToAtomUri": null,
+  "conversation": "tag:fedibird.com,2022-07-25:objectId=108707679228389900:objectType=Conversation",
+  "context": "https://fedibird.local/contexts/108707679228389900",
+  "quoteUri": "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924",
+  "_misskey_quote": "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924",
+  "_misskey_content": "public quote",
+  "content": "<p>public quote<span class=\"quote-inline\"><br/>QT: <a class=\"status-url-link\" data-status-account-acct=\"ArtMirror@example.com\" data-status-id=\"108703793483919195\" href=\"https://example.local/objects/24d9f2e1-32d2-4bd5-bdf2-8ea61d3fb5e8\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"ellipsis\">example.com/objects/24d9f</span><span class=\"invisible\">2e1-32d2-4bd5-bdf2-8ea61d3fb5e8</span></a></span><span class=\"reference-link-inline\"> <a href=\"https://fedibird.local/@akkoma_ap_integration_tester/108707679228362674/references\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"status-link unhandled-link\" data-status-id=\"108707679228362674\">[参照]</a></span></p>",
+  "contentMap": {
+    "ja": "<p>public quote<span class=\"quote-inline\"><br/>QT: <a class=\"status-url-link\" data-status-account-acct=\"ArtMirror@example.com\" data-status-id=\"108703793483919195\" href=\"https://example.local/objects/24d9f2e1-32d2-4bd5-bdf2-8ea61d3fb5e8\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"ellipsis\">example.com/objects/24d9f</span><span class=\"invisible\">2e1-32d2-4bd5-bdf2-8ea61d3fb5e8</span></a></span><span class=\"reference-link-inline\"> <a href=\"https://fedibird.local/@akkoma_ap_integration_tester/108707679228362674/references\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"status-link unhandled-link\" data-status-id=\"108707679228362674\">[参照]</a></span></p>"
+  },
+  "attachment": [],
+  "tag": [],
+  "replies": {
+    "id": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674/replies",
+    "type": "Collection",
+    "first": {
+      "type": "CollectionPage",
+      "next": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674/replies?only_other_accounts=true&page=true",
+      "partOf": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674/replies",
+      "items": []
+    }
+  },
+  "references": {
+    "id": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674/references",
+    "type": "Collection",
+    "first": {
+      "type": "CollectionPage",
+      "partOf": "https://fedibird.local/users/akkoma_ap_integration_tester/statuses/108707679228362674/references",
+      "items": [
+        "https://example.local/objects/24d9f2e1-32d2-4bd5-bdf2-8ea61d3fb5e8"
+      ]
+    }
+  }
+}

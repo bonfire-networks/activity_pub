@@ -1,0 +1,413 @@
+{
+  "type": "Create",
+  "id": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6/activity",
+  "actor": "https://peertube.local/accounts/createurs",
+  "object": {
+    "type": "Video",
+    "id": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6",
+    "name": "Vu du 20/02/21 : \"Planète Mars 2050\"",
+    "duration": "PT385S",
+    "uuid": "abece3c3-b9c6-47f4-8040-f3eed8c602e6",
+    "tag": [
+      {
+        "type": "Hashtag",
+        "name": "France3"
+      },
+      {
+        "type": "Hashtag",
+        "name": "lezapping"
+      }
+    ],
+    "category": {
+      "identifier": "11",
+      "name": "News & Politics"
+    },
+    "language": {
+      "identifier": "fr",
+      "name": "French"
+    },
+    "views": 5,
+    "sensitive": false,
+    "waitTranscoding": false,
+    "isLiveBroadcast": false,
+    "liveSaveReplay": null,
+    "permanentLive": null,
+    "state": 1,
+    "commentsEnabled": true,
+    "downloadEnabled": false,
+    "published": "2021-02-20T17:04:54.278Z",
+    "originallyPublishedAt": "2021-02-19T23:00:00.000Z",
+    "updated": "2021-02-21T20:01:11.189Z",
+    "mediaType": "text/markdown",
+    "content": "Un regard impertinent et libre, orchestré par Patrick Menais et son équipe, sur le monde de l’image.\r\n\r\nEn avant-première du lundi au samedi à 17h00 sur Facebook, Twitter et YouTube.\r\n\r\nDu lundi au samedi à 20h00 sur France 3.\r\n\r\nhttps://www.facebook.com/vufrancetv\r\nhttps://twitter.com/VuFrancetv",
+    "support": "Suivre VU :\r\n- Twitter : https://twitter.com/vufrancetv\r\n- Facebook :https://www.facebook.com/vufrancetv/\r\n- Site : https://www.france.tv/france-3/vu/",
+    "subtitleLanguage": [],
+    "icon": [
+      {
+        "type": "Image",
+        "url": "https://peertube.local/static/thumbnails/abece3c3-b9c6-47f4-8040-f3eed8c602e6.jpg",
+        "mediaType": "image/jpeg",
+        "width": 223,
+        "height": 122
+      },
+      {
+        "type": "Image",
+        "url": "https://peertube.local/lazy-static/previews/abece3c3-b9c6-47f4-8040-f3eed8c602e6.jpg",
+        "mediaType": "image/jpeg",
+        "width": 850,
+        "height": 480
+      }
+    ],
+    "url": [
+      {
+        "type": "Link",
+        "mediaType": "text/html",
+        "href": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6"
+      },
+      {
+        "type": "Link",
+        "mediaType": "application/x-mpegURL",
+        "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/master.m3u8",
+        "tag": [
+          {
+            "type": "Infohash",
+            "name": "00bfce9595e1655d8696b60e19ca25c34be5fa63"
+          },
+          {
+            "type": "Infohash",
+            "name": "256c21b65d5e0f944b4b79d8e0cbc55c9d906807"
+          },
+          {
+            "type": "Infohash",
+            "name": "fcd981098c484d0e328927c8fb21ecf986880b7e"
+          },
+          {
+            "type": "Infohash",
+            "name": "f7e01ac566e9fef91cd22514e6c3c256af7a9f5f"
+          },
+          {
+            "type": "Infohash",
+            "name": "42b421fc44d0dceb45ac3f6f6419b07fd570a232"
+          },
+          {
+            "type": "Infohash",
+            "name": "f876c6d6d49ce618a880ca223df54cb29f4b4bfd"
+          },
+          {
+            "type": "Link",
+            "name": "sha256",
+            "mediaType": "application/json",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/segments-sha256.json"
+          },
+          {
+            "type": "Link",
+            "mediaType": "video/mp4",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-1080-fragmented.mp4",
+            "height": 1080,
+            "size": 57888169,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "rel": [
+              "metadata",
+              "video/mp4"
+            ],
+            "mediaType": "application/json",
+            "href": "https://peertube.local/api/v1/videos/abece3c3-b9c6-47f4-8040-f3eed8c602e6/metadata/570040",
+            "height": 1080,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent",
+            "href": "https://peertube.local/static/torrents/abece3c3-b9c6-47f4-8040-f3eed8c602e6-1080-hls.torrent",
+            "height": 1080
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.stream%2Fstatic%2Ftorrents%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-1080-hls.torrent&xt=urn:btih:68af82ebcd9df8335e407b755f38f5fd39c8a6a4&dn=Vu+du+20%2F02%2F21+%3A+%22Plan%C3%A8te+Mars+2050%22&tr=wss%3A%2F%2Fpeertube.stream%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.stream%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.stream%2Fstatic%2Fstreaming-playlists%2Fhls%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-1080-fragmented.mp4",
+            "height": 1080
+          },
+          {
+            "type": "Link",
+            "mediaType": "video/mp4",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-720-fragmented.mp4",
+            "height": 720,
+            "size": 45165123,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "rel": [
+              "metadata",
+              "video/mp4"
+            ],
+            "mediaType": "application/json",
+            "href": "https://peertube.local/api/v1/videos/abece3c3-b9c6-47f4-8040-f3eed8c602e6/metadata/570056",
+            "height": 720,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent",
+            "href": "https://peertube.local/static/torrents/abece3c3-b9c6-47f4-8040-f3eed8c602e6-720-hls.torrent",
+            "height": 720
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.stream%2Fstatic%2Ftorrents%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-720-hls.torrent&xt=urn:btih:8450928a4ffb2a4c5f927a163487c48c05f6e700&dn=Vu+du+20%2F02%2F21+%3A+%22Plan%C3%A8te+Mars+2050%22&tr=wss%3A%2F%2Fpeertube.stream%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.stream%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.stream%2Fstatic%2Fstreaming-playlists%2Fhls%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-720-fragmented.mp4",
+            "height": 720
+          },
+          {
+            "type": "Link",
+            "mediaType": "video/mp4",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-480-fragmented.mp4",
+            "height": 480,
+            "size": 29618534,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "rel": [
+              "metadata",
+              "video/mp4"
+            ],
+            "mediaType": "application/json",
+            "href": "https://peertube.local/api/v1/videos/abece3c3-b9c6-47f4-8040-f3eed8c602e6/metadata/570042",
+            "height": 480,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent",
+            "href": "https://peertube.local/static/torrents/abece3c3-b9c6-47f4-8040-f3eed8c602e6-480-hls.torrent",
+            "height": 480
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.stream%2Fstatic%2Ftorrents%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-480-hls.torrent&xt=urn:btih:39e11181db5f376aa78c94bffcb9ccf2f4bca715&dn=Vu+du+20%2F02%2F21+%3A+%22Plan%C3%A8te+Mars+2050%22&tr=wss%3A%2F%2Fpeertube.stream%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.stream%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.stream%2Fstatic%2Fstreaming-playlists%2Fhls%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-480-fragmented.mp4",
+            "height": 480
+          },
+          {
+            "type": "Link",
+            "mediaType": "video/mp4",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-360-fragmented.mp4",
+            "height": 360,
+            "size": 21771466,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "rel": [
+              "metadata",
+              "video/mp4"
+            ],
+            "mediaType": "application/json",
+            "href": "https://peertube.local/api/v1/videos/abece3c3-b9c6-47f4-8040-f3eed8c602e6/metadata/570043",
+            "height": 360,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent",
+            "href": "https://peertube.local/static/torrents/abece3c3-b9c6-47f4-8040-f3eed8c602e6-360-hls.torrent",
+            "height": 360
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.stream%2Fstatic%2Ftorrents%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-360-hls.torrent&xt=urn:btih:c33aa52822528e29ffd1a615ebe40450e4c61452&dn=Vu+du+20%2F02%2F21+%3A+%22Plan%C3%A8te+Mars+2050%22&tr=wss%3A%2F%2Fpeertube.stream%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.stream%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.stream%2Fstatic%2Fstreaming-playlists%2Fhls%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-360-fragmented.mp4",
+            "height": 360
+          },
+          {
+            "type": "Link",
+            "mediaType": "video/mp4",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-240-fragmented.mp4",
+            "height": 240,
+            "size": 14856165,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "rel": [
+              "metadata",
+              "video/mp4"
+            ],
+            "mediaType": "application/json",
+            "href": "https://peertube.local/api/v1/videos/abece3c3-b9c6-47f4-8040-f3eed8c602e6/metadata/570057",
+            "height": 240,
+            "fps": 25
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent",
+            "href": "https://peertube.local/static/torrents/abece3c3-b9c6-47f4-8040-f3eed8c602e6-240-hls.torrent",
+            "height": 240
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.stream%2Fstatic%2Ftorrents%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-240-hls.torrent&xt=urn:btih:157e4cc3e9f15c06e995d6c3388539fdda312771&dn=Vu+du+20%2F02%2F21+%3A+%22Plan%C3%A8te+Mars+2050%22&tr=wss%3A%2F%2Fpeertube.stream%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.stream%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.stream%2Fstatic%2Fstreaming-playlists%2Fhls%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-240-fragmented.mp4",
+            "height": 240
+          },
+          {
+            "type": "Link",
+            "mediaType": "video/mp4",
+            "href": "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-0-fragmented.mp4",
+            "height": 0,
+            "size": 6248765,
+            "fps": 0
+          },
+          {
+            "type": "Link",
+            "rel": [
+              "metadata",
+              "video/mp4"
+            ],
+            "mediaType": "application/json",
+            "href": "https://peertube.local/api/v1/videos/abece3c3-b9c6-47f4-8040-f3eed8c602e6/metadata/570041",
+            "height": 0,
+            "fps": 0
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent",
+            "href": "https://peertube.local/static/torrents/abece3c3-b9c6-47f4-8040-f3eed8c602e6-0-hls.torrent",
+            "height": 0
+          },
+          {
+            "type": "Link",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.stream%2Fstatic%2Ftorrents%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-0-hls.torrent&xt=urn:btih:abc8dc58903d18cf7ec0c0cef92cc5ffe5cb0b5c&dn=Vu+du+20%2F02%2F21+%3A+%22Plan%C3%A8te+Mars+2050%22&tr=wss%3A%2F%2Fpeertube.stream%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.stream%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.stream%2Fstatic%2Fstreaming-playlists%2Fhls%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6%2Fabece3c3-b9c6-47f4-8040-f3eed8c602e6-0-fragmented.mp4",
+            "height": 0
+          }
+        ]
+      }
+    ],
+    "likes": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6/likes",
+    "dislikes": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6/dislikes",
+    "shares": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6/announces",
+    "comments": "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6/comments",
+    "attributedTo": [
+      {
+        "type": "Person",
+        "id": "https://peertube.local/accounts/createurs"
+      },
+      {
+        "type": "Group",
+        "id": "https://peertube.local/video-channels/vu"
+      }
+    ],
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+      "https://peertube.local/accounts/createurs/followers"
+    ]
+  },
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": [
+    "https://peertube.local/accounts/createurs/followers"
+  ],
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "RsaSignature2017": "https://w3id.org/security#RsaSignature2017"
+    },
+    {
+      "pt": "https://joinpeertube.org/ns#",
+      "sc": "http://schema.org#",
+      "Hashtag": "as:Hashtag",
+      "uuid": "sc:identifier",
+      "category": "sc:category",
+      "licence": "sc:license",
+      "subtitleLanguage": "sc:subtitleLanguage",
+      "sensitive": "as:sensitive",
+      "language": "sc:inLanguage",
+      "isLiveBroadcast": "sc:isLiveBroadcast",
+      "liveSaveReplay": {
+        "@type": "sc:Boolean",
+        "@id": "pt:liveSaveReplay"
+      },
+      "permanentLive": {
+        "@type": "sc:Boolean",
+        "@id": "pt:permanentLive"
+      },
+      "Infohash": "pt:Infohash",
+      "Playlist": "pt:Playlist",
+      "PlaylistElement": "pt:PlaylistElement",
+      "originallyPublishedAt": "sc:datePublished",
+      "views": {
+        "@type": "sc:Number",
+        "@id": "pt:views"
+      },
+      "state": {
+        "@type": "sc:Number",
+        "@id": "pt:state"
+      },
+      "size": {
+        "@type": "sc:Number",
+        "@id": "pt:size"
+      },
+      "fps": {
+        "@type": "sc:Number",
+        "@id": "pt:fps"
+      },
+      "startTimestamp": {
+        "@type": "sc:Number",
+        "@id": "pt:startTimestamp"
+      },
+      "stopTimestamp": {
+        "@type": "sc:Number",
+        "@id": "pt:stopTimestamp"
+      },
+      "position": {
+        "@type": "sc:Number",
+        "@id": "pt:position"
+      },
+      "commentsEnabled": {
+        "@type": "sc:Boolean",
+        "@id": "pt:commentsEnabled"
+      },
+      "downloadEnabled": {
+        "@type": "sc:Boolean",
+        "@id": "pt:downloadEnabled"
+      },
+      "waitTranscoding": {
+        "@type": "sc:Boolean",
+        "@id": "pt:waitTranscoding"
+      },
+      "support": {
+        "@type": "sc:Text",
+        "@id": "pt:support"
+      },
+      "likes": {
+        "@id": "as:likes",
+        "@type": "@id"
+      },
+      "dislikes": {
+        "@id": "as:dislikes",
+        "@type": "@id"
+      },
+      "playlists": {
+        "@id": "pt:playlists",
+        "@type": "@id"
+      },
+      "shares": {
+        "@id": "as:shares",
+        "@type": "@id"
+      },
+      "comments": {
+        "@id": "as:comments",
+        "@type": "@id"
+      }
+    }
+  ]
+}

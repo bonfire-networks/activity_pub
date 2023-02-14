@@ -1,0 +1,39 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://{{domain}}/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "id": "https://{{domain}}/users/{{nickname}}/collections/featured",
+  "orderedItems": [
+    {
+      "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://{{domain}}/schemas/litepub-0.1.jsonld",
+        {
+          "@language": "und"
+        }
+      ],
+      "actor": "https://{{domain}}/users/{{nickname}}",
+      "attachment": [],
+      "attributedTo": "https://{{domain}}/users/{{nickname}}",
+      "cc": [
+        "https://{{domain}}/users/{{nickname}}/followers"
+      ],
+      "content": "",
+      "id": "https://{{domain}}/objects/{{object_id}}",
+      "published": "2021-02-12T15:13:43.915429Z",
+      "sensitive": false,
+      "source": "",
+      "summary": "",
+      "tag": [],
+      "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+      ],
+      "type": "Note"
+    }
+  ],
+  "type": "OrderedCollection"
+}

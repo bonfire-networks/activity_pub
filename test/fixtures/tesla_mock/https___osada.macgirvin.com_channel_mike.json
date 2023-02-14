@@ -1,0 +1,55 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "type": "Person",
+    "id": "https://osada.local/channel/mike",
+    "preferredUsername": "mike",
+    "name": "Mike Macgirvin (Osada)",
+    "updated": "2018-08-29T03:09:11Z",
+    "discoverable": "true",
+    "icon": {
+        "type": "Image",
+        "mediaType": "image/jpeg",
+        "updated": "2018-08-29T03:10:13Z",
+        "url": "https://osada.local/photo/profile/l/2",
+        "height": 300,
+        "width": 300
+    },
+    "url": [
+        {
+            "type": "Link",
+            "mediaType": "text/html",
+            "href": "https://osada.local/channel/mike"
+        },
+        {
+            "type": "Link",
+            "mediaType": "text/x-zot+json",
+            "href": "https://osada.local/channel/mike"
+        }
+    ],
+    "inbox": "https://osada.local/inbox/mike",
+    "outbox": "https://osada.local/outbox/mike",
+    "followers": "https://osada.local/followers/mike",
+    "following": "https://osada.local/following/mike",
+    "endpoints": {
+        "sharedInbox": "https://osada.local/inbox"
+    },
+    "publicKey": {
+        "id": "https://osada.local/channel/mike/public_key_pem",
+        "owner": "https://osada.local/channel/mike",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAskSyK2VwBNKbzZl9XNJk\nvxU5AAilmRArMmmKSzphdHaVBHakeafUfixvqNrQ/oX2srJvJKcghNmEMrJ6MJ7r\npeEndVOo7pcP4PwVjtnC06p3J711q5tBehqM25BfCLCrB2YqWF6c8zk3CPN3Na21\n8k5s4cO95N/rGN+Po0XFAX/HjKjlpgNpKRDrpxmXxTU8NZfAqeQGJ5oiMBZI9vVB\n+eU7t1L6F5/XWuUCeP4OMrG8oZX822AREba8rknS6DpkWGES0Rx2eNOyYTf6ue75\nI6Ek6rlO+da5wMWr+3BvYMq4JMIwTHzAO+ZqqJPFpzKSiVuAWb2DOX/MDFecVWJE\ntF/R60lONxe4e/00MPCoDdqkLKdwROsk1yGL7z4Zk6jOWFEhIcWy/d2Ya5CpPvS3\nu4wNN4jkYAjra+8TiloRELhV4gpcEk8nkyNwLXOhYm7zQ5sIc5rfXoIrFzALB86W\nG05Nnqg+77zZIaTZpD9qekYlaEt+0OVtt9TTIeTiudQ983l6mfKwZYymrzymH1dL\nVgxBRYo+Z53QOSLiSKELfTBZxEoP1pBw6RiOHXydmJ/39hGgc2YAY/5ADwW2F2yb\nJ7+gxG6bPJ3ikDLYcD4CB5iJQdnTcDsFt3jyHAT6wOCzFAYPbHUqtzHfUM30dZBn\nnJhQF8udPLcXLaj6GW75JacCAwEAAQ==\n-----END PUBLIC KEY-----\n"
+    },
+    "signature": {
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1"
+        ],
+        "type": "RsaSignature2017",
+        "nonce": "bd60167a764a936788d9538531284dfacc258daae0297bc34a83bce136dedb5d",
+        "creator": "https://osada.local/channel/mike/public_key_pem",
+        "created": "2018-10-17T07:16:28Z",
+        "signatureValue": "WbfFVIPImkd3yNu6brz0CvZaeV242rwAbH0vy8DM4vfnXCxLr5Uv/Wj9gwP+tbooTxGaahAKBeqlGkQp8RLEo37LATrKMRLA/0V6DeeV+C5ORWR9B4WxyWiD3s/9Wf+KesFMtktNLAcMZ5PfnOS/xNYerhnpkp/gWPxtkglmLIWJv+w18A5zZ01JCxsO4QljHbhYaEUPHUfQ97abrkLECeam+FThVwdO6BFCtbjoNXHfzjpSZL/oKyBpi5/fpnqMqOLOQPs5WgBBZJvjEYYkQcoPTyxYI5NGpNbzIjGHPQNuACnOelH16A7L+q4swLWDIaEFeXQ2/5bmqVKZDZZ6usNP4QyTVszwd8jqo27qcDTNibXDUTsTdKpNQvM/3UncBuzuzmUV3FczhtGshIU1/pRVZiQycpVqPlGLvXhP/yZCe+1siyqDd+3uMaS2vkHTObSl5r+VYof+c+TcjrZXHSWnQTg8/X3zkoBWosrQ93VZcwjzMxQoARYv6rphbOoTz7RPmGAXYUt3/PDWkqDlmQDwCpLNNkJo1EidyefZBdD9HXQpCBO0ZU0NHb0JmPvg/+zU0krxlv70bm3RHA/maBETVjroIWzt7EwQEg5pL2hVnvSBG+1wF3BtRVe77etkPOHxLnYYIcAMLlVKCcgDd89DPIziQyruvkx1busHI08="
+    }
+}

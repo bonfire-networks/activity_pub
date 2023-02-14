@@ -1,0 +1,234 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "CacheFile": "pt:CacheFile",
+            "Hashtag": "as:Hashtag",
+            "Infohash": "pt:Infohash",
+            "RsaSignature2017": "https://w3id.org/security#RsaSignature2017",
+            "category": "sc:category",
+            "commentsEnabled": {
+                "@id": "pt:commentsEnabled",
+                "@type": "sc:Boolean"
+            },
+            "downloadEnabled": {
+                "@id": "pt:downloadEnabled",
+                "@type": "sc:Boolean"
+            },
+            "expires": "sc:expires",
+            "fps": {
+                "@id": "pt:fps",
+                "@type": "sc:Number"
+            },
+            "language": "sc:inLanguage",
+            "licence": "sc:license",
+            "originallyPublishedAt": "sc:datePublished",
+            "position": {
+                "@id": "pt:position",
+                "@type": "sc:Number"
+            },
+            "pt": "https://joinpeertube.org/ns#",
+            "sc": "http://schema.org#",
+            "sensitive": "as:sensitive",
+            "size": {
+                "@id": "pt:size",
+                "@type": "sc:Number"
+            },
+            "startTimestamp": {
+                "@id": "pt:startTimestamp",
+                "@type": "sc:Number"
+            },
+            "state": {
+                "@id": "pt:state",
+                "@type": "sc:Number"
+            },
+            "stopTimestamp": {
+                "@id": "pt:stopTimestamp",
+                "@type": "sc:Number"
+            },
+            "subtitleLanguage": "sc:subtitleLanguage",
+            "support": {
+                "@id": "pt:support",
+                "@type": "sc:Text"
+            },
+            "uuid": "sc:identifier",
+            "views": {
+                "@id": "pt:views",
+                "@type": "sc:Number"
+            },
+            "waitTranscoding": {
+                "@id": "pt:waitTranscoding",
+                "@type": "sc:Boolean"
+            }
+        },
+        {
+            "comments": {
+                "@id": "as:comments",
+                "@type": "@id"
+            },
+            "dislikes": {
+                "@id": "as:dislikes",
+                "@type": "@id"
+            },
+            "likes": {
+                "@id": "as:likes",
+                "@type": "@id"
+            },
+            "playlists": {
+                "@id": "pt:playlists",
+                "@type": "@id"
+            },
+            "shares": {
+                "@id": "as:shares",
+                "@type": "@id"
+            }
+        }
+    ],
+    "attributedTo": [
+        {
+            "id": "https://peertube.local/accounts/craigmaloney",
+            "type": "Person"
+        },
+        {
+            "id": "https://peertube.local/video-channels/9909c7d9-6b5b-4aae-9164-c1af7229c91c",
+            "type": "Group"
+        }
+    ],
+    "category": {
+        "identifier": "15",
+        "name": "Science & Technology"
+    },
+    "cc": [
+        "https://peertube.local/accounts/craigmaloney/followers"
+    ],
+    "comments": "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe/comments",
+    "commentsEnabled": true,
+    "content": "Support this and our other Michigan!/usr/group videos and meetings. Learn more at http://mug.org/membership\n\nTwenty Years in Jail: FreeBSD's Jails, Then and Now\n\nJails started as a limited virtualization system, but over the last two years they've...",
+    "dislikes": "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe/dislikes",
+    "downloadEnabled": true,
+    "duration": "PT5151S",
+    "icon": {
+        "height": 122,
+        "mediaType": "image/jpeg",
+        "type": "Image",
+        "url": "https://peertube.local/static/thumbnails/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe.jpg",
+        "width": 223
+    },
+    "id": "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe",
+    "language": {
+        "identifier": "en",
+        "name": "English"
+    },
+    "licence": {
+        "identifier": "1",
+        "name": "Attribution"
+    },
+    "likes": "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe/likes",
+    "mediaType": "text/markdown",
+    "name": "Twenty Years in Jail: FreeBSD's Jails, Then and Now",
+    "originallyPublishedAt": "2019-08-13T00:00:00.000Z",
+    "published": "2020-02-12T01:06:08.054Z",
+    "sensitive": false,
+    "shares": "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe/announces",
+    "state": 1,
+    "subtitleLanguage": [],
+    "support": "Learn more at http://mug.org",
+    "tag": [
+        {
+            "name": "linux",
+            "type": "Hashtag"
+        },
+        {
+            "name": "mug.org",
+            "type": "Hashtag"
+        },
+        {
+            "name": "open",
+            "type": "Hashtag"
+        },
+        {
+            "name": "oss",
+            "type": "Hashtag"
+        },
+        {
+            "name": "source",
+            "type": "Hashtag"
+        }
+    ],
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Video",
+    "updated": "2020-02-15T15:01:09.474Z",
+    "url": [
+        {
+            "href": "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe",
+            "mediaType": "text/html",
+            "type": "Link"
+        },
+        {
+            "fps": 30,
+            "height": 240,
+            "href": "https://peertube.local/static/webseed/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-240.mp4",
+            "mediaType": "video/mp4",
+            "size": 119465800,
+            "type": "Link"
+        },
+        {
+            "height": 240,
+            "href": "https://peertube.local/static/torrents/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-240.torrent",
+            "mediaType": "application/x-bittorrent",
+            "type": "Link"
+        },
+        {
+            "height": 240,
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.social%2Fstatic%2Ftorrents%2F278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-240.torrent&xt=urn:btih:b3365331a8543bf48d09add56d7fe4b1cbbb5659&dn=Twenty+Years+in+Jail%3A+FreeBSD's+Jails%2C+Then+and+Now&tr=wss%3A%2F%2Fpeertube.social%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.social%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.social%2Fstatic%2Fwebseed%2F278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-240.mp4",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "type": "Link"
+        },
+        {
+            "fps": 30,
+            "height": 360,
+            "href": "https://peertube.local/static/webseed/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-360.mp4",
+            "mediaType": "video/mp4",
+            "size": 143930318,
+            "type": "Link"
+        },
+        {
+            "height": 360,
+            "href": "https://peertube.local/static/torrents/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-360.torrent",
+            "mediaType": "application/x-bittorrent",
+            "type": "Link"
+        },
+        {
+            "height": 360,
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.social%2Fstatic%2Ftorrents%2F278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-360.torrent&xt=urn:btih:0d37b23c98cb0d89e28b5dc8f49b3c97a041e569&dn=Twenty+Years+in+Jail%3A+FreeBSD's+Jails%2C+Then+and+Now&tr=wss%3A%2F%2Fpeertube.social%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.social%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.social%2Fstatic%2Fwebseed%2F278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-360.mp4",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "type": "Link"
+        },
+        {
+            "fps": 30,
+            "height": 480,
+            "href": "https://peertube.local/static/webseed/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-480.mp4",
+            "mediaType": "video/mp4",
+            "size": 130530754,
+            "type": "Link"
+        },
+        {
+            "height": 480,
+            "href": "https://peertube.local/static/torrents/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-480.torrent",
+            "mediaType": "application/x-bittorrent",
+            "type": "Link"
+        },
+        {
+            "height": 480,
+            "href": "magnet:?xs=https%3A%2F%2Fpeertube.social%2Fstatic%2Ftorrents%2F278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-480.torrent&xt=urn:btih:3a13ff822ad9494165eff6167183ddaaabc1372a&dn=Twenty+Years+in+Jail%3A+FreeBSD's+Jails%2C+Then+and+Now&tr=wss%3A%2F%2Fpeertube.social%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.social%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.social%2Fstatic%2Fwebseed%2F278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe-480.mp4",
+            "mediaType": "application/x-bittorrent;x-scheme-handler/magnet",
+            "type": "Link"
+        }
+    ],
+    "uuid": "278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe",
+    "views": 2,
+    "waitTranscoding": false
+}

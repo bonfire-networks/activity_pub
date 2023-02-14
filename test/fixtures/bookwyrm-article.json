@@ -1,0 +1,35 @@
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "attachment": [
+    {
+      "id": null,
+      "name": "Death's End (The Three-Body Problem) (2018, Head of Zeus)",
+      "type": "Document",
+      "url": "https://bookwyrm.local/images/covers/e7a6a777-b3fa-44be-a819-33f3aa5187dd.jpeg"
+    }
+  ],
+  "attributedTo": "https://bookwyrm.local/user/TestUser",
+  "cc": [
+    "https://bookwyrm.local/user/TestUser/followers"
+  ],
+  "content": "<p>review</p>",
+  "id": "https://bookwyrm.local/user/TestUser/review/17",
+  "inReplyToBook": "https://bookwyrm.local/book/2",
+  "name": "Review of \"Death's End (The Three-Body Problem)\": ab",
+  "published": "2022-01-07T16:07:43.665392+00:00",
+  "replies": {
+    "@context": "https://www.w3.org/ns/activitystreams",
+    "first": "https://bookwyrm.local/user/TestUser/review/17/replies?page=1",
+    "id": "https://bookwyrm.local/user/TestUser/review/17/replies",
+    "last": "https://bookwyrm.local/user/TestUser/review/17/replies?page=1",
+    "totalItems": 0,
+    "type": "OrderedCollection"
+  },
+  "sensitive": false,
+  "tag": [{"type": "Edition"}],
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "type": "Article",
+  "updated": "2022-01-07T16:14:08.267337+00:00"
+}

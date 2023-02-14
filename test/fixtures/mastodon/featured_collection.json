@@ -1,0 +1,20 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    {
+      "ostatus": "http://ostatus.org#",
+      "atomUri": "ostatus:atomUri",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "sensitive": "as:sensitive",
+      "toot": "http://joinmastodon.org/ns#",
+      "votersCount": "toot:votersCount"
+    }
+  ],
+  "id": "https://example.local/users/alisaie/collections/featured",
+  "type": "OrderedCollection",
+  "totalItems": 5,
+  "orderedItems": [
+    "https://example.local/users/alisaie/statuses/108311386746229284"
+  ]
+}

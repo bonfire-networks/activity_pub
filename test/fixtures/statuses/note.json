@@ -1,0 +1,27 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://example.local/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://example.local/users/{{nickname}}",
+  "attachment": [],
+  "attributedTo": "https://example.local/users/{{nickname}}",
+  "cc": [
+    "https://example.local/users/{{nickname}}/followers"
+  ],
+  "content": "Content",
+  "context": "https://example.local/contexts/e4b180e1-7403-477f-aeb4-de57e7a3fe7f",
+  "conversation": "https://example.local/contexts/e4b180e1-7403-477f-aeb4-de57e7a3fe7f",
+  "id": "https://example.local/objects/{{object_id}}",
+  "published": "2019-12-15T22:00:05.279583Z",
+  "sensitive": false,
+  "summary": "",
+  "tag": [],
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "type": "Note"
+}

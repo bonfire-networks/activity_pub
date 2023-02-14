@@ -1,0 +1,44 @@
+{
+  "id": "https://funkwhale.local/federation/actors/compositions",
+  "outbox": "https://funkwhale.local/federation/actors/compositions/outbox",
+  "inbox": "https://funkwhale.local/federation/actors/compositions/inbox",
+  "preferredUsername": "compositions",
+  "type": "Person",
+  "name": "Compositions",
+  "followers": "https://funkwhale.local/federation/actors/compositions/followers",
+  "following": "https://funkwhale.local/federation/actors/compositions/following",
+  "manuallyApprovesFollowers": false,
+  "url": [
+    {
+      "type": "Link",
+      "href": "https://funkwhale.local/channels/compositions",
+      "mediaType": "text/html"
+    },
+    {
+      "type": "Link",
+      "href": "https://funkwhale.local/api/v1/channels/compositions/rss",
+      "mediaType": "application/rss+xml"
+    }
+  ],
+  "icon": {
+    "type": "Image",
+    "url": "https://funkwhale.local/media/attachments/75/b4/f1/nosmile.jpeg",
+    "mediaType": "image/jpeg"
+  },
+  "summary": "<p>I'm testing federation with the fediverse :)</p>",
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers"
+    }
+  ],
+  "publicKey": {
+    "owner": "https://funkwhale.local/federation/actors/compositions",
+    "publicKeyPem": "-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEAv25u57oZfVLV3KltS+HcsdSx9Op4MmzIes1J8Wu8s0KbdXf2zEwS\nsVqyHgs/XCbnzsR3FqyJTo46D2BVnvZcuU5srNcR2I2HMaqQ0oVdnATE4K6KdcgV\nN+98pMWo56B8LTgE1VpvqbsrXLi9jCTzjrkebVMOP+ZVu+64v1qdgddseblYMnBZ\nct0s7ONbHnqrWlTGf5wES1uIZTVdn5r4MduZG+Uenfi1opBS0lUUxfWdW9r0oF2b\nyneZUyaUCbEroeKbqsweXCWVgnMarUOsgqC42KM4cf95lySSwTSaUtZYIbTw7s9W\n2jveU/rVg8BYZu5JK5obgBoxtlUeUoSswwIDAQAB\n-----END RSA PUBLIC KEY-----\n",
+    "id": "https://funkwhale.local/federation/actors/compositions#main-key"
+  },
+  "endpoints": {
+    "sharedInbox": "https://funkwhale.local/federation/shared/inbox"
+  }
+}

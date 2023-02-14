@@ -1,0 +1,64 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "toot": "http://joinmastodon.org/ns#",
+      "featured": {
+        "@id": "toot:featured",
+        "@type": "@id"
+      },
+      "alsoKnownAs": {
+        "@id": "as:alsoKnownAs",
+        "@type": "@id"
+      },
+      "movedTo": {
+        "@id": "as:movedTo",
+        "@type": "@id"
+      },
+      "schema": "http://schema.org#",
+      "PropertyValue": "schema:PropertyValue",
+      "value": "schema:value",
+      "Hashtag": "as:Hashtag",
+      "Emoji": "toot:Emoji",
+      "IdentityProof": "toot:IdentityProof",
+      "focalPoint": {
+        "@container": "@list",
+        "@id": "toot:focalPoint"
+      }
+    }
+  ],
+  "id": "https://masto.local/users/rinpatch",
+  "type": "Person",
+  "following": "https://masto.local/users/rinpatch/following",
+  "followers": "https://masto.local/users/rinpatch/followers",
+  "inbox": "https://masto.local/users/rinpatch/inbox",
+  "outbox": "https://masto.local/users/rinpatch/outbox",
+  "featured": "https://masto.local/users/rinpatch/collections/featured",
+  "preferredUsername": "rinpatch",
+  "name": "rinpatch",
+  "summary": "<p>umu</p>",
+  "url": "https://masto.local/@rinpatch",
+  "manuallyApprovesFollowers": false,
+  "publicKey": {
+    "id": "https://masto.local/users/rinpatch#main-key",
+    "owner": "https://masto.local/users/rinpatch",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1vbhYKDopb5xzfJB2TZY\n0ZvgxqdAhbSKKkQC5Q2b0ofhvueDy2AuZTnVk1/BbHNlqKlwhJUSpA6LiTZVvtcc\nMn6cmSaJJEg30gRF5GARP8FMcuq8e2jmceiW99NnUX17MQXsddSf2JFUwD0rUE8H\nBsgD7UzE9+zlA/PJOTBO7fvBEz9PTQ3r4sRMTJVFvKz2MU/U+aRNTuexRKMMPnUw\nfp6VWh1F44VWJEQOs4tOEjGiQiMQh5OfBk1w2haT3vrDbQvq23tNpUP1cRomLUtx\nEBcGKi5DMMBzE1RTVT1YUykR/zLWlA+JSmw7P6cWtsHYZovs8dgn8Po3X//6N+ng\nTQIDAQAB\n-----END PUBLIC KEY-----\n"
+  },
+  "tag": [],
+  "attachment": [],
+  "endpoints": {
+    "sharedInbox": "https://masto.local/inbox"
+  },
+  "icon": {
+    "type": "Image",
+    "mediaType": "image/jpeg",
+    "url": "https://masto.local/system/accounts/avatars/000/067/580/original/bf05521bf711b7a0.jpg?1533238802"
+  },
+  "image": {
+    "type": "Image",
+    "mediaType": "image/gif",
+    "url": "https://masto.local/system/accounts/headers/000/067/580/original/a99b987e798f7063.gif?1533278217"
+  }
+}

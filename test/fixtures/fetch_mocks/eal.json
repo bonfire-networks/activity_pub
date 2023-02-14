@@ -1,0 +1,43 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      "https://sakamoto.local/schemas/litepub-0.1.jsonld",
+      {
+         "@language" : "und"
+      }
+   ],
+   "attachment" : [],
+   "discoverable" : true,
+   "endpoints" : {
+      "oauthAuthorizationEndpoint" : "https://sakamoto.local/oauth/authorize",
+      "oauthRegistrationEndpoint" : "https://sakamoto.local/api/v1/apps",
+      "oauthTokenEndpoint" : "https://sakamoto.local/oauth/token",
+      "sharedInbox" : "https://sakamoto.local/inbox",
+      "uploadMedia" : "https://sakamoto.local/api/ap/upload_media"
+   },
+   "followers" : "https://sakamoto.local/users/eal/followers",
+   "following" : "https://sakamoto.local/users/eal/following",
+   "icon" : {
+      "type" : "Image",
+      "url" : "https://sakamoto.local/media/f1cb6f79bf6839f3223ca240441f766056b74ddd23c69bcaf8bb1ba1ecff6eec.jpg"
+   },
+   "id" : "https://sakamoto.local/users/eal",
+   "image" : {
+      "type" : "Image",
+      "url" : "https://sakamoto.local/media/e5cccf26421e8366f4e34be3c9d5042b8bc8dcceccc7c8e89785fa312dd9632c.jpg"
+   },
+   "inbox" : "https://sakamoto.local/users/eal/inbox",
+   "manuallyApprovesFollowers" : false,
+   "name" : "ìì",
+   "outbox" : "https://sakamoto.local/users/eal/outbox",
+   "preferredUsername" : "eal",
+   "publicKey" : {
+      "id" : "https://sakamoto.local/users/eal#main-key",
+      "owner" : "https://sakamoto.local/users/eal",
+      "publicKeyPem" : "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz3pF85YOhhv2Zaxv9YQ7\nrCe1aEhetCMVHtrK63tUVGoGdsblyKnVeJNbFcr6k3y35OpHS3HXIi6GzgihYcTu\nONLP4eQMHTnLUNAQZi03mjJA4iIq8v/tm8ZkL2mXsQSAbWj6Iq518mHNN7OvCoNt\n3Xjepl/0kgkc2gsund7m8r+Wu0Fusx6UlUyyAk3PexdDRdSSlVLeskqtP8jtdQDo\nL70pMyL+VD+Qb9RKFdtgJ+M4OqYP+7FVzCqXN0QIPhFf/kvHSLr+c4Y3Wm0nAKHU\n9CwXWXz5Xqscpv41KlgnUCOkTXb5eBSt23lNulae5srVzWBiFb6guiCpNzBGa+Sq\nrwIDAQAB\n-----END PUBLIC KEY-----\n\n"
+   },
+   "summary" : "Pizza napoletana supremacist.<br><br>Any artworks posted here that are good are not mine.",
+   "tag" : [],
+   "type" : "Person",
+   "url" : "https://sakamoto.local/users/eal"
+}

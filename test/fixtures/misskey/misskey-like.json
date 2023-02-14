@@ -1,0 +1,27 @@
+{
+  "@context" : [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {"Hashtag" : "as:Hashtag"}
+  ],
+  "_misskey_reaction" : ":pudding:",
+  "content": ":pudding:",
+  "actor": "https://mastodon.local/users/admin",
+  "cc" : ["https://akkoma.local/users/lain"],
+  "id" : "https://misskey.xyz/75149198-2f45-46e4-930a-8b0538297075",
+  "nickname" : "lain",
+  "object" : "https://akkoma.local/objects/c331bbf7-2eb9-4801-a709-2a6103492a5a",
+  "type" : "Like",
+  "tag": [
+    {
+      "id": "https://somewhere/emoji/pudding",
+      "name": ":pudding:",
+      "type": "Emoji",
+      "icon": {
+        "type": "Image",
+        "mediaType": "image/png",
+        "url": "http://somewhere"
+      }
+    }
+  ]
+}

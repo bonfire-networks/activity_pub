@@ -1,0 +1,187 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      "https://w3id.org/security/v1",
+      {
+         "Hashtag" : "as:Hashtag",
+         "RsaSignature2017" : "https://w3id.org/security#RsaSignature2017",
+         "category" : "http://schema.org/category",
+         "commentsEnabled" : "http://schema.org/Boolean",
+         "language" : "http://schema.org/inLanguage",
+         "licence" : "http://schema.org/license",
+         "sensitive" : "as:sensitive",
+         "size" : "http://schema.org/Number",
+         "support" : "http://schema.org/Text",
+         "uuid" : "http://schema.org/identifier",
+         "views" : "http://schema.org/Number"
+      },
+      {
+         "comments" : {
+            "@id" : "as:comments",
+            "@type" : "@id"
+         },
+         "dislikes" : {
+            "@id" : "as:dislikes",
+            "@type" : "@id"
+         },
+         "likes" : {
+            "@id" : "as:likes",
+            "@type" : "@id"
+         },
+         "shares" : {
+            "@id" : "as:shares",
+            "@type" : "@id"
+         }
+      }
+   ],
+   "attributedTo" : [
+      {
+         "id" : "https://peertube2.local/video-channels/5224869f-aa63-4c83-ab3a-87c3a5ac440e",
+         "type" : "Group"
+      },
+      {
+         "id" : "https://peertube2.local/accounts/7even",
+         "type" : "Person"
+      }
+   ],
+   "cc" : [],
+   "comments" : {
+      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/comments",
+      "orderedItems" : [],
+      "totalItems" : 0,
+      "type" : "OrderedCollection"
+   },
+   "commentsEnabled" : true,
+   "content" : "tfw\r\n\r\n\r\nsong is 'my old piano' by diana ross",
+   "dislikes" : {
+      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/dislikes",
+      "orderedItems" : [],
+      "totalItems" : 0,
+      "type" : "OrderedCollection"
+   },
+   "duration" : "PT29S",
+   "icon" : {
+      "height" : 110,
+      "mediaType" : "image/jpeg",
+      "type" : "Image",
+      "url" : "https://peertube2.local/static/thumbnails/df5f464b-be8d-46fb-ad81-2d4c2d1630e3.jpg",
+      "width" : 200
+   },
+   "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
+   "likes" : {
+      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/likes",
+      "orderedItems" : [],
+      "totalItems" : 0,
+      "type" : "OrderedCollection"
+   },
+   "mediaType" : "text/markdown",
+   "name" : "Friday Night",
+   "published" : "2018-03-23T16:43:22.988Z",
+   "sensitive" : false,
+   "shares" : {
+      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces",
+      "orderedItems" : [
+         "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces/465",
+         "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces/1"
+      ],
+      "totalItems" : 2,
+      "type" : "OrderedCollection"
+   },
+   "support" : null,
+   "tag" : [
+      {
+         "name" : "feels",
+         "type" : "Hashtag"
+      }
+   ],
+   "to" : [
+      "https://www.w3.org/ns/activitystreams#Public"
+   ],
+   "type" : "Video",
+   "updated" : "2018-03-24T16:28:46.002Z",
+   "url" : [
+      {
+         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
+         "mimeType" : "video/mp4",
+         "size" : 5015880,
+         "type" : "Link",
+         "width" : 480
+      },
+      {
+         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.torrent",
+         "mimeType" : "application/x-bittorrent",
+         "type" : "Link",
+         "width" : 480
+      },
+      {
+         "href" : "magnet:?xs=https%3A%2F%2Fpeertube.moe%2Fstatic%2Ftorrents%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.torrent&xt=urn:btih:11d3af6b5c812a376c2b29cdbd46e5fb42ee730e&dn=Friday+Night&tr=wss%3A%2F%2Fpeertube.moe%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.moe%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.moe%2Fstatic%2Fwebseed%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
+         "mimeType" : "application/x-bittorrent;x-scheme-handler/magnet",
+         "type" : "Link",
+         "width" : 480
+      },
+      {
+         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.mp4",
+         "mimeType" : "video/mp4",
+         "size" : 3620040,
+         "type" : "Link",
+         "width" : 360
+      },
+      {
+         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.torrent",
+         "mimeType" : "application/x-bittorrent",
+         "type" : "Link",
+         "width" : 360
+      },
+      {
+         "href" : "magnet:?xs=https%3A%2F%2Fpeertube.moe%2Fstatic%2Ftorrents%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.torrent&xt=urn:btih:1c3885b4d7cdb46193b62b9b76e72b1409cfb297&dn=Friday+Night&tr=wss%3A%2F%2Fpeertube.moe%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.moe%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.moe%2Fstatic%2Fwebseed%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.mp4",
+         "mimeType" : "application/x-bittorrent;x-scheme-handler/magnet",
+         "type" : "Link",
+         "width" : 360
+      },
+      {
+         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.mp4",
+         "mimeType" : "video/mp4",
+         "size" : 2305488,
+         "type" : "Link",
+         "width" : 240
+      },
+      {
+         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.torrent",
+         "mimeType" : "application/x-bittorrent",
+         "type" : "Link",
+         "width" : 240
+      },
+      {
+         "href" : "magnet:?xs=https%3A%2F%2Fpeertube.moe%2Fstatic%2Ftorrents%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.torrent&xt=urn:btih:ac5773352d9e26f982d2da63acfb244f01ccafa4&dn=Friday+Night&tr=wss%3A%2F%2Fpeertube.moe%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.moe%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.moe%2Fstatic%2Fwebseed%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.mp4",
+         "mimeType" : "application/x-bittorrent;x-scheme-handler/magnet",
+         "type" : "Link",
+         "width" : 240
+      },
+      {
+         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.mp4",
+         "mimeType" : "video/mp4",
+         "size" : 7928231,
+         "type" : "Link",
+         "width" : 720
+      },
+      {
+         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.torrent",
+         "mimeType" : "application/x-bittorrent",
+         "type" : "Link",
+         "width" : 720
+      },
+      {
+         "href" : "magnet:?xs=https%3A%2F%2Fpeertube.moe%2Fstatic%2Ftorrents%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.torrent&xt=urn:btih:b591068f4533c4e2865bb4cbb89887aecccdc523&dn=Friday+Night&tr=wss%3A%2F%2Fpeertube.moe%3A443%2Ftracker%2Fsocket&tr=https%3A%2F%2Fpeertube.moe%2Ftracker%2Fannounce&ws=https%3A%2F%2Fpeertube.moe%2Fstatic%2Fwebseed%2Fdf5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.mp4",
+         "mimeType" : "application/x-bittorrent;x-scheme-handler/magnet",
+         "type" : "Link",
+         "width" : 720
+      },
+      {
+         "href" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
+         "mimeType" : "text/html",
+         "type" : "Link"
+      }
+   ],
+   "uuid" : "df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
+   "views" : 12
+}

@@ -1,0 +1,59 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      "https://w3id.org/security/v1",
+      {
+         "IdentityProof" : "toot:IdentityProof",
+         "PropertyValue" : "schema:PropertyValue",
+         "alsoKnownAs" : {
+            "@id" : "as:alsoKnownAs",
+            "@type" : "@id"
+         },
+         "discoverable" : "toot:discoverable",
+         "featured" : {
+            "@id" : "toot:featured",
+            "@type" : "@id"
+         },
+         "focalPoint" : {
+            "@container" : "@list",
+            "@id" : "toot:focalPoint"
+         },
+         "manuallyApprovesFollowers" : "as:manuallyApprovesFollowers",
+         "movedTo" : {
+            "@id" : "as:movedTo",
+            "@type" : "@id"
+         },
+         "schema" : "http://schema.org#",
+         "toot" : "http://joinmastodon.org/ns#",
+         "value" : "schema:value"
+      }
+   ],
+   "attachment" : [],
+   "discoverable" : true,
+   "endpoints" : {
+      "sharedInbox" : "https://busshi.local/inbox"
+   },
+   "featured" : "https://busshi.local/users/tuxcrafting/collections/featured",
+   "followers" : "https://busshi.local/users/tuxcrafting/followers",
+   "following" : "https://busshi.local/users/tuxcrafting/following",
+   "icon" : {
+      "mediaType" : "image/jpeg",
+      "type" : "Image",
+      "url" : "https://blobcdn.busshi.moe/busshifiles/accounts/avatars/000/046/872/original/054f0806ccb303d0.jpg"
+   },
+   "id" : "https://busshi.local/users/tuxcrafting",
+   "inbox" : "https://busshi.local/users/tuxcrafting/inbox",
+   "manuallyApprovesFollowers" : true,
+   "name" : "@tuxcrafting@localhost:8080",
+   "outbox" : "https://busshi.local/users/tuxcrafting/outbox",
+   "preferredUsername" : "tuxcrafting",
+   "publicKey" : {
+      "id" : "https://busshi.local/users/tuxcrafting#main-key",
+      "owner" : "https://busshi.local/users/tuxcrafting",
+      "publicKeyPem" : "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwqWWTBf9OizsBiBhGS/M\nQTT6fB1VvQP6vvxouGZ5cGg1a97V67ouhjJ+nGMuWr++DNYjJYkk2TOynfykk0H/\n8rRSujSe3BNRKYGNzdnRJu/4XxgIE847Fqx5SijSP23JGYcn8TjeSUsN2u2YYVXK\n+Eb3Bu7DjGiqwNon6YB0h5qkGjkMSMVIFn0hZx6Z21bkfYWgra96Ok5OWf7Ck3je\nCuErlCMZcbQcHtFpBueJAxYchjNvm6fqwZxLX/NtaHdr7Fm2kin89mqzliapBlFH\nCXk7Jln6xV5I6ryggPAMzm3fuHzeo0RWlu8lrxLfARBVwaQQZS99bwqp6N9O2aUp\nYwIDAQAB\n-----END PUBLIC KEY-----\n"
+   },
+   "summary" : "<p>expert procrastinator</p><p>trans(humanist|gender|istorized)</p><p>web: <a href=\"https://tuxcrafting.port0.org\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">tuxcrafting.port0.org</span><span class=\"invisible\"></span></a><br />pronouns: she/they<br />languages: french (native)/english (fluent)/hebrew (ok-ish)/esperanto (barely)</p>",
+   "tag" : [],
+   "type" : "Person",
+   "url" : "https://busshi.local/@tuxcrafting"
+}

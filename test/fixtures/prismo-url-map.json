@@ -1,0 +1,65 @@
+{
+    "id": "https://prismo.local/posts/83#Create",
+    "type": "Create",
+    "actor": [
+        {
+            "type": "Person",
+            "id": "https://prismo.local/@mxb"
+        }
+    ],
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "object": {
+        "id": "https://prismo.local/posts/83",
+        "type": "Article",
+        "name": "Introducing: Federated follows!",
+        "published": "2018-11-01T07:10:05Z",
+        "content": "We are more than thrilled to announce that Prismo now supports federated follows! It means you ca...",
+        "url": {
+            "type": "Link",
+            "mimeType": "text/html",
+            "href": "https://prismo.local/posts/83"
+        },
+        "votes": 12,
+        "attributedTo": [
+            {
+                "type": "Person",
+                "id": "https://prismo.local/@mxb"
+            }
+        ],
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tags": [
+            {
+                "type": "Hashtag",
+                "href": "https://prismo.local/tags/prismo",
+                "name": "#prismo"
+            },
+            {
+                "type": "Hashtag",
+                "href": "https://prismo.local/tags/prismodev",
+                "name": "#prismodev"
+            },
+            {
+                "type": "Hashtag",
+                "href": "https://prismo.local/tags/meta",
+                "name": "#meta"
+            }
+        ],
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1",
+            {
+                "Hashtag": "as:Hashtag"
+            },
+            {
+                "votes": {
+                    "@id": "as:votes",
+                    "@type": "@id"
+                }
+            }
+        ]
+    }
+}

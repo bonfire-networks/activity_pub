@@ -1,0 +1,23 @@
+{
+  "aliases": [
+    "https://mastodon.local/@karen",
+    "https://mastodon.local/users/admin"
+  ],
+  "links": [
+    {
+      "href": "https://mastodon.local/@karen",
+      "rel": "http://webfinger.net/rel/profile-page",
+      "type": "text/html"
+    },
+    {
+      "href": "https://mastodon.local/users/admin",
+      "rel": "self",
+      "type": "application/activity+json"
+    },
+    {
+      "rel": "http://ostatus.org/schema/1.0/subscribe",
+      "template": "https://mastodon.local/authorize_interaction?uri={uri}"
+    }
+  ],
+  "subject": "acct:karen@mastodon.local"
+}

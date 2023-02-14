@@ -1,0 +1,58 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    "https://funkwhale.audio/ns",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "Hashtag": "as:Hashtag"
+    }
+  ],
+  "type": "Create",
+  "id": "https://funkwhale.local/federation/music/uploads/42342395-0208-4fee-a38d-259a6dae0871/activity",
+  "actor": "https://funkwhale.local/federation/actors/compositions",
+  "object": {
+    "id": "https://funkwhale.local/federation/music/uploads/42342395-0208-4fee-a38d-259a6dae0871",
+    "type": "Audio",
+    "name": "Compositions - Test Audio for Pleroma",
+    "attributedTo": "https://funkwhale.local/federation/actors/compositions",
+    "published": "2020-03-11T10:01:52.714918+00:00",
+    "to": "https://www.w3.org/ns/activitystreams#Public",
+    "url": [
+      {
+        "type": "Link",
+        "mimeType": "audio/ogg",
+        "href": "https://funkwhale.local/api/v1/listen/3901e5d8-0445-49d5-9711-e096cf32e515/?upload=42342395-0208-4fee-a38d-259a6dae0871&download=false"
+      },
+      {
+        "type": "Link",
+        "mimeType": "text/html",
+        "href": "https://funkwhale.local/library/tracks/74"
+      }
+    ],
+    "content": "<p>This is a test Audio.</p>",
+    "mediaType": "text/html",
+    "tag": [
+      {
+        "type": "Hashtag",
+        "name": "#funkwhale"
+      },
+      {
+        "type": "Hashtag",
+        "name": "#test"
+      },
+      {
+        "type": "Hashtag",
+        "name": "#tests"
+      }
+    ],
+    "summary": "#funkwhale #test #tests",
+    "@context": [
+      "https://www.w3.org/ns/activitystreams",
+      "https://w3id.org/security/v1",
+      {
+        "manuallyApprovesFollowers": "as:manuallyApprovesFollowers"
+      }
+    ]
+  }
+}

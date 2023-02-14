@@ -1,0 +1,72 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      {
+         "atomUri" : "ostatus:atomUri",
+         "conversation" : "ostatus:conversation",
+         "inReplyToAtomUri" : "ostatus:inReplyToAtomUri",
+         "ostatus" : "http://ostatus.org#",
+         "sensitive" : "as:sensitive",
+         "toot" : "http://joinmastodon.org/ns#",
+         "votersCount" : "toot:votersCount"
+      }
+   ],
+   "atomUri" : "https://busshi.local/users/tuxcrafting/statuses/104410921027210069",
+   "attachment" : [],
+   "attributedTo" : "https://busshi.local/users/tuxcrafting",
+   "cc" : [
+      "https://busshi.local/users/tuxcrafting/followers",
+      "https://stereophonic.space/users/fixpoint",
+      "https://blob.cat/users/blobyoumu",
+      "https://cawfee.club/users/grips",
+      "https://jaeger.website/users/igel"
+   ],
+   "content" : "<p><span class=\"h-card\"><a href=\"https://stereophonic.space/users/fixpoint\" class=\"u-url mention\">@<span>fixpoint</span></a></span> <span class=\"h-card\"><a href=\"https://blob.cat/users/blobyoumu\" class=\"u-url mention\">@<span>blobyoumu</span></a></span> <span class=\"h-card\"><a href=\"https://cawfee.club/users/grips\" class=\"u-url mention\">@<span>grips</span></a></span> <span class=\"h-card\"><a href=\"https://jaeger.website/users/igel\" class=\"u-url mention\">@<span>igel</span></a></span> there&apos;s a difference between not liking nukes and not liking nuclear power<br />nukes are pretty bad as are all WMDs in general but disliking nuclear power just indicates you are unable of thought</p>",
+   "contentMap" : {
+      "en" : "<p><span class=\"h-card\"><a href=\"https://stereophonic.space/users/fixpoint\" class=\"u-url mention\">@<span>fixpoint</span></a></span> <span class=\"h-card\"><a href=\"https://blob.cat/users/blobyoumu\" class=\"u-url mention\">@<span>blobyoumu</span></a></span> <span class=\"h-card\"><a href=\"https://cawfee.club/users/grips\" class=\"u-url mention\">@<span>grips</span></a></span> <span class=\"h-card\"><a href=\"https://jaeger.website/users/igel\" class=\"u-url mention\">@<span>igel</span></a></span> there&apos;s a difference between not liking nukes and not liking nuclear power<br />nukes are pretty bad as are all WMDs in general but disliking nuclear power just indicates you are unable of thought</p>"
+   },
+   "conversation" : "https://cawfee.club/contexts/ad6c73d8-efc2-4e74-84ea-2dacf1a27a5e",
+   "id" : "https://busshi.local/users/tuxcrafting/statuses/104410921027210069",
+   "inReplyTo" : "https://stereophonic.space/objects/02997b83-3ea7-4b63-94af-ef3aa2d4ed17",
+   "inReplyToAtomUri" : "https://stereophonic.space/objects/02997b83-3ea7-4b63-94af-ef3aa2d4ed17",
+   "published" : "2020-06-26T15:10:19Z",
+   "replies" : {
+      "first" : {
+         "items" : [],
+         "next" : "https://busshi.local/users/tuxcrafting/statuses/104410921027210069/replies?only_other_accounts=true&page=true",
+         "partOf" : "https://busshi.local/users/tuxcrafting/statuses/104410921027210069/replies",
+         "type" : "CollectionPage"
+      },
+      "id" : "https://busshi.local/users/tuxcrafting/statuses/104410921027210069/replies",
+      "type" : "Collection"
+   },
+   "sensitive" : false,
+   "summary" : null,
+   "tag" : [
+      {
+         "href" : "https://stereophonic.space/users/fixpoint",
+         "name" : "@fixpoint@stereophonic.space",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://blob.cat/users/blobyoumu",
+         "name" : "@blobyoumu@blob.cat",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://cawfee.club/users/grips",
+         "name" : "@grips@cawfee.club",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://jaeger.website/users/igel",
+         "name" : "@igel@jaeger.website",
+         "type" : "Mention"
+      }
+   ],
+   "to" : [
+      "https://www.w3.org/ns/activitystreams#Public"
+   ],
+   "type" : "Note",
+   "url" : "https://busshi.local/@tuxcrafting/104410921027210069"
+}

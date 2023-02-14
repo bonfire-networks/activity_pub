@@ -1,0 +1,112 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "CacheFile": "pt:CacheFile",
+            "Hashtag": "as:Hashtag",
+            "Infohash": "pt:Infohash",
+            "RsaSignature2017": "https://w3id.org/security#RsaSignature2017",
+            "category": "sc:category",
+            "commentsEnabled": {
+                "@id": "pt:commentsEnabled",
+                "@type": "sc:Boolean"
+            },
+            "downloadEnabled": {
+                "@id": "pt:downloadEnabled",
+                "@type": "sc:Boolean"
+            },
+            "expires": "sc:expires",
+            "fps": {
+                "@id": "pt:fps",
+                "@type": "sc:Number"
+            },
+            "language": "sc:inLanguage",
+            "licence": "sc:license",
+            "originallyPublishedAt": "sc:datePublished",
+            "position": {
+                "@id": "pt:position",
+                "@type": "sc:Number"
+            },
+            "pt": "https://joinpeertube.org/ns#",
+            "sc": "http://schema.org#",
+            "sensitive": "as:sensitive",
+            "size": {
+                "@id": "pt:size",
+                "@type": "sc:Number"
+            },
+            "startTimestamp": {
+                "@id": "pt:startTimestamp",
+                "@type": "sc:Number"
+            },
+            "state": {
+                "@id": "pt:state",
+                "@type": "sc:Number"
+            },
+            "stopTimestamp": {
+                "@id": "pt:stopTimestamp",
+                "@type": "sc:Number"
+            },
+            "subtitleLanguage": "sc:subtitleLanguage",
+            "support": {
+                "@id": "pt:support",
+                "@type": "sc:Text"
+            },
+            "uuid": "sc:identifier",
+            "views": {
+                "@id": "pt:views",
+                "@type": "sc:Number"
+            },
+            "waitTranscoding": {
+                "@id": "pt:waitTranscoding",
+                "@type": "sc:Boolean"
+            }
+        },
+        {
+            "comments": {
+                "@id": "as:comments",
+                "@type": "@id"
+            },
+            "dislikes": {
+                "@id": "as:dislikes",
+                "@type": "@id"
+            },
+            "likes": {
+                "@id": "as:likes",
+                "@type": "@id"
+            },
+            "playlists": {
+                "@id": "pt:playlists",
+                "@type": "@id"
+            },
+            "shares": {
+                "@id": "as:shares",
+                "@type": "@id"
+            }
+        }
+    ],
+    "endpoints": {
+        "sharedInbox": "https://peertube.local/inbox"
+    },
+    "followers": "https://peertube.local/accounts/craigmaloney/followers",
+    "following": "https://peertube.local/accounts/craigmaloney/following",
+    "icon": {
+        "mediaType": "image/png",
+        "type": "Image",
+        "url": "https://peertube.local/lazy-static/avatars/87bd694b-95bc-4066-83f4-bddfcd2b9caa.png"
+    },
+    "id": "https://peertube.local/accounts/craigmaloney",
+    "inbox": "https://peertube.local/accounts/craigmaloney/inbox",
+    "name": "Craig Maloney",
+    "outbox": "https://peertube.local/accounts/craigmaloney/outbox",
+    "playlists": "https://peertube.local/accounts/craigmaloney/playlists",
+    "preferredUsername": "craigmaloney",
+    "publicKey": {
+        "id": "https://peertube.local/accounts/craigmaloney#main-key",
+        "owner": "https://peertube.local/accounts/craigmaloney",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9qvGIYUW01yc8CCsrwxK\n5OXlV5s7EbNWY8tJr/p1oGuELZwAnG2XKxtdbvgcCT+YxL5uRXIdCFIIIKrzRFr/\nHfS0mOgNT9u3gu+SstCNgtatciT0RVP77yiC3b2NHq1NRRvvVhzQb4cpIWObIxqh\nb2ypDClTc7XaKtgmQCbwZlGyZMT+EKz/vustD6BlpGsglRkm7iES6s1PPGb1BU+n\nS94KhbS2DOFiLcXCVWt0QarokIIuKznp4+xP1axKyP+SkT5AHx08Nd5TYFb2C1Jl\nz0WD/1q0mAN62m7QrA3SQPUgB+wWD+S3Nzf7FwNPiP4srbBgxVEUnji/r9mQ6BXC\nrQIDAQAB\n-----END PUBLIC KEY-----"
+    },
+    "summary": null,
+    "type": "Person",
+    "url": "https://peertube.local/accounts/craigmaloney"
+}

@@ -1,0 +1,28 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "Hashtag": "as:Hashtag"
+    }
+  ],
+  "type": "Like",
+  "id": "https://misskey.local/likes/917ocsybgp",
+  "actor": "https://misskey.local/users/8x8yep20u2",
+  "object": "https://akomma.local.live/objects/89937a53-2692-4631-bb62-770091267391",
+  "content": ":hanapog:",
+  "_misskey_reaction": ":hanapog:",
+  "tag": [
+    {
+      "id": "https://misskey.local/emojis/hanapog",
+      "type": "Emoji",
+      "name": ":hanapog:",
+      "updated": "2022-06-07T12:00:05.773Z",
+      "icon": {
+        "type": "Image",
+        "mediaType": "image/png",
+        "url": "https://misskey.local/files/webpublic-8f8a9768-7264-4171-88d6-2356aabeadcd"
+      }
+    }
+  ]
+}

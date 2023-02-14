@@ -1,0 +1,38 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    {
+      "ostatus": "http://ostatus.org#",
+      "atomUri": "ostatus:atomUri",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "sensitive": "as:sensitive",
+      "toot": "http://joinmastodon.org/ns#",
+      "votersCount": "toot:votersCount"
+    }
+  ],
+  "id": "https://mocked.local/users/akkoma_ap_integration_tester/statuses/109671288784583764",
+  "type": "Note",
+  "summary": null,
+  "inReplyTo": null,
+  "published": "2023-01-11T15:31:01Z",
+  "url": "https://mocked.local/@akkoma_ap_integration_tester/109671288784583764",
+  "attributedTo": "https://mocked.local/users/akkoma_ap_integration_tester",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": [
+    "https://mocked.local/users/akkoma_ap_integration_tester/followers"
+  ],
+  "sensitive": false,
+  "atomUri": "https://mocked.local/users/akkoma_ap_integration_tester/statuses/109671288784583764",
+  "inReplyToAtomUri": null,
+  "conversation": "tag:mocked.local,2023-01-11:objectId=376794415:objectType=Conversation",
+  "content": "<p>tag</p>",
+  "contentMap": {
+    "ja": "<p>tag</p>"
+  },
+  "attachment": [],
+  "tag": [],
+  "replies": []
+}

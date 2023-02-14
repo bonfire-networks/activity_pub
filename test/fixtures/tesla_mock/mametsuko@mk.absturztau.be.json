@@ -1,0 +1,65 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "sensitive": "as:sensitive",
+            "Hashtag": "as:Hashtag",
+            "quoteUrl": "as:quoteUrl",
+            "toot": "http://joinmastodon.org/ns#",
+            "Emoji": "toot:Emoji",
+            "featured": "toot:featured",
+            "discoverable": "toot:discoverable",
+            "schema": "http://schema.org#",
+            "PropertyValue": "schema:PropertyValue",
+            "value": "schema:value",
+            "misskey": "https://misskey-hub.net/ns#",
+            "_misskey_content": "misskey:_misskey_content",
+            "_misskey_quote": "misskey:_misskey_quote",
+            "_misskey_reaction": "misskey:_misskey_reaction",
+            "_misskey_votes": "misskey:_misskey_votes",
+            "_misskey_talk": "misskey:_misskey_talk",
+            "isCat": "misskey:isCat",
+            "vcard": "http://www.w3.org/2006/vcard/ns#"
+        }
+    ],
+    "type": "Person",
+    "id": "https://mk.local/users/8ozbzjs3o8",
+    "inbox": "https://mk.local/users/8ozbzjs3o8/inbox",
+    "outbox": "https://mk.local/users/8ozbzjs3o8/outbox",
+    "followers": "https://mk.local/users/8ozbzjs3o8/followers",
+    "following": "https://mk.local/users/8ozbzjs3o8/following",
+    "featured": "https://mk.local/users/8ozbzjs3o8/collections/featured",
+    "sharedInbox": "https://mk.local/inbox",
+    "endpoints": {
+        "sharedInbox": "https://mk.local/inbox"
+    },
+    "url": "https://mk.local/@mametsuko",
+    "preferredUsername": "mametsuko",
+    "name": "mametschko",
+    "summary": "<p><span>nya, ich bin eine Brotperson</span></p>",
+    "icon": {
+        "type": "Image",
+        "url": "https://mk.local/files/webpublic-3b5594f4-fa52-4548-b4e3-c379ae2143ed",
+        "sensitive": false,
+        "name": null
+    },
+    "image": {
+        "type": "Image",
+        "url": "https://mk.local/files/webpublic-0d03b03d-b14b-4916-ac3d-8a137118ec84",
+        "sensitive": false,
+        "name": null
+    },
+    "tag": [],
+    "manuallyApprovesFollowers": true,
+    "discoverable": false,
+    "publicKey": {
+        "id": "https://mk.local/users/8ozbzjs3o8#main-key",
+        "type": "Key",
+        "owner": "https://mk.local/users/8ozbzjs3o8",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAuN/S1spBGmh8FXI1Bt16\nXB7Cc0QutBp7UPgmDNHjOfsq0zrF4g3L1UBxvrpU0XX77XPMCd9yPvGwAYURH2mv\ntIcYuE+R90VLDmBu5MTVthcG2D874eCZ2rD2YsEYmN5AjTX7QBIqCck+qDhVWkkM\nEZ6S5Ht6IJ5Of74eKffXElQI/C6QB+9uEDOmPk0jCzgI5gw7xvJqFj/DIF4kUUAu\nA89JqaFZzZlkrSrj4cr48bLN/YOmpdaHu0BKHaDSHct4+MqlixqovgdB6RboCEDw\ne4Aeav7+Q0Y9oGIvuggg0Q+nCubnVNnaPyzd817tpPVzyZmTts+DKyDuv90SX3nR\nsPaNa5Ty60eqplUk4b7X1gSvuzBJUFBxTVV84WnjwoeoydaS6rSyjCDPGLBjaByc\nFyWMMEb/zlQyhLZfBlvT7k96wRSsMszh2hDALWmgYIhq/jNwINvALJ1GKLNHHKZ4\nyz2LnxVpRm2rWrZzbvtcnSQOt3LaPSZn8Wgwv4buyHF02iuVuIamZVtKexsE1Ixl\nIi9qa3AKEc5gOzYXhRhvHaruzoCehUbb/UHC5c8Tto8L5G1xYzjLP3qj3PT9w/wM\n+k1Ra/4JhuAnVFROOoOmx9rIELLHH7juY2nhM7plGhyt1M5gysgqEloij8QzyQU2\nZK1YlAERG2XFO6br8omhcmECAwEAAQ==\n-----END PUBLIC KEY-----\n"
+    },
+    "isCat": true,
+    "vcard:Address": "Vienna, Austria"
+}

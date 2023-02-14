@@ -1,0 +1,14 @@
+{
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "attributedTo": "https://akkoma.local/actor.json",
+        "attachment": [],
+        "actor": "https://mastodon.local/users/admin",
+        "content": "<p>this post was not actually written by Haelwenn</p>",
+        "id": "https://akkoma.local/activity2.json",
+        "published": "2018-09-01T22:15:00Z",
+        "tag": [],
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Note"
+}

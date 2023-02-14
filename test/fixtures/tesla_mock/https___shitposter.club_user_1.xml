@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+ <Subject>https://sposter.local/user/1</Subject>
+ <Alias>acct:moonman@shitposter.club</Alias>
+ <Alias>https://sposter.local/moonman</Alias>
+ <Alias>https://sposter.local/index.php/user/1</Alias>
+ <Alias>https://sposter.local/index.php/moonman</Alias>
+ <Link rel="http://webfinger.net/rel/profile-page" type="text/html" href="https://sposter.local/moonman"/>
+ <Link rel="http://gmpg.org/xfn/11" type="text/html" href="https://sposter.local/moonman"/>
+ <Link rel="describedby" type="application/rdf+xml" href="https://sposter.local/moonman/foaf"/>
+ <Link rel="http://apinamespace.org/atom" type="application/atomsvc+xml" href="https://sposter.local/api/statusnet/app/service/moonman.xml"/>
+ <Link rel="http://apinamespace.org/twitter" href="https://sposter.local/api/"/>
+ <Link rel="http://specs.openid.net/auth/2.0/provider" href="https://sposter.local/moonman"/>
+ <Link rel="http://schemas.google.com/g/2010#updates-from" type="application/atom+xml" href="https://sposter.local/api/statuses/user_timeline/1.atom"/>
+ <Link rel="magic-public-key" href="data:application/magic-public-key,RSA.4PyrQWAfiQOIxPm4yO-0XHVxMTa8cY4PETeJSjcOx9CMNqiRYNxsT9JFyAwugiwASieMGZhfUDI7Huxyjhb-tyGzlCQEJdJxcWfaRFikwwqWyzpqtQAOjJCb0vYd8gTXSQNJfpwLWQSXUQgwwi31CR3ZlAAc5vtTuWgmKEUrk3c=.AQAB"/>
+ <Link rel="salmon" href="https://sposter.local/main/salmon/user/1"/>
+ <Link rel="http://salmon-protocol.org/ns/salmon-replies" href="https://sposter.local/main/salmon/user/1"/>
+ <Link rel="http://salmon-protocol.org/ns/salmon-mention" href="https://sposter.local/main/salmon/user/1"/>
+ <Link rel="http://ostatus.org/schema/1.0/subscribe" template="https://sposter.local/main/ostatussub?profile={uri}"/>
+</XRD>

@@ -1,0 +1,59 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      "https://sakamoto.local/schemas/litepub-0.1.jsonld",
+      {
+         "@language" : "und"
+      }
+   ],
+   "actor" : "https://sakamoto.local/users/eal",
+   "attachment" : [],
+   "attributedTo" : "https://sakamoto.local/users/eal",
+   "cc" : [
+      "https://sakamoto.local/users/eal/followers"
+   ],
+   "content" : "<span class=\"h-card\"><a data-user=\"9uw2wH0iTYAMV7XnLU\" class=\"u-url mention\" href=\"https://busshi.local/@tuxcrafting\" rel=\"ugc\">@<span>tuxcrafting</span></a></span> <span class=\"h-card\"><a data-user=\"9r5l8j8x23NI9KUFu4\" class=\"u-url mention\" href=\"https://stereophonic.space/users/fixpoint\" rel=\"ugc\">@<span>fixpoint</span></a></span> <span class=\"h-card\"><a data-user=\"9orDK545JwjY4Lxjge\" class=\"u-url mention\" href=\"https://blob.cat/users/blobyoumu\" rel=\"ugc\">@<span>blobyoumu</span></a></span> <span class=\"h-card\"><a data-user=\"68184\" class=\"u-url mention\" href=\"https://cawfee.club/users/grips\" rel=\"ugc\">@<span>grips</span></a></span> <span class=\"h-card\"><a data-user=\"9sAmMgHVKjTXKpgx84\" class=\"u-url mention\" href=\"https://jaeger.website/users/igel\" rel=\"ugc\">@<span>igel</span></a></span> What&#39;s bad about nukes?",
+   "context" : "https://cawfee.club/contexts/ad6c73d8-efc2-4e74-84ea-2dacf1a27a5e",
+   "conversation" : "https://cawfee.club/contexts/ad6c73d8-efc2-4e74-84ea-2dacf1a27a5e",
+   "id" : "https://sakamoto.local/objects/f20f2497-66d9-4a52-a2e1-1be2a39c32c1",
+   "inReplyTo" : "https://busshi.local/users/tuxcrafting/statuses/104410921027210069",
+   "published" : "2020-06-26T15:20:15.975737Z",
+   "sensitive" : false,
+   "summary" : "",
+   "tag" : [
+      {
+         "href" : "https://blob.cat/users/blobyoumu",
+         "name" : "@blobyoumu@blob.cat",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://busshi.local/users/tuxcrafting",
+         "name" : "@tuxcrafting@busshi.moe",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://cawfee.club/users/grips",
+         "name" : "@grips@cawfee.club",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://jaeger.website/users/igel",
+         "name" : "@igel@jaeger.website",
+         "type" : "Mention"
+      },
+      {
+         "href" : "https://stereophonic.space/users/fixpoint",
+         "name" : "@fixpoint@stereophonic.space",
+         "type" : "Mention"
+      }
+   ],
+   "to" : [
+      "https://busshi.local/users/tuxcrafting",
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://blob.cat/users/blobyoumu",
+      "https://stereophonic.space/users/fixpoint",
+      "https://cawfee.club/users/grips",
+      "https://jaeger.website/users/igel"
+   ],
+   "type" : "Note"
+}

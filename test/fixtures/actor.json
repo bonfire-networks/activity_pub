@@ -1,0 +1,42 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://example.local/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "attachment": [],
+  "endpoints": {
+    "oauthAuthorizationEndpoint": "https://example.local/oauth/authorize",
+    "oauthRegistrationEndpoint": "https://example.local/api/v1/apps",
+    "oauthTokenEndpoint": "https://example.local/oauth/token",
+    "sharedInbox": "https://example.local/inbox"
+  },
+  "followers": "https://example.local/users/{{nickname}}/followers",
+  "following": "https://example.local/users/{{nickname}}/following",
+  "icon": {
+    "type": "Image",
+    "url": "https://example.local/media/4e914f5b84e4a259a3f6c2d2edc9ab642f2ab05f3e3d9c52c81fc2d984b3d51e.jpg"
+  },
+  "id": "https://example.local/users/{{nickname}}",
+  "image": {
+    "type": "Image",
+    "url": "https://example.local/media/f739efddefeee49c6e67e947c4811fdc911785c16ae43da4c3684051fbf8da6a.jpg?name=f739efddefeee49c6e67e947c4811fdc911785c16ae43da4c3684051fbf8da6a.jpg"
+  },
+  "inbox": "https://example.local/users/{{nickname}}/inbox",
+  "manuallyApprovesFollowers": false,
+  "name": "{{nickname}}",
+  "outbox": "https://example.local/users/{{nickname}}/outbox",
+  "preferredUsername": "{{nickname}}",
+  "publicKey": {
+    "id": "https://example.local/users/{{nickname}}#main-key",
+    "owner": "https://example.local/users/{{nickname}}",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5DLtwGXNZElJyxFGfcVc\nXANhaMadj/iYYQwZjOJTV9QsbtiNBeIK54PJrYuU0/0YIdrvS1iqheX5IwXRhcwa\nhm3ZyLz7XeN9st7FBni4BmZMBtMpxAuYuu5p/jbWy13qAiYOhPreCx0wrWgm/lBD\n9mkgaxIxPooBE0S4ZWEJIDIV1Vft3AWcRUyWW1vIBK0uZzs6GYshbQZB952S0yo4\nFzI1hABGHncH8UvuFauh4EZ8tY7/X5I0pGRnDOcRN1dAht5w5yTA+6r5kebiFQjP\nIzN/eCO/a9Flrj9YGW7HDNtjSOH0A31PLRGlJtJO3yK57dnf5ppyCZGfL4emShQo\ncQIDAQAB\n-----END PUBLIC KEY-----\n\n"
+  },
+  "featured": "https://example.local/users/{{nickname}}/collections/featured",
+  "summary": "your friendly neighbourhood developer<br>I like cute things and distributed systems",
+  "tag": [],
+  "type": "Person",
+  "url": "https://example.local/users/{{nickname}}"
+}

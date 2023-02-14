@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+  <Link rel="lrdd" type="application/xrd+xml" template="https://pawoo.local/.well-known/webfinger?resource={uri}"/>
+</XRD>

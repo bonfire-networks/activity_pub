@@ -1,0 +1,27 @@
+{
+  "publicKey": {
+    "id": "https://lemmy.local/u/nutomic#main-key",
+    "owner": "https://lemmy.local/u/nutomic",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvfwAYPxp1gOk2HcCRoUd\nupoecvmnpzRc5Gu6/N3YQyOyRsrYuiYLNQq2cgM3kcU80ZeEetkwkYgXkRJOKu/b\nBWb7i1zt2tdr5k6lUdW8dfCyjht8ooFPQdov8J3QYHfgBHyUYxuCNfSujryxx2wu\nLQcdjRQa5NIWcomSO8OXmCF5/Yhg2XWCbtnlxEq6Y+AFddr1mAlTOy5pBr5d+xZz\njLw/U3CioNJ79yGi/sJhgp6IyJqtUSoN3b4BgRIEts2QVvn44W1rQy9wCbRYQrO1\nBcB9Wel4k3rJJK8uHg+LpHVMaZppkNaWGkMBhMbzr8qmIlcNWNi7cbMK/p5vyviy\nSwIDAQAB\n-----END PUBLIC KEY-----\n"
+  },
+  "inbox": "https://lemmy.local/u/nutomic/inbox",
+  "preferredUsername": "Nutomic",
+  "endpoints": {
+    "sharedInbox": "https://lemmy.local/inbox"
+  },
+  "summary": "some bio",
+  "icon": {
+    "type": "Image",
+    "url": "https://lemmy.local/pictrs/image/F6Z7QcWZRJ.jpg"
+  },
+  "image": {
+    "type": "Image",
+    "url": "https://lemmy.local:/pictrs/image/Q79N9oCDEG.png"
+  },
+  "published": "2020-09-14T14:54:53.080949+00:00",
+  "updated": "2020-10-14T10:58:28.139178+00:00",
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "id": "https://lemmy.local/u/nutomic",
+  "type": "Person",
+  "name": "nutomic"
+}

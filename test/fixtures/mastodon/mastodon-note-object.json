@@ -1,0 +1,45 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      "https://w3id.org/security/v1",
+      {
+         "Emoji" : "toot:Emoji",
+         "Hashtag" : "as:Hashtag",
+         "atomUri" : "ostatus:atomUri",
+         "conversation" : "ostatus:conversation",
+         "inReplyToAtomUri" : "ostatus:inReplyToAtomUri",
+         "manuallyApprovesFollowers" : "as:manuallyApprovesFollowers",
+         "movedTo" : "as:movedTo",
+         "ostatus" : "http://ostatus.org#",
+         "sensitive" : "as:sensitive",
+         "toot" : "http://joinmastodon.org/ns#"
+      }
+   ],
+   "atomUri" : "https://mastodon.local/users/admin/statuses/99541947525187367",
+   "attachment" : [
+      {
+         "mediaType" : "image/jpeg",
+         "name" : null,
+         "type" : "Document",
+         "url" : "https://mastodon.local/system/media_attachments/files/000/000/002/original/334ce029e7bfb920.jpg"
+      }
+   ],
+   "attributedTo" : "https://mastodon.local/users/admin",
+   "cc" : [
+      "https://mastodon.local/users/admin/followers"
+   ],
+   "content" : "<p>yeah.</p>",
+   "conversation" : "tag:mastodon.local,2018-02-17:objectId=59:objectType=Conversation",
+   "id" : "https://mastodon.local/users/admin/statuses/99541947525187367",
+   "inReplyTo" : null,
+   "inReplyToAtomUri" : null,
+   "published" : "2018-02-17T17:46:20Z",
+   "sensitive" : false,
+   "summary" : null,
+   "tag" : [],
+   "to" : [
+      "https://www.w3.org/ns/activitystreams#Public"
+   ],
+   "type" : "Note",
+   "url" : "https://mastodon.local/@admin/99541947525187367"
+}

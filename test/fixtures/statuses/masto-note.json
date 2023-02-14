@@ -1,0 +1,47 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    {
+      "ostatus": "http://ostatus.org#",
+      "atomUri": "ostatus:atomUri",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "sensitive": "as:sensitive",
+      "toot": "http://joinmastodon.org/ns#",
+      "votersCount": "toot:votersCount"
+    }
+  ],
+  "id": "https://example.local/users/{{nickname}}/statuses/{{status_id}}",
+  "type": "Note",
+  "summary": null,
+  "inReplyTo": null,
+  "published": "2021-02-24T12:40:49Z",
+  "url": "https://example.local/@{{nickname}}/{{status_id}}",
+  "attributedTo": "https://example.local/users/{{nickname}}",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": [
+    "https://example.local/users/{{nickname}}/followers"
+  ],
+  "sensitive": false,
+  "atomUri": "https://example.local/users/{{nickname}}/statuses/{{status_id}}",
+  "inReplyToAtomUri": null,
+  "conversation": "tag:example.com,2021-02-24:objectId=15:objectType=Conversation",
+  "content": "<p></p>",
+  "contentMap": {
+    "en": "<p></p>"
+  },
+  "attachment": [],
+  "tag": [],
+  "replies": {
+    "id": "https://example.local/users/{{nickname}}/statuses/{{status_id}}/replies",
+    "type": "Collection",
+    "first": {
+      "type": "CollectionPage",
+      "next": "https://example.local/users/{{nickname}}/statuses/{{status_id}}/replies?only_other_accounts=true&page=true",
+      "partOf": "https://example.local/users/{{nickname}}/statuses/{{status_id}}/replies",
+      "items": []
+    }
+  }
+}

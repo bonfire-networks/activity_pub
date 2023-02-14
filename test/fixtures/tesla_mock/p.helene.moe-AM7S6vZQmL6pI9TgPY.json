@@ -1,0 +1,36 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://moe.local/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "actor": "https://moe.local/users/helene",
+    "attachment": [],
+    "attributedTo": "https://moe.local/users/helene",
+    "cc": [
+        "https://moe.local/users/helene/followers"
+    ],
+    "content": "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"AHntpQ4T3J4OSnpgMC\" href=\"https://mk.local/@mametsuko\" rel=\"ugc\">@<span>mametsuko</span></a></span> meow",
+    "context": "https://moe.local/contexts/cc324643-5583-4c3f-91d2-c6ed37db159d",
+    "conversation": "https://moe.local/contexts/cc324643-5583-4c3f-91d2-c6ed37db159d",
+    "id": "https://moe.local/objects/fd5910ac-d9dc-412e-8d1d-914b203296c4",
+    "inReplyTo": "https://mk.local/notes/93e7nm8wqg",
+    "published": "2022-08-02T13:46:58.403996Z",
+    "sensitive": null,
+    "source": "@mametsuko@mk.absturztau.be meow",
+    "summary": "",
+    "tag": [
+        {
+            "href": "https://mk.local/users/8ozbzjs3o8",
+            "name": "@mametsuko@mk.absturztau.be",
+            "type": "Mention"
+        }
+    ],
+    "to": [
+        "https://mk.local/users/8ozbzjs3o8",
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Note"
+}

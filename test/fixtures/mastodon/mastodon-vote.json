@@ -1,0 +1,16 @@
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "actor": "https://masto.local/users/rinpatch",
+  "id": "https://masto.local/users/rinpatch#votes/387/activity",
+  "nickname": "rin",
+  "object": {
+    "attributedTo": "https://masto.local/users/rinpatch",
+    "id": "https://masto.local/users/rinpatch#votes/387",
+    "inReplyTo": "https://testing.uguu.ltd/objects/9d300947-2dcb-445d-8978-9a3b4b84fa14",
+    "name": "suya..",
+    "to": "https://testing.uguu.ltd/users/rin",
+    "type": "Note"
+  },
+  "to": "https://testing.uguu.ltd/users/rin",
+  "type": "Create"
+}

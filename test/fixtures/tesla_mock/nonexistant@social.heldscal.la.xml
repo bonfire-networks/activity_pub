@@ -1,0 +1,90 @@
+<!DOCTYPE html
+PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+ <head>
+  <title>Internal Server Error - social.heldscal.la</title>
+  <link rel="shortcut icon" href="https://social.local/theme/neo-gnu/favicon.ico"/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/theme/base/css/display.css?version=1.0.2-dev" media="screen, projection, tv, print"/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/theme/neo-gnu/css/display.css?version=1.0.2-dev" media="screen, projection, tv, print"/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/modules/Oembed/css/oembed.css" media=""/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/modules/OStatus/theme/base/css/ostatus.css" media=""/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/media/js/extlib/jquery-ui/css/smoothness/jquery-ui.css?version=1.0.2-dev" media=""/>
+  <style type="text/css" media="">.greentext { color: green; }</style>
+  <link rel="stylesheet" type="text/css" href="https://social.local/modules/Bookmark/css/bookmark.css" media=""/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/modules/Event/css/event.css" media=""/>
+  <link rel="stylesheet" type="text/css" href="https://social.local/modules/Poll/css/poll.css" media=""/>
+  <link rel="search" type="application/opensearchdescription+xml" href="https://social.local/opensearch/people" title="social.heldscal.la People Search"/>
+  <link rel="search" type="application/opensearchdescription+xml" href="https://social.local/opensearch/notice" title="social.heldscal.la Notice Search"/>
+ </head>
+ <body id="error">
+  <div id="wrap">
+   <div id="header">
+    <address id="site_contact" class="h-card">
+     <a class="home bookmark" href="https://social.local/main/public">
+      <img class="logo u-photo p-name" src="https://social.local/theme/neo-gnu/logo.png" alt="social.heldscal.la"/>
+     </a>
+    </address>
+    <div id="site_nav_global_primary">
+     <form id="header-search" class="form" method="get" action="https://social.local/search/notice">
+      <fieldset>
+       <input name="q" size="20" id="search-q"/>
+       <input type="submit" value="Search"/>
+      </fieldset>
+     </form>
+     <ul class="nav">
+      <li id="top_nav_doc_faq">
+       <a href="https://social.local/doc/faq" title="Frequently asked questions">FAQ</a>
+      </li>
+      <li id="nav_login">
+       <a href="https://social.local/main/login" title="Login to the site.">Login</a>
+      </li>
+     </ul>
+    </div>
+   </div>
+   <div id="core">
+    <div id="aside_primary_wrapper">
+     <div id="content_wrapper">
+      <div id="site_nav_local_views_wrapper">
+       <div id="content">
+        <h1>Internal Server Error</h1>
+        <div id="content_inner">
+         <div class="error">No such user found.</div>
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+   <div id="footer">
+    <ul class="nav" id="site_nav_global_secondary">
+     <li>
+      <a href="https://social.local/doc/help">Help</a>
+     </li>
+     <li>
+      <a href="https://social.local/doc/about">About</a>
+     </li>
+     <li>
+      <a href="https://social.local/doc/faq">FAQ</a>
+     </li>
+     <li>
+      <a href="https://social.local/doc/privacy">Privacy</a>
+     </li>
+     <li>
+      <a href="https://social.local/doc/source">Source</a>
+     </li>
+     <li>
+      <a href="https://social.local/main/version">Version</a>
+     </li>
+     <li>
+      <a href="https://social.local/doc/contact">Contact</a>
+     </li>
+    </ul>
+<p><strong>social.heldscal.la</strong> is a social network. It runs on <a href="https://www.postactiv.com/">postActiv</a>, version 1.0.2-dev, available under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">GNU Affero General Public License</a>.</p>
+    <p>
+     <img id="license_cc" src="/theme/licenses/cc_by_3.0_80x15.png" alt="Creative Commons Attribution 3.0" width="80" height="15"/>
+ All social.heldscal.la content and data are available under the <a class="license" rel="external license" href="https://creativecommons.org/licenses/by/3.0/">Creative Commons Attribution 3.0</a> license.</p>
+   </div>
+  </div>
+ </body>
+<!-- 25ms --></html>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+ <Subject>https://social.local/user/23211</Subject>
+ <Alias>acct:lambadalambda@social.heldscal.la</Alias>
+ <Alias>https://social.local/lambadalambda</Alias>
+ <Alias>https://social.local/index.php/user/23211</Alias>
+ <Alias>https://social.local/index.php/lambadalambda</Alias>
+ <Link rel="http://webfinger.net/rel/profile-page" type="text/html" href="https://social.local/lambadalambda"/>
+ <Link rel="http://gmpg.org/xfn/11" type="text/html" href="https://social.local/lambadalambda"/>
+ <Link rel="describedby" type="application/rdf+xml" href="https://social.local/lambadalambda/foaf"/>
+ <Link rel="http://apinamespace.org/atom" type="application/atomsvc+xml" href="https://social.local/api/statusnet/app/service/lambadalambda.xml"/>
+ <Link rel="http://apinamespace.org/twitter" href="https://social.local/api/"/>
+ <Link rel="http://specs.openid.net/auth/2.0/provider" href="https://social.local/lambadalambda"/>
+ <Link rel="http://schemas.google.com/g/2010#updates-from" type="application/atom+xml" href="https://social.local/api/statuses/user_timeline/23211.atom"/>
+ <Link rel="magic-public-key" href="data:application/magic-public-key,RSA.uzg6r1peZU0vXGADWxGJ0PE34WvmhjUmydbX5YYdOiXfODVLwCMi1umGoqUDm-mRu4vNEdFBVJU1CpFA7dKzWgIsqsa501i2XqElmEveXRLvNRWFB6nG03Q5OUY2as8eE54BJm0p20GkMfIJGwP6TSFb-ICp3QjzbatuSPJ6xCE=.AQAB"/>
+ <Link rel="salmon" href="https://social.local/main/salmon/user/23211"/>
+ <Link rel="http://salmon-protocol.org/ns/salmon-replies" href="https://social.local/main/salmon/user/23211"/>
+ <Link rel="http://salmon-protocol.org/ns/salmon-mention" href="https://social.local/main/salmon/user/23211"/>
+ <Link rel="http://ostatus.org/schema/1.0/subscribe" template="https://social.local/main/ostatussub?profile={uri}"/>
+</XRD>

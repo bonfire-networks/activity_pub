@@ -1,0 +1,41 @@
+{
+  "id": "https://bookwyrm.local/user/TestUser/review/17/replies?page=1",
+  "type": "OrderedCollectionPage",
+  "partOf": "https://bookwyrm.local/user/TestUser/review/17/replies",
+  "orderedItems": [
+    {
+      "id": "https://bookwyrm.local/user/TestUser/status/18",
+      "type": "Note",
+      "published": "2022-01-07T16:07:51.111523+00:00",
+      "attributedTo": "https://bookwyrm.local/user/TestUser",
+      "content": "<p>reply</p>",
+      "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+      ],
+      "cc": [
+        "https://bookwyrm.local/user/TestUser/followers",
+        "https://bookwyrm.local/user/TestUser"
+      ],
+      "replies": {
+        "id": "https://bookwyrm.local/user/TestUser/status/18/replies",
+        "type": "OrderedCollection",
+        "totalItems": 0,
+        "first": "https://bookwyrm.local/user/TestUser/status/18/replies?page=1",
+        "last": "https://bookwyrm.local/user/TestUser/status/18/replies?page=1",
+        "@context": "https://www.w3.org/ns/activitystreams"
+      },
+      "inReplyTo": "https://bookwyrm.local/user/TestUser/review/17",
+      "tag": [
+        {
+          "href": "https://bookwyrm.local/user/TestUser",
+          "name": "TestUser@bookwyrm.com",
+          "type": "Mention"
+        }
+      ],
+      "attachment": [],
+      "sensitive": false,
+      "@context": "https://www.w3.org/ns/activitystreams"
+    }
+  ],
+  "@context": "https://www.w3.org/ns/activitystreams"
+}

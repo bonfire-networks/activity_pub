@@ -1,0 +1,88 @@
+{
+   "@context" : [
+      "https://www.w3.org/ns/activitystreams",
+      "https://puckipedia.local/-/context"
+   ],
+   "actor" : {
+      "endpoints" : "https://puckipedia.local/#endpoints",
+      "followers" : "https://puckipedia.local/followers",
+      "following" : "https://puckipedia.local/following",
+      "icon" : {
+         "mediaType" : "image/png",
+         "type" : "Image",
+         "url" : "https://puckipedia.local/images/avatar.png"
+      },
+      "id" : "https://puckipedia.local/",
+      "inbox" : "https://puckipedia.local/inbox",
+      "kroeg:blocks" : {
+         "id" : "https://puckipedia.local/blocks"
+      },
+      "liked" : "https://puckipedia.local/liked",
+      "manuallyApprovesFollowers" : false,
+      "name" : "HACKER TEEN PUCKIPEDIA ð©âð»",
+      "outbox" : "https://puckipedia.local/outbox",
+      "preferredUsername" : "puckipedia",
+      "publicKey" : {
+         "id" : "https://puckipedia.local/#key",
+         "owner" : "https://puckipedia.local/",
+         "publicKeyPem" : "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvN05xIcFE0Qgany7Rht4\n0ZI5wu++IT7K5iSqRimBYkpoeHbVcT9RFlW+aWH/QJJW/YgZ7+LMr8AMCrKrwSpS\nCndyrpx4O4lZ3FNRLu7tbklh01rGZfE6R1SFfYBpvMvImc9nYT6iezYDbv6NkHku\no3aVhjql216XlA0OhIrqQme9sAdrLbjbMrTUS8douCTkDOX+JFj1ghHCqdYEMZJI\nOY9kovtgnqyxFLm0RsPGsO1+g/OVojqG+VqHz6O2lceaTVQLlnZ4gOhLVG1tVsA2\nRfXQK+R/VgXncYE+BlQVd/tcdGAz7CDL7PP3rP65gmARnafhGR96cCOi/KzlAXSO\nMwIDAQAB\n-----END PUBLIC KEY-----",
+         "type" : []
+      },
+      "summary" : "<p>federated hacker teen<br/>\n[<a href=\"https://pronoun.is/she\">she</a>/<a href=\"https://pronoun.is/they\">they</a>]</p>",
+      "type" : "Person",
+      "updated" : "2017-12-19T16:56:29.7576707+00:00"
+   },
+   "cc" : "https://mastodon.local/users/admin",
+   "id" : "https://puckipedia.local/cc56a9658e",
+   "object" : {
+      "as:sensitive" : false,
+      "attributedTo" : {
+         "endpoints" : {
+            "sharedInbox" : "https://mocked.local/inbox",
+            "type" : []
+         },
+         "followers" : "https://mastodon.local/users/admin/followers",
+         "following" : "https://mastodon.local/users/admin/following",
+         "icon" : {
+            "mediaType" : "image/png",
+            "type" : "Image",
+            "url" : "https://files.mocked.local/accounts/avatars/000/015/163/original/70ca6c52b01ca913.png"
+         },
+         "id" : "https://mastodon.local/users/admin",
+         "inbox" : "https://mastodon.local/users/admin/inbox",
+         "manuallyApprovesFollowers" : {
+            "@value" : "False",
+            "type" : "xsd:boolean"
+         },
+         "name" : "",
+         "outbox" : "https://mastodon.local/users/admin/outbox",
+         "preferredUsername" : "revenant",
+         "publicKey" : {
+            "id" : "https://mastodon.local/users/admin#main-key",
+            "owner" : "https://mastodon.local/users/admin",
+            "publicKeyPem" : "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0gEN3wPW7gkE2gQqnmfB\n1ychjmFIf2LIwY0oCJLiGE/xpZrUKoq+eWH30AP7mATw4LD0gOYABL/ijqPUrPqR\nDXLL+0CqMP8HsZKvRlj9KArMK3YtNiSGGj2U7iReiRrD7nJzjJlsjjJXflLZhZ7/\nenSv1CcaeK8tB0PoAgShy/MyfhPF7WI5/Zm9DmmDQFvUEnDYKXAf/vG/IWw1EyMC\nkbaEYJeIowQU3GsbPxzRGI22bQtfotm431Ch2MbNo+kyzmYVFLAVoSGNMzvJwOPg\nTxLIIBeQXG7MinRyK887yPKhxhcALea4yCcALaa+3jPE7yqwIKYwTHtSlblsHDAo\nmQIDAQAB\n-----END PUBLIC KEY-----\n",
+            "type" : []
+         },
+         "summary" : "<p>neatly partitioned meats and cheeses appeal to me on an aesthetic level | any pronouns | revenant1.net</p>",
+         "type" : "Person",
+         "url" : "https://mocked.local/@revenant"
+      },
+      "cc" : "https://mastodon.local/users/admin/followers",
+      "content" : "<p>the name&apos;s jond (jeans bond)</p>",
+      "contentMap" : {
+         "en" : "<p>the name&apos;s jond (jeans bond)</p>"
+      },
+      "conversation" : "tag:mocked.local,2018-09-25:objectId=55659382:objectType=Conversation",
+      "id" : "https://mastodon.local/users/admin/statuses/100787282858396771",
+      "ostatus:atomUri" : "https://mastodon.local/users/admin/statuses/100787282858396771",
+      "published" : "2018-09-25T16:11:29Z",
+      "to" : "https://www.w3.org/ns/activitystreams#Public",
+      "type" : "Note",
+      "url" : "https://mocked.local/@revenant/100787282858396771"
+   },
+   "to" : [
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://puckipedia.local/followers"
+   ],
+   "type" : "Announce"
+}

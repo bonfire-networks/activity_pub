@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+  <Subject>acct:pekorino@pawoo.net</Subject>
+  <Alias>https://pawoo.local/@pekorino</Alias>
+  <Alias>https://pawoo.local/users/pekorino</Alias>
+  <Link rel="http://webfinger.net/rel/profile-page" type="text/html" href="https://pawoo.local/@pekorino"/>
+  <Link rel="http://schemas.google.com/g/2010#updates-from" type="application/atom+xml" href="https://pawoo.local/users/pekorino.atom"/>
+  <Link rel="salmon" href="https://pawoo.local/api/salmon/128378"/>
+  <Link rel="magic-public-key" href="data:application/magic-public-key,RSA.1x8XXmBqzyb-QRkfUKxKPd7Ac2KbaFhdKy2FkJY64G-ifga-BppzEb62Q5TdkRdVKdHjh5qI7A1Hk3KfnNQcNWqqak-jxII_txC2grbWpp7v-boceD2pnzdVK5l-RR-9wEwxcoCUeRWS1Ak6DStqE5tFQOAK4IIGQB-thSQGlU75KZ-2080fPA3Xc_ycH3_eB4YqawSxXrh6IeScMevN0YHSF84GAcvhXmwLKZRugiF6nYrknbPEe_niIOmN8hhEXLN9_4kDcH83hkVZd5VXssRrxqDhtokx9emvTHkA7sY1AjYeehTPZErlV74GN-kFYLeI6DluXoSI2sX1QcS08w==.AQAB"/>
+  <Link rel="http://ostatus.org/schema/1.0/subscribe" template="https://pawoo.local/authorize_follow?acct={uri}"/>
+</XRD>

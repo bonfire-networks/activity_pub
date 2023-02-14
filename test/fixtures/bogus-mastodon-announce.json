@@ -1,0 +1,43 @@
+{
+  "type": "Announce",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "published": "2018-02-17T19:39:15Z",
+  "object": {
+    "type": "Note",
+    "id": "https://mocked.local/users/emelie/statuses/101849165031453404",
+    "attributedTo": "https://mocked.local/users/emelie",
+    "content": "this is a public toot",
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+      "https://mocked.local/users/emelie",
+      "https://mocked.local/users/emelie/followers"
+    ]
+  },
+  "id": "https://mastodon.local/users/admin/statuses/99542391527669785/activity",
+  "cc": [
+    "https://mastodon.local/users/admin",
+    "https://mastodon.local/users/admin/followers"
+  ],
+  "atomUri": "https://mastodon.local/users/admin/statuses/99542391527669785/activity",
+  "actor": "https://mastodon.local/users/admin",
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "toot": "http://joinmastodon.org/ns#",
+      "sensitive": "as:sensitive",
+      "ostatus": "http://ostatus.org#",
+      "movedTo": "as:movedTo",
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "atomUri": "ostatus:atomUri",
+      "Hashtag": "as:Hashtag",
+      "Emoji": "toot:Emoji"
+    }
+  ]
+}

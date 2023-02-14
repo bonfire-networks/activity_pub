@@ -1,0 +1,301 @@
+<!DOCTYPE html >
+<html prefix="og: http://ogp.me/ns#">
+<head>
+  <title>Osada</title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=0"/>
+<meta property="generator" content="osada"/>
+<link rel="stylesheet" href="http://osada.local/library/fork-awesome/css/fork-awesome.min.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/vendor/twbs/bootstrap/dist/css/bootstrap.min.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/bootstrap-tagsinput/bootstrap-tagsinput.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/css/bootstrap-red.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/datetimepicker/jquery.datetimepicker.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/bootstrap-colorpicker/dist/css/bootstrap-colorpicker.min.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/tiptip/tipTip.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/jgrowl/jquery.jgrowl.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/jRange/jquery.range.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/css/conversation.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/css/widgets.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/css/colorbox.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/library/justifiedGallery/justifiedGallery.min.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/css/default.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/css/mod_home.css?v=2.3" type="text/css" media="screen">
+<link rel="stylesheet" href="http://osada.local/view/theme/redbasic/php/style.pcss?v=2.3" type="text/css" media="screen">
+
+<script>
+
+	var aStr = {
+
+		'delitem'     : "Delete this item?",
+		'comment'     : "Comment",
+		'showmore'    : "<i class='fa fa-chevron-down'></i> show all",
+		'showfewer'   : "<i class='fa fa-chevron-up'></i> show less",
+		'divgrowmore' : "<i class='fa fa-chevron-down'></i> expand",
+		'divgrowless' : "<i class='fa fa-chevron-up'></i> collapse",
+		'pwshort'     : "Password too short",
+		'pwnomatch'   : "Passwords do not match",
+		'everybody'   : "everybody",
+		'passphrase'  : "Secret Passphrase",
+		'passhint'    : "Passphrase hint",
+		'permschange' : "Notice: Permissions have changed but have not yet been submitted.",
+		'closeAll'    : "close all",
+		'nothingnew'  : "Nothing new here",
+		'rating_desc' : "Rate This Channel (this is public)",
+		'rating_val'  : "Rating",
+		'rating_text' : "Describe (optional)",
+		'submit'      : "Submit",
+		'linkurl'     : "Please enter a link URL",
+		'leavethispage' : "Unsaved changes. Are you sure you wish to leave this page?",
+		'location'    : "Location",
+		'lovely'      : "lovely",
+		'wonderful'   : "wonderful",
+		'fantastic'   : "fantastic",
+		'great'       : "great",
+		'nick_invld1' : "Your chosen nickname was either already taken or not valid. Please use our suggestion (",
+		'nick_invld2' : ") or enter a new one.",
+		'nick_valid'  : "Thank you, this nickname is valid.",
+		'name_empty'  : "A channel name is required.",
+		'name_ok1'    : "This is a ",
+		'name_ok2'    : " channel name",
+
+
+
+		't01' : "",
+		't02' : "",
+		't03' : "ago",
+		't04' : "from now",
+		't05' : "less than a minute",
+		't06' : "about a minute",
+		't07' : "%d minutes",
+		't08' : "about an hour",
+		't09' : "about %d hours",
+		't10' : "a day",
+		't11' : "%d days",
+		't12' : "about a month",
+		't13' : "%d months",
+		't14' : "about a year",
+		't15' : "%d years",
+		't16' : " ",
+		't17' : "[]",
+
+		'monthNames' : [ "January","February","March","April","May","June","July","August","September","October","November","December" ],
+		'monthNamesShort' : [ "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec" ],
+		'dayNames' : ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+		'dayNamesShort' : ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],
+		'today' : "today",
+		'month' : "month",
+		'week' : "week",
+		'day' : "day",
+		'allday' : "All day"
+	};
+
+</script>
+		
+
+<script src="http://osada.local/view/js/jquery.js?v=2.3"></script>
+<script src="http://osada.local/library/justifiedGallery/jquery.justifiedGallery.min.js?v=2.3"></script>
+<script src="http://osada.local/library/sprintf.js/dist/sprintf.min.js?v=2.3"></script>
+<script src="http://osada.local/library/textcomplete/textcomplete.min.js?v=2.3"></script>
+<script src="http://osada.local/view/js/autocomplete.js?v=2.3"></script>
+<script src="http://osada.local/library/jquery.timeago.js?v=2.3"></script>
+<script src="http://osada.local/library/readmore.js/readmore.js?v=2.3"></script>
+<script src="http://osada.local/library/sticky-kit/sticky-kit.min.js?v=2.3"></script>
+<script src="http://osada.local/library/jgrowl/jquery.jgrowl_minimized.js?v=2.3"></script>
+<script src="http://osada.local/view/js/acl.js?v=2.3"></script>
+<script src="http://osada.local/view/js/webtoolkit.base64.js?v=2.3"></script>
+<script src="http://osada.local/library/jRange/jquery.range.js?v=2.3"></script>
+<script src="http://osada.local/library/colorbox/jquery.colorbox-min.js?v=2.3"></script>
+<script src="http://osada.local/library/jquery.AreYouSure/jquery.are-you-sure.js?v=2.3"></script>
+<script src="http://osada.local/library/tableofcontents/jquery.toc.js?v=2.3"></script>
+<script src="http://osada.local/library/imagesloaded/imagesloaded.pkgd.min.js?v=2.3"></script>
+<script src="http://osada.local/vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js?v=2.3"></script>
+<script src="http://osada.local/library/bootbox/bootbox.min.js?v=2.3"></script>
+<script src="http://osada.local/library/bootstrap-tagsinput/bootstrap-tagsinput.js?v=2.3"></script>
+<script src="http://osada.local/library/datetimepicker/jquery.datetimepicker.js?v=2.3"></script>
+<script src="http://osada.local/library/bootstrap-colorpicker/dist/js/bootstrap-colorpicker.js?v=2.3"></script>
+<script src="http://osada.local/view/theme/redbasic/js/redbasic.js?v=2.3"></script>
+
+
+
+<script>
+	var updateInterval = 80000;
+	var localUser = false;
+	var zid = null;
+	var justifiedGalleryActive = false;
+			var preloadImages = 0;
+</script>
+
+
+
+<script>$(document).ready(function() { $("#nav-search-text").search_autocomplete('https://osada.local/acl');});</script><script src="http://osada.local/view/js/main.js?v=2.3"></script>
+</head>
+<body>
+		<header></header>
+	<nav class="navbar fixed-top navbar-expand-lg navbar-dark bg-dark"><div class="project-banner" title="Powered by Osada"><a href="https://osada.local/">&#x2638;</a></div>
+<div class="d-lg-none pt-1 pb-1">
+		<a class="btn btn-primary btn-sm text-white" href="#" title="Sign in" id="login_nav_btn_collapse" data-toggle="modal" data-target="#nav-login">
+		Login
+	</a>
+		</div>
+<div class="navbar-toggler-right">
+		<button id="expand-aside" type="button" class="d-lg-none navbar-toggler border-0" data-toggle="offcanvas" data-target="#region_1">
+		<i class="fa fa-arrow-circle-right" id="expand-aside-icon"></i>
+	</button>
+		<button id="menu-btn" class="navbar-toggler border-0" type="button" data-toggle="collapse" data-target="#navbar-collapse-2">
+		<i class="fa fa-bars"></i>
+	</button>
+</div>
+<div class="collapse navbar-collapse" id="navbar-collapse-1">
+	<ul class="navbar-nav mr-auto">
+				<li class="nav-item d-lg-flex">
+						<a class="nav-link" href="#" title="Sign in" id="login_nav_btn" data-toggle="modal" data-target="#nav-login">
+			Login
+			</a>
+					</li>
+							</ul>
+
+	<div id="banner" class="navbar-text"></div>
+
+	<ul id="nav-right" class="navbar-nav ml-auto">
+		<li class="nav-item collapse clearfix" id="nav-search">
+			<form class="form-inline" method="get" action="search" role="search">
+				<input class="form-control form-control-sm mt-1 mr-2" id="nav-search-text" type="text" value="" placeholder="@name, !forum, #tag, content" name="search" title="Search site @name, !forum, #tag, ?docs, content" onclick="this.submit();" onblur="closeMenu('nav-search'); openMenu('nav-search-btn');"/>
+			</form>
+			<div id="nav-search-spinner" class="spinner-wrapper">
+				<div class="spinner s"></div>
+			</div>
+		</li>
+		<li class="nav-item" id="nav-search-btn">
+			<a class="nav-link" href="#nav-search" title="Search site @name, !forum, #tag, ?docs, content" onclick="openMenu('nav-search'); closeMenu('nav-search-btn'); $('#nav-search-text').focus(); return false;"><i class="fa fa-fw fa-search"></i></a>
+		</li>
+										<li class="nav-item dropdown" id="app-menu">
+			<a class="nav-link" href="#" data-toggle="dropdown"><i class="fa fa-fw fa-bars"></i></a>
+			<div id="dropdown-menu" class="dropdown-menu dropdown-menu-right">
+												<a class="dropdown-item" href="https://osada.local/directory"><i class="generic-icons-nav fa fa-fw fa-sitemap"></i>Directory</a>
+
+
+								<a class="dropdown-item" href="https://osada.local/lang"><i class="generic-icons-nav fa fa-fw fa-language"></i>Language</a>
+
+
+								<a class="dropdown-item" href="https://osada.local/search"><i class="generic-icons-nav fa fa-fw fa-search"></i>Search</a>
+
+
+															</div>
+		</li>
+	</ul>
+</div>
+<div class="collapse d-lg-none" id="navbar-collapse-2">
+	<div class="navbar-nav mr-auto">
+								<a class="nav-link" href="https://osada.local/directory"><i class="generic-icons-nav fa fa-fw fa-sitemap"></i>Directory</a>
+
+
+				<a class="nav-link" href="https://osada.local/lang"><i class="generic-icons-nav fa fa-fw fa-language"></i>Language</a>
+
+
+				<a class="nav-link" href="https://osada.local/search"><i class="generic-icons-nav fa fa-fw fa-search"></i>Search</a>
+
+
+							</div>
+</div>
+</nav>
+	<main>
+		<aside id="region_1"><div class="aside_spacer"><div id="left_aside_wrapper"></div></div></aside>
+		<section id="region_2"><h1 class="home-welcome">Welcome to Osada</h1><form action="https://osada.local/" id="main-login" method="post">
+	<input type="hidden" name="auth-params" value="login"/>
+	<div id="login-main">
+		<div id="login-input" class="form-group">
+				<div id="id_username_wrapper" class="form-group">
+		<label for="id_username" id="label_username">Login/Email</label>
+		<input class="form-control" name="username" id="id_username" type="text" value="">
+		<small id="help_username" class="form-text text-muted"></small>
+	</div>
+				<div class="form-group">
+		<label for="id_password">Password</label>
+		<input class="form-control" type="password" name="password" id="id_password" value="">		<small id="help_password" class="form-text text-muted"></small>
+	</div>
+				<div id="remember_container" class="clearfix form-group checkbox">
+		<label for="id_remember">Remember me</label>
+		<div class="float-right"><input type="checkbox" name="remember" id="id_remember" value="1"/><label class="switchlabel" for="id_remember"> <span class="onoffswitch-inner" data-on="Yes" data-off="No"></span><span class="onoffswitch-switch"></span></label></div>
+		<small class="form-text text-muted"></small>
+	</div>
+			<button type="submit" name="submit" class="btn btn-block btn-primary">Login</button>
+		</div>
+		<div id="login-extra-links">
+			<a href="https://osada.local/pubsites" title="Create an account to access services and applications" id="register-link" class="pull-right">Register</a>			<a href="lostpass" title="Forgot your password?" id="lost-password-link">Password Reset</a>
+		</div>
+		<hr>
+		<a href="rmagic" class="btn btn-block btn-outline-success rmagic-button">Remote Authentication</a>
+	</div>
+			<input type="hidden" name="0" value=""/>
+	</form>
+<script type="text/javascript"> $(document).ready(function() { $("#id_username").focus();} );</script>
+<div id="nav-login" class="modal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h4 class="modal-title">Login</h4>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<div class="form-group">
+					<form action="https://osada.local/" id="main-login" method="post">
+	<input type="hidden" name="auth-params" value="login"/>
+	<div id="login-main">
+		<div id="login-input" class="form-group">
+				<div id="id_username_wrapper" class="form-group">
+		<label for="id_username" id="label_username">Login/Email</label>
+		<input class="form-control" name="username" id="id_username" type="text" value="">
+		<small id="help_username" class="form-text text-muted"></small>
+	</div>
+				<div class="form-group">
+		<label for="id_password">Password</label>
+		<input class="form-control" type="password" name="password" id="id_password" value="">		<small id="help_password" class="form-text text-muted"></small>
+	</div>
+				<div id="remember_me_container" class="clearfix form-group checkbox">
+		<label for="id_remember_me">Remember me</label>
+		<div class="float-right"><input type="checkbox" name="remember_me" id="id_remember_me" value="1"/><label class="switchlabel" for="id_remember_me"> <span class="onoffswitch-inner" data-on="Yes" data-off="No"></span><span class="onoffswitch-switch"></span></label></div>
+		<small class="form-text text-muted"></small>
+	</div>
+			<button type="submit" name="submit" class="btn btn-block btn-primary">Login</button>
+		</div>
+		<div id="login-extra-links">
+			<a href="https://osada.local/pubsites" title="Create an account to access services and applications" id="register-link" class="pull-right">Register</a>			<a href="lostpass" title="Forgot your password?" id="lost-password-link">Password Reset</a>
+		</div>
+		<hr>
+		<a href="rmagic" class="btn btn-block btn-outline-success rmagic-button">Remote Authentication</a>
+	</div>
+			<input type="hidden" name="0" value=""/>
+	</form>
+
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+					<div id="page-footer"></div>
+			<div id="pause"></div>
+		</section>
+		<aside id="region_3" class="d-none d-xl-table-cell"><div class="aside_spacer"><div id="right_aside_wrapper"></div></div></aside>
+	</main>
+	<footer></footer>
+</body>
+</html>
+<!--
+     FILE ARCHIVED ON 11:49:38 Jan 26, 2019 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 04:27:56 Mar 02, 2020.
+
+     CONTENT MAY BE PROTECTED BY COPYRIGHT (17 U.S.C. SECTION 108(a)(3)).
+-->
+<!--
+playback timings (ms):
+  exclusion.robots: 0.217
+  CDXLines.iter: 14.7 (3)
+  LoadShardBlock: 165.298 (3)
+  esindex: 0.01
+  PetaboxLoader3.datanode: 72.599 (4)
+  exclusion.robots.policy: 0.208
+  RedisCDXSource: 16.804
+  PetaboxLoader3.resolve: 146.316 (4)
+  captures_list: 199.59
+  load_resource: 56.473
+-->

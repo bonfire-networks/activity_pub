@@ -1,0 +1,31 @@
+{
+  "id": "https://misskey.local/notes/92j1n3owja",
+  "type": "Note",
+  "attributedTo": "https://misskey.local/users/92hzkskwgy",
+  "summary": null,
+  "content": "<p><a href=\"https://akkoma.local.live/users/akkoma_user\" class=\"u-url mention\">@akkoma_user@akkoma.local.live</a><span> linkifylink </span><a href=\"https://misskey.local/tags/dancedance\" rel=\"tag\">#dancedance</a><span> </span><i><span> mfm goes here</span></i><span> <br><br>## aaa</span></p>",
+  "_misskey_content": "@akkoma_user linkifylink #dancedance $[jelly mfm goes here] \n\n## aaa",
+  "published": "2022-07-10T15:37:36.368Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": [
+    "https://misskey.local/users/92hzkskwgy/followers",
+    "http://localhost:4001/users/akkoma_user"
+  ],
+  "inReplyTo": null,
+  "attachment": [],
+  "sensitive": false,
+  "tag": [
+    {
+      "type": "Hashtag",
+      "href": "https://misskey.local/tags/dancedance",
+      "name": "#dancedance"
+    },
+    {
+      "type": "Mention",
+      "href": "http://localhost:4001/users/akkoma_user",
+      "name": "@akkoma_user"
+    }
+  ]
+}

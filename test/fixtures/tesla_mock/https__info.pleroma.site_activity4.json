@@ -1,0 +1,13 @@
+{
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "attributedTo": "https://mastodon.local/users/admin",
+        "attachment": [],
+        "content": "<p>this post was not actually written by Haelwenn</p>",
+        "id": "https://mastodon.local/users/admin/activities/1234",
+        "published": "2018-09-01T22:15:00Z",
+        "tag": [],
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Note"
+}

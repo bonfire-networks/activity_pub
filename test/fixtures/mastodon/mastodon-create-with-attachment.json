@@ -1,0 +1,63 @@
+{
+  "type": "Create",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "signature": {
+    "type": "RsaSignature2017",
+    "signatureValue": "KnaBoP7C4XYgzTFbM+CpGlx4p59ahWvNNo4reRGDlb/DmxL3OF1/WugNl0xHCOA3aoIX2rrkHniw+z4Yb+wOBf9ZOxgM+IHTKj69AEcm/4NxGXxStRv603JZNyboY371w8g/mIKmLLtL6dgUI3n2Laam2rYh//8aelEWQ240TxiJi/WcKuOT2DNInWOpfArgxJ4MA11n4tb4xX65RkxInTCFa1kaJG8L+A+EoXtIhTa4rCQDv/BH3a8x7vOJxHfEosEnkk/yVEqG+ccgoTvc+5/kK+TKk3S3GuXch0ro9RKqxfPAHkyg8eetRhNhKWZ/rgPNfcF6bGJKFA0i8TzjHw==",
+    "creator": "https://mastodon.local/users/admin#main-key",
+    "created": "2018-02-17T17:14:26Z"
+  },
+  "published": "2018-02-17T17:14:26Z",
+  "object": {
+    "url": "https://mastodon.local/@admin/99541822081679796",
+    "type": "Note",
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "tag": [],
+    "summary": null,
+    "sensitive": false,
+    "published": "2018-02-17T17:14:26Z",
+    "inReplyToAtomUri": null,
+    "inReplyTo": null,
+    "id": "https://mastodon.local/users/admin/statuses/99541822081679796",
+    "conversation": "tag:mastodon.local,2018-02-17:objectId=10:objectType=Conversation",
+    "content": "<p><a href=\"https://mastodon.local/media/hw4nrZmV5DPbW2z_hao\" rel=\"nofollow noopener\" target=\"_blank\"><span class=\"invisible\">http://</span><span class=\"ellipsis\">mastodon.local/media/hw4</span><span class=\"invisible\">nrZmV5DPbW2z_hao</span></a></p>",
+    "cc": [
+      "https://mastodon.local/users/admin/followers"
+    ],
+    "attributedTo": "https://mastodon.local/users/admin",
+    "attachment": [
+      {
+        "url": "https://mastodon.local/system/media_attachments/files/000/000/002/original/334ce029e7bfb920.jpg",
+        "type": "Document",
+        "name": null,
+        "mediaType": "image/jpeg"
+      }
+    ],
+    "atomUri": "https://mastodon.local/users/admin/statuses/99541822081679796"
+  },
+  "id": "https://mastodon.local/users/admin/statuses/99541822081679796/activity",
+  "cc": [
+    "https://mastodon.local/users/admin/followers"
+  ],
+  "actor": "https://mastodon.local/users/admin",
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "toot": "http://joinmastodon.org/ns#",
+      "sensitive": "as:sensitive",
+      "ostatus": "http://ostatus.org#",
+      "movedTo": "as:movedTo",
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "atomUri": "ostatus:atomUri",
+      "Hashtag": "as:Hashtag",
+      "Emoji": "toot:Emoji"
+    }
+  ]
+}

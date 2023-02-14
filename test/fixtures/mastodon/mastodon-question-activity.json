@@ -1,0 +1,98 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    {
+      "ostatus": "http://ostatus.org#",
+      "atomUri": "ostatus:atomUri",
+      "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+      "conversation": "ostatus:conversation",
+      "sensitive": "as:sensitive",
+      "Hashtag": "as:Hashtag",
+      "toot": "http://joinmastodon.org/ns#",
+      "Emoji": "toot:Emoji",
+      "focalPoint": {
+        "@container": "@list",
+        "@id": "toot:focalPoint"
+      }
+    }
+  ],
+  "id": "https://masto.local/users/rinpatch/statuses/102070944809637304/activity",
+  "type": "Create",
+  "actor": "https://masto.local/users/rinpatch",
+  "published": "2019-05-10T09:03:36Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": [
+    "https://masto.local/users/rinpatch/followers"
+  ],
+  "object": {
+    "id": "https://masto.local/users/rinpatch/statuses/102070944809637304",
+    "type": "Question",
+    "summary": null,
+    "inReplyTo": null,
+    "published": "2019-05-10T09:03:36Z",
+    "url": "https://masto.local/@rinpatch/102070944809637304",
+    "attributedTo": "https://masto.local/users/rinpatch",
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+      "https://masto.local/users/rinpatch/followers"
+    ],
+    "sensitive": false,
+    "atomUri": "https://masto.local/users/rinpatch/statuses/102070944809637304",
+    "inReplyToAtomUri": null,
+    "conversation": "tag:mastodon.sdf.org,2019-05-10:objectId=15095122:objectType=Conversation",
+    "content": "<p>Why is Tenshi eating a corndog so cute?</p>",
+    "contentMap": {
+      "en": "<p>Why is Tenshi eating a corndog so cute?</p>"
+    },
+    "endTime": "2019-05-11T09:03:36Z",
+    "attachment": [],
+    "tag": [],
+    "replies": {
+      "id": "https://masto.local/users/rinpatch/statuses/102070944809637304/replies",
+      "type": "Collection",
+      "first": {
+        "type": "CollectionPage",
+        "partOf": "https://masto.local/users/rinpatch/statuses/102070944809637304/replies",
+        "items": []
+      }
+    },
+    "oneOf": [
+      {
+        "type": "Note",
+        "name": "Dunno",
+        "replies": {
+          "type": "Collection",
+          "totalItems": 0
+        }
+      },
+      {
+        "type": "Note",
+        "name": "Everyone knows that!",
+        "replies": {
+          "type": "Collection",
+          "totalItems": 1
+        }
+      },
+      {
+        "type": "Note",
+        "name": "25 char limit is dumb",
+        "replies": {
+          "type": "Collection",
+          "totalItems": 0
+        }
+      },
+      {
+        "type": "Note",
+        "name": "I can't even fit a funny",
+        "replies": {
+          "type": "Collection",
+          "totalItems": 1
+        }
+      }
+    ]
+  }
+}

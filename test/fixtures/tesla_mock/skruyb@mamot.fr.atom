@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+  <Subject>acct:Skruyb@mamot.fr</Subject>
+  <Alias>https://mamot.local/@Skruyb</Alias>
+  <Alias>https://mamot.local/users/Skruyb</Alias>
+  <Link rel="http://webfinger.net/rel/profile-page" type="text/html" href="https://mamot.local/@Skruyb"/>
+  <Link rel="http://schemas.google.com/g/2010#updates-from" type="application/atom+xml" href="https://mamot.local/users/Skruyb.atom"/>
+  <Link rel="salmon" href="https://mamot.local/api/salmon/26213"/>
+  <Link rel="magic-public-key" href="data:application/magic-public-key,RSA.oguRI4WsZfm-6wne1Y-_y8-8QmWFOrpqfyLemzc_bX-qCttWb-TXjZhE3iv-yg79i9qcJhCKvmTKwscJTcjr0Jp2KsGTLJrUodsR0zYAhYkugdv6EJHvbJVA0bXZKCk5XieGvBn-t7xQC5mclbEgQs58kY3cavJ70b5XFFAWeDloga9G3E2TMygnuzQ3oZlxBa6b3HzjY3RxB3bYirCZLV_bipPGHkI7xr7TDV7fnGTjRm9IUz6UOboixT5UIRvZ6EZ_rCJaMIFXj47bmwj74pxiNlughYpmSLhI0Ka7hofoYmZ7CbUEfBWIzfgEiB-SO99tACy8pDwyQ5d9P7pt0w==.AQAB"/>
+  <Link rel="http://ostatus.org/schema/1.0/subscribe" template="https://mamot.local/authorize_follow?acct={uri}"/>
+</XRD>

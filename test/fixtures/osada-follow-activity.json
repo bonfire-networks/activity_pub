@@ -1,0 +1,52 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    "https://apfed.local/apschema/v1.4"
+  ],
+  "id": "https://apfed.local/follow/9",
+  "type": "Follow",
+  "actor": {
+    "type": "Person",
+    "id": "https://apfed.local/channel/indio",
+    "preferredUsername": "indio",
+    "name": "Indio",
+    "updated": "2019-08-20T23:52:34Z",
+    "icon": {
+      "type": "Image",
+      "mediaType": "image/jpeg",
+      "updated": "2019-08-20T23:53:37Z",
+      "url": "https://apfed.local/photo/profile/l/2",
+      "height": 300,
+      "width": 300
+    },
+    "url": "https://apfed.local/channel/indio",
+    "inbox": "https://apfed.local/inbox/indio",
+    "outbox": "https://apfed.local/outbox/indio",
+    "followers": "https://apfed.local/followers/indio",
+    "following": "https://apfed.local/following/indio",
+    "endpoints": {
+      "sharedInbox": "https://apfed.local/inbox"
+    },
+    "publicKey": {
+      "id": "https://apfed.local/channel/indio",
+      "owner": "https://apfed.local/channel/indio",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA77TIR1VuSYFnmDRFGHHb\n4vaGdx9ranzRX4bfOKAqa++Ch5L4EqJpPy08RuM+NrYCYiYl4QQFDSSDXAEgb5g9\nC1TgWTfI7q/E0UBX2Vr0mU6X4i1ztv0tuQvegRjcSJ7l1AvoBs8Ip4MEJ3OPEQhB\ngJqAACB3Gnps4zi2I0yavkxUfGVKr6zKT3BxWh5hTpKC7Do+ChIrVZC2EwxND9K6\nsAnQHThcb5EQuvuzUQZKeS7IEOsd0JpZDmJjbfMGrAWE81pLIfEeeA2joCJiBBTO\nglDsW+juvZ+lWqJpMr2hMWpvfrFjJeUawNJCIzsLdVIZR+aKj5yy6yqoS8hkN9Ha\n1MljZpsXl+EmwcwAIqim1YeLwERCEAQ/JWbSt8pQTQbzZ6ibwQ4mchCxacrRbIVR\nnL59fWMBassJcbY0VwrTugm2SBsYbDjESd55UZV03Rwr8qseGTyi+hH8O7w2SIaY\nzjN6AdZiPmsh00YflzlCk8MSLOHMol1vqIUzXxU8CdXn9+KsuQdZGrTz0YKN/db4\naVwUGJatz2Tsvf7R1tJBjJfeQWOWbbn3pycLVH86LjZ83qngp9ZVnAveUnUqz0yS\nhe+buZ6UMsfGzbIYon2bKNlz6gYTH0YPcr+cLe+29drtt0GZiXha1agbpo4RB8zE\naNL2fucF5YT0yNpbd/5WoV0CAwEAAQ==\n-----END PUBLIC KEY-----\n"
+    }
+  },
+  "object": "https://akomma.local/users/kaniini",
+  "to": [
+    "https://akomma.local/users/kaniini"
+  ],
+  "signature": {
+    "@context": [
+      "https://www.w3.org/ns/activitystreams",
+      "https://w3id.org/security/v1"
+    ],
+    "type": "RsaSignature2017",
+    "nonce": "52c035e0a9e81dce8b486159204e97c22637e91f75cdfad5378de91de68e9117",
+    "creator": "https://apfed.local/channel/indio/public_key_pem",
+    "created": "2019-08-22T03:38:02Z",
+    "signatureValue": "oVliRCIqNIh6yUp851dYrF0y21aHp3Rz6VkIpW1pFMWfXuzExyWSfcELpyLseeRmsw5bUu9zJkH44B4G2LiJQKA9UoEQDjrDMZBmbeUpiQqq3DVUzkrBOI8bHZ7xyJ/CjSZcNHHh0MHhSKxswyxWMGi4zIqzkAZG3vRRgoPVHdjPm00sR3B8jBLw1cjoffv+KKeM/zEUpe13gqX9qHAWHHqZepxgSWmq+EKOkRvHUPBXiEJZfXzc5uW+vZ09F3WBYmaRoy8Y0e1P29fnRLqSy7EEINdrHaGclRqoUZyiawpkgy3lWWlynesV/HiLBR7EXT79eKstxf4wfTDaPKBCfTCsOWuMWHr7Genu37ew2/t7eiBGqCwwW12ylhml/OLHgNK3LOhmRABhtfpaFZSxfDVnlXfaLpY1xekVOj2oC0FpBtnoxVKLpIcyLw6dkfSil5ANd+hl59W/bpPA8KT90ii1fSNCo3+FcwQVx0YsPznJNA60XfFuVsme7zNcOst6393e1WriZxBanFpfB63zVQc9u1fjyfktx/yiUNxIlre+sz9OCc0AACn94iRhBYh4bbzdleUOTnM7lnD4Dj2FP+xeDIP8CA8wXUeq5+9kopSp2kAmlUEyFUdg4no7naIeu1SZnopfUg56PsVCp9JHiUK1SYAyWbdC+FbUECu5CvI="
+  }
+}

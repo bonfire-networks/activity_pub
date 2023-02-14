@@ -1,0 +1,55 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "sensitive": "as:sensitive",
+            "movedTo": {
+                "@id": "as:movedTo",
+                "@type": "@id"
+            },
+            "Hashtag": "as:Hashtag",
+            "ostatus": "http://ostatus.org#",
+            "atomUri": "ostatus:atomUri",
+            "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+            "conversation": "ostatus:conversation",
+            "toot": "http://joinmastodon.org/ns#",
+            "Emoji": "toot:Emoji",
+            "focalPoint": {
+                "@container": "@list",
+                "@id": "toot:focalPoint"
+            },
+            "featured": {
+                "@id": "toot:featured",
+                "@type": "@id"
+            },
+            "schema": "http://schema.org#",
+            "PropertyValue": "schema:PropertyValue",
+            "value": "schema:value"
+        }
+    ],
+    "id": "https://mastodon.local/users/admin/statuses/100787282858396771",
+    "type": "Note",
+    "summary": null,
+    "inReplyTo": null,
+    "published": "2018-09-25T16:11:29Z",
+    "url": "https://mastodon.local/@admin/100787282858396771",
+    "attributedTo": "https://mastodon.local/users/admin",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+        "https://mastodon.local/users/admin/followers"
+    ],
+    "sensitive": false,
+    "atomUri": "https://mastodon.local/users/admin/statuses/100787282858396771",
+    "inReplyToAtomUri": null,
+    "conversation": "tag:mocked.local,2018-09-25:objectId=55659382:objectType=Conversation",
+    "content": "<p>the name&apos;s jond (jeans bond)</p>",
+    "contentMap": {
+        "en": "<p>the name&apos;s jond (jeans bond)</p>"
+    },
+    "attachment": [],
+    "tag": []
+}

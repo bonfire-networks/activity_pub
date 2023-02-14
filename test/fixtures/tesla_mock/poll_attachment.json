@@ -1,0 +1,99 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://patch.local/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://patch.local/users/rin",
+  "anyOf": [],
+  "attachment": [
+    {
+      "mediaType": "image/jpeg",
+      "name": "screenshot_mpv:Totoro@01:18:44.345.jpg",
+      "type": "Document",
+      "url": "https://sposter.local/media/3bb4c4d402f8fdcc7f80963c3d7cf6f10f936897fd374922ade33199d2f86d87.jpg?name=screenshot_mpv%3ATotoro%4001%3A18%3A44.345.jpg"
+    }
+  ],
+  "attributedTo": "https://patch.local/users/rin",
+  "cc": [
+    "https://patch.local/users/rin/followers"
+  ],
+  "closed": "2020-06-19T23:22:02.754678Z",
+  "content": "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"9vwjTNzEWEM1TfkBGq\" href=\"https://masto.local/users/rinpatch\" rel=\"ugc\">@<span>rinpatch</span></a></span>",
+  "closed": "2019-09-19T00:32:36.785333",
+  "content": "can you vote on this poll?",
+  "id": "https://patch.local/objects/tesla_mock/poll_attachment",
+  "oneOf": [
+    {
+      "name": "a",
+      "replies": {
+        "totalItems": 0,
+        "type": "Collection"
+      },
+      "type": "Note"
+    },
+    {
+      "name": "A",
+      "replies": {
+        "totalItems": 0,
+        "type": "Collection"
+      },
+      "type": "Note"
+    },
+    {
+      "name": "Aa",
+      "replies": {
+        "totalItems": 0,
+        "type": "Collection"
+      },
+      "type": "Note"
+    },
+    {
+      "name": "AA",
+      "replies": {
+        "totalItems": 0,
+        "type": "Collection"
+      },
+      "type": "Note"
+    },
+    {
+      "name": "AAa",
+      "replies": {
+        "totalItems": 1,
+        "type": "Collection"
+      },
+      "type": "Note"
+    },
+    {
+      "name": "AAA",
+      "replies": {
+        "totalItems": 3,
+        "type": "Collection"
+      },
+      "type": "Note"
+    }
+  ],
+  "published": "2020-06-19T23:12:02.786113Z",
+  "sensitive": false,
+  "summary": "",
+  "tag": [
+    {
+      "href": "https://masto.local/users/rinpatch",
+      "name": "@rinpatch@mastodon.sdf.org",
+      "type": "Mention"
+    }
+  ],
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://masto.local/users/rinpatch"
+  ],
+  "type": "Question",
+  "voters": [
+    "https://sposter.local/users/moonman",
+    "https://miss.local/users/7v1w1r8ce6",
+    "https://masto.local/users/rinpatch",
+    "https://mocked.local/users/emelie"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://patch.local/schemas/litepub-0.1.jsonld",
+    {
+      "@language": "und"
+    }
+  ],
+  "actor": "https://patch.local/users/rin",
+  "attachment": [],
+  "attributedTo": "https://patch.local/users/rin",
+  "cc": [
+    "https://patch.local/users/rin/followers"
+  ],
+  "content": "Oracle Corporation (NYSE: ORCL) today announced that it has signed a definitive merger agreement to acquire Pleroma AG (FRA: PLA), for $26.50 per share (approximately $10.3 billion). The transaction has been approved by the boards of directors of both companies and should close by early January.",
+  "context": "https://patch.local/contexts/spoof",
+  "id": "https://patch.local/objects/spoof",
+  "published": "2020-10-23T18:02:06.038856Z",
+  "sensitive": false,
+  "summary": "Oracle buys Pleroma",
+  "tag": [],
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "type": "Note"
+}

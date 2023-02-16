@@ -11,9 +11,10 @@ defmodule ActivityPubWeb.Router do
         plug(:accepts, ["activity+json", "ld+json", "json", "html"])
       end
 
-      pipeline :browser do
-        plug(:accepts, ["html"])
-      end
+      # should be already defined in the actual router which is calling this macro
+      # pipeline :browser do
+      #   plug(:accepts, ["html"])
+      # end
 
       pipeline :signed_activity_pub do
         plug(:accepts, ["activity+json", "ld+json", "json"])

@@ -1,5 +1,10 @@
 defmodule ActivityPubWeb.TestRouter do
   use ActivityPubWeb, :router
+
+  pipeline :browser do
+    plug(:accepts, ["html"])
+  end
+
   use ActivityPubWeb.Router
 
   pipeline :api do

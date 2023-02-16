@@ -1,5 +1,5 @@
 defmodule ActivityPub.MRF do
-  import Untangle
+  # import Untangle
 
   @callback filter(Map.t(), boolean()) :: {:ok | :reject, Map.t()}
 

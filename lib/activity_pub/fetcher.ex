@@ -86,7 +86,7 @@ defmodule ActivityPub.Fetcher do
       #  :ok <- check_if_public(object.public) do # huh?
       case object do
         # return the object rather than a Create activity (do we want this?)
-        %{object: %{id: _} = object, pointer: pointer} = activity ->
+        %{object: %{id: _} = object, pointer: pointer} = _activity ->
           {:ok,
            object
            |> Utils.maybe_put(:pointer, pointer)}

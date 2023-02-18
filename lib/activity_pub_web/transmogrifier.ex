@@ -10,7 +10,6 @@ defmodule ActivityPubWeb.Transmogrifier do
   alias ActivityPub.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
-  alias ActivityPub.Workers
   alias ActivityPub.Object.Containment
   import Untangle
   use Arrows
@@ -252,7 +251,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     in_reply_to_id = prepare_in_reply_to(in_reply_to)
     depth = (options[:depth] || 0) + 1
 
-    if allowed_thread_distance?(depth) do
+    if Fetcher.allowed_recursion?(depth) do
       with {:ok, replied_object} <- get_obj_helper(in_reply_to_id, options),
            %Object{} <- Fetcher.fetch_object_from_id(replied_object.data["id"]) do
         object
@@ -277,7 +276,7 @@ defmodule ActivityPubWeb.Transmogrifier do
       when not is_nil(quote_url) do
     depth = (options[:depth] || 0) + 1
 
-    if allowed_thread_distance?(depth) do
+    if Fetcher.allowed_recursion?(depth) do
       with {:ok, quoted_object} <- get_obj_helper(quote_url, options),
            %Object{} <- Fetcher.fetch_object_from_id(quoted_object.data["id"]) do
         object
@@ -531,15 +530,15 @@ defmodule ActivityPubWeb.Transmogrifier do
   end
 
   defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies != [],
-    do: maybe_fetch_replies_async(data)
+    do: Fetcher.maybe_fetch_async(replies)
 
   defp fix_replies(%{"replies" => %{"items" => replies}} = data)
        when is_list(replies) and replies != [],
-       do: Map.put(data, "replies", maybe_fetch_replies_async(replies))
+       do: Map.put(data, "replies", Fetcher.maybe_fetch_async(replies))
 
   defp fix_replies(%{"replies" => %{"first" => first}} = data) do
-    with {:ok, replies} <- Fetcher.fetch_collection(first) do
-      Map.put(data, "replies", maybe_fetch_replies_async(replies))
+    with {:ok, replies} <- Fetcher.fetch_collection(first, fetch_entries: :async) do
+      Map.put(data, "replies", replies)
     else
       {:error, _} ->
         warn(first, "Could not fetch replies")
@@ -549,22 +548,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   defp fix_replies(data), do: Map.delete(data, "replies")
 
-  defp maybe_fetch_replies_async(replies, depth \\ 10) do
-    reply_depth = (depth || 0) + 1
-
-    if is_list(replies) and replies != [] and allowed_thread_distance?(reply_depth) do
-      for reply_id <- replies do
-        Workers.RemoteFetcherWorker.enqueue("fetch_remote", %{
-          "id" => reply_id,
-          "depth" => reply_depth
-        })
-      end
-    end
-
-    replies
-  end
-
-  defp set_replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)
+  defp replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)
 
   @doc """
   Serialized Mastodon-compatible `replies` collection containing _self-replies_.
@@ -572,7 +556,7 @@ defmodule ActivityPubWeb.Transmogrifier do
   """
   def set_replies(%Object{} = object) do
     replies_uris =
-      with limit when limit > 0 <- set_replies_limit() do
+      with limit when limit > 0 <- replies_limit() do
         object
         |> Object.self_replies_ids(limit)
         |> debug("self_replies_ids")
@@ -585,7 +569,7 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   def set_replies(%{"id" => id} = obj_data) do
     replies_uris =
-      with limit when limit > 0 <- set_replies_limit(),
+      with limit when limit > 0 <- replies_limit(),
            %Object{} = object <- Object.get_cached(ap_id: id) do
         object
         |> Object.self_replies_ids(limit)
@@ -1001,8 +985,45 @@ defmodule ActivityPubWeb.Transmogrifier do
 
   # Handle other activity types (and their object)
   def handle_incoming(%{"type" => type} = data) when type in @supported_activity_types do
-    info("ActivityPub - some other Activity - store it and pass to adapter anyway...")
+    info(type, "ActivityPub - some other Activity type - store it and pass to adapter...")
 
+    maybe_handle_other_activity(data)
+  end
+
+  def handle_incoming(%{"type" => type} = data) when type in @supported_actor_types do
+    info(type, "Save actor or collection without an activity")
+
+    maybe_handle_other_object(data)
+    ~> ActivityPub.Actor.maybe_create_actor_from_object()
+  end
+
+  def handle_incoming(%{"type" => type} = data) when type in @collection_types do
+    debug(type, "don't store Collections")
+
+    with {:ok, object} <- Object.prepare_data(data) do
+      {:ok, object}
+    end
+  end
+
+  def handle_incoming(%{"type" => type, "object" => _} = data) do
+    info(type, "Save a seemingly unknown activity type")
+    maybe_handle_other_activity(data)
+  end
+
+  def handle_incoming(data) do
+    info("Wrap standalone non-actor object in a Create activity?")
+    debug(data)
+
+    handle_incoming(%{
+      "type" => "Create",
+      "to" => data["to"],
+      "cc" => data["cc"],
+      "actor" => Object.actor_from_data(data),
+      "object" => data
+    })
+  end
+
+  def maybe_handle_other_activity(data) do
     {:ok, activity} = Object.insert(data, false)
 
     if Keyword.get(
@@ -1018,41 +1039,7 @@ defmodule ActivityPubWeb.Transmogrifier do
     end
   end
 
-  def handle_incoming(%{"type" => type} = data) when type in @actors_and_collections do
-    info("Save actor or collection without an activity")
-
-    maybe_handle_other(data)
-    ~> ActivityPub.Actor.maybe_create_actor_from_object()
-  end
-
-  # Wrap standalone non-actor objects in a Create activity 
-  def handle_incoming(data) do
-    handle_incoming(%{
-      "type" => "Create",
-      "to" => data["to"],
-      "cc" => data["cc"],
-      "actor" => Object.actor_from_data(data),
-      "object" => data
-    })
-  end
-
-  defp get_obj_helper(id, opts \\ []) do
-    if object = Object.normalize(id, allowed_thread_distance?(opts[:depth])),
-      do: {:ok, object},
-      else: nil
-  end
-
-  @doc """
-  Normalises and inserts an incoming AS2 object. Returns Object.
-  """
-  def maybe_handle_other(%{"type" => type} = data) when type in @collection_types do
-    # don't store Collections
-    with {:ok, object} <- Object.prepare_data(data) do
-      {:ok, object}
-    end
-  end
-
-  def maybe_handle_other(data) do
+  def maybe_handle_other_object(data) do
     with {:ok, object} <- Object.prepare_data(data),
          {:ok, object} <- Object.do_insert(object) do
       {:ok, object}
@@ -1065,20 +1052,9 @@ defmodule ActivityPubWeb.Transmogrifier do
     end
   end
 
-  @doc """
-  Returns `true` if the distance to target object does not exceed max configured value.
-  Serves to prevent fetching of very long threads, especially useful on smaller instances.
-  Addresses memory leaks on recursive replies fetching.
-  Applies to fetching of both ancestor (reply-to) and child (reply) objects.
-  """
-  def allowed_thread_distance?(distance) do
-    max_distance = Config.get([:instance, :federation_incoming_replies_max_depth], 10)
-
-    if max_distance && max_distance >= 0 do
-      # Default depth is 0 (an object has zero distance from itself in its thread)
-      (distance || 0) <= max_distance
-    else
-      true
-    end
+  defp get_obj_helper(id, opts \\ []) do
+    if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])),
+      do: {:ok, object},
+      else: nil
   end
 end

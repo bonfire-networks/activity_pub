@@ -6,10 +6,12 @@ defmodule ActivityPub.Fetcher do
   alias ActivityPub.Config
   alias ActivityPub.Utils
   alias ActivityPub.HTTP
+  alias ActivityPub.Actor
   alias ActivityPub.Object
   alias ActivityPubWeb.Transmogrifier
   alias ActivityPub.Object.Containment
   alias ActivityPub.Instances
+  alias ActivityPub.Workers
 
   import Untangle
 
@@ -18,18 +20,31 @@ defmodule ActivityPub.Fetcher do
   @doc """
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
-  def fetch_object_from_id(id, _opts \\ []) do
-    case cached_or_handle_incoming(id) do
+  def fetch_object_from_id(id, opts \\ []) do
+    case cached_or_handle_incoming(id, opts) do
       {:ok, object} ->
         {:ok, object}
 
       _ ->
-        fetch_fresh_object_from_id(id)
+        fetch_fresh_object_from_id(id, opts)
     end
   end
 
+  def fetch_objects_from_id(ids, opts \\ []) when is_list(ids) do
+    Enum.take(ids, max_recursion())
+    |> Enum.map(fn id ->
+      with {:ok, object} <- fetch_object_from_id(id, opts) do
+        object
+      else
+        e ->
+          error(e)
+          nil
+      end
+    end)
+  end
+
   @doc """
-  Checks if an object exists in the AP database and fetches it if not.
+  Checks if an object exists in the AP database and fetches it if not (but does not send to Adapter).
   """
   def fetch_ap_object_from_id(id, opts \\ []) do
     case Object.get_cached(ap_id: id) do
@@ -41,6 +56,25 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
+  def maybe_fetch_async(entries, opts \\ [])
+
+  def maybe_fetch_async(entries, opts) when is_list(entries) do
+    depth = (opts[:depth] || 0) + 1
+
+    if entries != [] and allowed_recursion?(depth) do
+      for id <- entries do
+        Workers.RemoteFetcherWorker.enqueue("fetch_remote", %{
+          "id" => id,
+          "depth" => depth
+        })
+      end
+    end
+
+    entries
+  end
+
+  def maybe_fetch_async(entries, opts), do: maybe_fetch_async(List.wrap(entries), opts)
+
   def fetch_fresh_object_from_id(id, opts \\ [])
 
   def fetch_fresh_object_from_id(%{data: %{"id" => id}}, opts),
@@ -50,21 +84,21 @@ defmodule ActivityPub.Fetcher do
 
   def fetch_fresh_object_from_id(id, opts) do
     with {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
-         {:ok, object} <- cached_or_handle_incoming(data) do
+         {:ok, object} <- cached_or_handle_incoming(data, opts) do
       Instances.set_reachable(id)
 
       {:ok, object}
     end
   end
 
-  defp cached_or_handle_incoming(id_or_data) do
+  defp cached_or_handle_incoming(id_or_data, opts) do
     case Object.get_cached(ap_id: id_or_data) do
       {:ok, %{pointer_id: nil, data: data} = _object} ->
         warn(
           "seems the object was already cached in object table, but not processed/saved by the adapter"
         )
 
-        handle_incoming(data)
+        handle_fetched(data, opts)
         |> debug("handled")
 
       {:ok, object} ->
@@ -73,18 +107,33 @@ defmodule ActivityPub.Fetcher do
       {:error, :not_found} when is_map(id_or_data) ->
         debug("seems like a new object")
 
-        handle_incoming(id_or_data)
+        handle_fetched(id_or_data, opts)
         |> debug("handled")
 
+      {:error, :not_found} ->
+        error(id_or_data, "No such object has been cached")
+
       other ->
-        error(other, "No object found")
+        error(other)
     end
   end
 
-  defp handle_incoming(data) do
+  defp handle_fetched(data, opts) do
     with {:ok, object} <- Transmogrifier.handle_incoming(data) do
       #  :ok <- check_if_public(object.public) do # huh?
       case object do
+        %Actor{data: %{"outbox" => outbox}} = actor when is_binary(outbox) ->
+          if opts[:fetch_collection] do
+            debug(
+              outbox,
+              "An actor was fetched, fetch outbox collection, and queue a fetch of entries as well"
+            )
+
+            fetch_collection(outbox, fetch_entries: opts[:fetch_collection])
+          end
+
+          {:ok, actor}
+
         # return the object rather than a Create activity (do we want this?)
         %{object: %{id: _} = object, pointer: pointer} = _activity ->
           {:ok,
@@ -106,7 +155,7 @@ defmodule ActivityPub.Fetcher do
   def fetch_remote_object_from_id(id, options \\ []) do
     debug(id, "Attempting to fetch ActivityPub object")
 
-    with true <- Transmogrifier.allowed_thread_distance?(options[:depth]),
+    with true <- allowed_recursion?(options[:depth]),
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(URI.parse(id)),
          true <- String.starts_with?(id, "http"),
@@ -115,8 +164,10 @@ defmodule ActivityPub.Fetcher do
              id,
              [{:Accept, "application/activity+json"}]
            ),
-         {:ok, data} <- Jason.decode(body) |> debug(body),
-         :ok <- Containment.contain_origin(id, data) |> debug("contain_origin?") do
+         {:ok, data} <- Jason.decode(body),
+         :ok <-
+           (options[:skip_contain_origin_check] || Containment.contain_origin(id, data))
+           |> debug("contain_origin?") do
       {:ok, data}
     else
       {:ok, %{status: 304}} ->
@@ -159,9 +210,12 @@ defmodule ActivityPub.Fetcher do
   defp check_if_public(_public), do: {:error, "Not public"}
 
   @spec fetch_collection(String.t() | map()) :: {:ok, [Object.t()]} | {:error, any()}
-  def fetch_collection(ap_id) when is_binary(ap_id) do
-    with {:ok, page} <- fetch_object_from_id(ap_id) do
-      {:ok, objects_from_collection(page)}
+  def fetch_collection(ap_id, opts \\ [])
+
+  def fetch_collection(ap_id, opts) when is_binary(ap_id) do
+    with {:ok, page} <-
+           fetch_ap_object_from_id(ap_id, skip_contain_origin_check: :ok) |> debug("fetched") do
+      {:ok, handle_collection(page, opts)}
     else
       e ->
         error(e, "Could not fetch collection #{ap_id}")
@@ -169,44 +223,35 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
-  def fetch_collection(%{"type" => type} = page)
+  def fetch_collection(%{"type" => type} = page, opts)
       when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
-    {:ok, objects_from_collection(page)}
+    {:ok, handle_collection(page, opts)}
   end
 
-  defp items_in_page(%{"type" => type, "orderedItems" => items})
-       when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
-       do: items
+  defp handle_collection(page, opts) do
+    entries =
+      objects_from_collection(page, opts)
+      |> debug("objects_from_collection")
 
-  defp items_in_page(%{"type" => type, "items" => items})
-       when is_list(items) and type in ["Collection", "CollectionPage"],
-       do: items
+    case opts[:fetch_entries] do
+      :async ->
+        debug("queue objects to be fetched async")
+        maybe_fetch_async(entries, opts)
 
-  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page)
-       when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
-       do: maybe_next_page(page, items)
+      true ->
+        debug("fetch objects as well")
+        fetch_objects_from_id(entries, opts)
 
-  defp objects_from_collection(%{"type" => type, "items" => items} = page)
-       when is_list(items) and type in ["Collection", "CollectionPage"],
-       do: maybe_next_page(page, items)
-
-  defp objects_from_collection(%{"type" => type, "first" => first})
-       when is_binary(first) and type in ["Collection", "OrderedCollection"] do
-    fetch_page(first)
+      _ ->
+        entries
+    end
   end
 
-  defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}})
-       when is_binary(id) and type in ["Collection", "OrderedCollection"] do
-    fetch_page(id)
-  end
-
-  defp objects_from_collection(_page), do: []
-
-  defp fetch_page(page_id, items \\ []) do
+  defp fetch_page(page_id, items \\ [], opts \\ []) do
     if Enum.count(items) >= Config.get([:activitypub, :max_collection_objects]) do
       items
     else
-      with {:ok, page} <- fetch_object_from_id(page_id) do
+      with {:ok, page} <- fetch_ap_object_from_id(page_id, skip_contain_origin_check: :ok) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do
@@ -225,9 +270,68 @@ defmodule ActivityPub.Fetcher do
     end
   end
 
-  defp maybe_next_page(%{"next" => page_id}, items) when is_binary(page_id) do
-    fetch_page(page_id, items)
+  defp items_in_page(%{"type" => type, "orderedItems" => items})
+       when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
+       do: items
+
+  defp items_in_page(%{"type" => type, "items" => items})
+       when is_list(items) and type in ["Collection", "CollectionPage"],
+       do: items
+
+  defp objects_from_collection(page, opts \\ [])
+
+  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
+       when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
+       do: maybe_next_page(page, items)
+
+  defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
+       when is_list(items) and type in ["Collection", "CollectionPage"],
+       do: maybe_next_page(page, items)
+
+  defp objects_from_collection(%{"type" => type, "first" => first}, opts)
+       when is_binary(first) and type in ["Collection", "OrderedCollection"] do
+    fetch_page(first)
+  end
+
+  defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}}, opts)
+       when is_binary(id) and type in ["Collection", "OrderedCollection"] do
+    fetch_page(id)
+  end
+
+  defp objects_from_collection(page, _opts) do
+    warn(page, "could not find objects in collection")
+    []
+  end
+
+  defp maybe_next_page(%{"next" => page_id}, items, opts) when is_binary(page_id) do
+    depth = opts[:page_depth] || 0
+    #  max pages to fetch
+    if allowed_recursion?(depth, opts[:max_pages] || 2) do
+      info(depth, "fetch an extra page from collection")
+      fetch_page(page_id, items, opts |> Keyword.put(:page_depth, depth + 1))
+    else
+      items
+    end
   end
 
   defp maybe_next_page(_, items), do: items
+
+  @doc """
+  Returns `true` if the distance to target object does not exceed max configured value.
+  Serves to prevent fetching of very long threads, especially useful on smaller instances.
+  Addresses memory leaks on recursive replies fetching.
+  Applies to fetching of both ancestor (reply-to) and child (reply) objects.
+  """
+  def allowed_recursion?(distance, max_recursion \\ nil) do
+    max_distance = max_recursion || max_recursion()
+
+    if is_number(distance) and is_number(max_distance) and max_distance >= 0 do
+      # Default depth is 0 (an object has zero distance from itself in its thread)
+      (distance || 0) <= max_distance
+    else
+      true
+    end
+  end
+
+  defp max_recursion, do: Config.get([:instance, :federation_incoming_max_recursion]) || 10
 end

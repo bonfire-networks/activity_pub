@@ -77,7 +77,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
     end
 
     test "quote fetching should stop after n levels", _ do
-      clear_config([:instance, :federation_incoming_replies_max_depth], 1)
+      clear_config([:instance, :federation_incoming_max_recursion], 1)
 
       Tesla.Mock.mock(fn %{
                            method: :get,

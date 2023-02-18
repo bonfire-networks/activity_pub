@@ -61,7 +61,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
     #   data = Map.put(data, "object", object)
 
     #   with_mock Federator,
-    #     allowed_thread_distance?: fn _ -> false end do
+    #     allowed_recursion?: fn _ -> false end do
     #     {:ok, returned_activity} = Transmogrifier.handle_incoming(data)
 
     #     returned_object = Object.normalize(returned_activity, fetch: false)
@@ -93,7 +93,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
 
   describe "`handle_incoming/2`, Mastodon format `replies` handling" do
     setup do: clear_config([:activitypub, :note_replies_output_limit], 5)
-    setup do: clear_config([:instance, :federation_incoming_replies_max_depth])
+    setup do: clear_config([:instance, :federation_incoming_max_recursion])
 
     setup do
       data =
@@ -111,7 +111,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
       data: data,
       items: items
     } do
-      clear_config([:instance, :federation_incoming_replies_max_depth], 10)
+      clear_config([:instance, :federation_incoming_max_recursion], 10)
 
       {:ok, activity} = Transmogrifier.handle_incoming(data)
       object = Object.normalize(activity.data["object"])
@@ -126,7 +126,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
 
     test "does NOT schedule background fetching of `replies` beyond max thread depth limit allows",
          %{data: data} do
-      clear_config([:instance, :federation_incoming_replies_max_depth], 0)
+      clear_config([:instance, :federation_incoming_max_recursion], 0)
 
       {:ok, _activity} = Transmogrifier.handle_incoming(data)
 
@@ -136,7 +136,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
 
   describe "`handle_incoming/2`, Pleroma format `replies` handling" do
     setup do: clear_config([:activitypub, :note_replies_output_limit], 5)
-    setup do: clear_config([:instance, :federation_incoming_replies_max_depth])
+    setup do: clear_config([:instance, :federation_incoming_max_recursion])
 
     setup do
       replies = %{
@@ -155,7 +155,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
     test "schedules background fetching of `replies` items if max thread depth limit allows", %{
       activity: activity
     } do
-      clear_config([:instance, :federation_incoming_replies_max_depth], 1)
+      clear_config([:instance, :federation_incoming_max_recursion], 1)
 
       assert {:ok, %Activity{data: data, local: false}} = Transmogrifier.handle_incoming(activity)
       object = Object.normalize(data["object"])
@@ -169,7 +169,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
 
     test "does NOT schedule background fetching of `replies` beyond max thread depth limit allows",
          %{activity: activity} do
-      clear_config([:instance, :federation_incoming_replies_max_depth], 0)
+      clear_config([:instance, :federation_incoming_max_recursion], 0)
 
       {:ok, _activity} = Transmogrifier.handle_incoming(activity)
 
@@ -234,7 +234,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
   end
 
   describe "fix_in_reply_to/2" do
-    setup do: clear_config([:instance, :federation_incoming_replies_max_depth])
+    setup do: clear_config([:instance, :federation_incoming_max_recursion])
 
     setup do
       data = Jason.decode!(file("fixtures/mastodon/mastodon-post-activity.json"))
@@ -246,7 +246,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
     end
 
     test "returns object with inReplyTo when denied incoming reply", %{data: data} do
-      clear_config([:instance, :federation_incoming_replies_max_depth], 0)
+      clear_config([:instance, :federation_incoming_max_recursion], 0)
 
       object_with_reply =
         Map.put(data["object"], "inReplyTo", "https://sposter.local/notice/2827873")
@@ -280,7 +280,7 @@ defmodule ActivityPubWeb.Transmogrifier.RepliesHandlingTest do
           "https://mstdn.local/users/mayuutann/statuses/99568293732299394"
         )
 
-      clear_config([:instance, :federation_incoming_replies_max_depth], 5)
+      clear_config([:instance, :federation_incoming_max_recursion], 5)
       modified_object = Transmogrifier.fix_in_reply_to(object_with_reply)
 
       assert modified_object["inReplyTo"] ==

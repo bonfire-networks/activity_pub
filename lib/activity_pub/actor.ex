@@ -221,12 +221,13 @@ defmodule ActivityPub.Actor do
   @doc """
   Fetches a remote actor by username in `username@domain.tld` format
   """
-  def fetch_by_username("@" <> username), do: fetch_by_username(username)
+  def fetch_by_username(username, opts \\ [])
+  def fetch_by_username("@" <> username, opts), do: fetch_by_username(username, opts)
 
-  def fetch_by_username(username) do
+  def fetch_by_username(username, opts) do
     with {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
            WebFinger.finger(username) do
-      fetch_by_ap_id(ap_id)
+      fetch_by_ap_id(ap_id, opts)
     else
       e ->
         warn(e)
@@ -237,17 +238,19 @@ defmodule ActivityPub.Actor do
   @doc """
   Tries to get a local actor by username or tries to fetch it remotely if username is provided in `username@domain.tld` format.
   """
-  def get_or_fetch_by_username("@" <> username),
-    do: get_or_fetch_by_username(username)
+  def get_or_fetch_by_username(username, opts \\ [])
 
-  def get_or_fetch_by_username(username) do
+  def get_or_fetch_by_username("@" <> username, opts),
+    do: get_or_fetch_by_username(username, opts)
+
+  def get_or_fetch_by_username(username, opts) do
     with {:ok, actor} <- get_cached(username: username) do
       {:ok, actor}
     else
       _e ->
         with [_nick, domain] <- String.split(username, "@"),
              false <- domain == URI.parse(Adapter.base_url()).host,
-             {:ok, actor} <- fetch_by_username(username) do
+             {:ok, actor} <- fetch_by_username(username, opts) do
           {:ok, actor}
         else
           %ActivityPub.Actor{} = actor -> {:ok, actor}
@@ -342,16 +345,12 @@ defmodule ActivityPub.Actor do
     actor
   end
 
-  defp fetch_by_ap_id(ap_id) when is_binary(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) |> debug("fetched actor") do
-      maybe_create_actor_from_object(object)
-    end
+  defp fetch_by_ap_id(ap_id, opts \\ []) when is_binary(ap_id) do
+    Fetcher.fetch_object_from_id(ap_id, opts)
   end
 
   defp fetch_fresh_by_ap_id(ap_id) when is_binary(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> debug("fetched actor") do
-      maybe_create_actor_from_object(object)
-    end
+    Fetcher.fetch_fresh_object_from_id(ap_id)
   end
 
   def maybe_create_actor_from_object(actor) do
@@ -360,7 +359,7 @@ defmodule ActivityPub.Actor do
         {:ok, actor}
 
       {:ok, %{} = object} ->
-        warn(object, "Not an actor?")
+        debug(object, "Not an actor?")
         {:ok, object}
 
       e ->
@@ -377,16 +376,13 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp do_maybe_create_actor_from_object(ap_id) when is_binary(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> info() do
-      do_maybe_create_actor_from_object(object)
-    end
-  end
-
-  defp do_maybe_create_actor_from_object(object) do
-    warn(object, "Skip creating usupported actor type")
-    {:ok, ok_unwrap(object)}
-  end
+  # defp do_maybe_create_actor_from_object(ap_id) when is_binary(ap_id) do
+  #   with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> info() do
+  #     do_maybe_create_actor_from_object(object)
+  #   end
+  # end
+  defp do_maybe_create_actor_from_object({:ok, object}), do: {:ok, object}
+  defp do_maybe_create_actor_from_object(object), do: object
 
   def get_or_fetch_by_ap_id(%Actor{data: _} = actor), do: actor
   def get_or_fetch_by_ap_id(%{"id" => id}), do: get_or_fetch_by_ap_id(id)
@@ -535,7 +531,7 @@ defmodule ActivityPub.Actor do
     else
       e ->
         warn(e)
-        maybe_create_actor_from_object(data)
+        fetch_by_ap_id(data)
     end
   end
 

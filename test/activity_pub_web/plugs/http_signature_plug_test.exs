@@ -1,6 +1,6 @@
-defmodule ActivityPubWeb.Plugs.HTTPSignaturePlugTest do
-  use ActivityPubWeb.ConnCase
-  alias ActivityPubWeb.Plugs.HTTPSignaturePlug
+defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
+  use ActivityPub.Web.ConnCase
+  alias ActivityPub.Web.Plugs.HTTPSignaturePlug
 
   import Plug.Conn
   import Phoenix.Controller, only: [put_format: 2]

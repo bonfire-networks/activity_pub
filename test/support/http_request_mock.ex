@@ -159,7 +159,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("fixtures/mastodon_webfinger.json")
+       body: file("fixtures/mastodon/mastodon_webfinger.json")
      }}
   end
 
@@ -172,7 +172,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok,
      %Tesla.Env{
        status: 200,
-       body: file("fixtures/mastodon_webfinger.json")
+       body: file("fixtures/mastodon/mastodon_webfinger.json")
      }}
   end
 
@@ -1558,7 +1558,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   def maybe_get_local(url, query, body, headers) do
     # there must be a better way to bypass mocks for local URLs?
-    base_url = ActivityPubWeb.base_url()
+    base_url = ActivityPub.Web.base_url()
 
     if String.starts_with?(url, base_url) do
       # TODO: use headers?

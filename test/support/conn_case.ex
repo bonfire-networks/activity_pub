@@ -1,4 +1,4 @@
-defmodule ActivityPubWeb.ConnCase do
+defmodule ActivityPub.Web.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,25 +11,25 @@ defmodule ActivityPubWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use ActivityPubWeb.ConnCase, async: true`, although
+  by setting `use ActivityPub.Web.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
   use ExUnit.CaseTemplate
   import ActivityPub.Test.Helpers
-  import ActivityPub.Common
+  import ActivityPub.Utils
 
   using do
     quote do
-      import ActivityPub.Common
+      import ActivityPub.Utils
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      # import ActivityPubWeb.ConnCase
+      # import ActivityPub.Web.ConnCase
       import ActivityPub.Test.Helpers
       import Untangle
 
-      alias ActivityPubWeb.Router.Helpers, as: Routes
+      alias ActivityPub.Web.Router.Helpers, as: Routes
 
       # The default endpoint for testing
       @endpoint endpoint()

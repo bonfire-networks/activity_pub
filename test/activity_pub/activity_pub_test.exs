@@ -139,7 +139,7 @@ defmodule ActivityPubTest do
 
       assert delete.data["type"] == "Delete"
       assert delete.data["actor"] == object.data["actor"]
-      assert delete.Object.get_ap_id(data["object"]) =~ object.data["id"]
+      assert Object.get_ap_id(delete.data["object"]) =~ object.data["id"]
 
       assert Object.get_cached!(id: delete.id) != nil
 
@@ -171,7 +171,7 @@ defmodule ActivityPubTest do
 
       assert like_activity.data["actor"] == actor.data["id"]
       assert like_activity.data["type"] == "Like"
-      assert like_activity.Object.get_ap_id(data["object"]) =~ object.data["id"]
+      assert Object.get_ap_id(like_activity.data["object"]) =~ object.data["id"]
 
       assert like_activity.data["to"] == [
                actor.data["followers"],
@@ -219,7 +219,7 @@ defmodule ActivityPubTest do
                note_activity.data["actor"]
              ]
 
-      assert announce_activity.Object.get_ap_id(data["object"]) =~ object.data["id"]
+      assert Object.get_ap_id(announce_activity.data["object"]) =~ object.data["id"]
       assert announce_activity.data["actor"] == actor.data["id"]
       assert announce_activity.data["context"] == object.data["context"]
     end
@@ -241,7 +241,10 @@ defmodule ActivityPubTest do
              ]
 
       assert unannounce_activity.data["type"] == "Undo"
-      assert unannounce_activity.Object.get_ap_id(data["object"]) =~ announce_activity.data
+
+      assert Object.get_ap_id(unannounce_activity.data["object"]) ==
+               Object.get_ap_id(announce_activity.data)
+
       assert unannounce_activity.data["actor"] == actor.data["id"]
 
       assert unannounce_activity.data["context"] ==
@@ -257,7 +260,7 @@ defmodule ActivityPubTest do
       assert {:ok, actor} = Actor.get_cached(username: actor.username)
       actor = Actor.add_public_key(actor)
 
-      actor_data = ActivityPubWeb.ActorView.render("actor.json", %{actor: actor})
+      actor_data = ActivityPub.Web.ActorView.render("actor.json", %{actor: actor})
 
       assert {:ok, update} =
                ActivityPub.update(%{

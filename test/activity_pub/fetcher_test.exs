@@ -1,9 +1,9 @@
-defmodule ActivityPub.FetcherTest do
+defmodule ActivityPub.Federator.FetcherTest do
   use ActivityPub.DataCase
   import Tesla.Mock
 
-  alias ActivityPub.Fetcher
-  alias ActivityPub.WebFinger
+  alias ActivityPub.Federator.Fetcher
+  alias ActivityPub.Federator.WebFinger
 
   setup do
     mock(fn

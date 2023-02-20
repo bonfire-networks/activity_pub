@@ -1,5 +1,5 @@
 defmodule ActivityPub.TestAdapter do
-  @behaviour ActivityPub.Adapter
+  @behaviour ActivityPub.Federator.Adapter
 
   defp format_actor({:ok, actor}), do: actor
 
@@ -60,5 +60,5 @@ defmodule ActivityPub.TestAdapter do
     actor.followers
   end
 
-  def base_url(), do: ActivityPubWeb.Endpoint.url()
+  def base_url(), do: ActivityPub.Web.Endpoint.url()
 end

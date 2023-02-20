@@ -1,7 +1,7 @@
 import Config
 
 config :activity_pub, :repo, ActivityPub.TestRepo
-config :activity_pub, :endpoint_module, ActivityPubWeb.Endpoint
+config :activity_pub, :endpoint_module, ActivityPub.Web.Endpoint
 
 # Configure your database
 #
@@ -18,7 +18,7 @@ config :activity_pub, ActivityPub.TestRepo,
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :activity_pub, ActivityPubWeb.Endpoint,
+config :activity_pub, ActivityPub.Web.Endpoint,
   http: [port: 4002],
   server: false
 

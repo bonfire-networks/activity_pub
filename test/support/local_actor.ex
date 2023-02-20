@@ -3,7 +3,7 @@ defmodule ActivityPub.LocalActor do
   import Ecto.Changeset
   import Ecto.Query
 
-  import ActivityPub.Common
+  import ActivityPub.Utils
 
   @type t :: %__MODULE__{}
 

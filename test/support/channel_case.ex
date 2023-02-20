@@ -1,4 +1,4 @@
-defmodule ActivityPubWeb.ChannelCase do
+defmodule ActivityPub.Web.ChannelCase do
   @moduledoc """
   This module defines the test case to be used by
   channel tests.
@@ -11,20 +11,20 @@ defmodule ActivityPubWeb.ChannelCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use ActivityPubWeb.ChannelCase, async: true`, although
+  by setting `use ActivityPub.Web.ChannelCase, async: true`, although
   this option is not recommended for other databases.
   """
 
   use ExUnit.CaseTemplate
   import ActivityPub.Test.Helpers
-  import ActivityPub.Common
+  import ActivityPub.Utils
 
   using do
     quote do
-      import ActivityPub.Common
+      import ActivityPub.Utils
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
-      import ActivityPubWeb.ChannelCase
+      import ActivityPub.Web.ChannelCase
       import ActivityPub.Test.Helpers
       import Untangle
 

@@ -16,11 +16,11 @@ defmodule ActivityPub.DataCase do
 
   use ExUnit.CaseTemplate
   import ActivityPub.Test.Helpers
-  import ActivityPub.Common
+  import ActivityPub.Utils
 
   using do
     quote do
-      import ActivityPub.Common
+      import ActivityPub.Utils
       import ActivityPub.Test.Helpers
       import Ecto
       import Ecto.Changeset

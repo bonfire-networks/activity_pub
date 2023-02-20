@@ -24,7 +24,7 @@ defmodule MyApp.Adapter do
   Adapter functions delegated from the `ActivityPub` Library
   """
 
-  @behaviour ActivityPub.Adapter
+  @behaviour ActivityPub.Federator.Adapter
 end
 ```
 
@@ -64,7 +64,7 @@ config :activity_pub, :repo, MyApp.Repo
 
 4. Create a new ecto migration and call `ActivityPub.Migration.up/0` from it
 
-5. Inject AP routes to your router by adding `use ActivityPubWeb.Router` to your app's router module
+5. Inject AP routes to your router by adding `use ActivityPub.Web.Router` to your app's router module
 
 6. Copy the default AP config to your app's confix.exs
 
@@ -79,7 +79,7 @@ config :activity_pub, :mrf_simple,
 
 config :activity_pub, :instance,
   hostname: "example.com",
-  federation_publisher_modules: [ActivityPubWeb.Publisher],
+  federation_publisher_modules: [ActivityPub.Federator.APPublisher],
   federation_reachability_timeout_days: 7,
   federating: true,
   rewrite_policy: []

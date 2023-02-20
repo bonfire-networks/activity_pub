@@ -13,11 +13,11 @@ config :activity_pub,
   ecto_repos: [ActivityPub.Repo]
 
 # Configures the endpoint
-config :activity_pub, ActivityPubWeb.Endpoint,
+config :activity_pub, ActivityPub.Web.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "sNcPgFlG0+zaRYZF//S3wJC79rLWp63V46ATq6FDCWHYxwHZ7Ece4ScTto64ZSZj",
   render_errors: [
-    view: ActivityPubWeb.ErrorView,
+    view: ActivityPub.Web.ErrorView,
     accepts: ~w(json),
     layout: false
   ],
@@ -52,7 +52,7 @@ config :activity_pub, :mrf_simple,
 
 config :activity_pub, :instance,
   hostname: "localhost",
-  federation_publisher_modules: [ActivityPubWeb.Publisher],
+  federation_publisher_modules: [ActivityPub.Federator.APPublisher],
   federation_reachability_timeout_days: 7,
   federating: true,
   rewrite_policy: [],
@@ -71,7 +71,7 @@ config :activity_pub, :http,
     ]
   ]
 
-config :activity_pub, :endpoint, ActivityPubWeb.Endpoint
+config :activity_pub, :endpoint, ActivityPub.Web.Endpoint
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

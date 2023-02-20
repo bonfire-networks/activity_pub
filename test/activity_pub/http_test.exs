@@ -1,4 +1,4 @@
-defmodule ActivityPub.HTTPTest do
+defmodule ActivityPub.Federator.HTTPTest do
   use ActivityPub.DataCase
   import Tesla.Mock
 
@@ -20,7 +20,7 @@ defmodule ActivityPub.HTTPTest do
 
   describe "get/1" do
     test "returns successfully result" do
-      assert ActivityPub.HTTP.get("http://example.local/hello") == {
+      assert ActivityPub.Federator.HTTP.get("http://example.local/hello") == {
                :ok,
                %Tesla.Env{status: 200, body: "hello"}
              }
@@ -29,7 +29,7 @@ defmodule ActivityPub.HTTPTest do
 
   describe "get/2 (with headers)" do
     test "returns successfully result for json content-type" do
-      assert ActivityPub.HTTP.get("http://example.local/hello", [
+      assert ActivityPub.Federator.HTTP.get("http://example.local/hello", [
                {"content-type", "application/json"}
              ]) ==
                {

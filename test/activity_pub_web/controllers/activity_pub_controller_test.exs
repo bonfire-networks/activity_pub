@@ -1,5 +1,5 @@
-defmodule ActivityPubWeb.ActivityPubControllerTest do
-  use ActivityPubWeb.ConnCase
+defmodule ActivityPub.Web.ActivityPubControllerTest do
+  use ActivityPub.Web.ConnCase
 
   import ActivityPub.Factory
 

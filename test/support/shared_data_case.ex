@@ -1,6 +1,6 @@
 defmodule ActivityPub.SharedDataCase do
   use ExUnit.CaseTemplate
-  import ActivityPub.Common
+  import ActivityPub.Utils
   import ActivityPub.Factory
   import Tesla.Mock
   import Untangle

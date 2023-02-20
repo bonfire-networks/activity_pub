@@ -1,7 +1,7 @@
-defmodule ActivityPub.WebFingerTest do
+defmodule ActivityPub.Federator.WebFingerTest do
   use ActivityPub.DataCase
 
-  alias ActivityPub.WebFinger
+  alias ActivityPub.Federator.WebFinger
   alias ActivityPub.Actor
   import ActivityPub.Factory
 

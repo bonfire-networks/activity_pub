@@ -15,7 +15,7 @@ config :activity_pub, ActivityPub.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we use it
 # with webpack to recompile .js and .css sources.
-config :activity_pub, ActivityPubWeb.Endpoint,
+config :activity_pub, ActivityPub.Web.Endpoint,
   http: [port: 4000],
   debug_errors: true,
   code_reloader: true,

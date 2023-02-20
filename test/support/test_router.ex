@@ -1,17 +1,17 @@
-defmodule ActivityPubWeb.TestRouter do
-  use ActivityPubWeb, :router
+defmodule ActivityPub.Web.TestRouter do
+  use ActivityPub.Web, :router
 
   pipeline :browser do
     plug(:accepts, ["html"])
   end
 
-  use ActivityPubWeb.Router
+  use ActivityPub.Web.Router
 
   pipeline :api do
     plug(:accepts, ["json"])
   end
 
-  scope "/api", ActivityPubWeb do
+  scope "/api", ActivityPub.Web do
     pipe_through(:api)
   end
 
@@ -27,7 +27,7 @@ defmodule ActivityPubWeb.TestRouter do
 
     scope "/" do
       pipe_through([:fetch_session, :protect_from_forgery])
-      live_dashboard("/dashboard", metrics: ActivityPubWeb.Telemetry)
+      live_dashboard("/dashboard", metrics: ActivityPub.Web.Telemetry)
     end
   end
 end

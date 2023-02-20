@@ -1,4 +1,4 @@
-defmodule ActivityPubWeb.MRF.SimplePolicyTest do
+defmodule ActivityPub.Web.MRF.SimplePolicyTest do
   use ActivityPub.DataCase
   alias ActivityPub.Config
   alias ActivityPub.MRF.SimplePolicy
@@ -26,7 +26,7 @@ defmodule ActivityPubWeb.MRF.SimplePolicyTest do
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
     %{
-      "actor" => ActivityPubWeb.base_url() <> ap_base_path <> "/actors/alice",
+      "actor" => ActivityPub.Web.base_url() <> ap_base_path <> "/actors/alice",
       "to" => [],
       "cc" => []
     }

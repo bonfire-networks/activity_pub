@@ -1,6 +1,6 @@
 defmodule ActivityPub.Factory do
   import ActivityPub.Test.Helpers
-  import ActivityPub.Common
+  import ActivityPub.Utils
   import Untangle
   @repo repo()
   use ExMachina.Ecto, repo: @repo
@@ -17,7 +17,7 @@ defmodule ActivityPub.Factory do
 
   def local_actor(attrs \\ %{}) do
     # TODO: make into a generic adapter callback?
-    if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
+    if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Me.Fake) do
       attrs = attrs |> Enum.into(%{})
 
@@ -69,7 +69,7 @@ defmodule ActivityPub.Factory do
 
     id =
       attrs[:data]["id"] ||
-        ActivityPubWeb.base_url() <> ap_base_path <> "/actors/#{username}"
+        ActivityPub.Web.base_url() <> ap_base_path <> "/actors/#{username}"
 
     actor_object(id, username, attrs, true)
   end
@@ -148,7 +148,7 @@ defmodule ActivityPub.Factory do
     actor = attrs[:actor] || local_actor()
     note = build(:note, attrs |> Enum.into(%{actor: actor}))
 
-    if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
+    if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Social.Fake) do
       %{id: id} =
         post =
@@ -179,7 +179,7 @@ defmodule ActivityPub.Factory do
     note = attrs[:note] || local_note(attrs)
     activity = build(:note_activity, attrs |> Enum.into(%{actor: actor, note: note}))
 
-    if ActivityPub.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
+    if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Social.Fake) do
       # {:ok, ap_activity} = ActivityPub.Object.get_cached(pointer: id)
 

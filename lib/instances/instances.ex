@@ -21,7 +21,7 @@ defmodule ActivityPub.Instances do
 
     if federation_reachability_timeout_days > 0 do
       NaiveDateTime.add(
-        NaiveDateTime.utc_now(),
+        NaiveDateTime.utc_now(Calendar.ISO),
         -federation_reachability_timeout_days * 24 * 3600,
         :second
       )

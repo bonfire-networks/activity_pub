@@ -3,22 +3,22 @@
       "https://www.w3.org/ns/activitystreams",
       "https://w3id.org/security/v1"
    ],
-   "followers" : "https://guppe.local/u/bernie2020/followers",
-   "following" : "https://guppe.local/u/bernie2020/following",
+   "followers" : "https://group.local/u/bernie2020/followers",
+   "following" : "https://group.local/u/bernie2020/following",
    "icon" : {
       "mediaType" : "image/jpeg",
       "type" : "Image",
-      "url" : "https://guppe.local/f/guppe.png"
+      "url" : "https://group.local/f/guppe.png"
    },
-   "id" : "https://guppe.local/u/bernie2020",
-   "inbox" : "https://guppe.local/u/bernie2020/inbox",
-   "liked" : "https://guppe.local/u/bernie2020/liked",
+   "id" : "https://group.local/u/bernie2020",
+   "inbox" : "https://group.local/u/bernie2020/inbox",
+   "liked" : "https://group.local/u/bernie2020/liked",
    "name" : "Bernie2020 group",
-   "outbox" : "https://guppe.local/u/bernie2020/outbox",
+   "outbox" : "https://group.local/u/bernie2020/outbox",
    "preferredUsername" : "Bernie2020",
    "publicKey" : {
-      "id" : "https://guppe.local/u/bernie2020#main-key",
-      "owner" : "https://guppe.local/u/bernie2020",
+      "id" : "https://group.local/u/bernie2020#main-key",
+      "owner" : "https://group.local/u/bernie2020",
       "publicKeyPem" : "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAw4J8nSrdWWxFaipgWDhR\nbTFzHUGoFy7Gjdc6gg9ZWGWDm9ZU5Ct0C/4o72dXSWdyLbQGYMbWVHLI1LHWKSiC\nVtwIYoccQBaxfi5bCxsahWhhSNPfK8tVlySHvBy73ir8KUZm93eAYh1iE9x+Dk63\nInmi7wzjsqHSlu1KxPGYcnyxs+xxhlTUSd5LsPfO1b9sHMW+X4rEky7OC90veCdD\nsoHU+nCmf+2zJSlOrU7DAzqB4Axc9oS9Q5RlT3yARJQMeu6JyjJJP9CMbpGFbUNT\n5Gsw0km1Rc1rR4tUoz8pLUYtliEUK+/0EmHi2EHAT1ueEfMoGGbCaX/mCoMmAwYJ\nwIGYXmKn2/ARIJpw2XPmrKWXqa2AndOQdb3l44Sl3ej2rC/JQmimGCn7tbfKEZyC\n6mMkOYTIeBtyW/wXFc1+GzJxtvA3C9HjilE+O/7gLHfCLP6FRIxg/9kOLhEj64Ed\n5HZ3sylvifXXubS/lLZr6sZW6d9ICoYLZpFw9AoF2zaYWpvJqBrWinnCJzvbMCYj\nfq/RAkcQYSxkDOHquiGgbRZHGAMKLnz5fMKJIzBtdQojYCUmB14OArW+ITUE9i2a\nPAJaXEGZ+BHYp/0ScFaXwp5LIgT1S+sPKxWJU//77wQfs25i7NZHSN/jtXVmsFS6\nLFVw49LcWAz3J2Im+A+uSd8CAwEAAQ==\n-----END PUBLIC KEY-----\n"
    },
    "summary" : "I'm a group about Bernie2020. Follow me to get all the group posts. Tag me to share with the group. Create other groups by searching for or tagging @yourGroupName@gup.pe",

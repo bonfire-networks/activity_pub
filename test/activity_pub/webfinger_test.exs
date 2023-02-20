@@ -1,5 +1,5 @@
 defmodule ActivityPub.Federator.WebFingerTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
 
   alias ActivityPub.Federator.WebFinger
   alias ActivityPub.Actor
@@ -7,8 +7,8 @@ defmodule ActivityPub.Federator.WebFingerTest do
 
   import Tesla.Mock
 
-  setup do
-    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
+  setup_all do
+    mock_global(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 

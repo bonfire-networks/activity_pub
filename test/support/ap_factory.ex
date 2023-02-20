@@ -244,7 +244,11 @@ defmodule ActivityPub.Factory do
 
   def note_activity_factory(attrs \\ %{}) do
     note =
-      attrs[:note] || insert(:note, attrs |> Enum.into(%{actor: attrs[:actor] || insert(:actor)}))
+      attrs[:note] ||
+        insert(
+          :note,
+          attrs |> Map.drop(["inReplyTo"]) |> Enum.into(%{actor: attrs[:actor] || insert(:actor)})
+        )
 
     actor = note.data["actor"]
 

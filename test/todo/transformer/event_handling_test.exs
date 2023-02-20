@@ -9,23 +9,12 @@ defmodule ActivityPub.Federator.Transformer.EventHandlingTest do
   alias ActivityPub.Test.HttpRequestMock
   import Tesla.Mock
 
+  setup_all do
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
+    :ok
+  end
+
   test "Mobilizon Event object" do
-    Tesla.Mock.mock(fn
-      %{url: "https://mobilizon.local/events/252d5816-00a3-4a89-a66f-15bf65c33e39"} ->
-        %Tesla.Env{
-          status: 200,
-          body: file("fixtures/tesla_mock/mobilizon.org-event.json"),
-          headers: HttpRequestMock.activitypub_object_headers()
-        }
-
-      %{url: "https://mobilizon.local/@tcit"} ->
-        %Tesla.Env{
-          status: 200,
-          body: file("fixtures/tesla_mock/mobilizon.org-user.json"),
-          headers: HttpRequestMock.activitypub_object_headers()
-        }
-    end)
-
     assert {:ok, object} =
              Fetcher.fetch_object_from_id(
                "https://mobilizon.local/events/252d5816-00a3-4a89-a66f-15bf65c33e39"

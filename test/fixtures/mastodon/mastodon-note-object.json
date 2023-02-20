@@ -15,7 +15,7 @@
          "toot" : "http://joinmastodon.org/ns#"
       }
    ],
-   "atomUri" : "https://mastodon.local/users/admin/statuses/99541947525187367",
+   "atomUri" : "https://mastodon.local/users/admin/statuses/99512778738411822",
    "attachment" : [
       {
          "mediaType" : "image/jpeg",
@@ -30,7 +30,7 @@
    ],
    "content" : "<p>yeah.</p>",
    "conversation" : "tag:mastodon.local,2018-02-17:objectId=59:objectType=Conversation",
-   "id" : "https://mastodon.local/users/admin/statuses/99541947525187367",
+   "id" : "https://mastodon.local/users/admin/statuses/99512778738411822",
    "inReplyTo" : null,
    "inReplyToAtomUri" : null,
    "published" : "2018-02-17T17:46:20Z",
@@ -41,5 +41,5 @@
       "https://www.w3.org/ns/activitystreams#Public"
    ],
    "type" : "Note",
-   "url" : "https://mastodon.local/@admin/99541947525187367"
+   "url" : "https://mastodon.local/@admin/99512778738411822"
 }

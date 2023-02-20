@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: true
   use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
@@ -13,7 +13,7 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
@@ -48,11 +48,11 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
   test "it remaps video URLs as attachments if necessary" do
     {:ok, object} =
       Fetcher.fetch_object_from_id(
-        "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
+        "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
       )
 
     assert object.data["url"] ==
-             "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
+             "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
 
     assert object.data["attachment"] == [
              %{
@@ -61,7 +61,7 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
                "url" => [
                  %{
                    "href" =>
-                     "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
+                     "https://group.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
                    "mediaType" => "video/mp4",
                    "type" => "Link",
                    "width" => 480

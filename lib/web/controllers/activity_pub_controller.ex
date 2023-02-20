@@ -43,8 +43,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp object_json(conn, %{"uuid" => uuid}) do
-    # querying by pointer
     if Utils.is_ulid?(uuid) do
+      # querying by pointer - handle local objects
       with {:ok, object} <-
              Object.get_cached(pointer: uuid) ||
                Adapter.maybe_publish_object(uuid),
@@ -56,15 +56,13 @@ defmodule ActivityPub.Web.ActivityPubController do
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
-
-        # |> Phoenix.Controller.redirect(external: ap_route_helper(object.id))
-        # |> halt()
       else
         e ->
           error(e, "not found")
           ret_error(conn, "not found", 404)
       end
     else
+      # query by UUID
       with ap_id <- ap_route_helper(uuid),
            {:ok, object} <- Object.get_cached(ap_id: ap_id),
            true <- object.public do

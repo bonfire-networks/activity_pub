@@ -115,7 +115,7 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  defp can_delete_object?(ap_id) do
+  defp can_delete_remote_object?(ap_id) do
     debug(ap_id, "Checking delete permission for")
 
     case Fetcher.fetch_remote_object_from_id(ap_id) do
@@ -248,8 +248,8 @@ defmodule ActivityPub.Federator.Transformer do
     depth = (options[:depth] || 0) + 1
 
     if Fetcher.allowed_recursion?(depth) do
-      with {:ok, replied_object} <- get_obj_helper(in_reply_to_id, options),
-           %Object{} <- Fetcher.fetch_object_from_id(replied_object.data["id"]) do
+      with {:ok, replied_object} <- get_obj_helper(in_reply_to_id, options) do
+        # %Object{} <- Fetcher.fetch_object_from_id(replied_object.data["id"]) do
         object
         |> Map.put("inReplyTo", replied_object.data["id"])
         |> Map.put("context", replied_object.data["context"] || object["conversation"])
@@ -875,7 +875,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with {:ok, object} <- get_obj_helper(object_id),
          {:actor, false} <- {:actor, Actor.actor?(object)},
-         true <- can_delete_object?(object_id),
+         true <- can_delete_remote_object?(object_id),
          {:ok, activity} <- ActivityPub.delete(object, false) do
       {:ok, activity}
     else
@@ -1009,7 +1009,7 @@ defmodule ActivityPub.Federator.Transformer do
     maybe_handle_other_activity(data)
   end
 
-  def handle_incoming(data) do
+  def handle_incoming(%{"id" => id} = data) do
     info("Wrap standalone non-actor object in a Create activity?")
     debug(data)
 
@@ -1018,7 +1018,8 @@ defmodule ActivityPub.Federator.Transformer do
       "to" => data["to"],
       "cc" => data["cc"],
       "actor" => Object.actor_from_data(data),
-      "object" => data
+      "object" => data,
+      "id" => "#{id}#virtual_create_activity"
     })
   end
 
@@ -1052,8 +1053,10 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp get_obj_helper(id, opts \\ []) do
-    if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])),
-      do: {:ok, object},
-      else: nil
+    if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])) do
+      {:ok, object}
+    else
+      error(id, "no such object found")
+    end
   end
 end

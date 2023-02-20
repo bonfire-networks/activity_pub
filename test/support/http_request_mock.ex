@@ -11,21 +11,276 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
 
-  def request(
+  @sample_object "{\"actor\": \"https://mocked.local/users/karen\", \"id\": \"https://mocked.local/2\", \"to\": \"#{ActivityPub.Config.public_uri()}\"}"
+
+  def request(env) do
+    case env do
+      %{
+        method: :get,
+        url: "https://mocked.local/2"
+      } ->
         %Tesla.Env{
-          url: url,
-          method: method,
-          headers: headers,
-          query: query,
-          body: body
-        } = _env
-      ) do
-    with {:ok, res} <- apply(__MODULE__, method, [url, query, body, headers]) do
-      res
-    else
-      {_, _r} = error ->
-        # warn(r)
-        error
+          status: 200,
+          headers: [{"content-type", "application/activity+json"}],
+          body: @sample_object
+        }
+
+      %{
+        method: :get,
+        url: "https://mocked.local/2"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          headers: [
+            {"content-type",
+             "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""}
+          ],
+          body: @sample_object
+        }
+
+      %{
+        method: :get,
+        url: "https://mocked.local/2"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          headers: [
+            {"content-type",
+             "application/ld+json; profile=\"http://www.w3.org/ns/activitystreams\""}
+          ],
+          body: @sample_object
+        }
+
+      %{url: "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/wedistribute-user.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{url: "https://wedistribute.local/wp-json/pterotype/v1/object/85809"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/wedistribute-create-article.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{
+        method: :get,
+        url: "https://misskey.local/notes/934gok3482"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/misskey/recursive_quote.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{
+        method: :get,
+        url: "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/quoted_status.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{
+        method: :get,
+        url: "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/quoted_status.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{url: "https://lemmy.local/post/3"} ->
+        %Tesla.Env{
+          status: 200,
+          headers: [{"content-type", "application/activity+json"}],
+          body: file("fixtures/tesla_mock/lemmy-page.json")
+        }
+
+      %{url: "https://lemmy.local/u/nutomic"} ->
+        %Tesla.Env{
+          status: 200,
+          headers: [{"content-type", "application/activity+json"}],
+          body: file("fixtures/tesla_mock/lemmy-user.json")
+        }
+
+      %{url: "https://mobilizon.local/events/252d5816-00a3-4a89-a66f-15bf65c33e39"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/mobilizon.org-event.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{url: "https://mobilizon.local/@tcit"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/mobilizon.org-user.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{url: "https://funkwhale.local/federation/actors/compositions"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/funkwhale_channel.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{method: :get, url: "https://fedi.local/objects/410"} ->
+        %Tesla.Env{status: 410}
+
+      %{
+        method: :get,
+        url: "http://example.local/hello",
+        headers: [{"content-type", "application/json"}, _]
+      } ->
+        Tesla.Mock.json(%{"my" => "hello"})
+
+      %{method: :get, url: "http://example.local/hello"} ->
+        %Tesla.Env{status: 200, body: "hello"}
+
+      %{method: :get, url: "https://fedi.local/userisgone404"} ->
+        %Tesla.Env{status: 404}
+
+      %{method: :get, url: "https://fedi.local/userisgone410"} ->
+        %Tesla.Env{status: 410}
+
+      %{method: :get, url: "https://fedi.local/userisgone502"} ->
+        %Tesla.Env{status: 502}
+
+      %{method: :get, url: "https://mastodon.local/user/karen"} ->
+        ActivityPub.Test.HttpRequestMock.get(
+          "https://mastodon.local/users/admin",
+          nil,
+          nil,
+          nil
+        )
+
+      %{method: :get, url: "https://fedi.local/userisgone502"} ->
+        %Tesla.Env{status: 502}
+
+      %{
+        method: :get,
+        url: "https://mocked.local/users/emelie/collections/featured"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          headers: [{"content-type", "application/activity+json"}],
+          body:
+            Jason.encode!(%{
+              "id" => "https://mocked.local/users/emelie/collections/featured",
+              "type" => "OrderedCollection",
+              "actor" => "https://mocked.local/users/emelie",
+              "attributedTo" => "https://mocked.local/users/emelie",
+              "orderedItems" => [],
+              "totalItems" => 0
+            })
+        }
+
+      %{
+        method: :get,
+        url: "https://mocked.local/users/emelie/collections/featured"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          headers: [{"content-type", "application/activity+json"}],
+          body:
+            Jason.encode!(%{
+              "id" => "https://mocked.local/users/emelie/collections/featured",
+              "type" => "OrderedCollection",
+              "actor" => "https://mocked.local/users/emelie",
+              "attributedTo" => "https://mocked.local/users/emelie",
+              "orderedItems" => [],
+              "totalItems" => 0
+            })
+        }
+
+      %{url: "https://xyz.local/~/PlumeDevelopment/this-month-in-plume-june-2018/"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/baptiste.gelex.xyz-article.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{url: "https://xyz.local/@/BaptisteGelez"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/baptiste.gelex.xyz-user.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{url: "https://prismo.local/@mxb"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/tesla_mock/https___prismo.news__mxb.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{method: :get, url: "https://sakamoto.local/notice/9wTkLEnuq47B25EehM"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/fetch_mocks/9wTkLEnuq47B25EehM.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{method: :get, url: "https://sakamoto.local/users/eal"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/fetch_mocks/eal.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{method: :get, url: "https://busshi.local/users/tuxcrafting/statuses/104410921027210069"} ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/fetch_mocks/104410921027210069.json"),
+          headers: activitypub_object_headers()
+        }
+
+      %{method: :get, url: "https://busshi.local/users/tuxcrafting"} ->
+        %Tesla.Env{
+          status: 500
+        }
+
+      %{
+        method: :get,
+        url: "https://stereophonic.space/objects/02997b83-3ea7-4b63-94af-ef3aa2d4ed17"
+      } ->
+        %Tesla.Env{
+          status: 500
+        }
+
+      %{method: :get, url: "https://mastodon.local/users/userisgone"} ->
+        %Tesla.Env{status: 410}
+
+      %{method: :get, url: "https://mastodon.local/users/userisgone404"} ->
+        %Tesla.Env{status: 404}
+
+      %{
+        method: :get,
+        url:
+          "https://patch.local/media/03ca3c8b4ac3ddd08bf0f84be7885f2f88de0f709112131a22d83650819e36c2.json"
+      } ->
+        %Tesla.Env{
+          status: 200,
+          headers: [{"content-type", "application/json"}],
+          body: file("fixtures/spoofed-object.json")
+        }
+
+      %Tesla.Env{
+        url: url,
+        method: method,
+        headers: headers,
+        query: query,
+        body: body
+      } ->
+        with {:ok, res} <- apply(__MODULE__, method, [url, query, body, headers]) do
+          res
+        end
     end
   end
 
@@ -35,9 +290,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   def get(url, _, _, _)
       when url in [
-             "https://mastodon.local/@admin/99541947525187367",
-             "https://mastodon.local/users/admin/statuses/99541947525187367",
-             "https://mastodon.local/users/admin/statuses/99541947525187367/activity"
+             "https://mastodon.local/users/admin/statuses/99512778738411822/activity"
            ] do
     {:ok,
      %Tesla.Env{
@@ -50,8 +303,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
   def get(url, _, _, _)
       when url in [
              "https://mastodon.local/@admin/99512778738411822",
-             "https://mastodon.local/users/admin/statuses/99512778738411822",
-             "https://mastodon.local/users/admin/statuses/99512778738411822/activity"
+             "https://mastodon.local/users/admin/statuses/99512778738411822"
            ] do
     {:ok,
      %Tesla.Env{
@@ -74,6 +326,14 @@ defmodule ActivityPub.Test.HttpRequestMock do
      %Tesla.Env{
        status: 200,
        body: file("fixtures/pleroma_user_actor2.json")
+     }}
+  end
+
+  def get("https://group.local/u/bernie2020", _, _, _) do
+    {:ok,
+     %Tesla.Env{
+       status: 200,
+       body: file("fixtures/guppe-actor.json")
      }}
   end
 
@@ -436,7 +696,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://peertube2.local/accounts/7even", _, _, _) do
+  def get("https://group.local/accounts/7even", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -454,7 +714,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3", _, _, _) do
+  def get("https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,

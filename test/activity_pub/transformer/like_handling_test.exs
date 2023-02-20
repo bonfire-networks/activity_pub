@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.LikeHandlingTest do
-  use ActivityPub.DataCase, async: true
+  use ActivityPub.DataCase, async: false
 
+  alias ActivityPub.Actor
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Federator.Transformer
 
@@ -11,30 +12,31 @@ defmodule ActivityPub.Federator.Transformer.LikeHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
   test "it works for incoming likes" do
-    user = local_actor()
-
-    activity = insert(:note_activity, %{actor: user, status: "hello"})
+    actor = local_actor()
+    {:ok, note_actor} = Actor.get_cached(username: actor.username)
+    note_activity = insert(:note_activity, %{actor: note_actor})
+    delete_actor = insert(:actor)
 
     data =
       file("fixtures/mastodon/mastodon-like.json")
       |> Jason.decode!()
-      |> Map.put("object", activity.data["object"])
+      |> Map.put("object", note_activity.data["object"])
+      |> Map.put("actor", delete_actor.data["id"])
 
-    _actor = local_actor(ap_id: data["actor"], local: false)
+    _actor = actor(ap_id: data["actor"], local: false)
 
-    {:ok, %Activity{data: data, local: false} = activity} = Transformer.handle_incoming(data)
+    {:ok, %Object{data: data, local: false}} = Transformer.handle_incoming(data)
+    refute Enum.empty?(note_activity.data["to"])
 
-    refute Enum.empty?(activity.data["to"])
-
-    assert data["actor"] == "https://mastodon.local/users/admin"
+    assert data["actor"] == delete_actor.data["id"]
     assert data["type"] == "Like"
     assert data["id"] == "https://mastodon.local/users/admin#likes/2"
-    assert Object.get_ap_id(data["object"]) =~ activity.data["object"]
+    assert Object.get_ap_id(data["object"]) =~ note_activity.data["object"]
   end
 
   @tag :todo

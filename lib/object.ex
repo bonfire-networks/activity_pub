@@ -363,8 +363,9 @@ defmodule ActivityPub.Object do
   defp lazy_put_activity_defaults(map, activity_id, pointer) do
     map =
       map
-      |> Map.put_new_lazy("id", fn -> object_url(activity_id) end)
+      |> Map.put_new_lazy("id", fn -> map["url"] || object_url(activity_id) end)
       |> Map.put_new_lazy("published", &Utils.make_date/0)
+      |> debug
 
     # |> Map.put_new_lazy("context", &Utils.generate_id("contexts"))
 
@@ -386,12 +387,14 @@ defmodule ActivityPub.Object do
   defp lazy_put_object_defaults(map, activity_id, pointer, context) do
     map
     |> Map.put_new_lazy("id", fn ->
-      if is_binary(pointer) or is_map(pointer),
-        do: object_url(pointer),
-        else: Utils.generate_object_id()
+      map["url"] ||
+        if is_binary(pointer) or is_map(pointer),
+          do: object_url(pointer),
+          else: Utils.generate_object_id()
     end)
     |> Map.put_new_lazy("published", &Utils.make_date/0)
     |> Utils.maybe_put("context", context)
+    |> debug
   end
 
   def normalize(_, fetch_remote? \\ true, pointer \\ nil)
@@ -408,16 +411,20 @@ defmodule ActivityPub.Object do
     # end
   end
 
-  def normalize(ap_id, _, pointer) when is_binary(ap_id) and is_binary(pointer),
-    do: get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id)
+  def normalize(ap_id, fetch_remote?, pointer) when is_binary(ap_id) and is_binary(pointer),
+    do:
+      get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id) ||
+        maybe_fetch(ap_id, fetch_remote?)
 
-  def normalize(_, _, pointer) when is_binary(pointer),
+  def normalize(_, fetch_remote?, pointer) when is_binary(pointer),
     do: get_cached!(pointer: pointer)
 
-  def normalize(ap_id, _, _) when is_binary(ap_id),
-    do: get_cached!(ap_id: ap_id)
+  def normalize(ap_id, fetch_remote?, _) when is_binary(ap_id),
+    do: get_cached!(ap_id: ap_id) || maybe_fetch(ap_id, fetch_remote?)
 
-  def normalize(ap_id, true, _) when is_binary(ap_id) do
+  def normalize(_, _, _), do: nil
+
+  def maybe_fetch(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
     else
@@ -425,7 +432,7 @@ defmodule ActivityPub.Object do
     end
   end
 
-  def normalize(_, _, _), do: nil
+  def maybe_fetch(_, _), do: nil
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(%{data: data}), do: get_ap_id(data)

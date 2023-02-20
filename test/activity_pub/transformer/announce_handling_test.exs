@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
+  alias ActivityPub.Actor
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Test.HttpRequestMock
@@ -14,13 +15,62 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
+  test "it works for incoming announces" do
+    announce_actor = insert(:actor)
+    note = insert(:note)
+
+    data =
+      file("fixtures/mastodon/mastodon-announce.json")
+      |> Jason.decode!()
+      |> Map.put("actor", announce_actor.data["id"])
+      |> Map.put("object", note.data["id"])
+
+    {:ok, %Object{data: data, local: false}} = Transformer.handle_incoming(data)
+
+    assert data["actor"] == announce_actor.data["id"]
+    assert data["type"] == "Announce"
+
+    assert data["id"] ==
+             "https://mastodon.local/users/admin/statuses/99542391527669785/activity"
+
+    assert Object.get_ap_id(data["object"]) =~
+             note.data["id"]
+  end
+
+  test "it works for incoming announces with an existing activity" do
+    actor = local_actor()
+    {:ok, note_actor} = Actor.get_cached(username: actor.username)
+    note_activity = insert(:note_activity, %{actor: note_actor})
+    announce_actor = insert(:actor)
+
+    data =
+      file("fixtures/mastodon/mastodon-announce.json")
+      |> Jason.decode!()
+      |> Map.put("object", note_activity.data["object"])
+      |> Map.put("actor", announce_actor.data["id"])
+
+    {:ok, %Object{data: data, local: false}} = Transformer.handle_incoming(data)
+
+    assert data["actor"] == announce_actor.data["id"]
+    assert data["type"] == "Announce"
+
+    assert data["id"] ==
+             "https://mastodon.local/users/admin/statuses/99542391527669785/activity"
+
+    assert Object.get_ap_id(data["object"]) =~ note_activity.data["object"]
+
+    {:ok, fetched} = Fetcher.fetch_object_from_id(data["object"])
+
+    assert fetched.id == note_activity.id
+  end
+
   test "it works for incoming honk announces" do
-    user = local_actor(ap_id: "https://honktest/u/test", local: false)
-    other_user = local_actor()
+    user = actor(ap_id: "https://honktest/u/test", local: false)
+    other_user = actor()
     post = local_note_activity(%{actor: other_user, status: "bonkeronk"})
 
     announce = %{
@@ -44,7 +94,7 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
   test "it works for incoming announces with actor being inlined (kroeg)" do
     data = file("fixtures/kroeg-announce-with-inline-actor.json") |> Jason.decode!()
 
-    _user = local_actor(local: false, ap_id: data["actor"]["id"])
+    _user = actor(local: false, ap_id: data["actor"]["id"])
     other_user = local_actor()
 
     post = insert(:note_activity, %{actor: other_user, status: "kroegeroeg"})
@@ -62,7 +112,7 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
     data =
       file("fixtures/mastodon/mastodon-announce.json")
       |> Jason.decode!()
-      |> Map.put("object", "https://mastodon.local/users/admin/statuses/99541947525187367")
+      |> Map.put("object", "https://mastodon.local/users/admin/statuses/99512778738411822")
 
     Tesla.Mock.mock(fn
       %{method: :get} ->
@@ -73,10 +123,10 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
         }
 
       env ->
-        apply(HttpRequestMock, :request, [env])
+        HttpRequestMock.request(env)
     end)
 
-    _user = local_actor(local: false, ap_id: data["actor"])
+    _user = actor(local: false, ap_id: data["actor"])
 
     {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(data)
 
@@ -87,36 +137,9 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
              "https://mastodon.local/users/admin/statuses/99542391527669785/activity"
 
     assert Object.get_ap_id(data["object"]) =~
-             "https://mastodon.local/users/admin/statuses/99541947525187367"
+             "https://mastodon.local/users/admin/statuses/99512778738411822"
 
     assert {:ok, _} = Fetcher.fetch_object_from_id(data["object"])
-  end
-
-  @tag capture_log: true
-  test "it works for incoming announces with an existing activity" do
-    user = local_actor()
-    activity = insert(:note_activity, %{actor: user, status: "hey"})
-
-    data =
-      file("fixtures/mastodon/mastodon-announce.json")
-      |> Jason.decode!()
-      |> Map.put("object", activity.data["object"])
-
-    _user = local_actor(local: false, ap_id: data["actor"])
-
-    {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(data)
-
-    assert data["actor"] == "https://mastodon.local/users/admin"
-    assert data["type"] == "Announce"
-
-    assert data["id"] ==
-             "https://mastodon.local/users/admin/statuses/99542391527669785/activity"
-
-    assert Object.get_ap_id(data["object"]) =~ activity.data["object"]
-
-    {:ok, fetched} = Fetcher.fetch_object_from_id(data["object"])
-
-    assert fetched.id == activity.id
   end
 
   # Ignore inlined activities for now
@@ -157,7 +180,7 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
       file("fixtures/bogus-mastodon-announce.json")
       |> Jason.decode!()
 
-    _user = local_actor(local: false, ap_id: data["actor"])
+    _user = actor(local: false, ap_id: data["actor"])
 
     assert {:error, _e} = Transformer.handle_incoming(data)
   end

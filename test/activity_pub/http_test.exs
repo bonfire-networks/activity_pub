@@ -1,18 +1,11 @@
 defmodule ActivityPub.Federator.HTTPTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   import Tesla.Mock
 
-  setup do
-    mock(fn
-      %{
-        method: :get,
-        url: "http://example.local/hello",
-        headers: [{"content-type", "application/json"}, _]
-      } ->
-        json(%{"my" => "hello"})
-
-      %{method: :get, url: "http://example.local/hello"} ->
-        %Tesla.Env{status: 200, body: "hello"}
+  setup_all do
+    mock_global(fn
+      env ->
+        apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)
 
     :ok

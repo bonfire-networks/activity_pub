@@ -71,6 +71,7 @@ defmodule ActivityPub.Test.Helpers do
     |> Utils.ok_unwrap()
   end
 
+  def user_by_ap_id(%{pointer: %{} = user}), do: user
   def user_by_ap_id(%{"id" => id}), do: user_by_ap_id(id)
   def user_by_ap_id(user), do: user
 
@@ -127,4 +128,6 @@ defmodule ActivityPub.Test.Helpers do
       end
     end
   end
+
+  def stripped_object(object), do: Map.drop(object, [:object, :pointer, :pointer_id, :updated_at])
 end

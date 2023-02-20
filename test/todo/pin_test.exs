@@ -186,7 +186,7 @@
 #           }
 #       end)
 
-#       Tesla.Mock.mock_global(fn
+#       Tesla.Mock.mock(fn
 #         %{
 #           method: :get,
 #           url: ^object_url

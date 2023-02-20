@@ -36,17 +36,17 @@
    ],
    "attributedTo" : [
       {
-         "id" : "https://peertube2.local/video-channels/5224869f-aa63-4c83-ab3a-87c3a5ac440e",
+         "id" : "https://group.local/u/bernie2020",
          "type" : "Group"
       },
       {
-         "id" : "https://peertube2.local/accounts/7even",
+         "id" : "https://group.local/accounts/7even",
          "type" : "Person"
       }
    ],
    "cc" : [],
    "comments" : {
-      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/comments",
+      "id" : "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/comments",
       "orderedItems" : [],
       "totalItems" : 0,
       "type" : "OrderedCollection"
@@ -54,7 +54,7 @@
    "commentsEnabled" : true,
    "content" : "tfw\r\n\r\n\r\nsong is 'my old piano' by diana ross",
    "dislikes" : {
-      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/dislikes",
+      "id" : "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/dislikes",
       "orderedItems" : [],
       "totalItems" : 0,
       "type" : "OrderedCollection"
@@ -64,12 +64,12 @@
       "height" : 110,
       "mediaType" : "image/jpeg",
       "type" : "Image",
-      "url" : "https://peertube2.local/static/thumbnails/df5f464b-be8d-46fb-ad81-2d4c2d1630e3.jpg",
+      "url" : "https://group.local/static/thumbnails/df5f464b-be8d-46fb-ad81-2d4c2d1630e3.jpg",
       "width" : 200
    },
-   "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
+   "id" : "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
    "likes" : {
-      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/likes",
+      "id" : "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/likes",
       "orderedItems" : [],
       "totalItems" : 0,
       "type" : "OrderedCollection"
@@ -79,10 +79,10 @@
    "published" : "2018-03-23T16:43:22.988Z",
    "sensitive" : false,
    "shares" : {
-      "id" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces",
+      "id" : "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces",
       "orderedItems" : [
-         "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces/465",
-         "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces/1"
+         "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces/465",
+         "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3/announces/1"
       ],
       "totalItems" : 2,
       "type" : "OrderedCollection"
@@ -101,14 +101,14 @@
    "updated" : "2018-03-24T16:28:46.002Z",
    "url" : [
       {
-         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
+         "href" : "https://group.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
          "mimeType" : "video/mp4",
          "size" : 5015880,
          "type" : "Link",
          "width" : 480
       },
       {
-         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.torrent",
+         "href" : "https://group.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.torrent",
          "mimeType" : "application/x-bittorrent",
          "type" : "Link",
          "width" : 480
@@ -120,14 +120,14 @@
          "width" : 480
       },
       {
-         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.mp4",
+         "href" : "https://group.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.mp4",
          "mimeType" : "video/mp4",
          "size" : 3620040,
          "type" : "Link",
          "width" : 360
       },
       {
-         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.torrent",
+         "href" : "https://group.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-360.torrent",
          "mimeType" : "application/x-bittorrent",
          "type" : "Link",
          "width" : 360
@@ -139,14 +139,14 @@
          "width" : 360
       },
       {
-         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.mp4",
+         "href" : "https://group.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.mp4",
          "mimeType" : "video/mp4",
          "size" : 2305488,
          "type" : "Link",
          "width" : 240
       },
       {
-         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.torrent",
+         "href" : "https://group.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-240.torrent",
          "mimeType" : "application/x-bittorrent",
          "type" : "Link",
          "width" : 240
@@ -158,14 +158,14 @@
          "width" : 240
       },
       {
-         "href" : "https://peertube2.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.mp4",
+         "href" : "https://group.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.mp4",
          "mimeType" : "video/mp4",
          "size" : 7928231,
          "type" : "Link",
          "width" : 720
       },
       {
-         "href" : "https://peertube2.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.torrent",
+         "href" : "https://group.local/static/torrents/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-720.torrent",
          "mimeType" : "application/x-bittorrent",
          "type" : "Link",
          "width" : 720
@@ -177,7 +177,7 @@
          "width" : 720
       },
       {
-         "href" : "https://peertube2.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
+         "href" : "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3",
          "mimeType" : "text/html",
          "type" : "Link"
       }

@@ -31,7 +31,7 @@ defmodule ActivityPub.Utils do
 
   # def generate_context_id, do: generate_id("contexts")
 
-  def generate_object_id, do: generate_id("objects")
+  def generate_object_id, do: generate_id("objects") |> debug
 
   def generate_id(type), do: ap_base_url() <> "/#{type}/#{UUID.generate()}"
 

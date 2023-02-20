@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
@@ -18,13 +18,19 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
   setup do: clear_config([:instance, :max_remote_account_fields])
 
   describe "handle_incoming" do
+    test "it works for incoming create activity" do
+      data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+
+      assert %Object{data: _, local: false} = ok_unwrap(Transformer.handle_incoming(data))
+    end
+
     test "it works for incoming notices with tag not being an array (kroeg)" do
       data = file("fixtures/kroeg-array-less-emoji.json") |> Jason.decode!()
 
@@ -53,8 +59,8 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
 
       {:ok, returned_activity} = Transformer.handle_incoming(data)
 
-      assert activity |> Map.drop([:object, :pointer]) ==
-               returned_activity |> debug() |> Map.drop([:object, :pointer])
+      assert stripped_object(activity) ==
+               stripped_object(returned_activity)
     end
 
     @tag :todo
@@ -294,7 +300,7 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
       assert Transformer.fix_attachments(%{
                "attachment" => %{
                  "mediaType" => "video/mp4",
-                 "url" => "https://peertube2.local/stat-480.mp4"
+                 "url" => "https://group.local/stat-480.mp4"
                }
              }) == %{
                "attachment" => [
@@ -303,7 +309,7 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
                    "type" => "Document",
                    "url" => [
                      %{
-                       "href" => "https://peertube2.local/stat-480.mp4",
+                       "href" => "https://group.local/stat-480.mp4",
                        "mediaType" => "video/mp4",
                        "type" => "Link"
                      }

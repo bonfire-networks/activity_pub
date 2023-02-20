@@ -1,0 +1,64 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+      "toot": "http://joinmastodon.org/ns#",
+      "featured": {
+        "@id": "toot:featured",
+        "@type": "@id"
+      },
+      "alsoKnownAs": {
+        "@id": "as:alsoKnownAs",
+        "@type": "@id"
+      },
+      "movedTo": {
+        "@id": "as:movedTo",
+        "@type": "@id"
+      },
+      "schema": "http://schema.org#",
+      "PropertyValue": "schema:PropertyValue",
+      "value": "schema:value",
+      "Hashtag": "as:Hashtag",
+      "Emoji": "toot:Emoji",
+      "IdentityProof": "toot:IdentityProof",
+      "focalPoint": {
+        "@container": "@list",
+        "@id": "toot:focalPoint"
+      }
+    }
+  ],
+  "id": "https://mastodon.social/users/lambadalambda",
+  "type": "Person",
+  "following": "https://mastodon.social/users/lambadalambda/following",
+  "followers": "https://mastodon.social/users/lambadalambda/followers",
+  "inbox": "https://mastodon.social/users/lambadalambda/inbox",
+  "outbox": "https://mastodon.social/users/lambadalambda/outbox",
+  "featured": "https://mastodon.social/users/lambadalambda/collections/featured",
+  "preferredUsername": "lambadalambda",
+  "name": "Critical Value",
+  "summary": "\u003cp\u003e\u003c/p\u003e",
+  "url": "https://mastodon.social/@lambadalambda",
+  "manuallyApprovesFollowers": false,
+  "publicKey": {
+    "id": "https://mastodon.social/users/lambadalambda#main-key",
+    "owner": "https://mastodon.social/users/lambadalambda",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw0P/Tq4gb4G/QVuMGbJo\nC/AfMNcv+m7NfrlOwkVzcU47jgESuYI4UtJayissCdBycHUnfVUd9qol+eznSODz\nCJhfJloqEIC+aSnuEPGA0POtWad6DU0E6/Ho5zQn5WAWUwbRQqowbrsm/GHo2+3v\neR5jGenwA6sYhINg/c3QQbksyV0uJ20Umyx88w8+TJuv53twOfmyDWuYNoQ3y5cc\nHKOZcLHxYOhvwg3PFaGfFHMFiNmF40dTXt9K96r7sbzc44iLD+VphbMPJEjkMuf8\nPGEFOBzy8pm3wJZw2v32RNW2VESwMYyqDzwHXGSq1a73cS7hEnc79gXlELsK04L9\nQQIDAQAB\n-----END PUBLIC KEY-----\n"
+  },
+  "tag": [],
+  "attachment": [],
+  "endpoints": {
+    "sharedInbox": "https://mastodon.social/inbox"
+  },
+  "icon": {
+    "type": "Image",
+    "mediaType": "image/gif",
+    "url": "https://files.mastodon.social/accounts/avatars/000/000/264/original/1429214160519.gif"
+  },
+  "image": {
+    "type": "Image",
+    "mediaType": "image/gif",
+    "url": "https://files.mastodon.social/accounts/headers/000/000/264/original/28b26104f83747d2.gif"
+  }
+}

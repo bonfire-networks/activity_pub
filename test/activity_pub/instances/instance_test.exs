@@ -18,7 +18,7 @@ defmodule ActivityPub.Instances.InstanceTest do
 
   describe "set_reachable/1" do
     test "clears `unreachable_since` of existing matching Instance record having non-nil `unreachable_since`" do
-      instance = insert(:instance, unreachable_since: NaiveDateTime.utc_now())
+      instance = insert(:instance, unreachable_since: NaiveDateTime.utc_now(Calendar.ISO))
 
       assert {:ok, instance} = Instance.set_reachable(instance.host)
       refute instance.unreachable_since
@@ -62,7 +62,7 @@ defmodule ActivityPub.Instances.InstanceTest do
     test "does NOT modify `unreachable_since` value of existing record in case it's present" do
       instance =
         insert(:instance,
-          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10)
+          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(Calendar.ISO), -10)
         )
 
       assert instance.unreachable_since
@@ -79,12 +79,12 @@ defmodule ActivityPub.Instances.InstanceTest do
     test "sets `unreachable_since` value of existing record in case it's newer than supplied value" do
       instance =
         insert(:instance,
-          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10)
+          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(Calendar.ISO), -10)
         )
 
       assert instance.unreachable_since
 
-      past_value = NaiveDateTime.add(NaiveDateTime.utc_now(), -100)
+      past_value = NaiveDateTime.add(NaiveDateTime.utc_now(Calendar.ISO), -100)
       assert {:ok, _} = Instance.set_unreachable(instance.host, past_value)
 
       instance = repo().get(Instance, instance.id)
@@ -94,13 +94,14 @@ defmodule ActivityPub.Instances.InstanceTest do
     test "does NOT modify `unreachable_since` value of existing record in case it's equal to or older than supplied value" do
       instance =
         insert(:instance,
-          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(), -10)
+          unreachable_since: NaiveDateTime.add(NaiveDateTime.utc_now(Calendar.ISO), -10)
         )
 
       assert instance.unreachable_since
       initial_value = instance.unreachable_since
 
-      assert {:ok, _} = Instance.set_unreachable(instance.host, NaiveDateTime.utc_now())
+      assert {:ok, _} =
+               Instance.set_unreachable(instance.host, NaiveDateTime.utc_now(Calendar.ISO))
 
       instance = repo().get(Instance, instance.id)
       assert initial_value == instance.unreachable_since

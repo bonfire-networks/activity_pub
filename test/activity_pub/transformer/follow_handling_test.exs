@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.FollowHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Utils
@@ -14,7 +14,7 @@ defmodule ActivityPub.Federator.Transformer.FollowHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 

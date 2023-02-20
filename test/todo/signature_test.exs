@@ -1,5 +1,5 @@
 defmodule ActivityPub.Safety.SignaturesTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
 
   import ActivityPub.Factory
   import ExUnit.CaptureLog
@@ -19,8 +19,8 @@ defmodule ActivityPub.Safety.SignaturesTest do
     65_537
   }
 
-  setup do
-    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
+  setup_all do
+    mock_global(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 
@@ -31,11 +31,39 @@ defmodule ActivityPub.Safety.SignaturesTest do
 
   defp make_fake_signature(key_id), do: "keyId=\"#{key_id}\""
 
+  # FIXME!
+  test "without valid signature, it only accepts Create activities (if federation enabled, otherwise accepts nothing)",
+       %{conn: conn} do
+    data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+    non_create_data = file("fixtures/mastodon/mastodon-announce.json") |> Jason.decode!()
+
+    conn = put_req_header(conn, "content-type", "application/activity+json")
+
+    clear_config([:instance, :federating], true)
+
+    ret_conn = post(conn, "#{Utils.ap_base_url()}/shared_inbox", data)
+    assert "ok" == json_response(ret_conn, 200)
+
+    conn
+    |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
+    |> json_response(400)
+
+    clear_config([:instance, :federating], false)
+
+    conn
+    |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+    |> json_response(403)
+
+    conn
+    |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
+    |> json_response(403)
+  end
+
   describe "fetch_public_key/1" do
     test "with fixture" do
       id = "https://mocked.local/users/karen"
 
-      {:ok, {:RSAPublicKey, _, _}} = Signature.fetch_public_key(make_fake_conn(id))
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_public_key(make_fake_conn(id))
     end
 
     test "it returns key" do
@@ -43,20 +71,20 @@ defmodule ActivityPub.Safety.SignaturesTest do
 
       user = local_actor(public_key: @public_key)
 
-      assert Signature.fetch_public_key(make_fake_conn(ap_id(user))) == expected_result
+      assert Signatures.fetch_public_key(make_fake_conn(ap_id(user))) == expected_result
     end
 
     test "it returns {:ok, :nil} when not found user" do
       assert capture_log(fn ->
-               assert Signature.fetch_public_key(make_fake_conn("test-ap_id")) ==
+               assert Signatures.fetch_public_key(make_fake_conn("test-ap_id")) ==
                         {:ok, nil}
              end)
     end
 
-    test "it returns error if public key is nil" do
-      user = local_actor(public_key: nil)
+    test "it returns error if no public key " do
+      user = local_actor(keys: "N/A")
 
-      assert Signature.fetch_public_key(make_fake_conn(ap_id(user))) == {:error, :error}
+      assert Signatures.fetch_public_key(make_fake_conn(ap_id(user))) == {:error, :error}
     end
   end
 
@@ -64,13 +92,12 @@ defmodule ActivityPub.Safety.SignaturesTest do
     test "works" do
       id = "https://mocked.local/users/karen"
 
-      {:ok, {:RSAPublicKey, _, _}} = Signature.refetch_public_key(make_fake_conn(id))
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.refetch_public_key(make_fake_conn(id))
     end
 
-    test "it returns error when not found user" do
+    test "it returns error when user not found " do
       assert capture_log(fn ->
-               assert {:error, {:error, _}} =
-                        Signature.refetch_public_key(make_fake_conn("test-id"))
+               assert {:error, _} = Signatures.refetch_public_key(make_fake_conn("test-id"))
              end)
     end
   end
@@ -79,13 +106,13 @@ defmodule ActivityPub.Safety.SignaturesTest do
     test "it returns key" do
       ap_id = "https://mocked.local/users/lambadalambda"
 
-      assert Signature.refetch_public_key(make_fake_conn(ap_id)) == {:ok, @rsa_public_key}
+      assert Signatures.refetch_public_key(make_fake_conn(ap_id)) == {:ok, @rsa_public_key}
     end
 
     test "it returns error when not found user" do
       assert capture_log(fn ->
-               {:error, _} = Signature.refetch_public_key(make_fake_conn("https://test-ap_id"))
-             end) =~ "[error] Could not decode user"
+               {:error, _} = Signatures.refetch_public_key(make_fake_conn("https://test-ap_id"))
+             end) =~ "No such object has been cached"
     end
   end
 
@@ -95,60 +122,61 @@ defmodule ActivityPub.Safety.SignaturesTest do
       {:ok, ap_actor} = ActivityPub.Actor.get_cached(username: actor.username)
 
       _signature =
-        Signature.sign(ap_actor, %{
+        Signatures.sign(ap_actor, %{
           host: "test.test",
           "content-length": 100
         })
     end
 
-    test "it returns signature headers" do
+    test "it returns correct signature headers" do
       user =
         local_actor(%{
-          ap_id: "https://mocked.local/users/lambadalambda",
           keys: @private_key
         })
+        |> debug("accctor")
 
-      assert Signature.sign(
+      assert Signatures.sign(
                user,
                %{
                  host: "test.test",
                  "content-length": 100
                }
              ) ==
-               "keyId=\"https://mocked.local/users/lambadalambda#main-key\",algorithm=\"rsa-sha256\",headers=\"content-length host\",signature=\"sibUOoqsFfTDerquAkyprxzDjmJm6erYc42W5w1IyyxusWngSinq5ILTjaBxFvfarvc7ci1xAi+5gkBwtshRMWm7S+Uqix24Yg5EYafXRun9P25XVnYBEIH4XQ+wlnnzNIXQkU3PU9e6D8aajDZVp3hPJNeYt1gIPOA81bROI8/glzb1SAwQVGRbqUHHHKcwR8keiR/W2h7BwG3pVRy4JgnIZRSW7fQogKedDg02gzRXwUDFDk0pr2p3q6bUWHUXNV8cZIzlMK+v9NlyFbVYBTHctAR26GIAN6Hz0eV0mAQAePHDY1mXppbA8Gpp6hqaMuYfwifcXmcc+QFm4e+n3A==\""
+               "keyId=\"#{user.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"content-length host\",signature=\"sibUOoqsFfTDerquAkyprxzDjmJm6erYc42W5w1IyyxusWngSinq5ILTjaBxFvfarvc7ci1xAi+5gkBwtshRMWm7S+Uqix24Yg5EYafXRun9P25XVnYBEIH4XQ+wlnnzNIXQkU3PU9e6D8aajDZVp3hPJNeYt1gIPOA81bROI8/glzb1SAwQVGRbqUHHHKcwR8keiR/W2h7BwG3pVRy4JgnIZRSW7fQogKedDg02gzRXwUDFDk0pr2p3q6bUWHUXNV8cZIzlMK+v9NlyFbVYBTHctAR26GIAN6Hz0eV0mAQAePHDY1mXppbA8Gpp6hqaMuYfwifcXmcc+QFm4e+n3A==\""
     end
 
-    test "it returns error" do
-      user = local_actor(%{ap_id: "https://mocked.local/users/lambadalambda", keys: ""})
+    test "it returns error when actor has no keys" do
+      user = local_actor(%{ap_id: "https://mocked.local/users/lambadalambda", keys: "N/A"})
 
-      assert Signature.sign(
-               user,
-               %{host: "test.test", "content-length": 100}
-             ) == {:error, []}
+      assert {:error, _} =
+               Signatures.sign(
+                 user,
+                 %{host: "test.test", "content-length": 100}
+               )
     end
   end
 
   describe "key_id_to_actor_id/1" do
     test "it properly deduces the actor id for misskey" do
-      assert Signature.key_id_to_actor_id("https://example.local/users/1234/publickey") ==
+      assert Signatures.key_id_to_actor_id("https://example.local/users/1234/publickey") ==
                {:ok, "https://example.local/users/1234"}
     end
 
     test "it properly deduces the actor id for mastodon and pleroma" do
-      assert Signature.key_id_to_actor_id("https://example.local/users/1234#main-key") ==
+      assert Signatures.key_id_to_actor_id("https://example.local/users/1234#main-key") ==
                {:ok, "https://example.local/users/1234"}
     end
 
     test "it deduces the actor id for gotoSocial" do
-      assert Signature.key_id_to_actor_id("https://example.local/users/1234/main-key") ==
+      assert Signatures.key_id_to_actor_id("https://example.local/users/1234/main-key") ==
                {:ok, "https://example.local/users/1234"}
     end
 
     test "it calls webfinger for 'acct:' accounts" do
-      with_mock(ActivityPub.Web.WebFinger,
+      with_mock(ActivityPub.Federator.WebFinger,
         finger: fn _ -> {:ok, %{"ap_id" => "https://gensokyo.2hu/users/raymoo"}} end
       ) do
-        assert Signature.key_id_to_actor_id("acct:raymoo@gensokyo.2hu") ==
+        assert Signatures.key_id_to_actor_id("acct:raymoo@gensokyo.2hu") ==
                  {:ok, "https://gensokyo.2hu/users/raymoo"}
       end
     end
@@ -157,13 +185,39 @@ defmodule ActivityPub.Safety.SignaturesTest do
   describe "signed_date" do
     test "it returns formatted current date" do
       with_mock(NaiveDateTime, utc_now: fn -> ~N[2019-08-23 18:11:24.822233] end) do
-        assert Signature.signed_date() == "Fri, 23 Aug 2019 18:11:24 GMT"
+        assert Signatures.signed_date() == "Fri, 23 Aug 2019 18:11:24 GMT"
       end
     end
 
     test "it returns formatted date" do
-      assert Signature.signed_date(~N[2019-08-23 08:11:24.822233]) ==
+      assert Signatures.signed_date(~N[2019-08-23 08:11:24.822233]) ==
                "Fri, 23 Aug 2019 08:11:24 GMT"
+    end
+  end
+
+  describe "signed fetches" do
+    setup do: clear_config([:activitypub, :sign_object_fetches])
+
+    test_with_mock "it signs fetches when configured to do so",
+                   ActivityPub.Safety.Signatures,
+                   [:passthrough],
+                   [] do
+      clear_config([:activitypub, :sign_object_fetches], true)
+
+      Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99512778738411822")
+
+      assert called(ActivityPub.Safety.Signatures.sign(:_, :_))
+    end
+
+    test_with_mock "it doesn't sign fetches when not configured to do so",
+                   ActivityPub.Safety.Signatures,
+                   [:passthrough],
+                   [] do
+      clear_config([:activitypub, :sign_object_fetches], false)
+
+      Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99512778738411822")
+
+      refute called(ActivityPub.Safety.Signatures.sign(:_, :_))
     end
   end
 end

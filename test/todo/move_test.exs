@@ -5,6 +5,11 @@ defmodule ActivityPub.MoveTest do
   alias ActivityPub.Object
   import Tesla.Mock
 
+  setup_all do
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
+    :ok
+  end
+
   describe "Move activity" do
     test "create" do
       old_user = local_actor()
@@ -71,7 +76,7 @@ defmodule ActivityPub.MoveTest do
       old_ap_id = ap_id(old_user)
       new_user = local_actor(also_known_as: [old_ap_id])
       new_ap_id = ap_id(new_user)
-      follower_remote = local_actor(local: false)
+      follower_remote = actor(local: false)
 
       follow(follower_remote, old_user)
 

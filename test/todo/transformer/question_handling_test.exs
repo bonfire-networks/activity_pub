@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.QuestionHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: true
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object
@@ -13,7 +13,7 @@ defmodule ActivityPub.Federator.Transformer.QuestionHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
@@ -163,10 +163,8 @@ defmodule ActivityPub.Federator.Transformer.QuestionHandlingTest do
 
     {:ok, activity_2} = Transformer.handle_incoming(data)
 
-    assert activity
-           |> Map.drop([:pointer, :pointer_id]) ==
-             activity_2
-             |> Map.drop([:pointer, :pointer_id])
+    assert stripped_object(activity) ==
+             stripped_object(activity_2)
   end
 
   test "accepts a Question with no content" do

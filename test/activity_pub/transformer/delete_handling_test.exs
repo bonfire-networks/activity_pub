@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
@@ -16,7 +16,7 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
@@ -87,9 +87,13 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     assert match?({:error, _}, Transformer.handle_incoming(data))
   end
 
-  @tag capture_log: true
   test "it works for incoming user deletes" do
-    ap_id = ap_id(local_actor(ap_id: "https://mastodon.local/users/admin"))
+    %{data: %{"id" => ap_id}} =
+      insert(:actor, %{
+        data: %{"id" => "https://mastodon.local/users/admin"}
+      })
+
+    assert Object.get_cached!(ap_id: ap_id)
 
     data =
       file("fixtures/mastodon/mastodon-delete-user.json")
@@ -98,7 +102,55 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     {:ok, _} = Transformer.handle_incoming(data)
     ObanHelpers.perform_all()
 
-    refute user_by_ap_id(ap_id).is_active
+    refute Object.get_cached!(ap_id: ap_id)
+  end
+
+  test "it works for incoming deletes when object was deleted on origin instance" do
+    note = insert(:note, %{data: %{"id" => "https://fedi.local/objects/410"}})
+
+    activity = insert(:note_activity, %{note: note})
+
+    data =
+      file("fixtures/mastodon/mastodon-delete.json")
+      |> Jason.decode!()
+
+    object =
+      data["object"]
+      |> Map.put("id", activity.data["object"])
+
+    data =
+      data
+      |> Map.put("object", object)
+      |> Map.put("actor", activity.data["actor"])
+
+    {:ok, %Object{local: false}} = Transformer.handle_incoming(data)
+
+    object = Object.get_cached!(ap_id: note.data["id"])
+    assert object.data["type"] == "Tombstone"
+  end
+
+  test "it errors when note still exists" do
+    note_data =
+      file("fixtures/pleroma_note.json")
+      |> Jason.decode!()
+
+    note = insert(:note, data: note_data)
+    activity = insert(:note_activity, %{note: note})
+
+    data =
+      file("fixtures/mastodon/mastodon-delete.json")
+      |> Jason.decode!()
+
+    object =
+      data["object"]
+      |> Map.put("id", activity.data["object"])
+
+    data =
+      data
+      |> Map.put("object", object)
+      |> Map.put("actor", activity.data["actor"])
+
+    assert {:error, _} = Transformer.handle_incoming(data)
   end
 
   test "it fails for incoming user deletes with spoofed origin" do

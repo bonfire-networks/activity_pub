@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: true
   use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
@@ -18,7 +18,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
@@ -26,18 +26,6 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
 
   describe "fix_quote_url/1" do
     test "a misskey quote should work", _ do
-      Tesla.Mock.mock(fn %{
-                           method: :get,
-                           url:
-                             "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
-                         } ->
-        %Tesla.Env{
-          status: 200,
-          body: file("fixtures/quoted_status.json"),
-          headers: HttpRequestMock.activitypub_object_headers()
-        }
-      end)
-
       local_actor(%{ap_id: "https://misskey.local/users/93492q0ip0"})
       local_actor(%{ap_id: "https://example.local/users/user"})
 
@@ -51,18 +39,6 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     end
 
     test "a fedibird quote should work", _ do
-      Tesla.Mock.mock(fn %{
-                           method: :get,
-                           url:
-                             "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
-                         } ->
-        %Tesla.Env{
-          status: 200,
-          body: file("fixtures/quoted_status.json"),
-          headers: HttpRequestMock.activitypub_object_headers()
-        }
-      end)
-
       local_actor(%{ap_id: "https://fedibird.local/users/akkoma_ap_integration_tester"})
       local_actor(%{ap_id: "https://example.local/users/user"})
 
@@ -78,17 +54,6 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
 
     test "quote fetching should stop after n levels", _ do
       clear_config([:instance, :federation_incoming_max_recursion], 1)
-
-      Tesla.Mock.mock(fn %{
-                           method: :get,
-                           url: "https://misskey.local/notes/934gok3482"
-                         } ->
-        %Tesla.Env{
-          status: 200,
-          body: file("fixtures/misskey/recursive_quote.json"),
-          headers: HttpRequestMock.activitypub_object_headers()
-        }
-      end)
 
       local_actor(%{ap_id: "https://misskey.local/users/93492q0ip0"})
 

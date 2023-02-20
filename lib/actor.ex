@@ -211,7 +211,7 @@ defmodule ActivityPub.Actor do
   end
 
   defp check_if_time_to_update(actor) do
-    (NaiveDateTime.diff(NaiveDateTime.utc_now(), actor.updated_at) >= 86_400)
+    (NaiveDateTime.diff(NaiveDateTime.utc_now(Calendar.ISO), actor.updated_at) >= 86_400)
     |> info("Time to update the actor?")
   end
 
@@ -528,7 +528,7 @@ defmodule ActivityPub.Actor do
     else
       e ->
         warn(e)
-        fetch_by_ap_id(data)
+        fetch_by_ap_id(ap_id)
     end
   end
 
@@ -536,7 +536,7 @@ defmodule ActivityPub.Actor do
     object
     |> Ecto.Changeset.change(%{
       data: data,
-      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      updated_at: NaiveDateTime.utc_now(Calendar.ISO) |> NaiveDateTime.truncate(:second)
     })
     |> Object.update_and_set_cache()
   end

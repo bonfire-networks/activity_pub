@@ -1,11 +1,16 @@
 defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   use Oban.Testing, repo: repo(), async: true
 
   import ActivityPub.Factory
   import Tesla.Mock
 
   alias ActivityPub.Federator.Transformer
+
+  setup_all do
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
+    :ok
+  end
 
   test "it accepts Add/Remove activities" do
     user =
@@ -98,7 +103,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
   end
 
   test "Add/Remove activities for remote users without featured address" do
-    user = local_actor(local: false, domain: "example.com")
+    user = actor(local: false, domain: "example.com")
 
     user =
       user

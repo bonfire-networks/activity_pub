@@ -1,12 +1,12 @@
 defmodule ActivityPub.Federator.APPublisherTest do
-  alias ActivityPub.Actor
+  use ActivityPub.DataCase, async: false
   alias ActivityPub.Federator.APPublisher
   import ActivityPub.Factory
   import Tesla.Mock
-  use ActivityPub.DataCase
+  alias ActivityPub.Actor
 
-  setup do
-    mock(fn
+  setup_all do
+    mock_global(fn
       %{method: :post} -> %Tesla.Env{status: 200}
     end)
 

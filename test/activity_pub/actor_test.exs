@@ -1,16 +1,13 @@
 defmodule ActivityPub.ActorTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   import Tesla.Mock
 
   alias ActivityPub.Actor
 
   import ActivityPub.Factory
 
-  setup do
-    mock(fn
-      %{method: :get, url: "https://fedi.local/userisgone502"} ->
-        %Tesla.Env{status: 502}
-
+  setup_all do
+    mock_global(fn
       env ->
         apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)

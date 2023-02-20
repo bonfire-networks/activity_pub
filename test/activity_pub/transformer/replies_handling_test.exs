@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: false
   use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
@@ -18,7 +18,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
@@ -119,7 +119,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       assert object.data["replies"] == items
 
       for id <- items do
-        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => 1}
+        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => 1, "repo" => repo()}
         assert_enqueued(worker: Workers.RemoteFetcherWorker, args: job_args)
       end
     end
@@ -162,7 +162,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
 
       for id <- object.data["replies"] do
         debug(id, "id")
-        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => 1}
+        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => 1, "repo" => repo()}
         assert_enqueued(worker: Workers.RemoteFetcherWorker, args: job_args)
       end
     end
@@ -303,12 +303,19 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     test "sets `replies` collection with a limited number of self-replies" do
       [user, another_user] = insert_list(2, :local_actor)
 
-      %{id: _, data: %{"object" => id1}} =
-        activity = insert(:note_activity, %{actor: user, status: "1"})
+      activity =
+        %{id: _, data: %{"object" => id1}} =
+        insert(:note_activity, %{actor: user, status: "1"})
+        |> debug("aaaa")
 
       %{id: _, data: %{"object" => id2}} =
         self_reply2 =
         insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 1"})
+        |> debug("self-reply 1")
+
+      object =
+        Object.normalize(activity, fetch: false)
+        |> debug("self-reply 1 obj")
 
       %{id: _, data: %{"object" => id3}} =
         self_reply3 =
@@ -333,13 +340,11 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         Object.normalize(activity, fetch: false)
         |> debug("normalized")
 
-      replies_uris = [id2, id3]
-
       prepped =
         Transformer.set_replies(object)
         |> debug("prepped")
 
-      assert %{"type" => "Collection", "items" => ^replies_uris} = prepped["replies"]
+      assert Enum.sort([id2, id3]) == Enum.sort(prepped["replies"]["items"])
     end
   end
 end

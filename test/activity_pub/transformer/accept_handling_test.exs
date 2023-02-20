@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.AcceptHandlingTest do
-  use ActivityPub.DataCase, async: true
+  use ActivityPub.DataCase, async: false
 
   alias ActivityPub.Federator.Transformer
 
@@ -10,7 +10,7 @@ defmodule ActivityPub.Federator.Transformer.AcceptHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
@@ -87,6 +87,7 @@ defmodule ActivityPub.Federator.Transformer.AcceptHandlingTest do
         where: fragment("?->>'type' = ?", a.data, "Accept")
       )
       |> repo().all()
+      |> debug("accepts")
 
     assert length(accepts) == 1
 

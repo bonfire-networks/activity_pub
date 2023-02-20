@@ -32,7 +32,7 @@ defmodule ActivityPub.MRF do
 
   @spec subdomains_regex([String.t()]) :: [Regex.t()]
   def subdomains_regex(domains) when is_list(domains) do
-    for domain <- domains do
+    for domain <- List.flatten(domains) do
       domain =
         domain
         |> String.replace(".", "\\.")

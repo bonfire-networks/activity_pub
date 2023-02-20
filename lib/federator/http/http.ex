@@ -45,26 +45,29 @@ defmodule ActivityPub.Federator.HTTP do
     options =
       process_request_options(options)
       |> process_sni_options(url)
-
-    # |> info("options")
+      |> debug("options")
 
     params = Keyword.get(options, :params, [])
 
-    %{}
-    |> Builder.method(method)
-    |> Builder.headers(
-      headers ++
-        [
-          {"User-Agent",
-           Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"}
-        ]
+    Tesla.request(
+      Connection.new(options),
+      %{}
+      |> Builder.method(method)
+      |> Builder.headers(
+        headers ++
+          [
+            {"User-Agent",
+             Application.get_env(:activity_pub, :http)[:user_agent] ||
+               "ActivityPub Elixir library"}
+          ]
+      )
+      |> Builder.opts(options)
+      |> Builder.url(url)
+      |> Builder.add_param(:body, :body, body)
+      |> Builder.add_param(:query, :query, params)
+      |> Enum.into([])
+      |> debug("built")
     )
-    |> Builder.opts(options)
-    |> Builder.url(url)
-    |> Builder.add_param(:body, :body, body)
-    |> Builder.add_param(:query, :query, params)
-    |> Enum.into([])
-    |> (&Tesla.request(Connection.new(options), &1)).()
   end
 
   defp process_request_options(options) do

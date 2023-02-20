@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.RejectHandlingTest do
-  use ActivityPub.DataCase, async: true
+  use ActivityPub.DataCase, async: false
 
   alias ActivityPub.Object
   alias ActivityPub.Object, as: Activity
@@ -13,13 +13,16 @@ defmodule ActivityPub.Federator.Transformer.RejectHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
   test "it rejects incoming follow requests from blocked users " do
     user = local_actor()
-    {:ok, target} = ActivityPub.Actor.get_or_fetch_by_ap_id("https://mastodon.local/users/admin")
+
+    {:ok, target} =
+      ActivityPub.Actor.get_or_fetch_by_ap_id("https://mastodon.local/users/admin")
+      |> debug("targettt")
 
     {:ok, _user_relationship} = block(user, target)
 
@@ -30,7 +33,7 @@ defmodule ActivityPub.Federator.Transformer.RejectHandlingTest do
 
     {:ok, %Activity{data: %{"id" => id}}} = Transformer.handle_incoming(data)
 
-    %Activity{} = activity = Activity.get_cached(id: id)
+    {:ok, activity} = Activity.get_cached(ap_id: id)
 
     assert activity.data["state"] == "reject"
   end
@@ -97,9 +100,7 @@ defmodule ActivityPub.Federator.Transformer.RejectHandlingTest do
 
       {:ok, %Activity{data: _}} = Transformer.handle_incoming(reject_data)
 
-      follower = user_by_ap_id(follower)
-
-      refute following?(follower, followed)
+      refute following?(user_by_ap_id(follower), user_by_ap_id(followed))
       assert Object.fetch_latest_follow(follower, followed).data["state"] == "reject"
     end
 

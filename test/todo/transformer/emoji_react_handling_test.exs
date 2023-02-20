@@ -12,13 +12,13 @@ defmodule ActivityPub.Federator.Transformer.EmojiReactHandlingTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock_global(fn env -> apply(HttpRequestMock, :request, [env]) end)
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 
   test "it works for incoming emoji reactions" do
     user = local_actor()
-    other_user = local_actor(local: false)
+    other_user = actor(local: false)
     activity = insert(:note_activity, %{actor: user, status: "hello"})
 
     data =
@@ -43,7 +43,7 @@ defmodule ActivityPub.Federator.Transformer.EmojiReactHandlingTest do
 
   test "it works for incoming custom emoji reactions" do
     user = local_actor()
-    other_user = local_actor(local: false)
+    other_user = actor(local: false)
     activity = insert(:note_activity, %{actor: user, status: "hello"})
 
     data =
@@ -92,7 +92,7 @@ defmodule ActivityPub.Federator.Transformer.EmojiReactHandlingTest do
 
   test "it works for incoming unqualified emoji reactions" do
     user = local_actor()
-    other_user = local_actor(local: false)
+    other_user = actor(local: false)
     activity = insert(:note_activity, %{actor: user, status: "hello"})
 
     # woman detective emoji, unqualified
@@ -124,7 +124,7 @@ defmodule ActivityPub.Federator.Transformer.EmojiReactHandlingTest do
 
   test "it reject invalid emoji reactions" do
     user = local_actor()
-    other_user = local_actor(local: false)
+    other_user = actor(local: false)
     activity = insert(:note_activity, %{actor: user, status: "hello"})
 
     data =

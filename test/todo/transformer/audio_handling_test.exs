@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.AudioHandlingTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: true
   use Oban.Testing, repo: repo()
 
   alias ActivityPub.Object, as: Activity
@@ -11,16 +11,12 @@ defmodule ActivityPub.Federator.Transformer.AudioHandlingTest do
   alias ActivityPub.Test.HttpRequestMock
   import Tesla.Mock
 
-  test "Funkwhale Audio object" do
-    Tesla.Mock.mock(fn
-      %{url: "https://funkwhale.local/federation/actors/compositions"} ->
-        %Tesla.Env{
-          status: 200,
-          body: file("fixtures/tesla_mock/funkwhale_channel.json"),
-          headers: HttpRequestMock.activitypub_object_headers()
-        }
-    end)
+  setup_all do
+    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
+    :ok
+  end
 
+  test "Funkwhale Audio object" do
     data = file("fixtures/tesla_mock/funkwhale_create_audio.json") |> Jason.decode!()
 
     {:ok, %Activity{local: false} = activity} = Transformer.handle_incoming(data)

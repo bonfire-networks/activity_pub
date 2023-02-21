@@ -256,4 +256,14 @@ defmodule ActivityPub.Utils do
   rescue
     _ -> data
   end
+
+  def maybe_to_atom(str) when is_binary(str) do
+    try do
+      String.to_existing_atom(str)
+    rescue
+      ArgumentError -> str
+    end
+  end
+
+  def maybe_to_atom(other), do: other
 end

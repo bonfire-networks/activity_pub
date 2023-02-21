@@ -160,7 +160,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_summary(object), do: Map.put(object, "summary", "")
 
   def fix_addressing_list(map, field) do
-    addrs = map[field]
+    addrs = Map.get(map, field)
 
     cond do
       is_list(addrs) ->
@@ -525,21 +525,28 @@ defmodule ActivityPub.Federator.Transformer do
     }
   end
 
-  defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies != [],
-    do: Fetcher.maybe_fetch_async(replies)
+  defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies != [] do
+    # Fetcher.maybe_fetch_async(replies)
+    # FIXME: seems like too much recursion is triggered here
+    replies
+  end
 
   defp fix_replies(%{"replies" => %{"items" => replies}} = data)
-       when is_list(replies) and replies != [],
-       do: Map.put(data, "replies", Fetcher.maybe_fetch_async(replies))
+       when is_list(replies) and replies != [] do
+    Map.put(data, "replies", [])
+    # FIXME: seems like too much recursion is triggered here
+    # Map.put(data, "replies", Fetcher.maybe_fetch_async(replies))
+  end
 
   defp fix_replies(%{"replies" => %{"first" => first}} = data) do
-    with {:ok, replies} <- Fetcher.fetch_collection(first, fetch_entries: :async) do
-      Map.put(data, "replies", replies)
-    else
-      {:error, _} ->
-        warn(first, "Could not fetch replies")
-        Map.put(data, "replies", [])
-    end
+    # FIXME: seems like too much recursion is triggered here
+    # with {:ok, replies} <- Fetcher.fetch_collection(first, mode: :entries_async) do
+    #   Map.put(data, "replies", replies)
+    # else
+    #   {:error, _} ->
+    #     warn(first, "Could not fetch replies")
+    Map.put(data, "replies", [])
+    # end
   end
 
   defp fix_replies(data), do: Map.delete(data, "replies")

@@ -8,6 +8,11 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
 
   @impl Oban.Worker
   def perform(%Job{args: %{"op" => "fetch_remote", "id" => id} = args}) do
-    {:ok, _object} = Fetcher.fetch_object_from_id(id, depth: args["depth"])
+    {:ok, _object} =
+      Fetcher.fetch_object_from_id(id,
+        depth: args["depth"],
+        fetch_collection_entries:
+          ActivityPub.Utils.maybe_to_atom(args["fetch_collection_entries"])
+      )
   end
 end

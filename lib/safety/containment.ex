@@ -56,19 +56,12 @@ defmodule ActivityPub.Safety.Containment do
     do: contain_origin(id, Map.put(params, "actor", actor))
 
   def contain_origin(id, %{"type" => type} = params)
-      when ActivityPub.Config.is_in(type, :supported_actor_types),
+      when ActivityPub.Config.is_in(type, :supported_actor_types) or
+             ActivityPub.Config.is_in(type, :collection_types),
       do: :ok
 
   def contain_origin(_id, _data), do: {:error, "Missing an actor or attributedTo"}
 
-  # @skipped_types [
-  #   "Person",
-  #   "Group",
-  #   "Collection",
-  #   "OrderedCollection",
-  #   "CollectionPage",
-  #   "OrderedCollectionPage"
-  # ]
   # defp contain_origin(%{"id" => id} = data) do
   #   if data["type"] in @skipped_types do
   #     {:ok, data}

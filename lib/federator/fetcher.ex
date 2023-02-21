@@ -3,6 +3,7 @@ defmodule ActivityPub.Federator.Fetcher do
   Handles fetching AS2 objects from remote instances.
   """
 
+  require ActivityPub.Config
   alias ActivityPub.Config
   alias ActivityPub.Utils
   alias ActivityPub.Federator.HTTP
@@ -61,14 +62,15 @@ defmodule ActivityPub.Federator.Fetcher do
 
     if entries != [] and allowed_recursion?(depth) do
       for id <- entries do
-        Workers.RemoteFetcherWorker.enqueue("fetch_remote", %{
-          "id" => id,
-          "depth" => depth
-        })
+        Workers.RemoteFetcherWorker.enqueue(
+          "fetch_remote",
+          Enum.into(opts[:worker_attrs] || %{}, %{
+            "id" => id,
+            "depth" => depth
+          })
+        )
       end
     end
-
-    entries
   end
 
   def maybe_fetch_async(entries, opts), do: maybe_fetch_async(List.wrap(entries), opts)
@@ -117,20 +119,35 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp handle_fetched(data, opts) do
-    with {:ok, object} <- Transformer.handle_incoming(data) do
+    with {:ok, object} <- Transformer.handle_incoming(data) |> debug() do
       #  :ok <- check_if_public(object.public) do # huh?
+      debug(opts)
+      skip_fetch_collection? = !opts[:fetch_collection]
+      skip_fetch_collection_entries? = !opts[:fetch_collection_entries]
+
       case object do
-        %Actor{data: %{"outbox" => outbox}} = actor when is_binary(outbox) ->
-          if opts[:fetch_collection] do
-            debug(
-              outbox,
-              "An actor was fetched, fetch outbox collection, and queue a fetch of entries as well"
-            )
+        %Actor{data: %{"outbox" => outbox}}
+        when is_binary(outbox) and skip_fetch_collection? == false ->
+          debug(
+            outbox,
+            "An actor was fetched, fetch outbox collection (and maybe queue a fetch of entries as well)"
+          )
 
-            fetch_collection(outbox, fetch_entries: opts[:fetch_collection])
-          end
+          fetch_collection(outbox, mode: opts[:fetch_collection])
 
-          {:ok, actor}
+          {:ok, object}
+
+        %{data: %{"type" => type} = collection}
+        when ActivityPub.Config.is_in(type, :collection_types)
+        when skip_fetch_collection_entries? == false ->
+          debug(
+            opts[:fetch_collection_entries],
+            "A collection was fetched, queue a fetch of entries as well"
+          )
+
+          handle_collection(collection, mode: opts[:fetch_collection_entries])
+
+          {:ok, object}
 
         # return the object rather than a Create activity (do we want this?)
         %{object: %{id: _} = object, pointer: pointer} = _activity ->
@@ -211,13 +228,34 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_collection(ap_id, opts \\ [])
 
   def fetch_collection(ap_id, opts) when is_binary(ap_id) do
-    with {:ok, page} <-
-           fetch_ap_object_from_id(ap_id, skip_contain_origin_check: :ok) |> debug("fetched") do
-      {:ok, handle_collection(page, opts)}
-    else
-      e ->
-        error(e, "Could not fetch collection #{ap_id}")
-        e
+    case opts[:mode] do
+      mode when mode in [:entries_async, true] ->
+        warn(
+          mode,
+          "fetching collection synchronously (blocking operation) and then queing entries to be fetched async"
+        )
+
+        with {:ok, page} <-
+               fetch_ap_object_from_id(ap_id, skip_contain_origin_check: :ok)
+               |> debug("collection fetched") do
+          {:ok, handle_collection(page, opts)}
+        else
+          e ->
+            error(e, "Could not fetch collection #{ap_id}")
+            e
+        end
+
+      :async ->
+        debug("queue collection to be fetched async")
+
+        maybe_fetch_async(
+          ap_id,
+          opts |> Keyword.put(:worker_attrs, %{"fetch_collection_entries" => opts[:mode]})
+        )
+
+      _ ->
+        debug("skip")
+        {:ok, []}
     end
   end
 
@@ -230,23 +268,41 @@ defmodule ActivityPub.Federator.Fetcher do
     entries =
       objects_from_collection(page, opts)
       |> debug("objects_from_collection")
+      |> Enum.reject(fn
+        # TODO: configurable
+        %{"type" => type} when type in ["Announce", "Like"] -> true
+        _ -> false
+      end)
+      |> debug("filtered objects_from_collection")
 
-    case opts[:fetch_entries] do
-      :async ->
+    case opts[:mode] do
+      mode when mode in [:entries_async, :async] and entries != [] ->
         debug("queue objects to be fetched async")
+
         maybe_fetch_async(entries, opts)
 
-      true ->
+        entries
+
+      true when entries != [] ->
         debug("fetch objects as well")
+
         fetch_objects_from_id(entries, opts)
 
-      _ ->
+      other ->
+        debug(other, "do not fetch collection entries")
         entries
     end
   end
 
   defp fetch_page(page_id, items \\ [], opts \\ []) do
-    if Enum.count(items) >= Config.get([:activitypub, :max_collection_objects]) do
+    max = Config.get([:activitypub, :max_collection_objects], 10)
+
+    if Enum.count(items) >= max do
+      info(
+        max,
+        "stop fetching pages, because we have more than the :max_collection_objects setting"
+      )
+
       items
     else
       with {:ok, page} <- fetch_ap_object_from_id(page_id, skip_contain_origin_check: :ok) do

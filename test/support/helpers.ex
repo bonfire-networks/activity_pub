@@ -64,7 +64,7 @@ defmodule ActivityPub.Test.Helpers do
 
   def user_by_ap_id(id) when is_binary(id) do
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do
-      Bonfire.Federate.ActivityPub.AdapterUtils.get_character_by_ap_id(id)
+      Bonfire.Federate.ActivityPub.AdapterUtils.fetch_character_by_ap_id(id)
     else
       ActivityPub.LocalActor.get(ap_id: id)
     end

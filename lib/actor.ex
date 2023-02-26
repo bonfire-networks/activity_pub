@@ -141,6 +141,7 @@ defmodule ActivityPub.Actor do
       {:ok, actor}
     else
       e ->
+        debug(e)
         Adapter.get_actor_by_ap_id(ap_id)
     end
   end
@@ -270,7 +271,7 @@ defmodule ActivityPub.Actor do
   #   |> List.last()
   # end
 
-  defp get_remote_actor(ap_id, maybe_create \\ true) do
+  def get_remote_actor(ap_id, maybe_create \\ true) do
     with {:ok, actor} <- Object.get_cached(ap_id: ap_id),
          false <- check_if_time_to_update(actor),
          actor <- format_remote_actor(actor),
@@ -298,16 +299,28 @@ defmodule ActivityPub.Actor do
 
   def format_username(%{data: data}), do: format_username(data)
 
-  def format_username(%{"id" => id, "preferredUsername" => nick}) do
-    uri = URI.parse(id)
-    port = if uri.port not in [80, 443], do: ":#{uri.port}"
+  def format_username(%{"id" => ap_id, "preferredUsername" => nick}) do
+    format_username(ap_id, nick)
+  end
 
-    "#{nick}@#{uri.host}#{port}"
+  def format_username(ap_id) when is_binary(ap_id) do
+    uri = URI.parse(ap_id)
+    format_username(uri, String.split(uri.path, "/") |> List.last())
   end
 
   def format_username(other) do
     warn(other, "Dunno how to format_username for")
     nil
+  end
+
+  def format_username(ap_id, nick) when is_binary(ap_id) do
+    format_username(URI.parse(ap_id), nick)
+  end
+
+  def format_username(%URI{} = uri, nick) do
+    port = if uri.port not in [80, 443], do: ":#{uri.port}"
+
+    "#{nick}@#{uri.host}#{port}"
   end
 
   def format_remote_actor(%Object{data: data} = object) do

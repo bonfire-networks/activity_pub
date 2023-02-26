@@ -74,7 +74,7 @@ defmodule ActivityPub.Object do
       object
     else
       e ->
-        error(e)
+        warn(e, "No such object found")
         nil
     end
   end

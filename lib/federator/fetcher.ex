@@ -111,7 +111,7 @@ defmodule ActivityPub.Federator.Fetcher do
         |> debug("handled")
 
       {:error, :not_found} ->
-        error(id_or_data, "No such object has been cached")
+        warn(id_or_data, "No such object has been cached")
 
       other ->
         error(other)

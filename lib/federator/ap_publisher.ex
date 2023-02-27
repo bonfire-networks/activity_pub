@@ -14,11 +14,11 @@ defmodule ActivityPub.Federator.APPublisher do
   def is_representable?(_activity), do: true
 
   def publish(actor, activity) do
-    {:ok, data} = Transformer.prepare_outgoing(activity.data)
+    {:ok, data} =
+      Transformer.prepare_outgoing(activity.data)
+      |> info("data ready to publish as JSON")
 
-    json =
-      Jason.encode!(data)
-      |> info("JSON ready to publish")
+    # |> info("JSON ready to publish")
 
     # Utils.maybe_forward_activity(activity)
 
@@ -31,6 +31,10 @@ defmodule ActivityPub.Federator.APPublisher do
     |> Instances.filter_reachable()
     |> info("enqueue for")
     |> Enum.each(fn {inbox, unreachable_since} ->
+      json =
+        Transformer.preserve_privacy_of_outgoing(data, URI.parse(inbox))
+        |> Jason.encode!()
+
       ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, %{
         inbox: inbox,
         json: json,
@@ -60,7 +64,7 @@ defmodule ActivityPub.Federator.APPublisher do
       NaiveDateTime.utc_now(Calendar.ISO)
       |> Timex.format!("{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
 
-    signature =
+    {:ok, signature} =
       ActivityPub.Safety.Signatures.sign(actor, %{
         "(request-target)": "post #{path}",
         host: host,

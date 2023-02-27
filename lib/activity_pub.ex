@@ -160,7 +160,7 @@ defmodule ActivityPub do
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(accept_activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity),
-         {:ok, _follow_activity} <- Object.update_follow_state_for_all(follow_activity, "accept") do
+         {:ok, _follow_activity} <- Object.update_state(follow_activity, "Follow", "accept") do
       {:ok, Map.put(accept_activity, :pointer, adapter_object)}
     end
   end

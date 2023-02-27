@@ -23,8 +23,9 @@ defmodule ActivityPub.Federator.Transformer do
     data =
       data
       |> Map.merge(Utils.make_json_ld_header())
-      |> Map.delete("bto")
-      |> Map.delete("bcc")
+
+    # |> Map.delete("bto")
+    # |> Map.delete("bcc")
 
     {:ok, data}
   end
@@ -32,10 +33,11 @@ defmodule ActivityPub.Federator.Transformer do
   def prepare_outgoing(%{"type" => "Create", "object" => object} = data) do
     data =
       data
-      |> Map.put("object", prepare_object(object))
+      |> Map.put("object", prepare_outgoing_object(object))
       |> Map.merge(Utils.make_json_ld_header())
-      |> Map.delete("bto")
-      |> Map.delete("bcc")
+
+    # |> Map.delete("bto")
+    # |> Map.delete("bcc")
 
     {:ok, data}
   end
@@ -43,10 +45,11 @@ defmodule ActivityPub.Federator.Transformer do
   def prepare_outgoing(%{"object" => object} = data) do
     data =
       data
-      |> Map.put("object", prepare_object(object))
+      |> Map.put("object", prepare_outgoing_object(object))
       |> Map.merge(Utils.make_json_ld_header())
-      |> Map.delete("bto")
-      |> Map.delete("bcc")
+
+    # |> Map.delete("bto")
+    # |> Map.delete("bcc")
 
     {:ok, data}
   end
@@ -56,42 +59,89 @@ defmodule ActivityPub.Federator.Transformer do
     data =
       data
       |> Map.merge(Utils.make_json_ld_header())
-      |> Map.delete("bto")
-      |> Map.delete("bcc")
+
+    # |> Map.delete("bto")
+    # |> Map.delete("bcc")
 
     {:ok, data}
   end
 
   def prepare_outgoing(%Object{object: %Object{} = object} = activity) do
-    prepare_outgoing(activity.data |> Map.put("object", object))
+    prepare_outgoing(activity.data |> Map.put("object", prepare_outgoing_object(object)))
   end
 
   def prepare_outgoing(%Object{} = activity) do
     prepare_outgoing(activity.data)
   end
 
-  # We currently do not perform any transformations on objects
-  def prepare_object(nil), do: nil
+  defp prepare_outgoing_object(nil), do: nil
 
-  def prepare_object(%Object{} = object) do
+  defp prepare_outgoing_object(%Object{} = object) do
     object
     |> set_replies()
+
     # |> Map.get(:data) # done by set_replies/2
-    |> Map.delete("bto")
-    |> Map.delete("bcc")
+    # |> Map.delete("bto")
+    # |> Map.delete("bcc")
 
     # |> debug
   end
 
-  def prepare_object(object) do
+  defp prepare_outgoing_object(object) do
     case Object.normalize(object, true) do
       %Object{} = object ->
-        prepare_object(object)
+        prepare_outgoing_object(object)
 
       other ->
         error(other, "Unexpected object")
         nil
     end
+  end
+
+  def preserve_privacy_of_outgoing(other, target_instance_uri \\ nil)
+
+  def preserve_privacy_of_outgoing(%{"object" => object} = data, %{host: host}) do
+    data
+    |> Map.put("object", preserve_privacy_of_outgoing(object, %{host: host}))
+    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host))
+    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host))
+  end
+
+  def preserve_privacy_of_outgoing(%{} = data, %{host: host}) do
+    data
+    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host))
+    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host))
+  end
+
+  def preserve_privacy_of_outgoing(%{"object" => object} = data, _) do
+    data
+    |> Map.put("object", preserve_privacy_of_outgoing(object, nil))
+    |> Map.delete("bto")
+    |> Map.delete("bcc")
+  end
+
+  def preserve_privacy_of_outgoing(%{} = data, _) do
+    data
+    |> Map.delete("bto")
+    |> Map.delete("bcc")
+  end
+
+  def preserve_privacy_of_outgoing(other, _), do: other
+
+  defp filter_recipients_visibility_by_instance(bto, host) when is_list(bto) do
+    Enum.filter(bto, &recipient_is_from_instance?(&1, host))
+  end
+
+  defp filter_recipients_visibility_by_instance(bto, host) do
+    if recipient_is_from_instance?(bto, host), do: host, else: []
+  end
+
+  defp recipient_is_from_instance?(bto, host) when is_binary(bto) do
+    URI.parse(bto).host == host
+  end
+
+  defp recipient_is_from_instance?(%{"id" => bto}, host) when is_binary(bto) do
+    recipient_is_from_instance?(bto, host)
   end
 
   # incoming activities

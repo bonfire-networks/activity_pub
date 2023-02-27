@@ -5,6 +5,7 @@ defmodule ActivityPub.Web.ActorView do
   import Untangle
   alias ActivityPub.Actor
   alias ActivityPub.Utils
+  alias ActivityPub.Safety.Keys
 
   def actor_json(username) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
@@ -13,7 +14,7 @@ defmodule ActivityPub.Web.ActorView do
   end
 
   def render("actor.json", %{actor: actor}) do
-    actor = ActivityPub.Actor.add_public_key(actor)
+    actor = Keys.add_public_key(actor)
 
     type =
       case actor.data["type"] do

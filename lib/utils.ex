@@ -180,14 +180,13 @@ defmodule ActivityPub.Utils do
       # FIXME: temporary workaround for Ecto sandbox / ExUnit issues
       fallback.()
     else
-      p = Process.get()
+      ecto_repo_module = Process.get(:ecto_repo_module)
 
       Cachex.fetch(
         cache,
         key,
         fn _ ->
-          # Process.put(:phoenix_endpoint_module, p[:phoenix_endpoint_module])
-          set_repo(p[:ecto_repo_module])
+          set_repo(ecto_repo_module)
 
           fallback.()
         end,

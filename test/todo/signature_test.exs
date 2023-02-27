@@ -1,10 +1,12 @@
-defmodule ActivityPub.Safety.SignaturesTest do
+defmodule ActivityPub.Safety.SignatureTest do
   use ActivityPub.DataCase, async: false
 
   import ActivityPub.Factory
   import ExUnit.CaptureLog
   import Tesla.Mock
   import Mock
+  import Plug.Conn
+  import Phoenix.ConnTest
 
   alias ActivityPub.Safety.Signatures
 
@@ -121,7 +123,7 @@ defmodule ActivityPub.Safety.SignaturesTest do
       actor = local_actor()
       {:ok, ap_actor} = ActivityPub.Actor.get_cached(username: actor.username)
 
-      _signature =
+      {:ok, _signature} =
         Signatures.sign(ap_actor, %{
           host: "test.test",
           "content-length": 100
@@ -142,7 +144,8 @@ defmodule ActivityPub.Safety.SignaturesTest do
                  "content-length": 100
                }
              ) ==
-               "keyId=\"#{user.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"content-length host\",signature=\"sibUOoqsFfTDerquAkyprxzDjmJm6erYc42W5w1IyyxusWngSinq5ILTjaBxFvfarvc7ci1xAi+5gkBwtshRMWm7S+Uqix24Yg5EYafXRun9P25XVnYBEIH4XQ+wlnnzNIXQkU3PU9e6D8aajDZVp3hPJNeYt1gIPOA81bROI8/glzb1SAwQVGRbqUHHHKcwR8keiR/W2h7BwG3pVRy4JgnIZRSW7fQogKedDg02gzRXwUDFDk0pr2p3q6bUWHUXNV8cZIzlMK+v9NlyFbVYBTHctAR26GIAN6Hz0eV0mAQAePHDY1mXppbA8Gpp6hqaMuYfwifcXmcc+QFm4e+n3A==\""
+               {:ok,
+                "keyId=\"#{user.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"content-length host\",signature=\"sibUOoqsFfTDerquAkyprxzDjmJm6erYc42W5w1IyyxusWngSinq5ILTjaBxFvfarvc7ci1xAi+5gkBwtshRMWm7S+Uqix24Yg5EYafXRun9P25XVnYBEIH4XQ+wlnnzNIXQkU3PU9e6D8aajDZVp3hPJNeYt1gIPOA81bROI8/glzb1SAwQVGRbqUHHHKcwR8keiR/W2h7BwG3pVRy4JgnIZRSW7fQogKedDg02gzRXwUDFDk0pr2p3q6bUWHUXNV8cZIzlMK+v9NlyFbVYBTHctAR26GIAN6Hz0eV0mAQAePHDY1mXppbA8Gpp6hqaMuYfwifcXmcc+QFm4e+n3A==\""}
     end
 
     test "it returns error when actor has no keys" do

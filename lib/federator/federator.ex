@@ -3,6 +3,7 @@
 defmodule ActivityPub.Federator do
   alias ActivityPub.Actor
   # alias ActivityPub.Utils
+  alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Publisher
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Federator.Workers.PublisherWorker
@@ -35,7 +36,7 @@ defmodule ActivityPub.Federator do
     actor_id = activity.data["actor"]
 
     with {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
-         actor <- Actor.add_public_key(actor) do
+         actor <- Keys.add_public_key(actor) do
       debug(activity.data["id"], "Running publish for")
       Publisher.publish(actor, activity)
     else

@@ -185,9 +185,14 @@ defmodule ActivityPub.Federator.Fetcher do
            |> debug("contain_origin?") do
       {:ok, data}
     else
+      {:ok, %{status: 401}} ->
+        debug("Received a 401 - authentication required response")
+
+        {:error, :needs_login}
+
       {:ok, %{status: 304}} ->
         debug(
-          "HTTP I am a teapot - we use this for unavailable mocks in tests - return cached object or ID"
+          "HTTP I am a teapot - we use this for unavailable mocks in tests - return cached object if any or the original ID or object"
         )
 
         case Object.get_cached(ap_id: id) do

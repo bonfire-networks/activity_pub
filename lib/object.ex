@@ -320,16 +320,15 @@ defmodule ActivityPub.Object do
   @doc """
   Updates a follow activity's state (for locked accounts).
   """
-  @spec update_follow_state_for_all(Object.t(), String.t()) :: {:ok, Object | nil}
-  def update_follow_state_for_all(
+  def update_state(
         %Object{data: %{"actor" => actor, "object" => object}} = activity,
+        type,
         state
       ) do
-    "Follow"
-    |> Queries.by_type()
+    Queries.by_type(type)
     |> Queries.by_actor(actor)
     |> Queries.by_object_id(object)
-    |> where(fragment("data->>'state' = 'pending'") or fragment("data->>'state' = 'accept'"))
+    # |> where(fragment("data->>'state' = 'pending'") or fragment("data->>'state' = 'accept'"))
     |> update(set: [data: fragment("jsonb_set(data, '{state}', ?)", ^state)])
     |> repo().update_all([])
 

@@ -77,9 +77,11 @@ defmodule ActivityPub.Safety.Signatures do
   end
 
   def sign(actor, headers) do
-    # with {:ok, actor} <- Actor.ensure_keys_present(actor),
-    with {:ok, private_key, _} <- Keys.keys_from_pem(actor.keys) do
-      HTTPSignatures.sign(private_key, actor.data["id"] <> "#main-key", headers)
+    with {:ok, actor} <- Keys.ensure_keys_present(actor),
+         {:ok, private_key, _} <- Keys.keys_from_pem(actor.keys),
+         signed when is_binary(signed) <-
+           HTTPSignatures.sign(private_key, actor.data["id"] <> "#main-key", headers) do
+      {:ok, signed}
     end
   end
 

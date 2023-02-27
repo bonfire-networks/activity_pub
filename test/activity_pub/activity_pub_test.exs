@@ -8,6 +8,7 @@ defmodule ActivityPubTest do
   alias ActivityPub.Actor
   alias ActivityPub.Object
   alias ActivityPub.Utils
+  alias ActivityPub.Safety.Keys
 
   doctest ActivityPub
 
@@ -258,7 +259,7 @@ defmodule ActivityPubTest do
     test "it creates an update activity with the new user data", context do
       actor = local_actor()
       assert {:ok, actor} = Actor.get_cached(username: actor.username)
-      actor = Actor.add_public_key(actor)
+      actor = Keys.add_public_key(actor)
 
       actor_data = ActivityPub.Web.ActorView.render("actor.json", %{actor: actor})
 

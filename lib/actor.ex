@@ -44,8 +44,8 @@ defmodule ActivityPub.Actor do
 
   def get_cached(id: id), do: do_get_cached(:id, id)
 
-  def get_cached(pointer: %{id: id} = pointer),
-    do: get_cached(pointer: id) ~> Map.put(:pointer, pointer) |> ok()
+  # def get_cached(pointer: %{id: id} = pointer),
+  #   do: get_cached(pointer: id) ~> Map.put(:pointer, pointer) |> ok()
 
   def get_cached(pointer: id), do: do_get_cached(:pointer, id)
   def get_cached(username: username), do: do_get_cached(:username, username)
@@ -429,51 +429,6 @@ defmodule ActivityPub.Actor do
     Cachex.del(:ap_actor_cache, "pointer:#{actor.pointer_id}")
     Cachex.del(:ap_actor_cache, "username:#{actor.username}")
     Object.invalidate_cache(actor)
-  end
-
-  @doc false
-  def add_public_key(%{data: _} = actor) do
-    with {:ok, actor} <- ensure_keys_present(actor),
-         {:ok, _, public_key} <- ActivityPub.Safety.Keys.keys_from_pem(actor.keys) do
-      public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
-      public_key = :public_key.pem_encode([public_key])
-
-      Map.put(
-        actor,
-        :data,
-        Map.merge(
-          actor.data,
-          %{
-            "publicKey" => %{
-              "id" => "#{actor.data["id"]}#main-key",
-              "owner" => actor.data["id"],
-              "publicKeyPem" => public_key
-            }
-          }
-        )
-      )
-    else
-      e ->
-        error(e, "Could not add public key")
-        actor
-    end
-  end
-
-  @doc """
-  Checks if an actor struct has a non-nil keys field and generates a PEM if it doesn't.
-  """
-  def ensure_keys_present(actor) do
-    if actor.keys do
-      {:ok, actor}
-    else
-      with {:ok, pem} <- Keys.generate_rsa_pem(),
-           {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-           {:ok, actor} <- set_cache(actor) do
-        {:ok, actor}
-      else
-        e -> error(e, "Could not generate or save keys")
-      end
-    end
   end
 
   defp get_actor_from_follow(follow) do

@@ -57,8 +57,15 @@ defmodule ActivityPub.Web.ActivityPubController do
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
       else
+        false ->
+          warn(
+            "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
+          )
+
+          ret_error(conn, "authentication required", 401)
+
         e ->
-          error(e, "not found")
+          error(e, "Pointable object not found")
           ret_error(conn, "not found", 404)
       end
     else
@@ -164,14 +171,21 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   # only accept relayed Creates
   def inbox(conn, %{"type" => "Create"} = params) do
-    # info(conn)
-    warn(
-      params,
-      "Signature missing or not from author, so fetching object from source"
-    )
-
     if Config.federating?() do
-      Fetcher.fetch_object_from_id(params["object"]["id"] || params["object"])
+      warn(
+        params,
+        "Signature missing or not from author, so fetching object from source"
+      )
+
+      with {:error, :needs_login} <-
+             Fetcher.fetch_object_from_id(params["object"]["id"] || params["object"]) do
+        warn(
+          "TEMPORARY WORKAROUND: Signature missing or not from author, but couldn't fetch a non-public object without authentication, so we accept what was received for now"
+        )
+
+        process_incoming(conn, params)
+      end
+
       json(conn, "ok")
     else
       json(conn, "This instance is not federating")

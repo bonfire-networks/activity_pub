@@ -2,19 +2,16 @@
 defmodule ActivityPub.Web.ObjectView do
   use ActivityPub.Web, :view
   import Untangle
+  use Arrows
   alias ActivityPub.Utils
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Object
 
   def render("object.json", %{object: object}) do
-    {:ok, additional} =
-      object
-      # |> debug
-      |> Transformer.prepare_outgoing()
-
-    # |> debug
-
-    Map.merge(Utils.make_json_ld_header(), additional)
+    object
+    # |> debug 
+    |> Transformer.prepare_outgoing()
+    ~> Transformer.preserve_privacy_of_outgoing()
   end
 
   def render("outbox.json", %{actor: actor, page: page}) do

@@ -265,4 +265,39 @@ defmodule ActivityPub.Utils do
   end
 
   def maybe_to_atom(other), do: other
+
+  def single_ap_id_or_object(ap_id) do
+    cond do
+      is_bitstring(ap_id) ->
+        ap_id
+
+      is_map(ap_id) && is_bitstring(ap_id["id"]) ->
+        ap_id
+
+      is_list(ap_id) ->
+        Enum.at(ap_id, 0)
+
+      true ->
+        nil
+    end
+  end
+
+  def single_ap_id(ap_id) do
+    cond do
+      is_bitstring(ap_id) ->
+        ap_id
+
+      is_map(ap_id) && is_bitstring(ap_id["id"]) ->
+        ap_id["id"]
+
+      is_list(ap_id) and is_bitstring(Enum.at(ap_id, 0)) ->
+        Enum.at(ap_id, 0)
+
+      is_list(ap_id) and is_map(Enum.at(ap_id, 0)) ->
+        Enum.at(ap_id, 0)["id"]
+
+      true ->
+        nil
+    end
+  end
 end

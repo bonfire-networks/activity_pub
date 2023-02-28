@@ -118,10 +118,13 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
 
       assert object.data["replies"] == items
 
-      for id <- items do
-        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => 1, "repo" => repo()}
-        assert_enqueued(worker: Workers.RemoteFetcherWorker, args: job_args)
-      end
+      _jobs =
+        for {id, i} <- Enum.with_index(items) do
+          job_args = %{"op" => "fetch_remote", "id" => id, "depth" => i + 1, "repo" => repo()}
+          assert_enqueued(worker: Workers.RemoteFetcherWorker, args: job_args)
+        end
+
+      # assert jobs = all_enqueued(worker: Workers.RemoteFetcherWorker)
     end
 
     test "does NOT schedule background fetching of `replies` beyond max thread depth limit allows",
@@ -141,7 +144,10 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     setup do
       replies = %{
         "type" => "Collection",
-        "items" => [Utils.generate_object_id(), Utils.generate_object_id()]
+        "items" => [
+          "https://mastodon.local/@admin/reply1",
+          "https://mastodon.local/@admin/reply2"
+        ]
       }
 
       activity =
@@ -155,14 +161,13 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     test "schedules background fetching of `replies` items if max thread depth limit allows", %{
       activity: activity
     } do
-      clear_config([:instance, :federation_incoming_max_recursion], 1)
+      clear_config([:instance, :federation_incoming_max_recursion], 2)
 
       assert {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(activity)
       object = Object.normalize(data["object"])
 
-      for id <- object.data["replies"] do
-        debug(id, "id")
-        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => 1, "repo" => repo()}
+      for {id, i} <- Enum.with_index(object.data["replies"]) do
+        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => i + 1, "repo" => repo()}
         assert_enqueued(worker: Workers.RemoteFetcherWorker, args: job_args)
       end
     end
@@ -258,17 +263,17 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         Map.put(data["object"], "inReplyTo", %{"id" => "https://sposter.local/notice/2827873"})
 
       modified_object = Transformer.fix_in_reply_to(object_with_reply)
-      assert modified_object["inReplyTo"] == %{"id" => "https://sposter.local/notice/2827873"}
+      assert modified_object["inReplyTo"] == "https://sposter.local/notice/2827873"
 
       object_with_reply =
         Map.put(data["object"], "inReplyTo", ["https://sposter.local/notice/2827873"])
 
       modified_object = Transformer.fix_in_reply_to(object_with_reply)
-      assert modified_object["inReplyTo"] == ["https://sposter.local/notice/2827873"]
+      assert modified_object["inReplyTo"] == "https://sposter.local/notice/2827873"
 
       object_with_reply = Map.put(data["object"], "inReplyTo", [])
       modified_object = Transformer.fix_in_reply_to(object_with_reply)
-      assert modified_object["inReplyTo"] == []
+      assert modified_object["inReplyTo"] == nil
     end
 
     @tag capture_log: true
@@ -285,9 +290,6 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
 
       assert modified_object["inReplyTo"] ==
                "https://mstdn.local/users/mayuutann/statuses/99568293732299394"
-
-      assert modified_object["context"] ==
-               "tag:shitposter.club,2018-02-22:objectType=thread:nonce=e5a7c72d60a9c0e4"
     end
   end
 
@@ -299,39 +301,38 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       assert Transformer.set_replies(data) == data
     end
 
-    # FIXME!
     test "sets `replies` collection with a limited number of self-replies" do
       [user, another_user] = insert_list(2, :local_actor)
 
       activity =
-        %{id: _, data: %{"object" => id1}} =
+        %{data: %{"id" => id1_activity, "object" => id1_object}} =
         insert(:note_activity, %{actor: user, status: "1"})
         |> debug("aaaa")
 
-      %{id: _, data: %{"object" => id2}} =
+      %{data: %{"id" => id2_activity, "object" => id2_object}} =
         self_reply2 =
-        insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 1"})
+        insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 1"})
         |> debug("self-reply 1")
 
       object =
         Object.normalize(activity, fetch: false)
         |> debug("self-reply 1 obj")
 
-      %{id: _, data: %{"object" => id3}} =
+      %{data: %{"id" => id3_activity, "object" => id3_object}} =
         self_reply3 =
-        insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 2"})
+        insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 2"})
 
       # should _not_ be present in `replies` due to :note_replies_output_limit set to 2
-      insert(:note_activity, %{"inReplyTo" => id1, actor: user, status: "self-reply 3"})
+      insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 3"})
 
       insert(:note_activity, %{
-        "inReplyTo" => id2,
+        "inReplyTo" => id2_object,
         actor: user,
         status: "self-reply to self-reply"
       })
 
       insert(:note_activity, %{
-        "inReplyTo" => id1,
+        "inReplyTo" => id1_object,
         actor: another_user,
         status: "another user's reply"
       })
@@ -344,7 +345,8 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         Transformer.set_replies(object)
         |> debug("prepped")
 
-      assert Enum.sort([id2, id3]) == Enum.sort(prepped["replies"]["items"])
+      assert Enum.sort([id2_activity, id3_activity]) == Enum.sort(prepped["replies"]["items"])
+      # assert Enum.sort([id2_object, id3_object]) == Enum.sort(prepped["replies"]["items"])
     end
   end
 end

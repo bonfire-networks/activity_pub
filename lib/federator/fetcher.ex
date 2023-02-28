@@ -17,6 +17,20 @@ defmodule ActivityPub.Federator.Fetcher do
   import Untangle
 
   @doc """
+  Checks if an object exists in the AP database and fetches it if not (but does not send to Adapter).
+  """
+  # TODO: deduplicate this and fetch_object_from_id/2
+  def get_cached_object_or_fetch_ap_id(id, opts \\ []) do
+    case Object.get_cached(ap_id: id) do
+      {:ok, object} ->
+        {:ok, object}
+
+      _ ->
+        fetch_remote_object_from_id(id, opts)
+    end
+  end
+
+  @doc """
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
   def fetch_object_from_id(id, opts \\ []) do
@@ -42,33 +56,24 @@ defmodule ActivityPub.Federator.Fetcher do
     end)
   end
 
-  @doc """
-  Checks if an object exists in the AP database and fetches it if not (but does not send to Adapter).
-  """
-  def fetch_ap_object_from_id(id, opts \\ []) do
-    case Object.get_cached(ap_id: id) do
-      {:ok, object} ->
-        {:ok, object}
-
-      _ ->
-        fetch_remote_object_from_id(id, opts)
-    end
-  end
-
   def maybe_fetch_async(entries, opts \\ [])
 
   def maybe_fetch_async(entries, opts) when is_list(entries) do
     depth = (opts[:depth] || 0) + 1
 
     if entries != [] and allowed_recursion?(depth) do
-      for id <- entries do
-        Workers.RemoteFetcherWorker.enqueue(
-          "fetch_remote",
-          Enum.into(opts[:worker_attrs] || %{}, %{
-            "id" => id,
-            "depth" => depth
-          })
-        )
+      for {id, index} <- Enum.with_index(entries) do
+        entry_depth = depth + index
+
+        if allowed_recursion?(entry_depth) do
+          Workers.RemoteFetcherWorker.enqueue(
+            "fetch_remote",
+            Enum.into(opts[:worker_attrs] || %{}, %{
+              "id" => id,
+              "depth" => entry_depth
+            })
+          )
+        end
       end
     end
   end
@@ -241,7 +246,7 @@ defmodule ActivityPub.Federator.Fetcher do
         )
 
         with {:ok, page} <-
-               fetch_ap_object_from_id(ap_id, skip_contain_origin_check: :ok)
+               get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: :ok)
                |> debug("collection fetched") do
           {:ok, handle_collection(page, opts)}
         else
@@ -255,7 +260,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
         maybe_fetch_async(
           ap_id,
-          opts |> Keyword.put(:worker_attrs, %{"fetch_collection_entries" => opts[:mode]})
+          opts |> Keyword.put(:worker_attrs, %{"fetch_collection_entries" => :async})
         )
 
       _ ->
@@ -310,7 +315,8 @@ defmodule ActivityPub.Federator.Fetcher do
 
       items
     else
-      with {:ok, page} <- fetch_ap_object_from_id(page_id, skip_contain_origin_check: :ok) do
+      with {:ok, page} <-
+             get_cached_object_or_fetch_ap_id(page_id, skip_contain_origin_check: :ok) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do

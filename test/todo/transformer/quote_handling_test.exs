@@ -1,7 +1,7 @@
 # Copyright © 2017-2023 Bonfire, Akkoma, and Pleroma Authors
 # SPDX-License-Identifier: AGPL-3.0-only
 
-defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
+defmodule ActivityPub.Federator.Transformer.QuoteHandlingTest do
   use ActivityPub.DataCase, async: true
   use Oban.Testing, repo: repo()
 

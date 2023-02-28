@@ -82,7 +82,7 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
-      other -> error(other)
+      other -> error(other, "Error with the Create Activity")
     end
   end
 

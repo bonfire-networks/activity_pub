@@ -169,45 +169,43 @@ defmodule ActivityPub.Web.ActivityPubController do
     process_incoming(conn, params)
   end
 
-  # only accept relayed Creates
+  # accept (but verify) unsigned Creates
   def inbox(conn, %{"type" => "Create"} = params) do
-    if Config.federating?() do
-      warn(
-        params,
-        "Signature missing or not from author, so fetching object from source"
-      )
-
-      with {:error, :needs_login} <-
-             Fetcher.fetch_object_from_id(params["object"]["id"] || params["object"]) do
-        warn(
-          "TEMPORARY WORKAROUND: Signature missing or not from author, but couldn't fetch a non-public object without authentication, so we accept what was received for now"
-        )
-
-        process_incoming(conn, params)
-      end
-
-      json(conn, "ok")
-    else
-      json(conn, "This instance is not federating")
-    end
-  end
-
-  # heck u mastodon
-  def inbox(conn, %{"type" => "Delete"}) do
-    json(conn, "ok")
+    invalid_signature(conn.req_headers, params)
+    maybe_process_unsigned(conn, params)
   end
 
   def inbox(conn, params) do
     invalid_signature(conn.req_headers, params)
-
-    error("TODO: should we discard incoming unsigned or invalidly signed activities?")
-    process_incoming(conn, params)
-
-    # json(conn, "invalid signature")
+    maybe_process_unsigned(conn, params)
   end
 
   def noop(conn, _params) do
     json(conn, "ok")
+  end
+
+  defp maybe_process_unsigned(conn, params) do
+    if Config.federating?() do
+      warn(
+        params,
+        "Signature missing/invalid, so re-fetching AP activity from source"
+      )
+
+      with {:error, :needs_login} <-
+             Fetcher.fetch_object_from_id(params["id"]) do
+        warn(
+          "TEMPORARY WORKAROUND: Signature missing or not from author, AND we couldn't fetch a non-public object without authentication, so for now we just accept what was received "
+        )
+
+        process_incoming(conn, params)
+      else
+        e ->
+          error(e, "unsigned activity workaround failed")
+          json(conn, "error - please send signed activities")
+      end
+    else
+      json(conn, "This instance is not federating")
+    end
   end
 
   defp process_incoming(conn, params) do

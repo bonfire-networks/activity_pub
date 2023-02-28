@@ -12,6 +12,107 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
     :ok
   end
 
+  test "accepts Add/Remove activities", %{conn: conn} do
+    object_id = "c61d6733-e256-4fe1-ab13-1e369789423f"
+
+    status =
+      file("fixtures/statuses/note.json")
+      |> String.replace("{{nickname}}", "lain")
+      |> String.replace("{{object_id}}", object_id)
+
+    object_url = "https://example.local/objects/#{object_id}"
+
+    user =
+      file("fixtures/actor.json")
+      |> String.replace("{{nickname}}", "lain")
+
+    actor = "https://example.local/users/lain"
+
+    insert(:actor,
+      ap_id: actor,
+      featured_address: "https://example.local/users/lain/collections/featured"
+    )
+
+    Tesla.Mock.mock(fn
+      %{
+        method: :get,
+        url: ^object_url
+      } ->
+        %Tesla.Env{
+          status: 200,
+          body: status,
+          headers: [{"content-type", "application/activity+json"}]
+        }
+
+      %{
+        method: :get,
+        url: ^actor
+      } ->
+        %Tesla.Env{
+          status: 200,
+          body: user,
+          headers: [{"content-type", "application/activity+json"}]
+        }
+
+      %{method: :get, url: "https://example.local/users/lain/collections/featured"} ->
+        %Tesla.Env{
+          status: 200,
+          body:
+            "fixtures/users_mock/masto_featured.json"
+            |> file()
+            |> String.replace("{{domain}}", "example.com")
+            |> String.replace("{{nickname}}", "lain"),
+          headers: [{"content-type", "application/activity+json"}]
+        }
+    end)
+
+    data = %{
+      "id" => "https://example.local/objects/d61d6733-e256-4fe1-ab13-1e369789423f",
+      "actor" => actor,
+      "object" => object_url,
+      "target" => "https://example.local/users/lain/collections/featured",
+      "type" => "Add",
+      "to" => [ActivityPub.Config.public_uri()]
+    }
+
+    assert "ok" ==
+             conn
+             |> assign(:valid_signature, true)
+             |> put_req_header("signature", "keyId=\"#{actor}/main-key\"")
+             |> put_req_header("content-type", "application/activity+json")
+             |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+             |> json_response(200)
+
+    ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+    assert Object.get_cached!(ap_id: data["id"])
+    user = user_by_ap_id(data["actor"])
+
+    # TODO
+    # assert user.pinned_objects[data["object"]]
+
+    data = %{
+      "id" => "https://example.local/objects/d61d6733-e256-4fe1-ab13-1e369789423d",
+      "actor" => actor,
+      "object" => object_url,
+      "target" => "https://example.local/users/lain/collections/featured",
+      "type" => "Remove",
+      "to" => [ActivityPub.Config.public_uri()]
+    }
+
+    assert "ok" ==
+             conn
+             |> assign(:valid_signature, true)
+             |> put_req_header("signature", "keyId=\"#{actor}/main-key\"")
+             |> put_req_header("content-type", "application/activity+json")
+             |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+             |> json_response(200)
+
+    ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+    user = refresh_record(user)
+    # TODO
+    # refute user.pinned_objects[data["object"]]
+  end
+
   test "it accepts Add/Remove activities" do
     user =
       "fixtures/actor.json"

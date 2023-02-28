@@ -294,23 +294,16 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_in_reply_to(%{"inReplyTo" => in_reply_to} = object, options)
       when not is_nil(in_reply_to) do
-    in_reply_to_id = prepare_in_reply_to(in_reply_to)
-    depth = (options[:depth] || 0) + 1
-
-    if Fetcher.allowed_recursion?(depth) do
-      with {:ok, replied_object} <- get_obj_helper(in_reply_to_id, options) do
-        # %Object{} <- Fetcher.fetch_object_from_id(replied_object.data["id"]) do
-        object
-        |> Map.put("inReplyTo", replied_object.data["id"])
-        |> Map.put("context", replied_object.data["context"] || object["conversation"])
-        |> Map.drop(["conversation", "inReplyToAtomUri"])
-      else
-        e ->
-          warn(e, "Couldn't fetch reply@#{inspect(in_reply_to_id)}")
-          object
-      end
-    else
+    with in_reply_to_id <- Utils.single_ap_id(in_reply_to),
+         _ <- Fetcher.maybe_fetch_async(in_reply_to_id, options) do
       object
+      |> Map.put("inReplyTo", in_reply_to_id)
+      # |> Map.put("context", replied_object.data["context"] || object["conversation"]) # TODO as an update when we get the async inReplyTo?
+      |> Map.drop(["conversation", "inReplyToAtomUri"])
+    else
+      e ->
+        warn(e, "Couldn't fetch reply@#{inspect(in_reply_to)}")
+        object
     end
   end
 
@@ -320,20 +313,14 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_quote_url(%{"quoteUri" => quote_url} = object, options)
       when not is_nil(quote_url) do
-    depth = (options[:depth] || 0) + 1
-
-    if Fetcher.allowed_recursion?(depth) do
-      with {:ok, quoted_object} <- get_obj_helper(quote_url, options),
-           %Object{} <- Fetcher.fetch_object_from_id(quoted_object.data["id"]) do
-        object
-        |> Map.put("quoteUri", quoted_object.data["id"])
-      else
-        e ->
-          warn(e, "Couldn't fetch quote@#{inspect(quote_url)}")
-          object
-      end
-    else
+    with quote_ap_id <- Utils.single_ap_id(quote_url),
+         _ <- Fetcher.maybe_fetch_async(quote_ap_id, options) do
       object
+      |> Map.put("quoteUri", quote_ap_id)
+    else
+      e ->
+        warn(e, "Couldn't fetch quote@#{inspect(quote_url)}")
+        object
     end
   end
 
@@ -362,22 +349,6 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def fix_quote_url(object, _), do: object
-
-  defp prepare_in_reply_to(in_reply_to) do
-    cond do
-      is_bitstring(in_reply_to) ->
-        in_reply_to
-
-      is_map(in_reply_to) && is_bitstring(in_reply_to["id"]) ->
-        in_reply_to["id"]
-
-      is_list(in_reply_to) && is_bitstring(Enum.at(in_reply_to, 0)) ->
-        Enum.at(in_reply_to, 0)
-
-      true ->
-        ""
-    end
-  end
 
   def fix_context(object) do
     context = object["context"] || object["conversation"] || Utils.generate_object_id()
@@ -576,27 +547,44 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies != [] do
-    # Fetcher.maybe_fetch_async(replies)
-    # FIXME: seems like too much recursion is triggered here
-    replies
+    Fetcher.maybe_fetch_async(replies)
+    # TODO: update the data with only IDs in case we have full objects?
+    data
   end
 
   defp fix_replies(%{"replies" => %{"items" => replies}} = data)
        when is_list(replies) and replies != [] do
-    Map.put(data, "replies", [])
-    # FIXME: seems like too much recursion is triggered here
-    # Map.put(data, "replies", Fetcher.maybe_fetch_async(replies))
+    Fetcher.maybe_fetch_async(replies)
+    # TODO: update the data with only IDs in case we have full objects?
+    Map.put(data, "replies", replies)
+  end
+
+  defp fix_replies(%{"replies" => %{"first" => replies}} = data)
+       when is_list(replies) and replies != [] do
+    Fetcher.maybe_fetch_async(replies)
+    # TODO: update the data with only IDs in case we have full objects?
+    Map.put(data, "replies", replies)
+  end
+
+  defp fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data)
+       when is_list(replies) and replies != [] do
+    Fetcher.maybe_fetch_async(replies)
+    # TODO: update the data with only IDs in case we have full objects?
+    Map.put(data, "replies", replies)
   end
 
   defp fix_replies(%{"replies" => %{"first" => first}} = data) do
-    # FIXME: seems like too much recursion is triggered here
+    # Note: seems like too much recursion was triggered here:
     # with {:ok, replies} <- Fetcher.fetch_collection(first, mode: :entries_async) do
     #   Map.put(data, "replies", replies)
     # else
     #   {:error, _} ->
     #     warn(first, "Could not fetch replies")
-    Map.put(data, "replies", [])
+    # Map.put(data, "replies", [])
     # end
+
+    Fetcher.fetch_collection(first, mode: :async)
+    data
   end
 
   defp fix_replies(data), do: Map.delete(data, "replies")
@@ -719,12 +707,9 @@ defmodule ActivityPub.Federator.Transformer do
       Object.normalize_actors(data)
       |> debug("actors normalized")
 
-    actor_id =
-      Object.actor_id_from_data(data)
-      |> debug("got actor_id_from_data")
-
     {:ok, actor} =
-      Actor.get_or_fetch_by_ap_id(actor_id)
+      Object.actor_id_from_data(data)
+      |> Actor.get_or_fetch_by_ap_id()
       |> debug("got or fetched actor")
 
     object = fix_object(object)
@@ -810,7 +795,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
-         {:ok, object} <- get_obj_helper(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
            ActivityPub.like(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
@@ -831,7 +816,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
-         {:ok, object} <- get_obj_helper(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          public <- Utils.public?(data, object),
          {:ok, activity} <-
            ActivityPub.announce(%{
@@ -930,9 +915,9 @@ defmodule ActivityPub.Federator.Transformer do
 
     object_id = Object.get_ap_id(object_id)
 
-    with {:ok, object} <- get_obj_helper(object_id),
+    with true <- can_delete_remote_object?(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:actor, false} <- {:actor, Actor.actor?(object)},
-         true <- can_delete_remote_object?(object_id),
          {:ok, activity} <- ActivityPub.delete(object, false) do
       {:ok, activity}
     else
@@ -967,7 +952,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
-         {:ok, object} <- get_obj_helper(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
            ActivityPub.unannounce(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
@@ -988,7 +973,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
-         {:ok, object} <- get_obj_helper(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
            ActivityPub.unlike(%{actor: actor, object: object, activity_id: id, local: false}) do
       {:ok, activity}
@@ -1109,7 +1094,7 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  defp get_obj_helper(id, opts \\ []) do
+  defp object_normalize_and_maybe_fetch(id, opts \\ []) do
     if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])) do
       {:ok, object}
     else

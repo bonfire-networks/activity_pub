@@ -397,14 +397,14 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(_, fetch_remote? \\ true, pointer \\ nil)
-  def normalize({:ok, object}, _, _), do: object
+  def normalize({:ok, object}, _, _), do: normalize(object)
   def normalize(%{__struct__: Object, data: %{"object" => object}}, _, _), do: normalize(object)
   def normalize(%{__struct__: Object} = object, _, _), do: object
 
-  def normalize(%{"id" => ap_id} = object, fetch_remote, pointer)
+  def normalize(%{"id" => ap_id} = _object, true, pointer)
       when is_binary(ap_id) do
     # if(length(Map.keys(object))==1) do # we only have an ID
-    normalize(ap_id, fetch_remote, pointer)
+    normalize(ap_id, true, pointer)
     # else
     #   %{data: object}
     # end
@@ -421,13 +421,20 @@ defmodule ActivityPub.Object do
   def normalize(ap_id, fetch_remote?, _) when is_binary(ap_id),
     do: get_cached!(ap_id: ap_id) || maybe_fetch(ap_id, fetch_remote?)
 
+  def normalize(%{"id" => ap_id} = data, false, pointer)
+      when is_binary(ap_id) do
+    normalize(ap_id, false, pointer) || nil
+  end
+
   def normalize(_, _, _), do: nil
 
   def maybe_fetch(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
       object
     else
-      _e -> nil
+      e ->
+        error(e)
+        nil
     end
   end
 

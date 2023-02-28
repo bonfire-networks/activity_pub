@@ -45,6 +45,11 @@ defmodule ActivityPub.Safety.Containment do
   Checks that an imported AP object's actor matches the host it came from.
   """
 
+  def contain_origin(id, %{"type" => type} = params)
+      when ActivityPub.Config.is_in(type, :supported_actor_types) or
+             ActivityPub.Config.is_in(type, :collection_types),
+      do: :ok
+
   def contain_origin(id, %{"actor" => _actor} = params) when is_binary(id) do
     id_uri = URI.parse(id)
     actor_uri = URI.parse(Object.actor_id_from_data(params))
@@ -54,11 +59,6 @@ defmodule ActivityPub.Safety.Containment do
 
   def contain_origin(id, %{"attributedTo" => actor} = params),
     do: contain_origin(id, Map.put(params, "actor", actor))
-
-  def contain_origin(id, %{"type" => type} = params)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) or
-             ActivityPub.Config.is_in(type, :collection_types),
-      do: :ok
 
   def contain_origin(_id, _data), do: {:error, "Missing an actor or attributedTo"}
 

@@ -394,10 +394,13 @@ defmodule ActivityPub.Actor do
   defp do_maybe_create_actor_from_object({:ok, object}), do: {:ok, object}
   defp do_maybe_create_actor_from_object(object), do: object
 
-  def get_or_fetch_by_ap_id(%Actor{data: _} = actor), do: actor
-  def get_or_fetch_by_ap_id(%{"id" => id}), do: get_or_fetch_by_ap_id(id)
+  def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true)
+  def get_or_fetch_by_ap_id(%Actor{data: _} = actor, _), do: actor
 
-  def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true) do
+  def get_or_fetch_by_ap_id(%{"id" => id}, maybe_create),
+    do: get_or_fetch_by_ap_id(id, maybe_create)
+
+  def get_or_fetch_by_ap_id(ap_id, maybe_create) do
     case get_remote_actor(ap_id, maybe_create) |> debug() do
       {:ok, actor} ->
         {:ok, actor}

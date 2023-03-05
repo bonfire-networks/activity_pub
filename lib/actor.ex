@@ -308,6 +308,10 @@ defmodule ActivityPub.Actor do
     format_username(uri, String.split(uri.path, "/") |> List.last())
   end
 
+  def format_username(%{"object" => object}) do
+    format_username(object)
+  end
+
   def format_username(other) do
     warn(other, "Dunno how to format_username for")
     nil

@@ -5,6 +5,7 @@ defmodule ActivityPub.Federator.APPublisher do
   alias ActivityPub.Federator.HTTP
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Transformer
+  alias ActivityPub.Utils
 
   import Untangle
 
@@ -22,10 +23,18 @@ defmodule ActivityPub.Federator.APPublisher do
 
     # Utils.maybe_forward_activity(activity)
 
+    # TODO: reuse from activity?
+    to = activity.data["to"] || []
+    cc = activity.data["cc"] || []
+    is_public = ActivityPub.Config.public_uri() in to or ActivityPub.Config.public_uri() in cc
+    # TODO: include bcc, etc
+    num_recipients = length(to) + length(cc)
+    type = activity.data["type"]
+
     recipients(actor, activity)
     |> info("initial recipients")
-    |> Enum.map(&determine_inbox(activity, &1))
-    |> maybe_federate_to_search_index(activity)
+    |> Enum.map(&determine_inbox(&1, is_public, type, num_recipients))
+    # |> maybe_federate_to_search_index(activity)
     |> Enum.uniq()
     |> info("possible recipients")
     |> Instances.filter_reachable()
@@ -118,8 +127,9 @@ defmodule ActivityPub.Federator.APPublisher do
       followers
   end
 
-  # TODO: add bcc
   defp remote_recipients(_actor, %{data: data}) do
+    ap_base_url = Utils.ap_base_url()
+
     ([Map.get(data, "to", nil)] ++
        [Map.get(data, "bto", nil)] ++
        [Map.get(data, "cc", nil)] ++
@@ -130,13 +140,18 @@ defmodule ActivityPub.Federator.APPublisher do
     |> List.delete(ActivityPub.Config.public_uri())
     |> Enum.map(&(Actor.get_cached!(ap_id: &1) || &1))
     |> Enum.reject(fn
-      %{local: local} = actor ->
-        info(actor, "Local actor?")
+      %{local: true} ->
+        true
 
-        local
+      # FIXME: temporary workaround for bad data
+      %{data: %{"id" => id}} ->
+        String.starts_with?(id, ap_base_url)
+
+      %{local: false} ->
+        false
 
       actor ->
-        warn(actor, "Invalid actor")
+        warn(actor, "Not a valid actor")
         true
     end)
   end
@@ -165,44 +180,39 @@ defmodule ActivityPub.Federator.APPublisher do
   are based on an approximation of the ``sharedInbox`` rules in the
   [ActivityPub specification][ap-sharedinbox].
 
-  Please do not edit this function (or its children) without reading
-  the spec, as editing the code is likely to introduce some breakage
-  without some familiarity.
-
      [ap-sharedinbox]: https://www.w3.org/TR/activitypub/#shared-inbox-delivery
   """
   def determine_inbox(
-        %{data: activity_data},
-        %{data: %{"inbox" => inbox}} = user
+        %{data: %{"inbox" => inbox} = actor_data} = _user,
+        is_public,
+        type,
+        num_recipients
       ) do
-    to = activity_data["to"] || []
-    cc = activity_data["cc"] || []
-    type = activity_data["type"]
-
     cond do
       type == "Delete" ->
-        maybe_use_sharedinbox(user)
+        maybe_use_sharedinbox(actor_data)
 
-      ActivityPub.Config.public_uri() in to or ActivityPub.Config.public_uri() in cc ->
-        maybe_use_sharedinbox(user)
+      is_public == true ->
+        maybe_use_sharedinbox(actor_data)
 
-      length(to) + length(cc) > 1 ->
-        maybe_use_sharedinbox(user)
+      num_recipients > 1 ->
+        # FIXME: shouldn't this depend on recipients on a given instance?
+        maybe_use_sharedinbox(actor_data)
 
       true ->
         inbox
     end
   end
 
-  def determine_inbox(_, user) do
+  def determine_inbox(_, user, _) do
     warn(user, "No inbox")
     nil
   end
 
-  defp maybe_use_sharedinbox(%{data: data}),
+  defp maybe_use_sharedinbox(actor_data),
     do:
-      (is_map(data["endpoints"]) && Map.get(data["endpoints"], "sharedInbox")) ||
-        data["inbox"]
+      (is_map(actor_data["endpoints"]) && Map.get(actor_data["endpoints"], "sharedInbox")) ||
+        actor_data["inbox"]
 
   def gather_webfinger_links(actor) do
     base_url = ActivityPub.Web.base_url()

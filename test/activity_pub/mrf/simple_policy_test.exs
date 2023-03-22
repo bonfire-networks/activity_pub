@@ -40,11 +40,11 @@ defmodule ActivityPub.Web.MRF.SimplePolicyTest do
     %{
       "id" => "https://remote.instance.local/users/bob",
       "icon" => %{
-        "url" => "http://example.local/image.jpg",
+        "url" => "http://mastodon.local/image.jpg",
         "type" => "Image"
       },
       "image" => %{
-        "url" => "http://example.local/image.jpg",
+        "url" => "http://mastodon.local/image.jpg",
         "type" => "Image"
       },
       "type" => "Person"

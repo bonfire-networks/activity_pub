@@ -17,8 +17,8 @@ defmodule ActivityPub.SharedDataCase do
     actor1 = insert(:actor)
     actor2 = insert(:actor)
 
-    u1 = "https://example.local/pub/actors/#{actor1.data["preferredUsername"]}/inbox" |> info()
-    u2 = "https://example.local/pub/actors/#{actor2.data["preferredUsername"]}/inbox"
+    u1 = "https://mastodon.local/pub/actors/#{actor1.data["preferredUsername"]}/inbox" |> info()
+    u2 = "https://mastodon.local/pub/actors/#{actor2.data["preferredUsername"]}/inbox"
 
     mock(fn
       %{method: :post, url: ^u1} ->

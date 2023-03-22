@@ -33,8 +33,8 @@ config :activity_pub, Oban,
   repo: ActivityPub.TestRepo,
   queues: false
 
-config :activity_pub, :instance, federating: false
-# rewrite_policy: [ActivityPub.MRF.SimplePolicy]
+# config :activity_pub, :instance, 
+#   rewrite_policy: [ActivityPub.MRF.SimplePolicy]
 
 config :tesla, adapter: Tesla.Mock
 

@@ -20,17 +20,17 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
       |> String.replace("{{nickname}}", "lain")
       |> String.replace("{{object_id}}", object_id)
 
-    object_url = "https://example.local/objects/#{object_id}"
+    object_url = "https://mastodon.local/objects/#{object_id}"
 
     user =
       file("fixtures/actor.json")
       |> String.replace("{{nickname}}", "lain")
 
-    actor = "https://example.local/users/lain"
+    actor = "https://mastodon.local/users/lain"
 
     insert(:actor,
       ap_id: actor,
-      featured_address: "https://example.local/users/lain/collections/featured"
+      featured_address: "https://mastodon.local/users/lain/collections/featured"
     )
 
     Tesla.Mock.mock(fn
@@ -54,7 +54,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
           headers: [{"content-type", "application/activity+json"}]
         }
 
-      %{method: :get, url: "https://example.local/users/lain/collections/featured"} ->
+      %{method: :get, url: "https://mastodon.local/users/lain/collections/featured"} ->
         %Tesla.Env{
           status: 200,
           body:
@@ -67,10 +67,10 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
     end)
 
     data = %{
-      "id" => "https://example.local/objects/d61d6733-e256-4fe1-ab13-1e369789423f",
+      "id" => "https://mastodon.local/objects/d61d6733-e256-4fe1-ab13-1e369789423f",
       "actor" => actor,
       "object" => object_url,
-      "target" => "https://example.local/users/lain/collections/featured",
+      "target" => "https://mastodon.local/users/lain/collections/featured",
       "type" => "Add",
       "to" => [ActivityPub.Config.public_uri()]
     }
@@ -91,10 +91,10 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
     # assert user.pinned_objects[data["object"]]
 
     data = %{
-      "id" => "https://example.local/objects/d61d6733-e256-4fe1-ab13-1e369789423d",
+      "id" => "https://mastodon.local/objects/d61d6733-e256-4fe1-ab13-1e369789423d",
       "actor" => actor,
       "object" => object_url,
-      "target" => "https://example.local/users/lain/collections/featured",
+      "target" => "https://mastodon.local/users/lain/collections/featured",
       "type" => "Remove",
       "to" => [ActivityPub.Config.public_uri()]
     }
@@ -127,9 +127,9 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
       |> String.replace("{{nickname}}", "lain")
       |> String.replace("{{object_id}}", object_id)
 
-    object_url = "https://example.local/objects/#{object_id}"
+    object_url = "https://mastodon.local/objects/#{object_id}"
 
-    actor = "https://example.local/users/lain"
+    actor = "https://mastodon.local/users/lain"
 
     Tesla.Mock.mock(fn
       %{
@@ -152,7 +152,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
           headers: [{"content-type", "application/activity+json"}]
         }
 
-      %{method: :get, url: "https://example.local/users/lain/collections/featured"} ->
+      %{method: :get, url: "https://mastodon.local/users/lain/collections/featured"} ->
         %Tesla.Env{
           status: 200,
           body:
@@ -165,13 +165,13 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
     end)
 
     message = %{
-      "id" => "https://example.local/objects/d61d6733-e256-4fe1-ab13-1e369789423f",
+      "id" => "https://mastodon.local/objects/d61d6733-e256-4fe1-ab13-1e369789423f",
       "actor" => actor,
       "object" => object_url,
-      "target" => "https://example.local/users/lain/collections/featured",
+      "target" => "https://mastodon.local/users/lain/collections/featured",
       "type" => "Add",
       "to" => [ActivityPub.Config.public_uri()],
-      "cc" => ["https://example.local/users/lain/followers"],
+      "cc" => ["https://mastodon.local/users/lain/followers"],
       "bcc" => [],
       "bto" => []
     }
@@ -187,10 +187,10 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
       "id" => "http://localhost:400/objects/d61d6733-e256-4fe1-ab13-1e369789423d",
       "actor" => actor,
       "object" => object_url,
-      "target" => "https://example.local/users/lain/collections/featured",
+      "target" => "https://mastodon.local/users/lain/collections/featured",
       "type" => "Remove",
       "to" => [ActivityPub.Config.public_uri()],
-      "cc" => ["https://example.local/users/lain/followers"],
+      "cc" => ["https://mastodon.local/users/lain/followers"],
       "bcc" => [],
       "bto" => []
     }

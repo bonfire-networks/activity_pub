@@ -198,13 +198,23 @@ defmodule ActivityPub.Web.ActivityPubController do
         )
 
         process_incoming(conn, params)
+        ret_error(conn, "please send signed activities", 401)
       else
+        {:ok, object} ->
+          debug(object, "unsigned activity workaround worked")
+
+          ret_error(
+            conn,
+            "please send signed activities - object was re-fetched from origin",
+            202
+          )
+
         e ->
           error(e, "unsigned activity workaround failed")
-          json(conn, "error - please send signed activities")
+          ret_error(conn, "unsigned activity was rejected", 401)
       end
     else
-      json(conn, "This instance is not federating")
+      ret_error(conn, "this instance is not currently federating", 403)
     end
   end
 
@@ -219,7 +229,7 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       json(conn, "ok")
     else
-      json(conn, "not federating")
+      ret_error(conn, "this instance is not currently federating", 403)
     end
   end
 
@@ -235,7 +245,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       error("No signature provided (make sure you are forwarding the HTTP Host header)")
     end
 
-    info(req_headers)
+    debug(req_headers)
   end
 
   defp ret_error(conn, error, status \\ 500) do

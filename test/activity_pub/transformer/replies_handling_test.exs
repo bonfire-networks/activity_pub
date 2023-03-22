@@ -225,8 +225,8 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
           "inReplyTo" => nil,
           "attributedTo" => ap_id(user),
           "tag" => [
-            %{"name" => "#2hu", "href" => "http://example.local/2hu", "type" => "Hashtag"},
-            %{"name" => "Bob", "href" => "http://example.local/bob", "type" => "Mention"}
+            %{"name" => "#2hu", "href" => "http://mastodon.local/2hu", "type" => "Hashtag"},
+            %{"name" => "Bob", "href" => "http://mastodon.local/bob", "type" => "Mention"}
           ]
         },
         "actor" => ap_id(user)

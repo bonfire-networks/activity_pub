@@ -77,7 +77,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
       %{
         method: :get,
-        url: "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+        url: "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
       } ->
         %Tesla.Env{
           status: 200,
@@ -87,7 +87,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
       %{
         method: :get,
-        url: "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+        url: "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
       } ->
         %Tesla.Env{
           status: 200,
@@ -135,12 +135,12 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
       %{
         method: :get,
-        url: "http://example.local/hello",
+        url: "http://mastodon.local/hello",
         headers: [{"content-type", "application/json"}, _]
       } ->
         Tesla.Mock.json(%{"my" => "hello"})
 
-      %{method: :get, url: "http://example.local/hello"} ->
+      %{method: :get, url: "http://mastodon.local/hello"} ->
         %Tesla.Env{status: 200, body: "hello"}
 
       %{method: :get, url: "https://fedi.local/userisgone404"} ->
@@ -1350,11 +1350,11 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok, Tesla.Mock.json(%{"id" => "https://social.local/user/23211"}, status: 200)}
   end
 
-  def get("http://example.local/ogp", _, _, _) do
+  def get("http://mastodon.local/ogp", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rich_media/ogp.html")}}
   end
 
-  def get("https://example.local/ogp", _, _, _) do
+  def get("https://mastodon.local/ogp", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rich_media/ogp.html")}}
   end
 
@@ -1450,7 +1450,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("http://example.local/ogp-missing-data", _, _, _) do
+  def get("http://mastodon.local/ogp-missing-data", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -1458,7 +1458,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://example.local/ogp-missing-data", _, _, _) do
+  def get("https://mastodon.local/ogp-missing-data", _, _, _) do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -1466,11 +1466,11 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("http://example.local/malformed", _, _, _) do
+  def get("http://mastodon.local/malformed", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rich_media/malformed-data.html")}}
   end
 
-  def get("http://example.local/empty", _, _, _) do
+  def get("http://mastodon.local/empty", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: "hello"}}
   end
 
@@ -1656,19 +1656,19 @@ defmodule ActivityPub.Test.HttpRequestMock do
     {:ok, %Tesla.Env{status: 500, body: "Error occurred"}}
   end
 
-  def get("http://example.local/rel_me/anchor", _, _, _) do
+  def get("http://mastodon.local/rel_me/anchor", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rel_me_anchor.html")}}
   end
 
-  def get("http://example.local/rel_me/anchor_nofollow", _, _, _) do
+  def get("http://mastodon.local/rel_me/anchor_nofollow", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rel_me_anchor_nofollow.html")}}
   end
 
-  def get("http://example.local/rel_me/link", _, _, _) do
+  def get("http://mastodon.local/rel_me/link", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rel_me_link.html")}}
   end
 
-  def get("http://example.local/rel_me/null", _, _, _) do
+  def get("http://mastodon.local/rel_me/null", _, _, _) do
     {:ok, %Tesla.Env{status: 200, body: file("fixtures/rel_me_null.html")}}
   end
 
@@ -1726,7 +1726,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("http://example.local/rel_me/error", _, _, _) do
+  def get("http://mastodon.local/rel_me/error", _, _, _) do
     {:ok, %Tesla.Env{status: 404, body: ""}}
   end
 
@@ -1904,9 +1904,9 @@ defmodule ActivityPub.Test.HttpRequestMock do
 
   # Most of the rich media mocks are missing HEAD requests, so we just return 404.
   @rich_media_mocks [
-    "https://example.local/ogp",
-    "https://example.local/ogp-missing-data",
-    "https://example.local/twitter-card"
+    "https://mastodon.local/ogp",
+    "https://mastodon.local/ogp-missing-data",
+    "https://mastodon.local/twitter-card"
   ]
   def head(url, _query, _body, _headers) when url in @rich_media_mocks do
     {:ok, %Tesla.Env{status: 404, body: ""}}

@@ -840,12 +840,13 @@ defmodule ActivityPub.Federator.Transformer do
         } = data
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) and actor_id == update_actor_id do
-    info("Handle incoming update an Actor")
+    info("update an Actor")
 
     with {:ok, actor} <- Actor.update_actor_data_by_ap_id(actor_id, object) do
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
+        id: data["id"],
         local: false,
         to: data["to"] || [],
         cc: data["cc"] || [],

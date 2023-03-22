@@ -326,7 +326,7 @@ defmodule ActivityPub do
   def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
     with activity_data <- %{
            # avoid ID conflicts with updates
-           "id" => Utils.generate_object_id(),
+           "id" => params[:id] || Utils.generate_object_id(),
            "to" => to,
            "cc" => cc,
            "type" => "Update",

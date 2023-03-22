@@ -25,6 +25,7 @@ defmodule ActivityPub.Factory do
         Bonfire.Me.Fake.fake_user!(attrs, attrs,
           request_before_follow: attrs[:request_before_follow] || false
         )
+        |> repo().maybe_preload(character: [:actor])
 
       # |> debug()
       {:ok, actor} = ActivityPub.Actor.get_cached(username: user.character.username)
@@ -34,7 +35,7 @@ defmodule ActivityPub.Factory do
         actor: actor,
         data: actor.data,
         user: user,
-        keys: nil,
+        keys: Map.get(user.character.actor || %{}, :signing_key),
         username: user.character.username
       }
     else
@@ -58,7 +59,7 @@ defmodule ActivityPub.Factory do
 
     id =
       attrs[:data]["id"] ||
-        "https://example.local" <> ap_base_path <> "/actors/#{username}"
+        "https://mastodon.local" <> ap_base_path <> "/actors/#{username}"
 
     actor_object(id, username, attrs, false)
   end

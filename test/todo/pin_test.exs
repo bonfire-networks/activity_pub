@@ -8,19 +8,19 @@
 #         |> String.replace("{{nickname}}", "lain")
 #         |> String.replace("{{status_id}}", status_id)
 
-#       status_url = "https://example.local/users/lain/statuses/#{status_id}"
+#       status_url = "https://mastodon.local/users/lain/statuses/#{status_id}"
 #       replies_url = status_url <> "/replies?only_other_accounts=true&page=true"
 
 #       user =
 #         file("fixtures/actor.json")
 #         |> String.replace("{{nickname}}", "lain")
 
-#       actor = "https://example.local/users/lain"
+#       actor = "https://mastodon.local/users/lain"
 
 #       sender =
 #         insert(:actor,
 #           ap_id: actor,
-#           featured_address: "https://example.local/users/lain/collections/featured"
+#           featured_address: "https://mastodon.local/users/lain/collections/featured"
 #         )
 
 #       Tesla.Mock.mock(fn
@@ -44,7 +44,7 @@
 #             headers: [{"content-type", "application/activity+json"}]
 #           }
 
-#         %{method: :get, url: "https://example.local/users/lain/collections/featured"} ->
+#         %{method: :get, url: "https://mastodon.local/users/lain/collections/featured"} ->
 #           %Tesla.Env{
 #             status: 200,
 #             body:
@@ -70,7 +70,7 @@
 #         "@context" => "https://www.w3.org/ns/activitystreams",
 #         "actor" => actor,
 #         "object" => status_url,
-#         "target" => "https://example.local/users/lain/collections/featured",
+#         "target" => "https://mastodon.local/users/lain/collections/featured",
 #         "type" => "Add"
 #       }
 
@@ -90,7 +90,7 @@
 #       data = %{
 #         "actor" => actor,
 #         "object" => status_url,
-#         "target" => "https://example.local/users/lain/collections/featured",
+#         "target" => "https://mastodon.local/users/lain/collections/featured",
 #         "type" => "Remove"
 #       }
 
@@ -135,9 +135,9 @@
 #   end
 
 #     test "fetches user featured collection" do
-#       ap_id = "https://example.local/users/lain"
+#       ap_id = "https://mastodon.local/users/lain"
 
-#       featured_url = "https://example.local/users/lain/collections/featured"
+#       featured_url = "https://mastodon.local/users/lain/collections/featured"
 
 #       user_data =
 #         "fixtures/actor.json"
@@ -156,7 +156,7 @@
 #         |> String.replace("{{nickname}}", "lain")
 #         |> String.replace("{{object_id}}", object_id)
 
-#       object_url = "https://example.local/objects/#{object_id}"
+#       object_url = "https://mastodon.local/objects/#{object_id}"
 
 #       object_data =
 #         "fixtures/statuses/note.json"
@@ -251,8 +251,8 @@
 #   end
 
 #   test "fetches user featured when it has string IDs" do
-#     featured_url = "https://example.local/alisaie/collections/featured"
-#     dead_url = "https://example.local/users/alisaie/statuses/108311386746229284"
+#     featured_url = "https://mastodon.local/alisaie/collections/featured"
+#     dead_url = "https://mastodon.local/users/alisaie/statuses/108311386746229284"
 
 #     featured_data =
 #       "fixtures/mastodon/mastodon/featured_collection.json"

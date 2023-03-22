@@ -21,38 +21,36 @@ defmodule ActivityPub.Federator.Transformer.UserUpdateHandlingTest do
 
     update_data = file("fixtures/mastodon/mastodon-update.json") |> Jason.decode!()
 
-    object =
-      update_data["object"]
-      |> Map.put("actor", ap_id(user))
-      |> Map.put("id", ap_id(user))
-
-    update_data =
+    update_activity =
       update_data
       |> Map.put("actor", ap_id(user))
-      |> Map.put("object", object)
+      |> Map.put(
+        "object",
+        update_data["object"]
+        |> Map.put("actor", ap_id(user))
+        |> Map.put("id", ap_id(user))
+      )
 
-    {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(update_data)
+    {:ok, %Activity{data: data_updated, local: false}} =
+      Transformer.handle_incoming(update_activity)
+      |> debug()
 
-    assert data["id"] == update_data["id"]
+    assert data_updated["id"] == update_activity["id"]
 
-    user = user_by_ap_id(data["actor"])
-    assert user.name == "gargle"
+    user =
+      user_by_ap_id(data_updated["actor"])
+      |> repo().maybe_preload(profile: [:icon, :image])
+      |> debug()
 
-    assert user.avatar["url"] == [
-             %{
-               "href" =>
-                 "https://cd.niu.moe/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
-             }
-           ]
+    assert user.profile.name == "gargle"
 
-    assert user.banner["url"] == [
-             %{
-               "href" =>
-                 "https://cd.niu.moe/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
-             }
-           ]
+    assert Map.get(user.profile.icon, :path) ==
+             "https://cdn.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
 
-    assert user.bio == "<p>Some bio</p>"
+    assert Map.get(user.profile.image, :path) ==
+             "https://cdn.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+
+    assert user.profile.summary =~ "<p>Some bio</p>"
   end
 
   test "it works with alsoKnownAs" do

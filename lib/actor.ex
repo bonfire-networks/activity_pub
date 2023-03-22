@@ -345,7 +345,7 @@ defmodule ActivityPub.Actor do
     %__MODULE__{
       id: object.id,
       data: data,
-      keys: nil,
+      keys: data["publicKey"]["publicKeyPem"],
       local: object.local,
       ap_id: data["id"],
       username: format_username(data),

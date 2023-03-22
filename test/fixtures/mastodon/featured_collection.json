@@ -11,10 +11,10 @@
       "votersCount": "toot:votersCount"
     }
   ],
-  "id": "https://example.local/users/alisaie/collections/featured",
+  "id": "https://mastodon.local/users/alisaie/collections/featured",
   "type": "OrderedCollection",
   "totalItems": 5,
   "orderedItems": [
-    "https://example.local/users/alisaie/statuses/108311386746229284"
+    "https://mastodon.local/users/alisaie/statuses/108311386746229284"
   ]
 }

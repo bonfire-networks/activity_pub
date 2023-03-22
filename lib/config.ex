@@ -3,6 +3,8 @@ defmodule ActivityPub.Config do
     defexception [:message]
   end
 
+  import Untangle
+
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
   def public_uri, do: @public_uri
@@ -77,11 +79,16 @@ defmodule ActivityPub.Config do
   def env, do: Application.get_env(:activity_pub, :env) || @compile_env
 
   def federating? do
-    Application.get_env(:activity_pub, :instance)[:federating] ||
-      (env() == :test and Application.get_env(:tesla, :adapter) == Tesla.Mock) ||
-      System.get_env("TEST_INSTANCE") == "yes"
+    case Application.get_env(:activity_pub, :instance)[:federating] do
+      nil ->
+        env() == :test and
+          (Application.get_env(:tesla, :adapter) == Tesla.Mock or
+             System.get_env("TEST_INSTANCE") == "yes")
 
-    # |> IO.inspect(label: "Federating?")
+      val ->
+        val
+    end
+    |> debug("Federating?")
   end
 
   def get(key), do: get(key, nil)

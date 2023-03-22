@@ -54,7 +54,6 @@ config :activity_pub, :instance,
   hostname: "localhost",
   federation_publisher_modules: [ActivityPub.Federator.APPublisher],
   federation_reachability_timeout_days: 7,
-  federating: true,
   rewrite_policy: [],
   handle_unknown_activities: false
 

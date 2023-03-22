@@ -27,20 +27,20 @@ defmodule ActivityPub.Federator.Transformer.QuoteHandlingTest do
   describe "fix_quote_url/1" do
     test "a misskey quote should work", _ do
       local_actor(%{ap_id: "https://misskey.local/users/93492q0ip0"})
-      local_actor(%{ap_id: "https://example.local/users/user"})
+      local_actor(%{ap_id: "https://mastodon.local/users/user"})
 
       note =
         "fixtures/misskey/quote.json"
         |> file()
         |> Jason.decode!()
 
-      %{"quoteUri" => "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"} =
+      %{"quoteUri" => "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"} =
         Transformer.fix_quote_url(note)
     end
 
     test "a fedibird quote should work", _ do
       local_actor(%{ap_id: "https://fedibird.local/users/akkoma_ap_integration_tester"})
-      local_actor(%{ap_id: "https://example.local/users/user"})
+      local_actor(%{ap_id: "https://mastodon.local/users/user"})
 
       note =
         "fixtures/fedibird/quote.json"
@@ -48,7 +48,7 @@ defmodule ActivityPub.Federator.Transformer.QuoteHandlingTest do
         |> Jason.decode!()
 
       %{
-        "quoteUri" => "https://example.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
+        "quoteUri" => "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"
       } = Transformer.fix_quote_url(note)
     end
 

@@ -1,9 +1,13 @@
 defmodule ActivityPub.Safety.Signatures do
   @behaviour HTTPSignatures.Adapter
   import Untangle
+  use Arrows
+  alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Fetcher
+  alias ActivityPub.Federator.Adapter
+  alias ActivityPub.Safety.Signatures
 
   @known_suffixes ["/publickey", "/main-key"]
 
@@ -83,6 +87,32 @@ defmodule ActivityPub.Safety.Signatures do
            HTTPSignatures.sign(private_key, actor.data["id"] <> "#main-key", headers) do
       {:ok, signed}
     end
+  end
+
+  def maybe_add_sign_headers(headers, id, date \\ nil) do
+    # enabled by default :-)
+    if Config.get([:sign_object_fetches], true) do
+      date = date || signed_date()
+      [make_signature(id, date), {"date", date} | headers]
+    else
+      headers
+    end
+  end
+
+  defp make_signature(id, date) do
+    uri = URI.parse(id)
+
+    with {:ok, service_actor} <-
+           Adapter.get_or_create_service_actor_by_username("activitypub_fetcher"),
+         {:ok, signature} <-
+           Signatures.sign(service_actor, %{
+             "(request-target)": "get #{uri.path}",
+             host: uri.host,
+             date: date
+           }) do
+      {"signature", signature}
+    end
+    |> debug()
   end
 
   def signed_date, do: signed_date(NaiveDateTime.utc_now(Calendar.ISO))

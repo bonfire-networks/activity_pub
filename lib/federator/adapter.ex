@@ -113,4 +113,12 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   def maybe_handle_activity(_), do: {:ok, :local}
+
+  @doc """
+  Creates an internal service actor by username, if missing.
+  """
+  @callback get_or_create_service_actor_by_username(String.t()) :: User.t() | nil
+  def get_or_create_service_actor_by_username(nickname) do
+    adapter().get_or_create_service_actor_by_username(nickname)
+  end
 end

@@ -200,28 +200,28 @@ defmodule ActivityPub.Safety.SignatureTest do
   end
 
   describe "signed fetches" do
-    setup do: clear_config([:activitypub, :sign_object_fetches])
+    setup do: clear_config([:sign_object_fetches])
 
     test_with_mock "it signs fetches when configured to do so",
                    ActivityPub.Safety.Signatures,
                    [:passthrough],
                    [] do
-      clear_config([:activitypub, :sign_object_fetches], true)
+      clear_config([:sign_object_fetches], true)
 
       Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99512778738411822")
 
-      assert called(ActivityPub.Safety.Signatures.sign(:_, :_))
+      assert_called(ActivityPub.Safety.Signatures.sign(:_, :_))
     end
 
     test_with_mock "it doesn't sign fetches when not configured to do so",
                    ActivityPub.Safety.Signatures,
                    [:passthrough],
                    [] do
-      clear_config([:activitypub, :sign_object_fetches], false)
+      clear_config([:sign_object_fetches], false)
 
       Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99512778738411822")
 
-      refute called(ActivityPub.Safety.Signatures.sign(:_, :_))
+      assert_not_called(ActivityPub.Safety.Signatures.sign(:_, :_))
     end
   end
 end

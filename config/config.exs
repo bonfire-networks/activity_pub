@@ -10,7 +10,8 @@ import Config
 config :activity_pub,
   env: Mix.env(),
   repo: ActivityPub.Repo,
-  ecto_repos: [ActivityPub.Repo]
+  ecto_repos: [ActivityPub.Repo],
+  sign_object_fetches: true
 
 # Configures the endpoint
 config :activity_pub, ActivityPub.Web.Endpoint,

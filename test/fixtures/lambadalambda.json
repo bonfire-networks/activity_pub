@@ -44,7 +44,7 @@
   "publicKey": {
     "id": "https://mocked.local/users/lambadalambda#main-key",
     "owner": "https://mocked.local/users/lambadalambda",
-    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw0P/Tq4gb4G/QVuMGbJo\nC/AfMNcv+m7NfrlOwkVzcU47jgESuYI4UtJayissCdBycHUnfVUd9qol+eznSODz\nCJhfJloqEIC+aSnuEPGA0POtWad6DU0E6/Ho5zQn5WAWUwbRQqowbrsm/GHo2+3v\neR5jGenwA6sYhINg/c3QQbksyV0uJ20Umyx88w8+TJuv53twOfmyDWuYNoQ3y5cc\nHKOZcLHxYOhvwg3PFaGfFHMFiNmF40dTXt9K96r7sbzc44iLD+VphbMPJEjkMuf8\nPGEFOBzy8pm3wJZw2v32RNW2VESwMYyqDzwHXGSq1a73cS7hEnc79gXlELsK04L9\nQQIDAQAB\n-----END PUBLIC KEY-----\n"
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA48qb4v6kqigZutO9Ot0w\nkp27GIF2LiVaADgxQORZozZR63jHTaoOrS3Xhngbgc8SSOhfXET3omzeCLqaLNfX\nnZ8OXmuhJfJSU6mPUvmZ9QdT332jfN/g3iWGhYMf/M9ftCKh96nvFVO/tMruzS9x\nx7tkrfJjehdxh/3LlJMMImPtwcD7kFXwyt1qZTAU6Si4oQAJxRDQXHp1ttLl3Ob8\n29VM7IKkrVmY8TD+JSlV0jtVJPj61J19ytKTx/7UaucYvb9HIiBpkuiy5n/irDqK\nLVf5QEdZoNCdojOZlKJmTLqHhzKP3E9TxsUjhrf4/EqegNc/j982RvOxeu4i40zM\nQwIDAQAB\n-----END PUBLIC KEY-----\n"
   },
   "tag": [],
   "attachment": [],

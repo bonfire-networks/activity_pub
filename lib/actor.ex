@@ -182,22 +182,6 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp public_key_from_data(%{
-         "publicKey" => %{"publicKeyPem" => public_key_pem}
-       }) do
-    key =
-      public_key_pem
-      |> :public_key.pem_decode()
-      |> hd()
-      |> :public_key.pem_entry_decode()
-
-    {:ok, key}
-  end
-
-  defp public_key_from_data(data) do
-    error(data, "Key not found")
-  end
-
   @doc """
   Fetches the public key for given actor AP ID.
   """
@@ -209,6 +193,17 @@ defmodule ActivityPub.Actor do
       e ->
         error(e)
     end
+  end
+
+  defp public_key_from_data(%{
+         "publicKey" => %{"publicKeyPem" => public_key_pem}
+       })
+       when is_binary(public_key_pem) do
+    {:ok, public_key_pem}
+  end
+
+  defp public_key_from_data(data) do
+    error(data, "Key not found")
   end
 
   defp check_if_time_to_update(actor) do
@@ -468,12 +463,9 @@ defmodule ActivityPub.Actor do
 
   def get_external_followers(actor) do
     followers =
-      Adapter.get_follower_local_ids(actor)
-      |> Enum.map(&get_cached!(pointer: &1))
-      # Filter nils
-      |> Enum.filter(fn x -> x end)
+      get_followers(actor)
       # Filter locals
-      |> Enum.filter(fn x -> !x.local end)
+      ~> Enum.filter(fn x -> !x.local end)
 
     {:ok, followers}
   end

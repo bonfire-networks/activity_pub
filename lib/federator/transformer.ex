@@ -67,7 +67,9 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def prepare_outgoing(%Object{object: %Object{} = object} = activity) do
-    prepare_outgoing(activity.data |> Map.put("object", prepare_outgoing_object(object)))
+    activity.data
+    |> Map.put("object", prepare_outgoing_object(object))
+    |> prepare_outgoing()
   end
 
   def prepare_outgoing(%Object{} = activity) do
@@ -144,27 +146,6 @@ defmodule ActivityPub.Federator.Transformer do
     recipient_is_from_instance?(bto, host)
   end
 
-  # incoming activities
-
-  # TODO
-  defp mastodon_follow_hack(_, _), do: {:error, nil}
-
-  defp get_follow_activity(follow_object, followed) do
-    info(follow_object)
-
-    with object_id when not is_nil(object_id) <- Object.get_ap_id(follow_object) |> info,
-         %Object{} = activity <- Object.get_cached!(ap_id: object_id) |> info do
-      {:ok, activity}
-    else
-      # Can't find the activity. This might a Mastodon 2.3 "Accept"
-      {:activity, nil} ->
-        mastodon_follow_hack(follow_object, followed)
-
-      _ ->
-        {:error, nil}
-    end
-  end
-
   defp can_delete_remote_object?(ap_id) do
     debug(ap_id, "Checking delete permission for")
 
@@ -174,6 +155,8 @@ defmodule ActivityPub.Federator.Transformer do
       _ -> false
     end
   end
+
+  # incoming activities
 
   @doc """
   Modifies an incoming AP object (mastodon format) to our internal format.
@@ -671,6 +654,7 @@ defmodule ActivityPub.Federator.Transformer do
          statuses <-
            Enum.filter(objects, fn ap_id -> ap_id != account.data["id"] end) do
       params = %{
+        activity_id: data["id"],
         actor: actor,
         context: context,
         account: account,
@@ -715,6 +699,7 @@ defmodule ActivityPub.Federator.Transformer do
     object = fix_object(object)
 
     params = %{
+      activity_id: data["id"],
       to: data["to"],
       object: object,
       actor: actor,
@@ -740,36 +725,42 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def handle_incoming(%{
-        "type" => "Follow",
-        "object" => followed,
-        "actor" => follower,
-        "id" => id
-      }) do
+  def handle_incoming(
+        %{
+          "type" => "Follow",
+          "object" => followed,
+          "actor" => follower
+        } = data
+      ) do
     info("Handle incoming follow")
 
     with {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower) |> debug("follower"),
          {:ok, followed} <- Actor.get_cached(ap_id: followed) |> debug("followed") do
-      ActivityPub.follow(%{actor: follower, object: followed, activity_id: id, local: false})
+      ActivityPub.follow(%{
+        actor: follower,
+        object: followed,
+        activity_id: data["id"],
+        local: false
+      })
     end
   end
 
   def handle_incoming(
         %{
-          "type" => "Accept",
+          "type" => "Accept" = type,
           "object" => follow_object,
-          "actor" => _actor,
-          "id" => _id
+          "actor" => _actor
         } = data
       ) do
-    info("Handle incoming Accept")
+    debug("Handle incoming Accept")
 
     with followed_actor <- Object.actor_from_data(data) |> debug(),
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed_actor) |> debug(),
-         {:ok, follow_activity} <- get_follow_activity(follow_object, followed) |> debug() do
+         {:ok, follow_activity} <- Object.get_follow_activity(follow_object, followed) |> debug() do
       ActivityPub.accept(%{
+        activity_id: data["id"],
         to: follow_activity.data["to"],
-        type: "Accept",
+        type: type,
         actor: followed,
         object: follow_activity.data["id"],
         local: false
@@ -781,14 +772,38 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  # TODO: add reject
+  def handle_incoming(
+        %{
+          "type" => "Reject" = type,
+          "object" => follow_object,
+          "actor" => _actor
+        } = data
+      ) do
+    debug("Handle incoming Reject")
+
+    with followed_actor <- Object.actor_from_data(data) |> debug(),
+         {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed_actor) |> debug(),
+         {:ok, follow_activity} <- Object.get_follow_activity(follow_object, followed) |> debug() do
+      ActivityPub.reject(%{
+        activity_id: data["id"],
+        to: follow_activity.data["to"],
+        type: type,
+        actor: followed,
+        object: follow_activity.data["id"],
+        local: false
+      })
+      |> debug()
+    else
+      e ->
+        error(e, "Could not handle incoming Reject")
+    end
+  end
 
   def handle_incoming(
         %{
           "type" => "Like",
           "object" => object_id,
-          "actor" => _actor,
-          "id" => id
+          "actor" => _actor
         } = data
       ) do
     info("Handle incoming like")
@@ -797,7 +812,7 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.like(%{actor: actor, object: object, activity_id: id, local: false}) do
+           ActivityPub.like(%{actor: actor, object: object, activity_id: data["id"], local: false}) do
       {:ok, activity}
     else
       e -> error(e)
@@ -808,8 +823,7 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Announce",
           "object" => object_id,
-          "actor" => _actor,
-          "id" => id
+          "actor" => _actor
         } = data
       ) do
     info("Handle incoming boost")
@@ -820,9 +834,9 @@ defmodule ActivityPub.Federator.Transformer do
          public <- Utils.public?(data, object),
          {:ok, activity} <-
            ActivityPub.announce(%{
+             activity_id: data["id"],
              actor: actor,
              object: object,
-             activity_id: id,
              local: false,
              public: public
            }) do
@@ -888,16 +902,20 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Block",
           "object" => blocked,
-          "actor" => blocker,
-          "id" => id
-        } = _data
+          "actor" => blocker
+        } = data
       ) do
     info("Handle incoming block")
 
     with {:ok, %{local: true} = blocked} <- Actor.get_cached(ap_id: blocked),
          {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
          {:ok, activity} <-
-           ActivityPub.block(%{actor: blocker, object: blocked, activity_id: id, local: false}) do
+           ActivityPub.block(%{
+             actor: blocker,
+             object: blocked,
+             activity_id: data["id"],
+             local: false
+           }) do
       {:ok, activity}
     else
       e -> error(e)
@@ -908,8 +926,7 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Delete",
           "object" => object_id,
-          "actor" => _actor,
-          "id" => _id
+          "actor" => _actor
         } = _data
       ) do
     info("Handle incoming deletion")
@@ -945,8 +962,7 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Undo",
           "object" => %{"type" => "Announce", "object" => object_id},
-          "actor" => _actor,
-          "id" => id
+          "actor" => _actor
         } = data
       ) do
     info("Handle incoming unboost")
@@ -955,7 +971,12 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.unannounce(%{actor: actor, object: object, activity_id: id, local: false}) do
+           ActivityPub.unannounce(%{
+             actor: actor,
+             object: object,
+             activity_id: data["id"],
+             local: false
+           }) do
       {:ok, activity}
     else
       e -> error(e)
@@ -966,8 +987,7 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Undo",
           "object" => %{"type" => "Like", "object" => object_id},
-          "actor" => _actor,
-          "id" => id
+          "actor" => _actor
         } = data
       ) do
     info("Handle incoming unlike")
@@ -976,7 +996,12 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.unlike(%{actor: actor, object: object, activity_id: id, local: false}) do
+           ActivityPub.unlike(%{
+             actor: actor,
+             object: object,
+             activity_id: data["id"],
+             local: false
+           }) do
       {:ok, activity}
     else
       e -> error(e)
@@ -987,15 +1012,19 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Undo",
           "object" => %{"type" => "Follow", "object" => followed},
-          "actor" => follower,
-          "id" => id
-        } = _data
+          "actor" => follower
+        } = data
       ) do
     info("Handle incoming unfollow")
 
     with {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower),
          {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed) do
-      ActivityPub.unfollow(%{actor: follower, object: followed, activity_id: id, local: false})
+      ActivityPub.unfollow(%{
+        actor: follower,
+        object: followed,
+        activity_id: data["id"],
+        local: false
+      })
     else
       e -> error(e)
     end
@@ -1005,9 +1034,8 @@ defmodule ActivityPub.Federator.Transformer do
         %{
           "type" => "Undo",
           "object" => %{"type" => "Block", "object" => blocked},
-          "actor" => blocker,
-          "id" => id
-        } = _data
+          "actor" => blocker
+        } = data
       ) do
     info("Handle incoming unblock")
 
@@ -1015,7 +1043,12 @@ defmodule ActivityPub.Federator.Transformer do
            Actor.get_or_fetch_by_ap_id(blocked),
          {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
          {:ok, activity} <-
-           ActivityPub.unblock(%{actor: blocker, object: blocked, activity_id: id, local: false}) do
+           ActivityPub.unblock(%{
+             actor: blocker,
+             object: blocked,
+             activity_id: data["id"],
+             local: false
+           }) do
       {:ok, activity}
     else
       e -> error(e)

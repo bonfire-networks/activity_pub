@@ -82,6 +82,7 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
+      {:error, error} when is_binary(error) -> error(error)
       other -> error(other, "Error with the Create Activity")
     end
   end
@@ -103,6 +104,7 @@ defmodule ActivityPub do
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         {:ok, activity} <- Object.get_cached(ap_id: activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
@@ -146,22 +148,29 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
-  def accept(%{to: to, actor: actor, object: follow_activity_id} = params) do
+  def accept(params) do
+    with {:ok, accept_activity, adapter_object, _accepted_activity} <- accept_activity(params) do
+      {:ok, Map.put(accept_activity, :pointer, adapter_object)}
+    end
+  end
+
+  def accept_activity(%{to: to, actor: actor, object: activity_to_accept_id} = params) do
     with actor_id <- actor.data["id"],
          data <- %{
+           "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
            "to" => to,
            "type" => "Accept",
            "actor" => actor_id,
-           "object" => follow_activity_id
+           "object" => activity_to_accept_id
          },
-         %Object{data: %{"actor" => actor_id}} = follow_activity <-
-           Object.get_cached!(ap_id: follow_activity_id),
+         %Object{data: %{"type" => type}} = activity_to_accept <-
+           Object.get_cached!(ap_id: activity_to_accept_id),
          {:ok, accept_activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(accept_activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity),
-         {:ok, _follow_activity} <- Object.update_state(follow_activity, "Follow", "accept") do
-      {:ok, Map.put(accept_activity, :pointer, adapter_object)}
+         {:ok, accepted_activity} <- Object.update_state(activity_to_accept, type, "accept") do
+      {:ok, accept_activity, adapter_object, accepted_activity}
     end
   end
 
@@ -172,15 +181,21 @@ defmodule ActivityPub do
           {:ok, Object.t()} | {:error, any()}
   def reject(%{to: to, actor: actor, object: object} = params) do
     with data <- %{
+           "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
            "to" => to,
            "type" => "Reject",
            "actor" => actor.data["id"],
            "object" => object
          },
+         %Object{data: %{"type" => type}} = activity_to_reject <-
+           Object.get_cached!(ap_id: object),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("handled"),
+         {:ok, _rejected_activity} <-
+           Object.update_state(activity_to_reject, type, "reject") |> debug("rejected_activity"),
+         #  {:ok, activity} <- Object.get_cached(ap_id: activity), 
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
@@ -326,7 +341,8 @@ defmodule ActivityPub do
   def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
     with activity_data <- %{
            # avoid ID conflicts with updates
-           "id" => params[:id] || Utils.generate_object_id(),
+           "id" =>
+             params[:id] || params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
            "to" => to,
            "cc" => cc,
            "type" => "Update",

@@ -171,12 +171,10 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   # accept (but verify) unsigned Creates
   def inbox(conn, %{"type" => "Create"} = params) do
-    invalid_signature(conn.req_headers, params)
     maybe_process_unsigned(conn, params)
   end
 
   def inbox(conn, params) do
-    invalid_signature(conn.req_headers, params)
     maybe_process_unsigned(conn, params)
   end
 
@@ -186,32 +184,44 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   defp maybe_process_unsigned(conn, params) do
     if Config.federating?() do
-      warn(
-        params,
-        "Signature missing/invalid, so re-fetching AP activity from source"
-      )
+      headers = Enum.into(conn.req_headers, %{})
 
-      with {:error, :needs_login} <-
-             Fetcher.fetch_object_from_id(params["id"]) do
-        warn(
-          "TEMPORARY WORKAROUND: Signature missing or not from author, AND we couldn't fetch a non-public object without authentication, so for now we just accept what was received "
-        )
-
-        process_incoming(conn, params)
-        ret_error(conn, "please send signed activities", 401)
+      if is_binary(headers["signature"]) do
+        if String.contains?(headers["signature"], params["actor"]) do
+          error(
+            headers,
+            "Unknown HTTP signature validation error, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
+          )
+        else
+          error(
+            headers,
+            "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
+          )
+        end
       else
-        {:ok, object} ->
-          debug(object, "unsigned activity workaround worked")
+        error(
+          params,
+          "No HTTP signature provided, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
+        )
+      end
 
-          ret_error(
-            conn,
-            "please send signed activities - object was re-fetched from origin",
-            202
+      with {:ok, object} <-
+             Fetcher.fetch_object_from_id(params["id"]) do
+        debug(object, "unsigned activity workaround worked")
+
+        ret_error(
+          conn,
+          "please send signed activities - object was not accepted as-in and instead re-fetched from origin",
+          202
+        )
+      else
+        e ->
+          error(
+            e,
+            "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication."
           )
 
-        e ->
-          error(e, "unsigned activity workaround failed")
-          ret_error(conn, "unsigned activity was rejected", 401)
+          ret_error(conn, "please send signed activities - activity was rejected", 401)
       end
     else
       ret_error(conn, "this instance is not currently federating", 403)
@@ -231,21 +241,6 @@ defmodule ActivityPub.Web.ActivityPubController do
     else
       ret_error(conn, "this instance is not currently federating", 403)
     end
-  end
-
-  defp invalid_signature(req_headers, params) do
-    headers = Enum.into(req_headers, %{})
-
-    if is_binary(headers["signature"]) and String.contains?(headers["signature"], params["actor"]) do
-      error(
-        params,
-        "Signature validation error (make sure you are forwarding the HTTP Host header)"
-      )
-    else
-      error("No signature provided (make sure you are forwarding the HTTP Host header)")
-    end
-
-    debug(req_headers)
   end
 
   defp ret_error(conn, error, status \\ 500) do

@@ -142,7 +142,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
                |> put_req_header("accept", "application/activity+json")
                |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
 
-      json_response(response, 404)
+      json_response(response, 401)
     end
 
     test "it returns a json representation of the object with accept application/json", %{

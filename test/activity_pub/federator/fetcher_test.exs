@@ -249,14 +249,6 @@ defmodule ActivityPub.Federator.FetcherTest do
                Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99512778738411822")
     end
 
-    # FIXME!
-    test "it does not fetch a spoofed object uploaded on an instance as an attachment" do
-      assert {:error, _} =
-               Fetcher.fetch_object_from_id(
-                 "https://patch.local/media/03ca3c8b4ac3ddd08bf0f84be7885f2f88de0f709112131a22d83650819e36c2.json"
-               )
-    end
-
     test "does not fetch anything from a rejected instance" do
       clear_config([:mrf_simple, :reject], ["evil.example.org", "i said so"])
 

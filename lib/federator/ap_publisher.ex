@@ -2,6 +2,7 @@
 
 defmodule ActivityPub.Federator.APPublisher do
   alias ActivityPub.Actor
+  alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.HTTP
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Transformer
@@ -15,7 +16,7 @@ defmodule ActivityPub.Federator.APPublisher do
   def is_representable?(_activity), do: true
 
   def publish(actor, activity) do
-    {:ok, data} =
+    {:ok, prepared_activity_data} =
       Transformer.prepare_outgoing(activity.data)
       |> info("data ready to publish as JSON")
 
@@ -23,17 +24,23 @@ defmodule ActivityPub.Federator.APPublisher do
 
     # Utils.maybe_forward_activity(activity)
 
+    # embed the object in the activity JSON
+    # object_ap_id = activity.data["object"]
+    # object = Object.get_cached!(object_ap_id)
+    # activity = Map.put(activity, )
+
     # TODO: reuse from activity?
     to = activity.data["to"] || []
     cc = activity.data["cc"] || []
-    is_public = ActivityPub.Config.public_uri() in to or ActivityPub.Config.public_uri() in cc
+    tos = to ++ cc
+    is_public? = ActivityPub.Config.public_uri() in tos
     # TODO: include bcc, etc
     num_recipients = length(to) + length(cc)
     type = activity.data["type"]
 
-    recipients(actor, activity)
+    recipients(actor, prepared_activity_data, tos, is_public?)
     |> info("initial recipients")
-    |> Enum.map(&determine_inbox(&1, is_public, type, num_recipients))
+    |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
     # |> maybe_federate_to_search_index(activity)
     |> Enum.uniq()
     |> info("possible recipients")
@@ -41,14 +48,14 @@ defmodule ActivityPub.Federator.APPublisher do
     |> info("enqueue for")
     |> Enum.each(fn {inbox, unreachable_since} ->
       json =
-        Transformer.preserve_privacy_of_outgoing(data, URI.parse(inbox))
+        Transformer.preserve_privacy_of_outgoing(prepared_activity_data, URI.parse(inbox))
         |> Jason.encode!()
 
       ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, %{
         inbox: inbox,
         json: json,
         actor_username: actor.username,
-        id: activity.data["id"],
+        id: prepared_activity_data["id"],
         unreachable_since: unreachable_since
       })
     end)
@@ -74,7 +81,7 @@ defmodule ActivityPub.Federator.APPublisher do
       |> Timex.format!("{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
 
     {:ok, signature} =
-      ActivityPub.Safety.Signatures.sign(actor, %{
+      ActivityPub.Safety.Keys.sign(actor, %{
         "(request-target)": "post #{path}",
         host: host,
         "content-length": byte_size(json),
@@ -114,20 +121,24 @@ defmodule ActivityPub.Federator.APPublisher do
     |> publish_one()
   end
 
-  defp recipients(actor, activity) do
+  defp recipients(actor, activity, tos, is_public?) do
+    # if is_public? || 
     {:ok, followers} =
-      if actor.data["followers"] in ((activity.data["to"] || []) ++
-                                       (activity.data["cc"] || [])) do
-        Actor.get_external_followers(actor) |> info("external_followers")
+      if actor.data["followers"] in tos do
+        Actor.get_external_followers(actor)
+        |> debug("external_followers")
       else
-        {:ok, []}
+        # optionally send it to a subset of followers
+        Adapter.external_followers_for_activity(actor, activity)
       end
 
     (remote_recipients(actor, activity) |> info("remote_recipients")) ++
-      followers
+      (followers || [])
   end
 
-  defp remote_recipients(_actor, %{data: data}) do
+  defp remote_recipients(actor, %{data: data}), do: remote_recipients(actor, data)
+
+  defp remote_recipients(_actor, data) do
     ap_base_url = Utils.ap_base_url()
 
     ([Map.get(data, "to", nil)] ++

@@ -157,6 +157,21 @@ defmodule ActivityPub.Queries do
     )
   end
 
+  def last_follow(query, followed_id) do
+    from(
+      activity in query,
+      where:
+        fragment(
+          "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
+          activity.data,
+          activity.data,
+          ^followed_id
+        ),
+      order_by: [fragment("? desc nulls last", activity.inserted_at)],
+      limit: 1
+    )
+  end
+
   def replies(%{} = object, opts \\ []) do
     # object = normalize(object, fetch: false)
 

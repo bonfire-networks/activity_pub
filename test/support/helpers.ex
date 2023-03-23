@@ -1,7 +1,10 @@
 defmodule ActivityPub.Test.Helpers do
   alias ActivityPub.Config
   alias ActivityPub.Utils
+  alias ActivityPub.Object
   require Logger
+  import Ecto.Query
+  import ActivityPub.Utils
 
   @mod_path __DIR__
   def file(path), do: File.read!(@mod_path <> "/../" <> path)
@@ -130,4 +133,12 @@ defmodule ActivityPub.Test.Helpers do
   end
 
   def stripped_object(object), do: Map.drop(object, [:object, :pointer, :pointer_id, :updated_at])
+
+  def list_accepts,
+    do:
+      from(
+        a in Object,
+        where: fragment("?->>'type' = ?", a.data, "Accept")
+      )
+      |> repo().all()
 end

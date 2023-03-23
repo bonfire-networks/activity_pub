@@ -334,6 +334,8 @@ defmodule ActivityPub.Object do
 
     with {:ok, activity} <- get(id: activity.id) do
       set_cache(activity)
+      |> debug()
+
       {:ok, activity}
     end
   end
@@ -362,9 +364,9 @@ defmodule ActivityPub.Object do
   defp lazy_put_activity_defaults(map, activity_id, pointer) do
     map =
       map
+      |> debug
       |> Map.put_new_lazy("id", fn -> map["url"] || object_url(activity_id) end)
       |> Map.put_new_lazy("published", &Utils.make_date/0)
-      |> debug
 
     # |> Map.put_new_lazy("context", &Utils.generate_id("contexts"))
 
@@ -378,6 +380,7 @@ defmodule ActivityPub.Object do
     else
       map
     end
+    |> debug
   end
 
   defp lazy_put_object_defaults(%{data: data}, activity_id, pointer, context),
@@ -387,9 +390,7 @@ defmodule ActivityPub.Object do
     map
     |> Map.put_new_lazy("id", fn ->
       map["url"] ||
-        if is_binary(pointer) or is_map(pointer),
-          do: object_url(pointer),
-          else: Utils.generate_object_id()
+        object_url(pointer)
     end)
     |> Map.put_new_lazy("published", &Utils.make_date/0)
     |> Utils.maybe_put("context", context)
@@ -588,28 +589,52 @@ defmodule ActivityPub.Object do
 
   def object_url(%{pointer_id: id}) when is_binary(id), do: object_url(id)
   def object_url(%{id: id}) when is_binary(id), do: object_url(id)
-  def object_url(id) when is_binary(id), do: Utils.ap_base_url() <> "/objects/" <> id
 
-  def fetch_latest_follow(%{data: %{"id" => follower_id}}, %{
+  def object_url(id) when is_binary(id) do
+    if Utils.is_uuid?(id) or Utils.is_ulid?(id) do
+      Utils.ap_base_url() <> "/objects/" <> id
+    else
+      Utils.ap_base_url() <> "/actors/" <> id
+    end
+  end
+
+  def object_url(_), do: Utils.generate_object_id()
+
+  def get_follow_activity(follow_object, followed) do
+    info(follow_object)
+
+    with object_id when not is_nil(object_id) <- get_ap_id(follow_object) |> debug,
+         {:ok, activity} <- get_cached(ap_id: object_id) |> info do
+      {:ok, activity}
+    else
+      # Can't find the activity. This might be a Mastodon 2.3 "Accept"
+      nil ->
+        with %{} = activity <- fetch_latest_follow(follow_object["actor"], followed) do
+          {:ok, activity}
+        end
+
+      e ->
+        error(e, "Could not find a matching follow")
+    end
+  end
+
+  # TODO
+  defp mastodon_follow_hack(_, _), do: {:error, nil}
+
+  def fetch_latest_follow(%{data: %{"id" => follower_id}}, followed_id),
+    do: fetch_latest_follow(follower_id, followed_id)
+
+  def fetch_latest_follow(follower_id, %{
         data: %{"id" => followed_id}
-      }) do
-    query =
-      from(
-        activity in Object,
-        where:
-          fragment(
-            "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
-            activity.data,
-            activity.data,
-            ^followed_id
-          ),
-        order_by: [fragment("? desc nulls last", activity.inserted_at)],
-        limit: 1
-      )
-      |> Queries.by_type("Follow")
-      |> Queries.by_actor(follower_id)
+      }),
+      do: fetch_latest_follow(follower_id, followed_id)
 
-    repo().one(query)
+  def fetch_latest_follow(follower_id, followed_id) do
+    from(activity in Object)
+    |> Queries.last_follow(followed_id)
+    |> Queries.by_type("Follow")
+    |> Queries.by_actor(follower_id)
+    |> repo().one()
   end
 
   #### Like-related helpers

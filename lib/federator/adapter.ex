@@ -117,8 +117,17 @@ defmodule ActivityPub.Federator.Adapter do
   @doc """
   Creates an internal service actor by username, if missing.
   """
-  @callback get_or_create_service_actor_by_username(String.t()) :: User.t() | nil
+  @callback get_or_create_service_actor_by_username(String.t()) :: Actor.t() | nil
   def get_or_create_service_actor_by_username(nickname) do
     adapter().get_or_create_service_actor_by_username(nickname)
+  end
+
+  @callback external_followers_for_activity(List.t(), Map.t()) :: List.t()
+  def external_followers_for_activity(actor, activity) do
+    if function_exported?(adapter(), :external_followers_for_activity, 2) do
+      adapter().external_followers_for_activity(actor, activity)
+    else
+      {:ok, []}
+    end
   end
 end

@@ -13,7 +13,7 @@ defmodule ActivityPub.Federator.Fetcher do
   alias ActivityPub.Safety.Containment
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Workers
-  alias ActivityPub.Safety.Signatures
+  alias ActivityPub.Safety.Keys
 
   import Untangle
 
@@ -182,7 +182,7 @@ defmodule ActivityPub.Federator.Fetcher do
          true <- String.starts_with?(id, "http"),
          headers <-
            [{:Accept, "application/activity+json"}]
-           |> Signatures.maybe_add_sign_headers(id),
+           |> Keys.maybe_add_sign_headers(id),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
            HTTP.get(
              id,

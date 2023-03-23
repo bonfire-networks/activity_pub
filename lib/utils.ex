@@ -124,6 +124,16 @@ defmodule ActivityPub.Utils do
       [params["to"], params["cc"], params["bto"], params["bcc"]]
       |> Enum.any?(&label_in_collection?(label, &1))
 
+  @doc "Takes a string and returns true if it is a valid UUID (Universally Unique Identifier)"
+  def is_uuid?(str) do
+    with true <- is_binary(str),
+         {:ok, _} <- Ecto.UUID.cast(str) do
+      true
+    else
+      _ -> false
+    end
+  end
+
   def is_ulid?(str) when is_binary(str) and byte_size(str) == 26 do
     with :error <- Pointers.ULID.cast(str) do
       false

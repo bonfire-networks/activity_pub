@@ -601,10 +601,8 @@ defmodule ActivityPub.Object do
   def object_url(_), do: Utils.generate_object_id()
 
   def get_follow_activity(follow_object, followed) do
-    info(follow_object)
-
-    with object_id when not is_nil(object_id) <- get_ap_id(follow_object) |> debug,
-         {:ok, activity} <- get_cached(ap_id: object_id) |> info do
+    with object_id when not is_nil(object_id) <- get_ap_id(follow_object),
+         {:ok, activity} <- get_cached(ap_id: object_id) do
       {:ok, activity}
     else
       # Can't find the activity. This might be a Mastodon 2.3 "Accept"
@@ -617,9 +615,6 @@ defmodule ActivityPub.Object do
         error(e, "Could not find a matching follow")
     end
   end
-
-  # TODO
-  defp mastodon_follow_hack(_, _), do: {:error, nil}
 
   def fetch_latest_follow(%{data: %{"id" => follower_id}}, followed_id),
     do: fetch_latest_follow(follower_id, followed_id)

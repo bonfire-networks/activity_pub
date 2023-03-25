@@ -31,7 +31,7 @@ config :activity_pub,
 
 config :activity_pub, Oban,
   repo: ActivityPub.TestRepo,
-  queues: false
+  testing: :manual
 
 # config :activity_pub, :instance, 
 #   rewrite_policy: [ActivityPub.MRF.SimplePolicy]

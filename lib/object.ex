@@ -268,6 +268,9 @@ defmodule ActivityPub.Object do
     Cachex.del(:ap_object_cache, "id:#{id}")
     Cachex.del(:ap_object_cache, "ap_id:#{ap_id}")
     Cachex.del(:ap_object_cache, "pointer:#{object.pointer_id}")
+
+    Cachex.del(:ap_object_cache, "json:#{id}")
+    Cachex.del(:ap_object_cache, "json:#{object.pointer_id}")
     :ok
   end
 

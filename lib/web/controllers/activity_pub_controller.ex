@@ -35,58 +35,56 @@ defmodule ActivityPub.Web.ActivityPubController do
       case Adapter.get_redirect_url(uuid) do
         "http" <> _ = url -> redirect(conn, external: url)
         url when is_binary(url) -> redirect(conn, to: url)
-        _ -> object_json(conn, %{"uuid" => uuid})
+        _ -> object_with_cache(conn, uuid)
       end
     else
-      object_json(conn, %{"uuid" => uuid})
+      object_with_cache(conn, uuid)
     end
   end
 
-  defp object_json(conn, %{"uuid" => uuid}) do
-    if Utils.is_ulid?(uuid) do
+  defp object_with_cache(conn, id) do
+    Utils.json_with_cache(conn, &object_json/1, :ap_object_cache, id)
+  end
+
+  defp object_json(json: id) do
+    if Utils.is_ulid?(id) do
       # querying by pointer - handle local objects
       with {:ok, object} <-
-             Object.get_cached(pointer: uuid) ||
-               Adapter.maybe_publish_object(uuid),
-           #  true <- object.id != uuid, # huh?
+             Object.get_cached(pointer: id) ||
+               Adapter.maybe_publish_object(id),
+           #  true <- object.id != id, # huh?
            #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
            # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") do
            true <- object.public do
-        conn
-        |> put_resp_content_type("application/activity+json")
-        |> put_view(ObjectView)
-        |> render("object.json", %{object: object})
+        {:ok, ObjectView.render("object.json", %{object: object})}
       else
         false ->
           warn(
             "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
           )
 
-          ret_error(conn, "authentication required", 401)
+          {:error, 401, "authentication required"}
 
         e ->
           error(e, "Pointable object not found")
-          ret_error(conn, "not found", 404)
+          {:error, 404, "not found"}
       end
     else
       # query by UUID
-      with ap_id <- ap_route_helper(uuid),
+      with ap_id <- ap_route_helper(id),
            {:ok, object} <- Object.get_cached(ap_id: ap_id),
            true <- object.public do
-        conn
-        |> put_resp_content_type("application/activity+json")
-        |> put_view(ObjectView)
-        |> render("object.json", %{object: object})
+        {:ok, ObjectView.render("object.json", %{object: object})}
       else
         false ->
           warn(
             "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
           )
 
-          ret_error(conn, "authentication required", 401)
+          {:error, 401, "authentication required"}
 
         _ ->
-          ret_error(conn, "not found", 404)
+          {:error, 404, "not found"}
       end
     end
   end
@@ -96,22 +94,23 @@ defmodule ActivityPub.Web.ActivityPubController do
       case Adapter.get_redirect_url(username) do
         "http" <> _ = url -> redirect(conn, external: url)
         url when is_binary(url) -> redirect(conn, to: url)
-        _ -> actor_json(conn, %{"username" => username})
+        _ -> actor_with_cache(conn, username)
       end
     else
-      actor_json(conn, %{"username" => username})
+      actor_with_cache(conn, username)
     end
   end
 
-  def actor_json(conn, %{"username" => username}) do
+  defp actor_with_cache(conn, username) do
+    Utils.json_with_cache(conn, &actor_json/1, :ap_actor_cache, username)
+  end
+
+  defp actor_json(json: username) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-      conn
-      |> put_resp_content_type("application/activity+json")
-      |> put_view(ActorView)
-      |> render("actor.json", %{actor: actor})
+      {:ok, ActorView.render("actor.json", %{actor: actor})}
     else
       _ ->
-        ret_error(conn, "not found", 404)
+        {:error, 404, "not found"}
     end
   end
 
@@ -159,7 +158,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       |> render("outbox.json", %{actor: actor, page: page_number(page)})
     else
       e ->
-        ret_error(conn, "Invalid actor", 500)
+        Utils.error_json(conn, "Invalid actor", 500)
     end
   end
 
@@ -216,7 +215,7 @@ defmodule ActivityPub.Web.ActivityPubController do
              Fetcher.fetch_object_from_id(params["id"]) do
         debug(object, "unsigned activity workaround worked")
 
-        ret_error(
+        Utils.error_json(
           conn,
           "please send signed activities - object was not accepted as-in and instead re-fetched from origin",
           202
@@ -228,10 +227,10 @@ defmodule ActivityPub.Web.ActivityPubController do
             "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication."
           )
 
-          ret_error(conn, "please send signed activities - activity was rejected", 401)
+          Utils.error_json(conn, "please send signed activities - activity was rejected", 401)
       end
     else
-      ret_error(conn, "this instance is not currently federating", 403)
+      Utils.error_json(conn, "this instance is not currently federating", 403)
     end
   end
 
@@ -246,14 +245,8 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       json(conn, "ok")
     else
-      ret_error(conn, "this instance is not currently federating", 403)
+      Utils.error_json(conn, "this instance is not currently federating", 403)
     end
-  end
-
-  defp ret_error(conn, error, status \\ 500) do
-    conn
-    |> put_status(status)
-    |> json(%{error: error})
   end
 
   defp page_number("true"), do: 1

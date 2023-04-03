@@ -220,7 +220,7 @@ defmodule ActivityPub.Utils do
     case cachex_fetch(cache_bucket, cache_key, fn ->
            case get_fun.([{key, identifier}]) do
              {:ok, object} ->
-               info(object, "got with #{key} - #{identifier} :")
+               debug("got and now caching - #{key}: #{identifier}")
                {:commit, object}
 
              e ->
@@ -228,12 +228,23 @@ defmodule ActivityPub.Utils do
                {:ignore, e}
            end
          end) do
-      {:ok, object} -> {:ok, object}
-      {:commit, object} -> {:ok, object}
-      {:ignore, _} -> {:error, :not_found}
-      {:error, :no_cache} -> get_fun.([{key, identifier}])
+      {:ok, object} ->
+        debug("found in cache - #{key}: #{identifier}")
+        {:ok, object}
+
+      {:commit, object} ->
+        debug("found in cache - #{key}: #{identifier}")
+        {:ok, object}
+
+      {:ignore, other} ->
+        other
+
+      {:error, :no_cache} ->
+        get_fun.([{key, identifier}])
+
       # {:error, "cannot find ownership process"<>_} -> get_fun.([{key, identifier}])
-      msg -> error(msg)
+      msg ->
+        error(msg)
     end
   rescue
     _ ->
@@ -242,6 +253,36 @@ defmodule ActivityPub.Utils do
     _ ->
       # workaround :nodedown errors
       get_fun.([{key, identifier}])
+  end
+
+  def json_with_cache(conn, get_fun, cache_bucket, id) do
+    if Untangle.log_level?(:info),
+      do:
+        info(
+          "#{request_ip(conn)} / #{Plug.Conn.get_req_header(conn, "user-agent")}",
+          "request from"
+        )
+
+    with {:ok, json} when is_map(json) <- get_with_cache(get_fun, cache_bucket, :json, id) do
+      # TODO: cache the actual json so it doesn't have to go through Jason each time?
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/activity+json")
+      |> Phoenix.Controller.json(json)
+    else
+      {:error, code, msg} ->
+        error_json(conn, msg, code)
+
+      other ->
+        error(other, "unhandled case")
+        error_json(conn, "server error", 500)
+    end
+  end
+
+  def error_json(conn, error, status \\ 500) do
+    conn
+    |> Plug.Conn.put_status(status)
+    |> Phoenix.Controller.json(%{error: error})
   end
 
   @doc "conditionally update a map"
@@ -309,5 +350,33 @@ defmodule ActivityPub.Utils do
       true ->
         nil
     end
+  end
+
+  def request_ip(conn) do
+    cond do
+      cf_connecting_ip = List.first(Plug.Conn.get_req_header(conn, "cf-connecting-ip")) ->
+        cf_connecting_ip
+
+      # List.first(Plug.Conn.get_req_header(conn, "b-forwarded-for")) ->
+      #   parse_forwarded_for(b_forwarded_for)
+
+      x_forwarded_for = List.first(Plug.Conn.get_req_header(conn, "x-forwarded-for")) ->
+        parse_forwarded_for(x_forwarded_for)
+
+      forwarded = List.first(Plug.Conn.get_req_header(conn, "forwarded")) ->
+        Regex.named_captures(~r/for=(?<for>[^;,]+).*$/, forwarded)
+        |> Map.get("for")
+        # IPv6 addresses are enclosed in quote marks and square brackets: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
+        |> String.trim("\"")
+
+      true ->
+        to_string(:inet_parse.ntoa(conn.remote_ip))
+    end
+  end
+
+  defp parse_forwarded_for(header) do
+    String.split(header, ",")
+    |> Enum.map(&String.trim/1)
+    |> List.first()
   end
 end

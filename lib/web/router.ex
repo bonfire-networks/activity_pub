@@ -31,10 +31,17 @@ defmodule ActivityPub.Web.Router do
         pipe_through(:activity_pub)
 
         get("/objects/:uuid", ActivityPubController, :object)
+
+        # note: singular is not canonical
+        get("/object/:uuid", ActivityPubController, :object)
+
         get("/actors/:username", ActivityPubController, :actor)
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
         get("/actors/:username/outbox", ActivityPubController, :outbox)
+
+        # note: singular is not canonical
+        get("/actor/:username", ActivityPubController, :actor)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

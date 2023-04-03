@@ -430,6 +430,8 @@ defmodule ActivityPub.Actor do
     Cachex.del(:ap_actor_cache, "ap_id:#{actor.ap_id}")
     Cachex.del(:ap_actor_cache, "pointer:#{actor.pointer_id}")
     Cachex.del(:ap_actor_cache, "username:#{actor.username}")
+
+    Cachex.del(:ap_actor_cache, "json:#{actor.username}")
     Object.invalidate_cache(actor)
   end
 

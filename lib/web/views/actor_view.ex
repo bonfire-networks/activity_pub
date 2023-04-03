@@ -29,7 +29,7 @@ defmodule ActivityPub.Web.ActorView do
     |> Map.merge(Utils.make_json_ld_header())
     |> Enum.filter(fn {_k, v} -> v != nil end)
     |> Enum.into(%{})
-    |> info
+    |> debug
   end
 
   def render("following.json", %{actor: actor, page: page}) do

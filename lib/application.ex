@@ -19,9 +19,19 @@ defmodule ActivityPub.Application do
     do: Application.get_env(:activity_pub, :repo, ActivityPub.TestRepo)
 
   @expiration Cachex.Spec.expiration(
-                default: 25_000,
+                #  42 minutes by default
+                default: 2_520_000,
                 interval: 1000
               )
+
+  @limit Cachex.Spec.limit(
+           #  max number of entries
+           size: 2_500,
+           # the policy to use for eviction
+           policy: Cachex.Policy.LRW,
+           # what % to reclaim when limit is reached
+           reclaim: 0.1
+         )
 
   if Mix.env() == :test and Application.compile_env(:activity_pub, :disable_test_apps) != true do
     def start(_type, _args) do
@@ -67,7 +77,7 @@ defmodule ActivityPub.Application do
                :ap_actor_cache,
                [
                  expiration: @expiration,
-                 limit: 2500
+                 limit: @limit
                ]
              ]}
         },
@@ -79,7 +89,7 @@ defmodule ActivityPub.Application do
                :ap_object_cache,
                [
                  expiration: @expiration,
-                 limit: 2500
+                 limit: @limit
                ]
              ]}
         }

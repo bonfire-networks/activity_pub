@@ -78,6 +78,13 @@ defmodule ActivityPub.Web.ActivityPubController do
         |> put_view(ObjectView)
         |> render("object.json", %{object: object})
       else
+        false ->
+          warn(
+            "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
+          )
+
+          ret_error(conn, "authentication required", 401)
+
         _ ->
           ret_error(conn, "not found", 404)
       end

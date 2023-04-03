@@ -1,5 +1,5 @@
 defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
-  use ActivityPub.DataCase, async: false
+  use ActivityPub.Web.ConnCase, async: false
   use Oban.Testing, repo: repo(), async: true
 
   import ActivityPub.Factory
@@ -77,7 +77,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
 
     assert "ok" ==
              conn
-             |> assign(:valid_signature, true)
+             |> Plug.Conn.assign(:valid_signature, true)
              |> put_req_header("signature", "keyId=\"#{actor}/main-key\"")
              |> put_req_header("content-type", "application/activity+json")
              |> post("#{Utils.ap_base_url()}/shared_inbox", data)
@@ -101,7 +101,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
 
     assert "ok" ==
              conn
-             |> assign(:valid_signature, true)
+             |> Plug.Conn.assign(:valid_signature, true)
              |> put_req_header("signature", "keyId=\"#{actor}/main-key\"")
              |> put_req_header("content-type", "application/activity+json")
              |> post("#{Utils.ap_base_url()}/shared_inbox", data)

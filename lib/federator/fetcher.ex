@@ -279,8 +279,8 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp handle_collection(page, opts) do
-    entries =
-      objects_from_collection(page, opts)
+    with entries when is_list(entries) <- objects_from_collection(page, opts) do
+      entries
       |> debug("objects_from_collection")
       |> Enum.reject(fn
         # TODO: configurable
@@ -289,22 +289,27 @@ defmodule ActivityPub.Federator.Fetcher do
       end)
       |> debug("filtered objects_from_collection")
 
-    case opts[:mode] do
-      mode when mode in [:entries_async, :async] and entries != [] ->
-        debug("queue objects to be fetched async")
+      case opts[:mode] do
+        mode when mode in [:entries_async, :async] and entries != [] ->
+          debug("queue objects to be fetched async")
 
-        maybe_fetch_async(entries, opts)
+          maybe_fetch_async(entries, opts)
 
-        entries
+          entries
 
-      true when entries != [] ->
-        debug("fetch objects as well")
+        true when entries != [] ->
+          debug("fetch objects as well")
 
-        fetch_objects_from_id(entries, opts)
+          fetch_objects_from_id(entries, opts)
 
+        other ->
+          debug(other, "do not fetch collection entries")
+          entries
+      end
+    else
       other ->
-        debug(other, "do not fetch collection entries")
-        entries
+        error(other, "no valid collection")
+        []
     end
   end
 

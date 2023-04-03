@@ -233,7 +233,6 @@ defmodule ActivityPub.Utils do
         {:ok, object}
 
       {:commit, object} ->
-        debug("found in cache - #{key}: #{identifier}")
         {:ok, object}
 
       {:ignore, other} ->
@@ -263,10 +262,11 @@ defmodule ActivityPub.Utils do
           "request from"
         )
 
-    with {:ok, json} when is_map(json) <- get_with_cache(get_fun, cache_bucket, :json, id) do
+    with {:ok, %{json: json, meta: meta}} <- get_with_cache(get_fun, cache_bucket, :json, id) do
       # TODO: cache the actual json so it doesn't have to go through Jason each time?
 
       conn
+      |> PlugHTTPValidator.set(meta |> debug)
       |> Plug.Conn.put_resp_content_type("application/activity+json")
       |> Phoenix.Controller.json(json)
     else

@@ -39,7 +39,8 @@ defmodule ActivityPub.Actor do
     :username,
     :deactivated,
     :pointer_id,
-    :pointer
+    :pointer,
+    :updated_at
   ]
 
   def get_cached(id: id), do: do_get_cached(:id, id)
@@ -346,7 +347,8 @@ defmodule ActivityPub.Actor do
       username: format_username(data),
       deactivated: deactivated?(object),
       pointer_id: object.pointer_id,
-      pointer: object.pointer
+      pointer: object.pointer,
+      updated_at: object.updated_at
     }
   end
 

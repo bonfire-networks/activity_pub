@@ -56,7 +56,11 @@ defmodule ActivityPub.Web.ActivityPubController do
            #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
            # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") do
            true <- object.public do
-        {:ok, ObjectView.render("object.json", %{object: object})}
+        {:ok,
+         %{
+           json: ObjectView.render("object.json", %{object: object}),
+           meta: %{updated_at: object.updated_at}
+         }}
       else
         false ->
           warn(
@@ -74,7 +78,11 @@ defmodule ActivityPub.Web.ActivityPubController do
       with ap_id <- ap_route_helper(id),
            {:ok, object} <- Object.get_cached(ap_id: ap_id),
            true <- object.public do
-        {:ok, ObjectView.render("object.json", %{object: object})}
+        {:ok,
+         %{
+           json: ObjectView.render("object.json", %{object: object}),
+           meta: %{updated_at: object.updated_at}
+         }}
       else
         false ->
           warn(
@@ -107,7 +115,11 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   defp actor_json(json: username) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
-      {:ok, ActorView.render("actor.json", %{actor: actor})}
+      {:ok,
+       %{
+         json: ActorView.render("actor.json", %{actor: actor}),
+         meta: %{updated_at: actor.updated_at}
+       }}
     else
       _ ->
         {:error, 404, "not found"}

@@ -104,6 +104,8 @@ defmodule ActivityPub.Federator.APPublisher do
            params[:unreachable_since],
          do: Instances.set_reachable(inbox)
 
+      debug(result, "remote responded with #{code}")
+
       result
     else
       {_post_result, response} ->

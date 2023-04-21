@@ -188,9 +188,9 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   # accept (but verify) unsigned Creates
-  def inbox(conn, %{"type" => "Create"} = params) do
-    maybe_process_unsigned(conn, params)
-  end
+  # def inbox(conn, %{"type" => "Create"} = params) do
+  #   maybe_process_unsigned(conn, params)
+  # end
 
   def inbox(conn, params) do
     maybe_process_unsigned(conn, params)
@@ -234,12 +234,21 @@ defmodule ActivityPub.Web.ActivityPubController do
         )
       else
         e ->
-          error(
-            e,
-            "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication."
-          )
+          if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
+            warn(
+              e,
+              "Unsigned incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication. Accept anyway because ACCEPT_UNSIGNED_ACTIVITIES is set in env."
+            )
 
-          Utils.error_json(conn, "please send signed activities - activity was rejected", 401)
+            process_incoming(conn, params)
+          else
+            error(
+              e,
+              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication."
+            )
+
+            Utils.error_json(conn, "please send signed activities - activity was rejected", 401)
+          end
       end
     else
       Utils.error_json(conn, "this instance is not currently federating", 403)

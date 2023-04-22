@@ -217,7 +217,7 @@ defmodule ActivityPub.Federator.APPublisher do
     end
   end
 
-  def determine_inbox(_, user, _) do
+  def determine_inbox(_, user, _, _) do
     warn(user, "No inbox")
     nil
   end

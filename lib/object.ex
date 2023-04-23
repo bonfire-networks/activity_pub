@@ -178,14 +178,16 @@ defmodule ActivityPub.Object do
       {:ok, activity}
     else
       %Object{} = object ->
-        warn("error while trying to insert, return the object instead")
+        error("error while trying to insert, return the object instead")
         {:ok, object}
 
       {:reject, e} when is_binary(e) ->
         error(e)
+        {:reject, e}
 
       {:reject, e} ->
         error(e, "Cannot federate due to local boundaries and filters")
+        {:reject, e}
 
       error ->
         error(error, "Error while trying to save the object for federation")

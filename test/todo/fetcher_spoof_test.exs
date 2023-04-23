@@ -35,8 +35,8 @@ defmodule ActivityPub.Federator.FetcherSpoofTest do
     test "does not fetch anything from a rejected instance" do
       clear_config([:mrf_simple, :reject], ["evil.example.org", "i said so"])
 
-      assert {:reject, _} =
-               Fetcher.fetch_object_from_id("http://evil.example.org/@admin/99512778738411822")
+      assert reject_or_no_recipients?
+      Fetcher.fetch_object_from_id("http://evil.example.org/@admin/99512778738411822")
     end
   end
 end

@@ -14,6 +14,7 @@ defmodule ActivityPub.Federator.Fetcher do
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Workers
   alias ActivityPub.Safety.Keys
+  alias ActivityPub.Federator.Adapter
 
   import Untangle
 
@@ -180,6 +181,7 @@ defmodule ActivityPub.Federator.Fetcher do
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(URI.parse(id)),
          true <- String.starts_with?(id, "http"),
+         false <- String.starts_with?(id, ActivityPub.Web.base_url()),
          headers <-
            [{:Accept, "application/activity+json"}]
            |> Keys.maybe_add_sign_headers(id),
@@ -227,6 +229,10 @@ defmodule ActivityPub.Federator.Fetcher do
 
       {:reject, e} ->
         {:reject, e}
+
+      true ->
+        warn("seems we're trying to fetch a local actor")
+        Adapter.get_actor_by_ap_id(id)
 
       e ->
         error(e, "Error trying to connect with ActivityPub remote")

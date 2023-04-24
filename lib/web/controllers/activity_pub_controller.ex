@@ -227,10 +227,14 @@ defmodule ActivityPub.Web.ActivityPubController do
              Fetcher.fetch_object_from_id(params["id"]) do
         debug(object, "unsigned activity workaround worked")
 
-        Utils.error_json(
+        # Utils.error_json(
+        #   conn,
+        #   "please send signed activities - object was not accepted as-in and instead re-fetched from origin",
+        #   202
+        # )
+        json(
           conn,
-          "please send signed activities - object was not accepted as-in and instead re-fetched from origin",
-          202
+          "Please send signed activities - object was not accepted as-in and instead re-fetched from origin"
         )
       else
         e ->
@@ -251,7 +255,7 @@ defmodule ActivityPub.Web.ActivityPubController do
           end
       end
     else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
+      Utils.error_json(conn, "This instance is not currently federating", 403)
     end
   end
 

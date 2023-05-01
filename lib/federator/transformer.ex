@@ -660,6 +660,7 @@ defmodule ActivityPub.Federator.Transformer do
         account: account,
         statuses: statuses,
         content: content,
+        local: false,
         additional: %{
           "cc" => [account.data["id"]]
         }

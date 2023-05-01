@@ -707,15 +707,18 @@ defmodule ActivityPub do
       end)
       |> Enum.reject(&is_nil/1)
 
-    %{
-      "type" => "Flag",
-      "actor" => params.actor.data["id"],
-      "content" => params[:content],
-      "object" => objects,
-      "context" => params[:context],
-      "state" => "open"
-    }
-    |> Map.merge(additional)
+    data =
+      %{
+        "type" => "Flag",
+        "actor" => params.actor.data["id"],
+        "content" => params[:content],
+        "object" => objects,
+        "context" => params[:context],
+        "state" => "open"
+      }
+      |> Map.merge(additional)
+
+    if params[:activity_id], do: Map.put(data, "id", params[:activity_id]), else: data
 
     # |> debug()
   end

@@ -112,7 +112,10 @@ defmodule ActivityPub.Federator.Adapter do
     handle_activity(activity)
   end
 
-  def maybe_handle_activity(_), do: {:ok, :local}
+  def maybe_handle_activity(activity) do
+    debug(activity, "looks like a local activity, so we don't pass it to the adapter as incoming")
+    {:ok, :local}
+  end
 
   @doc """
   Creates an internal service actor by username, if missing.

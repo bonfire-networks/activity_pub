@@ -144,6 +144,18 @@ defmodule ActivityPub.Utils do
 
   def is_ulid?(_), do: false
 
+  def ulid(%{pointer_id: id}) when is_binary(id), do: ulid(id)
+  def ulid(%{id: id}) when is_binary(id), do: ulid(id)
+
+  def ulid(input) do
+    if is_ulid?(input) do
+      input
+    else
+      warn(input, "Expected a ULID ID (or an object with one), but got")
+      nil
+    end
+  end
+
   # def maybe_forward_activity(
   #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
   #     ) do

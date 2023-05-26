@@ -154,7 +154,7 @@ defmodule ActivityPub.Object do
                 data: activity,
                 local: local?,
                 public: Utils.public?(activity),
-                pointer_id: pointer
+                pointer_id: Utils.ulid(pointer)
               })
             else
               # activity containing only an ID as object

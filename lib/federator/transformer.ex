@@ -95,8 +95,15 @@ defmodule ActivityPub.Federator.Transformer do
         prepare_outgoing_object(object)
 
       other ->
-        error(other, "Unexpected object")
-        nil
+        if is_list(object) do
+          # support for list of objects (eg. in flags)
+          # TODO: should each object in the list be normalised?
+          object
+        else
+          error(other, "Unexpected normalised object")
+          debug(object, "Non-normalised object")
+          nil
+        end
     end
   end
 

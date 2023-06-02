@@ -369,6 +369,11 @@ defmodule ActivityPub.Utils do
 
   def request_ip(conn) do
     cond do
+      remote_ip = Code.ensure_compiled?(RemoteIp) and RemoteIp.from(conn.req_headers) ->
+        remote_ip
+
+      # TODO: just use RemoteIp in plug and avoid needed this whole function?
+
       cf_connecting_ip = List.first(Plug.Conn.get_req_header(conn, "cf-connecting-ip")) ->
         cf_connecting_ip
 

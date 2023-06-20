@@ -68,6 +68,8 @@ defmodule ActivityPub.Federator.HTTP do
       |> Enum.into([])
       |> debug("built")
     )
+
+    # |> debug("requested")
   end
 
   defp process_request_options(options) do
@@ -79,10 +81,14 @@ defmodule ActivityPub.Federator.HTTP do
   defp process_sni_options(options, url) do
     uri = URI.parse(url)
     host = uri.host |> to_charlist()
+    # |> debug("charlist")
 
     case uri.scheme do
-      "https" -> options ++ [ssl: [server_name_indication: host]]
-      _ -> options
+      "https" ->
+        options ++ [ssl: [server_name_indication: host]]
+
+      _ ->
+        options
     end
   end
 

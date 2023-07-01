@@ -33,8 +33,8 @@ defmodule ActivityPub.Federator.HTTP do
       e in Tesla.Mock.Error ->
         error(e, "Test mock HTTP error")
 
-      e ->
-        error(e, "HTTP request failed")
+        # e ->
+        #   error(e, "HTTP request failed")
     catch
       :exit, e ->
         error(e, "HTTP request exited")
@@ -49,8 +49,9 @@ defmodule ActivityPub.Federator.HTTP do
 
     params = Keyword.get(options, :params, [])
 
-    Tesla.request(
-      Connection.new(options),
+    Connection.new(options)
+    # |> debug()
+    |> Tesla.request(
       %{}
       |> Builder.method(method)
       |> Builder.headers(
@@ -73,7 +74,8 @@ defmodule ActivityPub.Federator.HTTP do
   end
 
   defp process_request_options(options) do
-    Keyword.merge(Connection.hackney_options([]), options)
+    {_adapter, opts} = Connection.adapter_options([])
+    Keyword.merge(opts, options)
   end
 
   defp process_sni_options(options, nil), do: options
@@ -85,7 +87,11 @@ defmodule ActivityPub.Federator.HTTP do
 
     case uri.scheme do
       "https" ->
-        options ++ [ssl: [server_name_indication: host]]
+        Keyword.merge(options,
+          ssl_options: [
+            server_name_indication: host
+          ]
+        )
 
       _ ->
         options

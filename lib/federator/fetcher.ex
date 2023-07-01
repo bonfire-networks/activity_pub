@@ -183,7 +183,7 @@ defmodule ActivityPub.Federator.Fetcher do
          true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
          headers <-
-           [{:Accept, "application/activity+json"}]
+           [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_sign_headers(id),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
            HTTP.get(
@@ -197,7 +197,7 @@ defmodule ActivityPub.Federator.Fetcher do
       {:ok, data}
     else
       {:ok, %{status: 401}} ->
-        debug("Received a 401 - authentication required response")
+        debug(id, "Received a 401 - authentication required response")
 
         {:error, :needs_login}
 

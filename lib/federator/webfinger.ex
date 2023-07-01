@@ -37,16 +37,21 @@ defmodule ActivityPub.Federator.WebFinger do
     with response <-
            HTTP.get(
              address,
-             Accept: "application/jrd+json"
+             [{"Accept", "application/jrd+json"}]
            ),
          {:ok, %{status: status, body: body}} when status in 200..299 <-
            response,
          {:ok, doc} <- Jason.decode(body) do
       webfinger_from_json(doc)
     else
+      {:error, {:options, :incompatible, [verify: :verify_peer, cacerts: :undefined]}} ->
+        error("No SSL certificates available")
+
+      {:error, e} when is_binary(e) ->
+        error(e)
+
       e ->
-        error(account, "Could not finger")
-        warn(e)
+        error(e, "Could not finger #{account}")
         {:error, e}
     end
   end

@@ -223,6 +223,9 @@ defmodule ActivityPub.Actor do
            WebFinger.finger(username) do
       fetch_by_ap_id(ap_id, opts)
     else
+      {:error, e} when is_binary(e) ->
+        e
+
       e ->
         warn(e)
         {:error, "No AP id in WebFinger"}

@@ -125,6 +125,9 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().get_or_create_service_actor_by_username(nickname)
   end
 
+  @doc """
+  Compute and return a subset of followers that should receive a specific activity
+  """
   @callback external_followers_for_activity(List.t(), Map.t()) :: List.t()
   def external_followers_for_activity(actor, activity) do
     if function_exported?(adapter(), :external_followers_for_activity, 2) do

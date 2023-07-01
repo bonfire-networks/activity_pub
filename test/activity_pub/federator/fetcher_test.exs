@@ -252,8 +252,9 @@ defmodule ActivityPub.Federator.FetcherTest do
     test "does not fetch anything from a rejected instance" do
       clear_config([:mrf_simple, :reject], ["evil.example.org", "i said so"])
 
-      assert reject_or_no_recipients?
-      Fetcher.fetch_object_from_id("http://evil.example.org/@admin/99512778738411822")
+      assert reject_or_no_recipients?(
+               Fetcher.fetch_object_from_id("http://evil.example.org/@admin/99512778738411822")
+             )
     end
 
     @tag :todo
@@ -261,8 +262,11 @@ defmodule ActivityPub.Federator.FetcherTest do
       clear_config([:mrf_simple, :accept], [{"mastodon.local", "i said so"}])
       clear_config([:mrf_simple, :reject], [])
 
-      assert reject_or_no_recipients?
-      Fetcher.fetch_object_from_id("http://notlisted.example.org/@admin/99512778738411822")
+      assert reject_or_no_recipients?(
+               Fetcher.fetch_object_from_id(
+                 "http://notlisted.example.org/@admin/99512778738411822"
+               )
+             )
 
       assert {:ok, _object} =
                Fetcher.fetch_object_from_id("https://mastodon.local/@admin/99512778738411822")

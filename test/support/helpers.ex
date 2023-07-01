@@ -141,4 +141,13 @@ defmodule ActivityPub.Test.Helpers do
         where: fragment("?->>'type' = ?", a.data, "Accept")
       )
       |> repo().all()
+
+  def reject_or_no_recipients?(activity) do
+    case activity do
+      {:reject, _} -> true
+      {:ok, %{to: []}} -> true
+      {:ok, %{"to" => []}} -> true
+      _ -> false
+    end
+  end
 end

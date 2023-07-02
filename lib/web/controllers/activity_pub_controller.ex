@@ -27,7 +27,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   def ap_route_helper(uuid) do
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
-    ActivityPub.Web.base_url() <> ap_base_path <> "/objects/" <> uuid
+    "#{ActivityPub.Web.base_url()}#{ap_base_path}/objects/#{uuid}"
   end
 
   def object(conn, %{"uuid" => uuid}) do
@@ -35,66 +35,52 @@ defmodule ActivityPub.Web.ActivityPubController do
       case Adapter.get_redirect_url(uuid) do
         "http" <> _ = url -> redirect(conn, external: url)
         url when is_binary(url) -> redirect(conn, to: url)
-        _ -> object_with_cache(conn, uuid)
+        _ -> json_object_with_cache(conn, uuid)
       end
     else
-      object_with_cache(conn, uuid)
+      json_object_with_cache(conn, uuid)
     end
   end
 
-  defp object_with_cache(conn, id) do
-    Utils.json_with_cache(conn, &object_json/1, :ap_object_cache, id)
+  def json_object_with_cache(conn \\ nil, id)
+
+  def json_object_with_cache(conn_or_nil, id) do
+    Utils.json_with_cache(conn_or_nil, &object_json/1, :ap_object_cache, id)
   end
 
   defp object_json(json: id) do
     if Utils.is_ulid?(id) do
       # querying by pointer - handle local objects
-      with {:ok, object} <-
-             Object.get_cached(pointer: id) ||
-               Adapter.maybe_publish_object(id),
-           #  true <- object.id != id, # huh?
-           #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
-           # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") do
-           true <- object.public do
-        {:ok,
-         %{
-           json: ObjectView.render("object.json", %{object: object}),
-           meta: %{updated_at: object.updated_at}
-         }}
-      else
-        false ->
-          warn(
-            "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
-          )
-
-          {:error, 401, "authentication required"}
-
-        e ->
-          error(e, "Pointable object not found")
-          {:error, 404, "not found"}
-      end
+      #  true <- object.id != id, # huh?
+      #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
+      # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") 
+      maybe_object_json(Object.get_cached!(pointer: id) || Adapter.maybe_publish_object(id))
     else
       # query by UUID
-      with ap_id <- ap_route_helper(id),
-           {:ok, object} <- Object.get_cached(ap_id: ap_id),
-           true <- object.public do
-        {:ok,
-         %{
-           json: ObjectView.render("object.json", %{object: object}),
-           meta: %{updated_at: object.updated_at}
-         }}
-      else
-        false ->
-          warn(
-            "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
-          )
 
-          {:error, 401, "authentication required"}
-
-        _ ->
-          {:error, 404, "not found"}
-      end
+      maybe_object_json(Object.get_cached(ap_id: ap_route_helper(id)))
     end
+  end
+
+  defp maybe_object_json({:ok, %{public: true} = object}) do
+    {:ok,
+     %{
+       json: ObjectView.render("object.json", %{object: object}),
+       meta: %{updated_at: object.updated_at}
+     }}
+  end
+
+  defp maybe_object_json({:ok, _object}) do
+    warn(
+      "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
+    )
+
+    {:error, 401, "authentication required"}
+  end
+
+  defp maybe_object_json(_) do
+    debug("Pointable not found")
+    {:error, 404, "not found"}
   end
 
   def actor(conn, %{"username" => username}) do

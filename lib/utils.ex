@@ -266,7 +266,9 @@ defmodule ActivityPub.Utils do
       get_fun.([{key, identifier}])
   end
 
-  def json_with_cache(conn, get_fun, cache_bucket, id) do
+  def json_with_cache(conn \\ nil, get_fun, cache_bucket, id)
+
+  def json_with_cache(%Plug.Conn{} = conn, get_fun, cache_bucket, id) do
     if Untangle.log_level?(:info),
       do:
         info(
@@ -291,6 +293,20 @@ defmodule ActivityPub.Utils do
       other ->
         error(other, "unhandled case")
         error_json(conn, "server error", 500)
+    end
+  end
+
+  def json_with_cache(_, get_fun, cache_bucket, id) do
+    with {:ok, %{json: json}} <- get_with_cache(get_fun, cache_bucket, :json, id) do
+      # TODO: cache the actual json so it doesn't have to go through Jason each time?
+      # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
+      Jason.encode(json)
+    else
+      {:error, code, msg} ->
+        %{error: msg}
+
+      other ->
+        %{error: "unknown"}
     end
   end
 

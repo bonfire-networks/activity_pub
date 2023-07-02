@@ -33,6 +33,14 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   @doc """
+  Checks if an object exists in the AP database and prepares it if not (local objects only).
+  """
+  def get_cached_object_or_fetch_pointer_id(pointer, opts \\ []) do
+    Object.get_cached(pointer: pointer)
+    |> maybe_handle_incoming(pointer, opts)
+  end
+
+  @doc """
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
   def fetch_object_from_id(id, opts \\ []) do
@@ -99,7 +107,12 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp cached_or_handle_incoming(id_or_data, opts) do
-    case Object.get_cached(ap_id: id_or_data) do
+    Object.get_cached(ap_id: id_or_data)
+    |> maybe_handle_incoming(id_or_data, opts)
+  end
+
+  defp maybe_handle_incoming(input, id_or_data, opts) do
+    case input do
       {:ok, %{pointer_id: nil, data: data} = _object} ->
         warn(
           "seems the object was already cached in object table, but not processed/saved by the adapter"

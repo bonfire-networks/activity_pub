@@ -496,7 +496,12 @@ defmodule ActivityPub do
   end
 
   @spec move(Actor.t(), Actor.t(), boolean()) :: {:ok, Object.t()} | {:error, any()}
-  def move(%{ap_id: origin_ap_id, data: origin_data} = _origin, %{} = target, local \\ true) do
+  def move(
+        %{ap_id: origin_ap_id, data: origin_data} = _origin,
+        %{} = target,
+        local \\ true,
+        not_in_also_known_as \\ false
+      ) do
     params = %{
       "type" => "Move",
       "actor" => origin_ap_id,
@@ -513,8 +518,17 @@ defmodule ActivityPub do
       {:ok, activity}
     else
       false ->
-        error("Target account must have the origin in `alsoKnownAs`")
-        {:error, :not_in_also_known_as}
+        if not_in_also_known_as == false do
+          debug("get a fresh actor in case they just added alsoKnownAs")
+
+          with {:ok, refetched} <-
+                 ActivityPub.Federator.Fetcher.fetch_fresh_object_from_id(target.ap_id) do
+            move(%{ap_id: origin_ap_id, data: origin_data}, refetched, local, true)
+          end
+        else
+          error("Target account must have the origin in `alsoKnownAs`")
+          {:error, :not_in_also_known_as}
+        end
 
       err ->
         err

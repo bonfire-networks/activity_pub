@@ -158,7 +158,7 @@ defmodule ActivityPub.Actor do
       {:ok, actor}
     else
       e ->
-        debug(e)
+        debug(e, "result of Adapter.get_actor_by_ap_id")
         get_remote_actor(ap_id)
     end
   end
@@ -192,7 +192,7 @@ defmodule ActivityPub.Actor do
     debug(actor_id, "Updating actor")
     # dump(ActivityPub.Object.all())
 
-    with {:ok, object} <- update_actor_data_by_ap_id(actor_id, data),
+    with {:ok, object} <- update_actor_data(actor_id, data),
          done = Adapter.update_remote_actor(object),
          {:ok, actor} <- get(ap_id: actor_id) do
       set_cache(actor)
@@ -520,9 +520,21 @@ defmodule ActivityPub.Actor do
     []
   end
 
-  def update_actor_data_by_ap_id(ap_id, data) when is_binary(ap_id) do
+  defp update_actor_data(%{ap_id: ap_id}, data) when is_binary(ap_id) do
+    update_actor_data(ap_id, data)
+  end
+
+  defp update_actor_data(%{"actor" => ap_id}, data) when is_binary(ap_id) do
+    update_actor_data(ap_id, data)
+  end
+
+  defp update_actor_data(%{"id" => ap_id}, data) when is_binary(ap_id) do
+    update_actor_data(ap_id, data)
+  end
+
+  defp update_actor_data(ap_id, data) when is_binary(ap_id) do
     with {:ok, object} <- Object.get_uncached(ap_id: ap_id) do
-      update_actor_data_by_ap_id(object, data)
+      update_actor_data(object, data)
       {:ok, object}
     else
       e ->
@@ -531,7 +543,7 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def update_actor_data_by_ap_id(%Object{} = object, data) do
+  defp update_actor_data(%Object{} = object, data) do
     object
     |> Ecto.Changeset.change(%{
       data: data,
@@ -549,7 +561,7 @@ defmodule ActivityPub.Actor do
       actor.data
       |> Map.put("deactivated", true)
 
-    update_actor_data_by_ap_id(actor.ap_id, new_data)
+    update_actor_data(actor, new_data)
     # Return Actor
     set_cache(get(ap_id: actor.ap_id))
   end
@@ -559,7 +571,7 @@ defmodule ActivityPub.Actor do
       actor.data
       |> Map.put("deactivated", false)
 
-    update_actor_data_by_ap_id(actor.ap_id, new_data)
+    update_actor_data(actor, new_data)
     # Return Actor
     set_cache(get(ap_id: actor.ap_id))
   end

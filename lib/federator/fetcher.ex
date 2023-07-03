@@ -107,6 +107,12 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  defp cached_or_handle_incoming(%{"type" => type} = id_or_data, opts)
+       when ActivityPub.Config.is_in(type, :supported_actor_types) do
+    debug("update the Actor")
+    handle_fetched(id_or_data, opts)
+  end
+
   defp cached_or_handle_incoming(id_or_data, opts) do
     Object.get_cached(ap_id: id_or_data)
     |> maybe_handle_incoming(id_or_data, opts)

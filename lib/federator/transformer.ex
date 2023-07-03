@@ -864,7 +864,7 @@ defmodule ActivityPub.Federator.Transformer do
       when ActivityPub.Config.is_in(type, :supported_actor_types) and actor_id == update_actor_id do
     info("update an Actor")
 
-    with {:ok, actor} <- Actor.update_actor_data_by_ap_id(actor_id, object) do
+    with {:ok, actor} <- Actor.update_actor(actor_id, object) do
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
@@ -1143,7 +1143,13 @@ defmodule ActivityPub.Federator.Transformer do
       {:ok, object}
     else
       {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
-        Object.get_cached(data)
+        case Actor.get_cached(data) do
+          {:ok, %{ap_id: actor}} ->
+            Actor.update_actor(actor, data)
+
+          _ ->
+            Object.get_cached(data)
+        end
 
       other ->
         other

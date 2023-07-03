@@ -41,7 +41,7 @@ defmodule ActivityPub.Federator.Adapter do
   @callback get_actor_by_username(String.t()) ::
               {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_username(username) do
-    debug(self())
+    # debug(self())
     validate_actor(adapter().get_actor_by_username(username))
   end
 

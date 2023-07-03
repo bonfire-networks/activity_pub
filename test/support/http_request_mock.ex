@@ -842,7 +842,7 @@ defmodule ActivityPub.Test.HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.local/users/gargron", _, _, [
+  def get("https://mastodon.local/users/admin", _, _, [
         {"Accept", "application/activity+json"}
       ]) do
     {:error, :nxdomain}

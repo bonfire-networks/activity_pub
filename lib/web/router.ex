@@ -19,6 +19,8 @@ defmodule ActivityPub.Web.Router do
       pipeline :signed_activity_pub do
         plug(:accepts, ["activity+json", "ld+json", "json"])
         plug(ActivityPub.Web.Plugs.HTTPSignaturePlug)
+        # plug(ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug)
+        # plug(ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug)
       end
 
       scope "/.well-known", ActivityPub.Web do

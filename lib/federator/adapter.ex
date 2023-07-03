@@ -111,8 +111,12 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().get_redirect_url(id_or_username_or_object)
   end
 
-  # FIXME: implicity returning `:ok` here means we don't know if the worker fails which isn't great
   def maybe_handle_activity(%Object{local: false} = activity) do
+    handle_activity(activity)
+  end
+
+  def maybe_handle_activity(%{data: %{"type" => verb}} = activity) when verb in ["Move"] do
+    debug(verb, "looks like a local activity wish we handle to handle as incoming anyway")
     handle_activity(activity)
   end
 

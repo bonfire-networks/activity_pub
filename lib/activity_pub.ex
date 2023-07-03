@@ -121,7 +121,7 @@ defmodule ActivityPub do
   #     ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(%{actor: actor, object: object} = params) do
     with %Object{} = follow_activity <-
-           Object.fetch_latest_follow(actor, object),
+           Object.fetch_latest_follow(actor, object) || basic_follow_data(actor, object),
          unfollow_data <-
            make_unfollow_data(
              actor,
@@ -512,8 +512,12 @@ defmodule ActivityPub do
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) do
       {:ok, activity}
     else
-      false -> {:error, "Target account must have the origin in `alsoKnownAs`"}
-      err -> err
+      false ->
+        error("Target account must have the origin in `alsoKnownAs`")
+        {:error, :not_in_also_known_as}
+
+      err ->
+        err
     end
   end
 
@@ -644,30 +648,41 @@ defmodule ActivityPub do
          %{data: %{"id" => followed_id}} = _followed,
          activity_id
        ) do
-    data = %{
-      "type" => "Follow",
-      "actor" => follower_id,
-      "to" => [followed_id],
-      "cc" => [ActivityPub.Config.public_uri()],
-      "object" => followed_id,
-      "state" => "pending"
-    }
+    data =
+      basic_follow_data(follower_id, followed_id)
+      |> Map.put("state", "pending")
 
     data = if activity_id, do: Map.put(data, "id", activity_id), else: data
-
-    data
-    |> info()
   end
 
-  defp make_unfollow_data(follower, followed, follow_activity, activity_id) do
+  defp make_unfollow_data(
+         %{data: %{"id" => follower_id}},
+         %{data: %{"id" => followed_id}},
+         follow_activity,
+         activity_id
+       ) do
     data = %{
       "type" => "Undo",
-      "actor" => follower.data["id"],
-      "to" => [followed.data["id"]],
+      "actor" => follower_id,
+      "to" => [followed_id],
       "object" => follow_activity.data
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
+  end
+
+  defp basic_follow_data(%{data: %{"id" => follower_id}}, %{data: %{"id" => followed_id}}) do
+    basic_follow_data(follower_id, followed_id)
+  end
+
+  defp basic_follow_data(follower_id, followed_id) do
+    %{
+      "type" => "Follow",
+      "actor" => follower_id,
+      "to" => [followed_id],
+      "cc" => [ActivityPub.Config.public_uri()],
+      "object" => followed_id
+    }
   end
 
   defp make_block_data(blocker, blocked, activity_id) do

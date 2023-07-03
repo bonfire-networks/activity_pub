@@ -2,11 +2,11 @@
   "type": "Delete",
   "object": {
     "type": "Tombstone",
-    "id": "https://mastodon.local/users/gargron/statuses/99620895606148759",
-    "atomUri": "https://mastodon.local/users/gargron/statuses/99620895606148759"
+    "id": "https://mastodon.local/users/admin/statuses/99620895606148759",
+    "atomUri": "https://mastodon.local/users/admin/statuses/99620895606148759"
   },
-  "id": "https://mastodon.local/users/gargron/statuses/99620895606148759#delete",
-  "actor": "https://mastodon.local/users/gargron",
+  "id": "https://mastodon.local/users/admin/statuses/99620895606148759#delete",
+  "actor": "https://mastodon.local/users/admin",
   "@context": [
     {
       "toot": "http://joinmastodon.org/ns#",

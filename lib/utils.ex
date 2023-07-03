@@ -129,7 +129,7 @@ defmodule ActivityPub.Utils do
 
   @doc "Takes a string and returns true if it is a valid UUID (Universally Unique Identifier)"
   def is_uuid?(str) do
-    with true <- is_binary(str),
+    with true <- is_binary(str) and byte_size(str) == 36,
          {:ok, _} <- Ecto.UUID.cast(str) do
       true
     else

@@ -63,6 +63,22 @@ defmodule ActivityPub.Actor do
 
   def get_cached(username: "@" <> username), do: get_cached(username: username)
 
+  def get_cached(id) when is_binary(id) do
+    if Utils.is_ulid?(id) do
+      get_cached(pointer: id)
+    else
+      if String.starts_with?(id, "http") do
+        get_cached(ap_id: id)
+      else
+        if Utils.is_uuid?(id) do
+          get_cached(id: id)
+        else
+          get_cached(username: id)
+        end
+      end
+    end
+  end
+
   def get_cached(opts), do: get(opts)
 
   defp do_get_cached(key, val), do: Utils.get_with_cache(&get/1, :ap_actor_cache, key, val)

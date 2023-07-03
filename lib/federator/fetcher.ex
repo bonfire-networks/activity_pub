@@ -98,6 +98,7 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_fresh_object_from_id(%{"id" => id}, opts), do: fetch_fresh_object_from_id(id, opts)
 
   def fetch_fresh_object_from_id(id, opts) do
+    # raise "STOOOP"
     with {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <- cached_or_handle_incoming(data, opts) do
       Instances.set_reachable(id)
@@ -137,6 +138,8 @@ defmodule ActivityPub.Federator.Fetcher do
         error(other)
     end
   end
+
+  defp handle_fetched(%{data: data}, opts), do: handle_fetched(data, opts)
 
   defp handle_fetched(data, opts) do
     with {:ok, object} <- Transformer.handle_incoming(data) |> debug() do

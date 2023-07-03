@@ -45,11 +45,14 @@ defmodule ActivityPub.Utils do
         "https://www.w3.org/ns/activitystreams",
         Map.merge(
           %{
-            "@language" => Application.get_env(:activity_pub, :default_language, "und")
+            "@language" => Application.get_env(:activity_pub, :default_language, "und"),
+            "Hashtag" => "as:Hashtag",
+            "alsoKnownAs" => %{
+              "@id" => "as:alsoKnownAs",
+              "@type" => "@id"
+            }
           },
-          Application.get_env(:activity_pub, :json_contexts, %{
-            "Hashtag" => "as:Hashtag"
-          })
+          Application.get_env(:activity_pub, :json_contexts, %{})
         )
       ]
     }
@@ -232,7 +235,11 @@ defmodule ActivityPub.Utils do
     case cachex_fetch(cache_bucket, cache_key, fn ->
            case get_fun.([{key, identifier}]) do
              {:ok, object} ->
-               debug("got and now caching - #{key}: #{identifier}")
+               debug("#{cache_bucket}: got and now caching (#{key}: #{identifier})")
+               debug(object)
+
+               maybe_multi_cache(cache_bucket, object)
+
                {:commit, object}
 
              e ->
@@ -264,6 +271,20 @@ defmodule ActivityPub.Utils do
     _ ->
       # workaround :nodedown errors
       get_fun.([{key, identifier}])
+  end
+
+  # FIXME: should we be caching the objects once, and just using the multiple keys to lookup a unique key?
+  defp maybe_multi_cache(:ap_actor_cache, actor) do
+    ActivityPub.Actor.set_cache(actor)
+    |> debug
+  end
+
+  defp maybe_multi_cache(:ap_object_cache, actor) do
+    ActivityPub.Object.set_cache(actor)
+  end
+
+  defp maybe_multi_cache(_, _) do
+    nil
   end
 
   def json_with_cache(conn \\ nil, get_fun, cache_bucket, id)

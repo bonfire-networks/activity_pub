@@ -495,6 +495,28 @@ defmodule ActivityPub do
     end
   end
 
+  @spec move(Actor.t(), Actor.t(), boolean()) :: {:ok, Object.t()} | {:error, any()}
+  def move(%{ap_id: origin_ap_id, data: origin_data} = _origin, %{} = target, local \\ true) do
+    params = %{
+      "type" => "Move",
+      "actor" => origin_ap_id,
+      "object" => origin_ap_id,
+      "target" => target.ap_id,
+      "to" => Map.get(origin_data, "followers", [])
+    }
+
+    with true <-
+           origin_ap_id in (Map.get(target.data, "alsoKnownAs") |> debug("alsoKnownAss") || []),
+         {:ok, activity} <- Object.insert(params, local),
+         :ok <- maybe_federate(activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) do
+      {:ok, activity}
+    else
+      false -> {:error, "Target account must have the origin in `alsoKnownAs`"}
+      err -> err
+    end
+  end
+
   defp make_like_data(
          %{data: %{"id" => ap_id}} = actor,
          %{data: %{"id" => id}} = object,

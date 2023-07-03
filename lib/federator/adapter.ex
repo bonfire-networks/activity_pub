@@ -71,6 +71,10 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().update_remote_actor(actor)
   end
 
+  def update_remote_actor(actor, data) do
+    adapter().update_remote_actor(actor, data)
+  end
+
   @doc """
   Passes data to be handled by the host application
   """

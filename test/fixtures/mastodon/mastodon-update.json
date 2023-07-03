@@ -1,6 +1,10 @@
 {                                                                               
   "type": "Update",                                                                    
-  "object": {                                                                          
+  "object": {        
+    "alsoKnownAs":[
+      "https://mastodon.local/users/foo",
+      "http://exampleorg.local/users/bar"
+    ],                                                                
     "url": "https://mastodon.local/@gargron",                                     
     "type": "Person",                                                                  
     "summary": "<p>Some bio</p>",                                                              

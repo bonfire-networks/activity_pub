@@ -257,7 +257,7 @@ defmodule ActivityPub.Federator.Transformer do
     # {:ok, %User{follower_address: follower_collection}} =
     #   object
     #   |> Object.actor_id_from_data()
-    #   |> User.get_or_fetch_by_ap_id()
+    #   |> Actor.get_cached(ap_id: ...)
 
     object
     |> fix_addressing_list("to")
@@ -645,7 +645,7 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data) do
     with context <- data["context"],
          content <- data["content"] || "",
-         {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
+         {:ok, actor} <- Actor.get_cached(ap_id: actor),
 
          # Reduce the object list to find the reported user.
          account <-
@@ -689,7 +689,7 @@ defmodule ActivityPub.Federator.Transformer do
         "type" => "Create",
         "object" => %{"type" => "Group", "id" => ap_id}
       }),
-      do: Actor.get_or_fetch_by_ap_id(ap_id)
+      do: Actor.get_cached(ap_id: ap_id)
 
   def handle_incoming(%{"type" => "Create", "object" => object} = data) do
     info("Handle incoming creation of an object")
@@ -701,7 +701,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     {:ok, actor} =
       Object.actor_id_from_data(data)
-      |> Actor.get_or_fetch_by_ap_id()
+      |> Actor.get_cached(ap_id: ...)
       |> debug("got or fetched actor")
 
     object = fix_object(object)
@@ -742,7 +742,7 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming follow")
 
-    with {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower) |> debug("follower"),
+    with {:ok, follower} <- Actor.get_cached(ap_id: follower) |> debug("follower"),
          {:ok, followed} <- Actor.get_cached(ap_id: followed) |> debug("followed") do
       ActivityPub.follow(%{
         actor: follower,
@@ -763,7 +763,7 @@ defmodule ActivityPub.Federator.Transformer do
     debug("Handle incoming Accept")
 
     with followed_actor <- Object.actor_from_data(data) |> debug(),
-         {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed_actor) |> debug(),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug(),
          {:ok, follow_activity} <- Object.get_follow_activity(follow_object, followed) |> debug() do
       ActivityPub.accept(%{
         activity_id: data["id"],
@@ -790,7 +790,7 @@ defmodule ActivityPub.Federator.Transformer do
     debug("Handle incoming Reject")
 
     with followed_actor <- Object.actor_from_data(data) |> debug(),
-         {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed_actor) |> debug(),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug(),
          {:ok, follow_activity} <- Object.get_follow_activity(follow_object, followed) |> debug() do
       ActivityPub.reject(%{
         activity_id: data["id"],
@@ -817,7 +817,7 @@ defmodule ActivityPub.Federator.Transformer do
     info("Handle incoming like")
 
     with actor <- Object.actor_from_data(data),
-         {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
+         {:ok, actor} <- Actor.get_cached(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
            ActivityPub.like(%{actor: actor, object: object, activity_id: data["id"], local: false}) do
@@ -837,7 +837,7 @@ defmodule ActivityPub.Federator.Transformer do
     info("Handle incoming boost")
 
     with actor <- Object.actor_from_data(data),
-         {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
+         {:ok, actor} <- Actor.get_cached(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          public <- Utils.public?(data, object),
          {:ok, activity} <-
@@ -890,7 +890,7 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming update of an Object")
 
-    with {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor) do
+    with {:ok, actor} <- Actor.get_cached(ap_id: actor) do
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
@@ -916,7 +916,7 @@ defmodule ActivityPub.Federator.Transformer do
     info("Handle incoming block")
 
     with {:ok, %{local: true} = blocked} <- Actor.get_cached(ap_id: blocked),
-         {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
+         {:ok, blocker} <- Actor.get_cached(ap_id: blocker),
          {:ok, activity} <-
            ActivityPub.block(%{
              actor: blocker,
@@ -976,7 +976,7 @@ defmodule ActivityPub.Federator.Transformer do
     info("Handle incoming unboost")
 
     with actor <- Object.actor_from_data(data),
-         {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
+         {:ok, actor} <- Actor.get_cached(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
            ActivityPub.unannounce(%{
@@ -1001,7 +1001,7 @@ defmodule ActivityPub.Federator.Transformer do
     info("Handle incoming unlike")
 
     with actor <- Object.actor_from_data(data),
-         {:ok, actor} <- Actor.get_or_fetch_by_ap_id(actor),
+         {:ok, actor} <- Actor.get_cached(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
            ActivityPub.unlike(%{
@@ -1025,8 +1025,8 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming unfollow")
 
-    with {:ok, follower} <- Actor.get_or_fetch_by_ap_id(follower),
-         {:ok, followed} <- Actor.get_or_fetch_by_ap_id(followed) do
+    with {:ok, follower} <- Actor.get_cached(ap_id: follower),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed) do
       ActivityPub.unfollow(%{
         actor: follower,
         object: followed,
@@ -1048,8 +1048,8 @@ defmodule ActivityPub.Federator.Transformer do
     info("Handle incoming unblock")
 
     with {:ok, %{local: true} = blocked} <-
-           Actor.get_or_fetch_by_ap_id(blocked),
-         {:ok, blocker} <- Actor.get_or_fetch_by_ap_id(blocker),
+           Actor.get_cached(ap_id: blocked),
+         {:ok, blocker} <- Actor.get_cached(ap_id: blocker),
          {:ok, activity} <-
            ActivityPub.unblock(%{
              actor: blocker,
@@ -1058,6 +1058,20 @@ defmodule ActivityPub.Federator.Transformer do
              local: false
            }) do
       {:ok, activity}
+    else
+      e -> error(e)
+    end
+  end
+
+  def handle_incoming(%{
+        "type" => "Move",
+        "actor" => origin_actor,
+        "object" => origin_actor,
+        "target" => target_actor
+      }) do
+    with {:ok, %{} = origin_user} <- Actor.get_cached(ap_id: origin_actor),
+         {:ok, %{} = target_user} <- Actor.get_cached(ap_id: target_actor) do
+      ActivityPub.move(origin_user, target_user, false)
     else
       e -> error(e)
     end

@@ -138,12 +138,12 @@ defmodule ActivityPub.Actor do
   """
   @spec get(ap_id: String.t()) :: {:ok, Actor.t()} | {:error, any()}
   defp get(ap_id: ap_id) when is_binary(ap_id) do
-    with {:ok, actor} <- get_remote_actor(ap_id) do
+    with {:ok, actor} <- Adapter.get_actor_by_ap_id(ap_id) do
       {:ok, actor}
     else
       e ->
         debug(e)
-        Adapter.get_actor_by_ap_id(ap_id)
+        get_remote_actor(ap_id)
     end
   end
 
@@ -271,6 +271,8 @@ defmodule ActivityPub.Actor do
   # end
 
   def get_remote_actor(ap_id, maybe_create \\ true) do
+    # raise "STOOOP"
+
     with {:ok, actor} <- Object.get_cached(ap_id: ap_id),
          false <- check_if_time_to_update(actor),
          actor <- format_remote_actor(actor),
@@ -421,10 +423,17 @@ defmodule ActivityPub.Actor do
 
   def set_cache(%Actor{} = actor) do
     # TODO: store in cache only once, and only IDs for the others
-    Cachex.put(:ap_actor_cache, "id:#{actor.id}", actor)
-    Cachex.put(:ap_actor_cache, "ap_id:#{actor.ap_id}", actor)
-    Cachex.put(:ap_actor_cache, "pointer:#{actor.pointer_id}", actor)
-    Cachex.put(:ap_actor_cache, "username:#{actor.username}", actor)
+    for key <-
+          [
+            "id:#{actor.id}",
+            "ap_id:#{actor.ap_id}",
+            "pointer:#{actor.pointer_id}",
+            "username:#{actor.username}"
+          ]
+          |> debug() do
+      Cachex.put(:ap_actor_cache, key, actor)
+    end
+
     {:ok, actor}
   end
 

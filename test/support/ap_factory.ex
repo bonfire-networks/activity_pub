@@ -2,6 +2,7 @@ defmodule ActivityPub.Factory do
   import ActivityPub.Test.Helpers
   import ActivityPub.Utils
   import Untangle
+  alias ActivityPub.Federator.Adapter
   @repo repo()
   use ExMachina.Ecto, repo: @repo
 
@@ -27,7 +28,13 @@ defmodule ActivityPub.Factory do
         )
         |> repo().maybe_preload(character: [:actor])
 
-      # |> debug()
+      {:ok, actor} = ActivityPub.Actor.get_cached(username: user.character.username)
+
+      if attrs[:also_known_as],
+        do:
+          add_alias(actor, attrs[:also_known_as])
+          |> debug("adddded")
+
       {:ok, actor} = ActivityPub.Actor.get_cached(username: user.character.username)
 
       %{
@@ -51,6 +58,30 @@ defmodule ActivityPub.Factory do
 
       actor
     end
+  end
+
+  def add_alias(%{local: true} = actor, to_alias) do
+    {:ok, actor} =
+      Adapter.update_local_actor(actor, %{
+        data:
+          Map.put(
+            actor.data,
+            "alsoKnownAs",
+            (Map.get(actor.data, "alsoKnownAs") || []) ++ [to_alias]
+          )
+      })
+  end
+
+  def add_alias(actor, to_alias) do
+    {:ok, actor} =
+      Adapter.update_remote_actor(actor.pointer, %{
+        data:
+          Map.put(
+            actor.data,
+            "alsoKnownAs",
+            (Map.get(actor.data, "alsoKnownAs") || []) ++ [to_alias]
+          )
+      })
   end
 
   def actor_factory(attrs \\ %{}) do
@@ -80,7 +111,8 @@ defmodule ActivityPub.Factory do
       "name" => sequence(:name, &"Test actor #{&1}"),
       "preferredUsername" => username,
       "summary" => sequence(:bio, &"Tester Number#{&1}"),
-      "type" => "Person"
+      "type" => "Person",
+      "alsoKnownAs" => attrs[:also_known_as] || []
     }
 
     data =

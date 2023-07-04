@@ -157,21 +157,21 @@ defmodule ActivityPub.Federator.FetcherTest do
           %Tesla.Env{
             status: 200,
             body: file("fixtures/fetch_mocks/9wTkLEnuq47B25EehM.json"),
-            headers: HttpRequestMock.activitypub_object_headers()
+            headers: Utils.activitypub_object_headers()
           }
 
         %{method: :get, url: "https://sakamoto.local/users/eal"} ->
           %Tesla.Env{
             status: 200,
             body: file("fixtures/fetch_mocks/eal.json"),
-            headers: HttpRequestMock.activitypub_object_headers()
+            headers: Utils.activitypub_object_headers()
           }
 
         %{method: :get, url: "https://busshi.local/users/tuxcrafting/statuses/104410921027210069"} ->
           %Tesla.Env{
             status: 200,
             body: file("fixtures/fetch_mocks/104410921027210069.json"),
-            headers: HttpRequestMock.activitypub_object_headers()
+            headers: Utils.activitypub_object_headers()
           }
 
         %{method: :get, url: "https://busshi.local/users/tuxcrafting"} ->

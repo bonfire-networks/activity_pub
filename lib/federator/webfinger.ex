@@ -99,7 +99,7 @@ defmodule ActivityPub.Federator.WebFinger do
     }
   end
 
-  defp webfinger_from_json(doc) do
+  def webfinger_from_json(doc) do
     data =
       Enum.reduce(doc["links"], %{"subject" => doc["subject"]}, fn link, data ->
         case {link["type"], link["rel"]} do

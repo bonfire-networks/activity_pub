@@ -50,7 +50,7 @@ defmodule ActivityPub.Federator.HTTP do
     params = Keyword.get(options, :params, [])
 
     Connection.new(options)
-    # |> debug()
+    |> debug("connection")
     |> Tesla.request(
       %{}
       |> Builder.method(method)

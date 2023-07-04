@@ -9,6 +9,7 @@ defmodule ActivityPub.Safety.Keys do
 
   alias ActivityPub.Config
   alias ActivityPub.Actor
+  alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.Adapter
@@ -186,8 +187,7 @@ defmodule ActivityPub.Safety.Keys do
   defp make_signature(id, date) do
     uri = URI.parse(id)
 
-    with {:ok, service_actor} <-
-           Adapter.get_or_create_service_actor_by_username("activitypub_fetcher"),
+    with {:ok, service_actor} <- Utils.service_actor(),
          {:ok, signature} <-
            Keys.sign(service_actor, %{
              "(request-target)": "get #{uri.path}",

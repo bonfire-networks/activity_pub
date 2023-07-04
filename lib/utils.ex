@@ -39,6 +39,8 @@ defmodule ActivityPub.Utils do
     ActivityPub.Web.base_url() <> System.get_env("AP_BASE_PATH", "/pub")
   end
 
+  def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
+
   def make_json_ld_header do
     %{
       "@context" => [
@@ -435,5 +437,14 @@ defmodule ActivityPub.Utils do
     String.split(header, ",")
     |> Enum.map(&String.trim/1)
     |> List.first()
+  end
+
+  def service_actor() do
+    with {:ok, service_actor} <-
+           ActivityPub.Federator.Adapter.get_or_create_service_actor_by_username(
+             "activitypub_fetcher"
+           ) do
+      {:ok, service_actor}
+    end
   end
 end

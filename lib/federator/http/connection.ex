@@ -1,4 +1,6 @@
 defmodule ActivityPub.Federator.HTTP.Connection do
+  import Untangle
+
   @moduledoc """
   Specifies connection options for HTTP requests
   """
@@ -20,7 +22,11 @@ defmodule ActivityPub.Federator.HTTP.Connection do
 
   def new(opts \\ []) do
     adapter = Application.get_env(:tesla, :adapter, {Tesla.Adapter.Finch, name: Bonfire.Finch})
-    Tesla.client([], adapter_options(adapter, Keyword.get(opts, :adapter, [])))
+
+    Tesla.client(
+      [],
+      adapter_options(adapter, Keyword.get(opts, :adapter, [])) |> debug("adapter_options")
+    )
   end
 
   def adapter_options(adapter \\ Tesla.Adapter.Hackney, opts)
@@ -37,5 +43,5 @@ defmodule ActivityPub.Federator.HTTP.Connection do
   end
 
   def adapter_options({adapter, base_opts}, opts), do: {adapter, Keyword.merge(base_opts, opts)}
-  def adapter_options(_, opts), do: opts
+  def adapter_options(adapter, opts), do: {adapter, opts}
 end

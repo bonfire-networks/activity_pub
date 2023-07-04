@@ -699,10 +699,16 @@ defmodule ActivityPub.Federator.Transformer do
       Object.normalize_actors(data)
       |> debug("actors normalized")
 
+    actor_id = Object.actor_id_from_data(data)
+
     {:ok, actor} =
-      Object.actor_id_from_data(data)
-      |> Actor.get_cached(ap_id: ...)
-      |> debug("got or fetched actor")
+      with {:ok, actor} <- Actor.get_cached(ap_id: actor_id) do
+        {:ok, actor}
+      else
+        e ->
+          warn(e, "could not get or fetched actor: #{inspect(actor_id)}")
+          Utils.service_actor()
+      end
 
     object = fix_object(object)
 
@@ -727,9 +733,19 @@ defmodule ActivityPub.Federator.Transformer do
     with nil <- Object.get_activity_for_object_ap_id(object) do
       ActivityPub.create(params)
     else
-      # a Create for this Object already exists
-      %Object{} = activity -> {:ok, activity}
-      e -> error(e)
+      %Object{pointer_id: nil} = activity ->
+        debug("a Create for this Object already exists, but not in the Adapter, try again")
+
+        with {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) do
+          {:ok, Map.put(activity, :pointer, adapter_object)}
+        end
+
+      %Object{} = activity ->
+        debug("a Create for this Object already exists")
+        {:ok, activity}
+
+      e ->
+        error(e)
     end
   end
 
@@ -1119,6 +1135,12 @@ defmodule ActivityPub.Federator.Transformer do
       "object" => data,
       "id" => "#{id}#virtual_create_activity"
     })
+  end
+
+  def handle_incoming(%{"links" => _} = data) do
+    # maybe be webfinger
+    {:ok, fingered} = ActivityPub.Federator.WebFinger.webfinger_from_json(data)
+    Fetcher.fetch_object_from_id(fingered["id"])
   end
 
   def maybe_handle_other_activity(data) do

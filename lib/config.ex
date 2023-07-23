@@ -85,9 +85,14 @@ defmodule ActivityPub.Config do
           (Application.get_env(:tesla, :adapter) == Tesla.Mock or
              System.get_env("TEST_INSTANCE") == "yes")
 
-      "true" -> true
-      "false" -> false
-      val ->   val
+      "true" ->
+        true
+
+      "false" ->
+        false
+
+      val ->
+        val
     end
     |> info("Federating?")
   end

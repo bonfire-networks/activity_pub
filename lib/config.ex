@@ -85,10 +85,11 @@ defmodule ActivityPub.Config do
           (Application.get_env(:tesla, :adapter) == Tesla.Mock or
              System.get_env("TEST_INSTANCE") == "yes")
 
-      val ->
-        val
+      "true" -> true
+      "false" -> false
+      val ->   val
     end
-    |> debug("Federating?")
+    |> info("Federating?")
   end
 
   def get(key), do: get(key, nil)

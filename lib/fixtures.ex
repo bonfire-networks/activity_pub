@@ -1559,7 +1559,7 @@ defmodule ActivityPub.Fixtures do
     end
   end
 
-  defp none(url, query, body, headers) do
+  def none(url, query, body, headers) do
     raise "No implemented mock response for get #{inspect(url)}, #{inspect(query)}, #{inspect(headers)}"
 
     # error(body, 

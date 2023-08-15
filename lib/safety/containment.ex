@@ -60,7 +60,10 @@ defmodule ActivityPub.Safety.Containment do
   def contain_origin(id, %{"attributedTo" => actor} = params),
     do: contain_origin(id, Map.put(params, "actor", actor))
 
-  def contain_origin(_id, _data), do: {:error, "Missing an actor or attributedTo"}
+  def contain_origin(id, data) do
+    debug(data, id)
+    {:error, "Missing an actor or attributedTo"}
+  end
 
   # defp contain_origin(%{"id" => id} = data) do
   #   if data["type"] in @skipped_types do

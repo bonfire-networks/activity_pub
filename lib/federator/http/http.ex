@@ -23,12 +23,12 @@ defmodule ActivityPub.Federator.HTTP do
 
   """
   if ActivityPub.Config.env() == :test do
-    def request(method, url, body \\ "", headers \\ [], options \\ []) do
-      do_request(method, url, body, headers, options)
+    def http_request(method, url, body \\ "", headers \\ [], options \\ []) do
+      do_http_request(method, url, body, headers, options)
     end
   else
-    def request(method, url, body \\ "", headers \\ [], options \\ []) do
-      do_request(method, url, body, headers, options)
+    def http_request(method, url, body \\ "", headers \\ [], options \\ []) do
+      do_http_request(method, url, body, headers, options)
     rescue
       e in Tesla.Mock.Error ->
         error(e, "Test mock HTTP error")
@@ -41,7 +41,7 @@ defmodule ActivityPub.Federator.HTTP do
     end
   end
 
-  defp do_request(method, url, body, headers, options) do
+  defp do_http_request(method, url, body, headers, options) do
     options =
       process_request_options(options)
       |> process_sni_options(url)
@@ -51,7 +51,7 @@ defmodule ActivityPub.Federator.HTTP do
 
     Connection.new(options)
     |> debug("connection")
-    |> Tesla.request(
+    |> ActivityPub.Federator.HTTP.Tesla.request(
       %{}
       |> Builder.method(method)
       |> Builder.headers(
@@ -101,32 +101,32 @@ defmodule ActivityPub.Federator.HTTP do
   @doc """
   Makes a GET request
 
-  see `ActivityPub.Federator.HTTP.request/5`
+  see `ActivityPub.Federator.HTTP.http_request/5`
   """
   def get(url, headers \\ [], options \\ []),
-    do: request(:get, url, "", headers, options)
+    do: http_request(:get, url, "", headers, options)
 
   @doc """
   Makes a POST request
 
-  see `ActivityPub.Federator.HTTP.request/5`
+  see `ActivityPub.Federator.HTTP.http_request/5`
   """
   def post(url, body, headers \\ [], options \\ []),
-    do: request(:post, url, body, headers, options)
+    do: http_request(:post, url, body, headers, options)
 
   @doc """
   Makes a PUT request
 
-  see `ActivityPub.Federator.HTTP.request/5`
+  see `ActivityPub.Federator.HTTP.http_request/5`
   """
   def put(url, body, headers \\ [], options \\ []),
-    do: request(:put, url, body, headers, options)
+    do: http_request(:put, url, body, headers, options)
 
   @doc """
   Makes a DELETE request
 
-  see `ActivityPub.Federator.HTTP.request/5`
+  see `ActivityPub.Federator.HTTP.http_request/5`
   """
   def delete(url, body \\ "", headers \\ [], options \\ []),
-    do: request(:delete, url, body, headers, options)
+    do: http_request(:delete, url, body, headers, options)
 end

@@ -359,7 +359,7 @@ defmodule ActivityPub.Object do
       %{}
       |> Map.put(:data, data)
       |> Map.put(:local, local)
-      |> Map.put(:public, Utils.public?(data, associated_activity))
+      |> Map.put(:public, Utils.public?(associated_activity, data))
       |> Map.put(:pointer_id, pointer)
       |> Map.put(:is_object, associated_activity != nil)
 

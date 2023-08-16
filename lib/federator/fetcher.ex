@@ -4,6 +4,7 @@ defmodule ActivityPub.Federator.Fetcher do
   """
 
   require ActivityPub.Config
+
   alias ActivityPub.Config
   alias ActivityPub.Utils
   alias ActivityPub.Federator.HTTP
@@ -262,7 +263,6 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp check_if_public(public) when public == true, do: :ok
-
   # discard for now, to avoid privacy leaks
   defp check_if_public(_public), do: {:error, "Not public"}
 

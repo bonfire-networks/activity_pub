@@ -57,8 +57,18 @@ defmodule ActivityPub.Safety.Containment do
     compare_uris(actor_uri, id_uri)
   end
 
+  def contain_origin(id, %{"object" => %{"actor" => actor}} = params),
+    do: contain_origin(id, Map.put(params, "actor", actor))
+
   def contain_origin(id, %{"attributedTo" => actor} = params),
     do: contain_origin(id, Map.put(params, "actor", actor))
+
+  def contain_origin(id, %{"object" => %{"attributedTo" => actor}} = params),
+    do: contain_origin(id, Map.put(params, "actor", actor))
+
+  #  for bookwyrm books which don't (always?) have actor
+  def contain_origin(id, %{"authors" => authors} = params),
+    do: contain_origin(id, Map.put(params, "actor", List.first(authors)))
 
   def contain_origin(id, data) do
     debug(data, id)

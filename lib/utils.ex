@@ -92,15 +92,20 @@ defmodule ActivityPub.Utils do
     public?(activity_data, object_data)
   end
 
-  def public?(%{"to" => _} = activity_data, %{"to" => _} = object_data) do
+  def public?(%{"to" => to} = activity_data, %{"to" => to2} = object_data)
+      when not is_nil(to) and not is_nil(to2) do
     public?(activity_data) && public?(object_data)
   end
 
-  def public?(%{"to" => _} = activity_data, _) do
+  def public?(_, %{"to" => to} = object_data) when not is_nil(to) do
+    public?(object_data)
+  end
+
+  def public?(%{"to" => to} = activity_data, _) when not is_nil(to) do
     public?(activity_data)
   end
 
-  def public?(_, %{"to" => _} = object_data) do
+  def public?(_, object_data) do
     public?(object_data)
   end
 
@@ -108,9 +113,14 @@ defmodule ActivityPub.Utils do
     false
   end
 
-  def public?(%{data: %{"type" => "Tombstone"}}), do: false
-  def public?(%{data: %{"type" => "Move"}}), do: true
   def public?(%{data: data}), do: public?(data)
+  def public?(%{"type" => "Tombstone"}), do: false
+  def public?(%{"type" => "Move"}), do: true
+  # for bookwyrm
+  def public?(%{"publishedDate" => _}) do
+    true
+  end
+
   def public?(%{"directMessage" => true}), do: false
 
   def public?(data) do

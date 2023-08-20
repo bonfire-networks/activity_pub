@@ -1102,7 +1102,7 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def handle_incoming(%{"type" => type} = data)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+      when ActivityPub.Config.is_in(type, :supported_actor_types) or type in ["Author"] do
     info(type, "Save actor or collection without an activity")
 
     maybe_handle_other_object(data)

@@ -38,8 +38,11 @@ defmodule ActivityPub.Safety.Containment do
 
   defp compare_uris(%URI{host: host} = _id_uri, %URI{host: host} = _other_uri), do: :ok
 
-  defp compare_uris(_id_uri, _other_uri),
-    do: {:error, "The object doesn't seem to come from the same instance as the actor"}
+  defp compare_uris(id_uri, other_uri) do
+    debug(id_uri)
+    debug(other_uri)
+    {:error, "The object doesn't seem to come from the same instance as the actor"}
+  end
 
   @doc """
   Checks that an imported AP object's actor matches the host it came from.
@@ -47,7 +50,7 @@ defmodule ActivityPub.Safety.Containment do
 
   def contain_origin(id, %{"type" => type} = params)
       when ActivityPub.Config.is_in(type, :supported_actor_types) or
-             ActivityPub.Config.is_in(type, :collection_types),
+             ActivityPub.Config.is_in(type, :collection_types) or type in ["Author"],
       do: :ok
 
   def contain_origin(id, %{"actor" => _actor} = params) when is_binary(id) do

@@ -78,9 +78,9 @@ defmodule ActivityPub.Test.Helpers do
   def user_by_ap_id(%{"id" => id}), do: user_by_ap_id(id)
   def user_by_ap_id(user), do: user
 
-  def ap_id(%{data: %{"id" => id}}), do: id
-  def ap_id(%{data: %{"id" => id}}), do: id
   def ap_id(%{ap_id: id}), do: id
+  def ap_id(%{data: %{"id" => id}}), do: id
+  def ap_id(%{"id" => id}), do: id
 
   def refresh_record(%{id: id, __struct__: model} = _),
     do: refresh_record(model, id)

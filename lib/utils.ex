@@ -171,6 +171,10 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  def ap_id(%{ap_id: id}), do: id
+  def ap_id(%{data: %{"id" => id}}), do: id
+  def ap_id(%{"id" => id}), do: id
+
   # def maybe_forward_activity(
   #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
   #     ) do

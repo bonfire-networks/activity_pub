@@ -100,7 +100,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_fresh_object_from_id(id, opts) do
     # raise "STOOOP"
-    with {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
+    with {:ok, data} <- fetch_remote_object_from_id(id, opts),
          {:ok, object} <- cached_or_handle_incoming(data, opts) do
       Instances.set_reachable(id)
 
@@ -214,9 +214,9 @@ defmodule ActivityPub.Federator.Fetcher do
              headers
            ),
          {:ok, data} <- Jason.decode(body),
-         :ok <-
-           (options[:skip_contain_origin_check] || Containment.contain_origin(id, data))
-           |> debug("contain_origin?") do
+         {:ok, _} <-
+           {options[:skip_contain_origin_check] ||
+              Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
       {:ok, data}
     else
       {:ok, %{status: 401}} ->
@@ -243,6 +243,9 @@ defmodule ActivityPub.Federator.Fetcher do
 
       {:error, :econnrefused} = e ->
         error("Could not connect to ActivityPub remote")
+
+      {{:error, e}, data} ->
+        error(data, e)
 
       {:error, e} ->
         error(e)

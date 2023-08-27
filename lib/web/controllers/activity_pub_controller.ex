@@ -58,11 +58,11 @@ defmodule ActivityPub.Web.ActivityPubController do
     else
       # query by UUID
 
-      maybe_object_json(Object.get_cached(ap_id: ap_route_helper(id)))
+      maybe_object_json(Object.get_cached!(ap_id: ap_route_helper(id)))
     end
   end
 
-  defp maybe_object_json({:ok, %{public: true} = object}) do
+  defp maybe_object_json(%{public: true} = object) do
     {:ok,
      %{
        json: ObjectView.render("object.json", %{object: object}),
@@ -70,7 +70,11 @@ defmodule ActivityPub.Web.ActivityPubController do
      }}
   end
 
-  defp maybe_object_json({:ok, _object}) do
+  defp maybe_object_json({:ok, object}) do
+    maybe_object_json(object)
+  end
+
+  defp maybe_object_json(%Object{}) do
     warn(
       "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
     )
@@ -78,8 +82,8 @@ defmodule ActivityPub.Web.ActivityPubController do
     {:error, 401, "authentication required"}
   end
 
-  defp maybe_object_json(_) do
-    debug("Pointable not found")
+  defp maybe_object_json(other) do
+    debug(other, "Pointable not found")
     {:error, 404, "not found"}
   end
 

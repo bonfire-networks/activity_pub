@@ -254,7 +254,7 @@ defmodule ActivityPub.Utils do
                debug("#{cache_bucket}: got and now caching (#{key}: #{identifier})")
                debug(object)
 
-               maybe_multi_cache(cache_bucket, object)
+               if key != :json, do: maybe_multi_cache(cache_bucket, object)
 
                {:commit, object}
 
@@ -295,8 +295,8 @@ defmodule ActivityPub.Utils do
     |> debug
   end
 
-  defp maybe_multi_cache(:ap_object_cache, actor) do
-    ActivityPub.Object.set_cache(actor)
+  defp maybe_multi_cache(:ap_object_cache, object) do
+    ActivityPub.Object.set_cache(object)
   end
 
   defp maybe_multi_cache(_, _) do

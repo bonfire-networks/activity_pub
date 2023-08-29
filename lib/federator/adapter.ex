@@ -134,7 +134,7 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   @doc """
-  Compute and return a subset of followers that should receive a specific activity
+  Compute and return a subset of followers that should receive a specific activity (optional)
   """
   @callback external_followers_for_activity(List.t(), Map.t()) :: List.t()
   def external_followers_for_activity(actor, activity) do
@@ -143,5 +143,12 @@ defmodule ActivityPub.Federator.Adapter do
     else
       {:ok, []}
     end
+  end
+
+  @callback get_locale() :: String.t()
+  def get_locale() do
+    to_string(
+      adapter().get_locale() || Application.get_env(:activity_pub, :default_language, "und")
+    )
   end
 end

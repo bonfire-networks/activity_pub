@@ -26,7 +26,7 @@ defmodule ActivityPub.Web.ActorView do
     actor.data
     |> Map.put("url", actor.data["id"])
     |> Map.put("type", type)
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:actor))
     |> Enum.filter(fn {_k, v} -> v != nil end)
     |> Enum.into(%{})
     |> debug
@@ -38,7 +38,7 @@ defmodule ActivityPub.Web.ActorView do
     total = length(followers)
 
     collection(followers, "#{actor.ap_id}/following", page, total)
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:actor))
   end
 
   def render("following.json", %{actor: actor}) do
@@ -52,7 +52,7 @@ defmodule ActivityPub.Web.ActorView do
       "first" => collection(followers, "#{actor.ap_id}/following", 1, total),
       "totalItems" => total
     }
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:actor))
   end
 
   def render("followers.json", %{actor: actor, page: page}) do
@@ -61,7 +61,7 @@ defmodule ActivityPub.Web.ActorView do
     total = length(followers)
 
     collection(followers, "#{actor.ap_id}/followers", page, total)
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:actor))
   end
 
   def render("followers.json", %{actor: actor}) do
@@ -75,7 +75,7 @@ defmodule ActivityPub.Web.ActorView do
       "first" => collection(followers, "#{actor.ap_id}/followers", 1, total),
       "totalItems" => total
     }
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:actor))
   end
 
   def collection(collection, iri, page, total \\ nil) do

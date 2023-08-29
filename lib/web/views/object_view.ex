@@ -20,7 +20,7 @@ defmodule ActivityPub.Web.ObjectView do
     total = length(outbox)
 
     collection(outbox, "#{actor.ap_id}/outbox", page, total)
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   def render("outbox.json", %{actor: actor}) do
@@ -34,7 +34,7 @@ defmodule ActivityPub.Web.ObjectView do
       "first" => collection(outbox, "#{actor.ap_id}/outbox", 1, total),
       "totalItems" => total
     }
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   # only for testing purposes
@@ -51,7 +51,7 @@ defmodule ActivityPub.Web.ObjectView do
       "first" => collection(outbox, "#{instance}/shared_outbox", page, total),
       "totalItems" => total
     }
-    |> Map.merge(Utils.make_json_ld_header())
+    |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   def collection(collection, iri, page, total \\ nil) do

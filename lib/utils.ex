@@ -5,6 +5,7 @@ defmodule ActivityPub.Utils do
   alias ActivityPub.Config
   # alias ActivityPub.Actor
   # alias ActivityPub.Object
+  alias ActivityPub.Federator.Adapter
   alias Ecto.UUID
   import Untangle
   # import Ecto.Query
@@ -41,20 +42,19 @@ defmodule ActivityPub.Utils do
 
   def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
 
-  def make_json_ld_header do
+  def make_json_ld_header(type \\ :object)
+
+  def make_json_ld_header(type) do
+    json_contexts = Application.get_env(:activity_pub, :json_contexts, [])
+
     %{
       "@context" => [
         "https://www.w3.org/ns/activitystreams",
-        Map.merge(
+        Enum.into(
+          json_contexts[type] || %{},
           %{
-            "@language" => Application.get_env(:activity_pub, :default_language, "und"),
-            "Hashtag" => "as:Hashtag",
-            "alsoKnownAs" => %{
-              "@id" => "as:alsoKnownAs",
-              "@type" => "@id"
-            }
-          },
-          Application.get_env(:activity_pub, :json_contexts, %{})
+            "@language" => Adapter.get_locale()
+          }
         )
       ]
     }

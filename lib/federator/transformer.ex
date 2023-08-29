@@ -22,7 +22,7 @@ defmodule ActivityPub.Federator.Transformer do
   def prepare_outgoing(%{"type" => "Create", "object" => %{"type" => "Group"}} = data) do
     data =
       data
-      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.merge(Utils.make_json_ld_header(:actor))
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -34,7 +34,7 @@ defmodule ActivityPub.Federator.Transformer do
     data =
       data
       |> Map.put("object", prepare_outgoing_object(object))
-      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.merge(Utils.make_json_ld_header(:object))
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -46,7 +46,7 @@ defmodule ActivityPub.Federator.Transformer do
     data =
       data
       |> Map.put("object", prepare_outgoing_object(object))
-      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.merge(Utils.make_json_ld_header(:object))
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -58,7 +58,7 @@ defmodule ActivityPub.Federator.Transformer do
   def prepare_outgoing(%{"type" => _type} = data) do
     data =
       data
-      |> Map.merge(Utils.make_json_ld_header())
+      |> Map.merge(Utils.make_json_ld_header(:object))
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")

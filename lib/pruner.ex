@@ -12,27 +12,28 @@ defmodule ActivityPub.Pruner do
   import Ecto.Query
   require Logger
 
-  def prune_all do
+  def prune_all(cutoff_days \\ nil) do
     Logger.info("Pruning old data from the database")
-    prune_objects()
+    prune_objects(remote_post_retention_days: cutoff_days)
 
-    prune_deletes()
+    prune_deletes(cutoff_days)
 
-    prune_stale_follow_requests()
+    prune_stale_follow_requests(cutoff_days)
 
-    prune_undos()
+    prune_undos(cutoff_days)
 
-    prune_removes()
+    prune_removes(cutoff_days)
 
-    prune_tombstones()
+    prune_tombstones(cutoff_days)
   end
 
   def prune_objects(
-        options \\ [prune_orphaned_activities: true, keep_threads: true, keep_non_public: false]
+        options \\ [prune_orphaned_activities: true, keep_threads: false, keep_non_public: false]
       ) do
     # TODO: do not keep threads by default after we're sure reply_to still works for pruned posts
 
-    deadline = Config.get([:instance, :remote_post_retention_days], @remote_post_retention_days)
+    deadline = options[:remote_post_retention_days] || Config.get([:instance, :remote_post_retention_days], @remote_post_retention_days)
+    
     time_deadline = NaiveDateTime.utc_now() |> NaiveDateTime.add(-(deadline * 86_400))
 
     log_message = "Pruning objects older than #{deadline} days"
@@ -117,6 +118,11 @@ defmodule ActivityPub.Pruner do
     |> IO.inspect(label: "pruned objects")
 
     if Keyword.get(options, :prune_orphaned_activities) do
+      prune_orphaned_activities()
+    end
+  end
+
+  def prune_orphaned_activities do
       # Prune activities who were linked to a single pruned object
       """
       delete from ap_object
@@ -150,11 +156,10 @@ defmodule ActivityPub.Pruner do
       """
       |> repo().query([], timeout: :infinity)
       |> IO.inspect(label: "pruned orphaned activities - part 2")
-    end
   end
 
-  def prune_deletes do
-    before_time = cutoff()
+  def prune_deletes(cutoff_days) do
+    before_time = cutoff(cutoff_days)
 
     from(a in Object,
       where: fragment("?->>'type' = ?", a.data, "Delete") and a.inserted_at < ^before_time
@@ -163,8 +168,8 @@ defmodule ActivityPub.Pruner do
     |> IO.inspect(label: "removed Delete activities")
   end
 
-  def prune_undos do
-    before_time = cutoff()
+  def prune_undos(cutoff_days) do
+    before_time = cutoff(cutoff_days)
 
     from(a in Object,
       where: fragment("?->>'type' = ?", a.data, "Undo") and a.inserted_at < ^before_time
@@ -173,8 +178,8 @@ defmodule ActivityPub.Pruner do
     |> IO.inspect(label: "removed Undo activities")
   end
 
-  def prune_removes do
-    before_time = cutoff()
+  def prune_removes(cutoff_days) do
+    before_time = cutoff(cutoff_days)
 
     from(a in Object,
       where: fragment("?->>'type' = ?", a.data, "Remove") and a.inserted_at < ^before_time
@@ -183,8 +188,8 @@ defmodule ActivityPub.Pruner do
     |> IO.inspect(label: "removed Remove activities")
   end
 
-  def prune_stale_follow_requests do
-    before_time = cutoff()
+  def prune_stale_follow_requests(cutoff_days) do
+    before_time = cutoff(cutoff_days)
 
     from(a in Object,
       where:
@@ -195,8 +200,8 @@ defmodule ActivityPub.Pruner do
     |> IO.inspect(label: "removed stale Follow requests")
   end
 
-  def prune_tombstones do
-    before_time = cutoff()
+  def prune_tombstones(cutoff_days) do
+    before_time = cutoff(cutoff_days)
 
     from(o in Object,
       where: fragment("?->>'type' = ?", o.data, "Tombstone") and o.inserted_at < ^before_time
@@ -216,8 +221,8 @@ defmodule ActivityPub.Pruner do
     |> IO.inspect(label: "removed embedded objects")
   end
 
-  defp cutoff do
-    cutoff = Config.get([:instance, :remote_misc_retention_days], @remote_misc_retention_days)
+  defp cutoff(cutoff_days) do
+    cutoff = cutoff_days || Config.get([:instance, :remote_misc_retention_days], @remote_misc_retention_days)
     DateTime.utc_now() |> Timex.shift(days: -cutoff)
   end
 

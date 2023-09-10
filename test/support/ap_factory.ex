@@ -268,7 +268,7 @@ defmodule ActivityPub.Factory do
     to = attrs[:to] || insert(:actor)
 
     %ActivityPub.Object{data: data} = note_factory(attrs |> Enum.into(%{boundary: "mentions"}))
-    %ActivityPub.Object{public: false, data: Map.merge(data, %{"to" => [ap_id(to)]})}
+    %ActivityPub.Object{public: false, data: Map.merge(data, %{"to" => [ActivityPub.Utils.ap_id(to)]})}
   end
 
   def direct_note_activity_factory(attrs \\ %{}) do
@@ -336,9 +336,9 @@ defmodule ActivityPub.Factory do
 
     data = %{
       "id" => ActivityPub.Utils.generate_object_id(),
-      "actor" => ap_id(follower),
+      "actor" => ActivityPub.Utils.ap_id(follower),
       "type" => "Follow",
-      "object" => ap_id(followed),
+      "object" => ActivityPub.Utils.ap_id(followed),
       "state" => attrs[:state] || "pending",
       "published_at" => DateTime.utc_now() |> DateTime.to_iso8601()
     }

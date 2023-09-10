@@ -32,8 +32,10 @@ defmodule ActivityPub.Pruner do
       ) do
     # TODO: do not keep threads by default after we're sure reply_to still works for pruned posts
 
-    deadline = options[:remote_post_retention_days] || Config.get([:instance, :remote_post_retention_days], @remote_post_retention_days)
-    
+    deadline =
+      options[:remote_post_retention_days] ||
+        Config.get([:instance, :remote_post_retention_days], @remote_post_retention_days)
+
     time_deadline = NaiveDateTime.utc_now() |> NaiveDateTime.add(-(deadline * 86_400))
 
     log_message = "Pruning objects older than #{deadline} days"
@@ -123,39 +125,39 @@ defmodule ActivityPub.Pruner do
   end
 
   def prune_orphaned_activities do
-      # Prune activities who were linked to a single pruned object
-      """
-      delete from ap_object
-      where id in (
-        select a.id from ap_object a
-        left join ap_object o on a.data ->> 'object' = o.data ->> 'id'
-        left join ap_object a2 on a.data ->> 'object' = a2.data ->> 'id'
-        where a.is_object != true 
-        and not a.local
-        and jsonb_typeof(a."data" -> 'object') = 'string'
-        and o.id is null
-        and a2.id is null
-      )
-      """
-      |> repo().query([], timeout: :infinity)
-      |> IO.inspect(label: "pruned orphaned activities - part 1")
+    # Prune activities who were linked to a single pruned object
+    """
+    delete from ap_object
+    where id in (
+      select a.id from ap_object a
+      left join ap_object o on a.data ->> 'object' = o.data ->> 'id'
+      left join ap_object a2 on a.data ->> 'object' = a2.data ->> 'id'
+      where a.is_object != true 
+      and not a.local
+      and jsonb_typeof(a."data" -> 'object') = 'string'
+      and o.id is null
+      and a2.id is null
+    )
+    """
+    |> repo().query([], timeout: :infinity)
+    |> IO.inspect(label: "pruned orphaned activities - part 1")
 
-      # Prune activities who were linked to an array of pruned objects
-      """
-      delete from  ap_object
-      where id in (
-        select a.id from  ap_object a
-        join json_array_elements_text((a."data" -> 'object')::json) as j on jsonb_typeof(a."data" -> 'object') = 'array'
-        left join ap_object o on j.value = o.data ->> 'id'
-        left join ap_object a2 on j.value = a2.data ->> 'id'
-        where a.is_object != true 
-        group by a.id
-        having max(o.data ->> 'id') is null
-        and max(a2.data ->> 'id') is null
-      )
-      """
-      |> repo().query([], timeout: :infinity)
-      |> IO.inspect(label: "pruned orphaned activities - part 2")
+    # Prune activities who were linked to an array of pruned objects
+    """
+    delete from  ap_object
+    where id in (
+      select a.id from  ap_object a
+      join json_array_elements_text((a."data" -> 'object')::json) as j on jsonb_typeof(a."data" -> 'object') = 'array'
+      left join ap_object o on j.value = o.data ->> 'id'
+      left join ap_object a2 on j.value = a2.data ->> 'id'
+      where a.is_object != true 
+      group by a.id
+      having max(o.data ->> 'id') is null
+      and max(a2.data ->> 'id') is null
+    )
+    """
+    |> repo().query([], timeout: :infinity)
+    |> IO.inspect(label: "pruned orphaned activities - part 2")
   end
 
   def prune_deletes(cutoff_days) do
@@ -222,7 +224,10 @@ defmodule ActivityPub.Pruner do
   end
 
   defp cutoff(cutoff_days) do
-    cutoff = cutoff_days || Config.get([:instance, :remote_misc_retention_days], @remote_misc_retention_days)
+    cutoff =
+      cutoff_days ||
+        Config.get([:instance, :remote_misc_retention_days], @remote_misc_retention_days)
+
     DateTime.utc_now() |> Timex.shift(days: -cutoff)
   end
 

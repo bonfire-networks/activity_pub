@@ -268,7 +268,11 @@ defmodule ActivityPub.Factory do
     to = attrs[:to] || insert(:actor)
 
     %ActivityPub.Object{data: data} = note_factory(attrs |> Enum.into(%{boundary: "mentions"}))
-    %ActivityPub.Object{public: false, data: Map.merge(data, %{"to" => [ActivityPub.Utils.ap_id(to)]})}
+
+    %ActivityPub.Object{
+      public: false,
+      data: Map.merge(data, %{"to" => [ActivityPub.Utils.ap_id(to)]})
+    }
   end
 
   def direct_note_activity_factory(attrs \\ %{}) do

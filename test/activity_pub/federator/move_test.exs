@@ -1,5 +1,5 @@
 defmodule ActivityPub.MoveTest do
-  use ActivityPub.DataCase
+  use ActivityPub.DataCase, async: true
   use Oban.Testing, repo: repo()
   import ActivityPub.Factory
   alias ActivityPub.Object

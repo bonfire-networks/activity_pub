@@ -1488,7 +1488,13 @@ defmodule ActivityPub.Fixtures do
             body: file("fixtures/kroeg-post-activity.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
-        end
+        end,
+      "https://oembed.com/providers.json" => fn "https://oembed.com/providers.json", _, _, _ ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/oembed/providers.json")
+        }
+      end
     }
 
   def request(env) do

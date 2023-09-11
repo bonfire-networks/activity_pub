@@ -1,7 +1,8 @@
 defmodule ActivityPub.Test.HttpRequestMock do
   import ActivityPub.Test.Helpers
   import Untangle
-  import ActivityPub.Fixtures
+  alias ActivityPub.Fixtures
+  import Fixtures
 
   require Phoenix.ConnTest
   alias Phoenix.ConnTest

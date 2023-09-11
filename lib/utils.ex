@@ -51,7 +51,7 @@ defmodule ActivityPub.Utils do
       "@context" => [
         "https://www.w3.org/ns/activitystreams",
         Enum.into(
-          json_contexts[type] || %{},
+          stringify_keys(json_contexts[type]) || %{},
           %{
             "@language" => Adapter.get_locale()
           }
@@ -247,8 +247,11 @@ defmodule ActivityPub.Utils do
 
   def get_with_cache(get_fun, cache_bucket, key, identifier) when is_function(get_fun) do
     cache_key = "#{key}:#{identifier}"
+    mock_fun = Process.get(Tesla.Mock)
 
     case cachex_fetch(cache_bucket, cache_key, fn ->
+           maybe_put_mock(mock_fun)
+
            case get_fun.([{key, identifier}]) do
              {:ok, object} ->
                debug("#{cache_bucket}: got and now caching (#{key}: #{identifier})")
@@ -274,6 +277,7 @@ defmodule ActivityPub.Utils do
         other
 
       {:error, :no_cache} ->
+        maybe_put_mock(mock_fun)
         get_fun.([{key, identifier}])
 
       # {:error, "cannot find ownership process"<>_} -> get_fun.([{key, identifier}])
@@ -287,6 +291,13 @@ defmodule ActivityPub.Utils do
     _ ->
       # workaround :nodedown errors
       get_fun.([{key, identifier}])
+  end
+
+  defp maybe_put_mock(mock_fun) do
+    # so our test mocks carry over when fetching
+    if(is_function(mock_fun)) do
+      Process.put(Tesla.Mock, mock_fun)
+    end
   end
 
   # FIXME: should we be caching the objects once, and just using the multiple keys to lookup a unique key?
@@ -460,5 +471,46 @@ defmodule ActivityPub.Utils do
            ) do
       {:ok, service_actor}
     end
+  end
+
+  @doc """
+  Takes a map or keyword list, and returns a map with any atom keys converted to string keys. It can optionally do so recursively. 
+  """
+  def stringify_keys(map, recursive \\ false)
+  def stringify_keys(nil, _recursive), do: nil
+
+  def stringify_keys(object, true) when is_map(object) or is_list(object) do
+    object
+    |> Enum.map(fn {k, v} ->
+      {
+        maybe_to_string(k),
+        stringify_keys(v)
+      }
+    end)
+    |> Enum.into(%{})
+  end
+
+  def stringify_keys(object, _) when is_map(object) or is_list(object) do
+    object
+    |> Enum.map(fn {k, v} -> {maybe_to_string(k), v} end)
+    |> Enum.into(%{})
+  end
+
+  @doc "Handles multiple cases where the input value is of a different type (atom, list, tuple, etc.) and returns a string representation of it."
+  def maybe_to_string(atom) when is_atom(atom) and not is_nil(atom) do
+    Atom.to_string(atom)
+  end
+
+  def maybe_to_string(list) when is_list(list) do
+    # IO.inspect(list, label: "list")
+    List.to_string(list)
+  end
+
+  def maybe_to_string({key, val}) do
+    maybe_to_string(key) <> ":" <> maybe_to_string(val)
+  end
+
+  def maybe_to_string(other) do
+    to_string(other)
   end
 end

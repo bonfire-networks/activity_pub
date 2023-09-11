@@ -23,6 +23,8 @@ defmodule ActivityPub.Federator.HTTP.Connection do
   def new(opts \\ []) do
     adapter = Application.get_env(:tesla, :adapter, {Tesla.Adapter.Finch, name: Bonfire.Finch})
 
+    IO.warn(Process.get(Tesla.Mock))
+
     Tesla.client(
       [],
       adapter_options(adapter, Keyword.get(opts, :adapter, [])) |> debug("adapter_options")

@@ -8,22 +8,33 @@ defmodule ActivityPub.Fixtures do
   def file(path), do: File.read!(@mod_path <> "/../test/" <> path)
 
   def insert_all() do
-    mock_prepare()
+    previous_adapter = mock_prepare()
 
     for {url, fun} <- fixtures() do
       maybe_mock_insert(url, fun)
     end
+
+    Application.put_env(:tesla, :adapter, previous_adapter)
+
+    IO.info("DONE WITH INSERTING FIXTURES")
   end
 
   def insert(url) do
-    mock_prepare()
+    previous_adapter = mock_prepare()
+
     maybe_mock_insert(url, fixtures()[url])
+
+    Application.put_env(:tesla, :adapter, previous_adapter)
   end
 
-  def mock_prepare do
+  defp mock_prepare do
+    previous_adapter = Application.get_env(:tesla, :adapter)
+
     Application.put_env(:tesla, :adapter, {Tesla.Mock, []})
 
     mock_global(fn env -> request(env) end)
+
+    previous_adapter
   end
 
   def mock_global(fun) do

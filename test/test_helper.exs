@@ -4,7 +4,7 @@ import ActivityPub.Utils
 {:ok, _} = Application.ensure_all_started(:ex_machina)
 
 ExUnit.start(
-  exclude: [:skip, :todo, :fixme],
+  exclude: [:skip, :todo, :fixme, :test_instance, :live_federation],
   capture_log: true
 )
 

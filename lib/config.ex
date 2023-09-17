@@ -81,9 +81,10 @@ defmodule ActivityPub.Config do
   def federating? do
     case Application.get_env(:activity_pub, :instance)[:federating] do
       nil ->
-        env() == :test and
-          (Application.get_env(:tesla, :adapter) == Tesla.Mock or
-             System.get_env("TEST_INSTANCE") == "yes")
+        System.get_env("FEDERATE") == "yes" or
+          (env() == :test and
+             (Application.get_env(:tesla, :adapter) == Tesla.Mock or
+                System.get_env("TEST_INSTANCE") == "yes"))
 
       "true" ->
         true

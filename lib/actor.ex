@@ -199,30 +199,6 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  @doc """
-  Fetches the public key for given actor AP ID.
-  """
-  def get_public_key_for_ap_id(ap_id) do
-    with %ActivityPub.Actor{} = actor <- ok_unwrap(get_or_fetch_by_ap_id(ap_id)),
-         {:ok, public_key} <- public_key_from_data(actor.data) do
-      {:ok, public_key}
-    else
-      e ->
-        error(e)
-    end
-  end
-
-  defp public_key_from_data(%{
-         "publicKey" => %{"publicKeyPem" => public_key_pem}
-       })
-       when is_binary(public_key_pem) do
-    {:ok, public_key_pem}
-  end
-
-  defp public_key_from_data(data) do
-    error(data, "Key not found")
-  end
-
   defp check_if_time_to_update(actor) do
     (NaiveDateTime.diff(NaiveDateTime.utc_now(Calendar.ISO), actor.updated_at) >= 86_400)
     |> info("Time to update the actor?")

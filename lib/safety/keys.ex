@@ -1,8 +1,7 @@
 defmodule ActivityPub.Safety.Keys do
   @moduledoc """
-  Handles RSA keys and HTTP signatures
+  Handles RSA keys for Actors & helpers for HTTP signatures
   """
-  @behaviour HTTPSignatures.Adapter
 
   import Untangle
   use Arrows
@@ -11,17 +10,49 @@ defmodule ActivityPub.Safety.Keys do
   alias ActivityPub.Actor
   alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
+  alias ActivityPub.Safety.Signatures
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.Adapter
 
   @known_suffixes ["/publickey", "/main-key"]
 
+  @doc """
+  Fetches the public key for given actor AP ID.
+  """
+  def get_public_key_for_ap_id(ap_id) do
+    with %Actor{} = actor <- Utils.ok_unwrap(Actor.get_or_fetch_by_ap_id(ap_id)),
+         {:ok, public_key} <- public_key_from_data(actor) do
+      {:ok, public_key}
+    else
+      e ->
+        error(e)
+    end
+  end
+
+  defp public_key_from_data(%{
+         data: %{
+           "publicKey" => %{"publicKeyPem" => public_key_pem}
+         }
+       })
+       when is_binary(public_key_pem) do
+    {:ok, public_key_pem}
+  end
+
+  defp public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = actor) do
+    key
+  end
+
+  defp public_key_from_data(%{local: true} = actor) do
+    public_key_for_local_actor(actor)
+  end
+
+  defp public_key_from_data(data) do
+    error(data, "Public key not found")
+  end
+
   def add_public_key(%{data: _} = actor) do
     with {:ok, actor} <- ensure_keys_present(actor),
-         {:ok, _, public_key} <- keypair_from_pem(actor.keys) do
-      public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
-      public_key = :public_key.pem_encode([public_key])
-
+         {:ok, public_key} <- public_key_for_local_actor(actor) do
       Map.put(
         actor,
         :data,
@@ -40,6 +71,19 @@ defmodule ActivityPub.Safety.Keys do
       e ->
         error(e, "Could not add public key")
         actor
+    end
+  end
+
+  defp public_key_for_local_actor(%{local: true, data: _} = actor) do
+    with {:ok, actor} <- ensure_keys_present(actor),
+         {:ok, _, public_key} <- keypair_from_pem(actor.keys) do
+      public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
+      public_key = :public_key.pem_encode([public_key])
+
+      {:ok, public_key}
+    else
+      e ->
+        error(e, "Could not find or create a public key")
     end
   end
 
@@ -125,44 +169,15 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def fetch_public_key(conn) do
-    with %{"keyId" => kid} <- HTTPSignatures.signature_for_conn(conn) |> debug,
-         {:ok, actor_id} <- key_id_to_actor_id(kid) |> debug,
-         {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor_id) |> debug do
-      {:ok, public_key_decode(public_key)}
-    else
+  def public_key_decode(public_key_pem) do
+    case :public_key.pem_decode(public_key_pem) do
+      [public_key_entry] ->
+        {:ok, :public_key.pem_entry_decode(public_key_entry)}
+
       e ->
         error(e)
-        # return ok so that HTTPSignatures calls `refetch_public_key/1`
-        {:ok, nil}
+        {:error, :pem_decode_error}
     end
-  end
-
-  def refetch_public_key(conn) do
-    with %{"keyId" => kid} <- HTTPSignatures.signature_for_conn(conn),
-         {:ok, actor_id} <- key_id_to_actor_id(kid),
-         # Ensure the remote actor is freshly fetched before updating
-         {:ok, actor} <- Fetcher.fetch_fresh_object_from_id(actor_id) |> debug,
-         #  {:ok, actor} <- Actor.update_actor(actor_id) |> debug,
-         # FIXME: This might update the actor twice in a row ^
-         {:ok, actor} <- Actor.update_actor(actor_id, actor) |> debug,
-         {:ok, public_key} <- Actor.get_public_key_for_ap_id(actor) do
-      {:ok, public_key_decode(public_key)}
-    else
-      e ->
-        error(e)
-    end
-  end
-
-  defp public_key_decode(public_key_pem) do
-    public_key_pem
-    |> :public_key.pem_decode()
-    |> hd()
-    |> :public_key.pem_entry_decode()
-  end
-
-  defp public_key_from_data(data) do
-    error(data, "Key not found")
   end
 
   def sign(actor, headers) do
@@ -202,6 +217,8 @@ defmodule ActivityPub.Safety.Keys do
   def signed_date, do: signed_date(NaiveDateTime.utc_now(Calendar.ISO))
 
   def signed_date(%NaiveDateTime{} = date) do
-    Timex.format!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
+    # TODO: use CLDR instead?
+    # Timex.format!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
+    Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
   end
 end

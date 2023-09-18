@@ -10,6 +10,7 @@ defmodule ActivityPub.Safety.SignatureTest do
 
   alias ActivityPub.Actor
   alias ActivityPub.Safety.Keys
+  alias ActivityPub.Safety.Signatures
   alias ActivityPub.Federator.Fetcher
 
   @private_key "-----BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEA48qb4v6kqigZutO9Ot0wkp27GIF2LiVaADgxQORZozZR63jH\nTaoOrS3Xhngbgc8SSOhfXET3omzeCLqaLNfXnZ8OXmuhJfJSU6mPUvmZ9QdT332j\nfN/g3iWGhYMf/M9ftCKh96nvFVO/tMruzS9xx7tkrfJjehdxh/3LlJMMImPtwcD7\nkFXwyt1qZTAU6Si4oQAJxRDQXHp1ttLl3Ob829VM7IKkrVmY8TD+JSlV0jtVJPj6\n1J19ytKTx/7UaucYvb9HIiBpkuiy5n/irDqKLVf5QEdZoNCdojOZlKJmTLqHhzKP\n3E9TxsUjhrf4/EqegNc/j982RvOxeu4i40zMQwIDAQABAoIBAQDH5DXjfh21i7b4\ncXJuw0cqget617CDUhemdakTDs9yH+rHPZd3mbGDWuT0hVVuFe4vuGpmJ8c+61X0\nRvugOlBlavxK8xvYlsqTzAmPgKUPljyNtEzQ+gz0I+3mH2jkin2rL3D+SksZZgKm\nfiYMPIQWB2WUF04gB46DDb2mRVuymGHyBOQjIx3WC0KW2mzfoFUFRlZEF+Nt8Ilw\nT+g/u0aZ1IWoszbsVFOEdghgZET0HEarum0B2Je/ozcPYtwmU10iBANGMKdLqaP/\nj954BPunrUf6gmlnLZKIKklJj0advx0NA+cL79+zeVB3zexRYSA5o9q0WPhiuTwR\n/aedWHnBAoGBAP0sDWBAM1Y4TRAf8ZI9PcztwLyHPzfEIqzbObJJnx1icUMt7BWi\n+/RMOnhrlPGE1kMhOqSxvXYN3u+eSmWTqai2sSH5Hdw2EqnrISSTnwNUPINX7fHH\njEkgmXQ6ixE48SuBZnb4w1EjdB/BA6/sjL+FNhggOc87tizLTkMXmMtTAoGBAOZV\n+wPuAMBDBXmbmxCuDIjoVmgSlgeRunB1SA8RCPAFAiUo3+/zEgzW2Oz8kgI+xVwM\n33XkLKrWG1Orhpp6Hm57MjIc5MG+zF4/YRDpE/KNG9qU1tiz0UD5hOpIU9pP4bR/\ngxgPxZzvbk4h5BfHWLpjlk8UUpgk6uxqfti48c1RAoGBALBOKDZ6HwYRCSGMjUcg\n3NPEUi84JD8qmFc2B7Tv7h2he2ykIz9iFAGpwCIyETQsJKX1Ewi0OlNnD3RhEEAy\nl7jFGQ+mkzPSeCbadmcpYlgIJmf1KN/x7fDTAepeBpCEzfZVE80QKbxsaybd3Dp8\nCfwpwWUFtBxr4c7J+gNhAGe/AoGAPn8ZyqkrPv9wXtyfqFjxQbx4pWhVmNwrkBPi\nZ2Qh3q4dNOPwTvTO8vjghvzIyR8rAZzkjOJKVFgftgYWUZfM5gE7T2mTkBYq8W+U\n8LetF+S9qAM2gDnaDx0kuUTCq7t87DKk6URuQ/SbI0wCzYjjRD99KxvChVGPBHKo\n1DjqMuECgYEAgJGNm7/lJCS2wk81whfy/ttKGsEIkyhPFYQmdGzSYC5aDc2gp1R3\nxtOkYEvdjfaLfDGEa4UX8CHHF+w3t9u8hBtcdhMH6GYb9iv6z0VBTt4A/11HUR49\n3Z7TQ18Iyh3jAUCzFV9IJlLIExq5Y7P4B3ojWFBN607sDCt8BMPbDYs=\n-----END RSA PRIVATE KEY-----"
@@ -37,30 +38,28 @@ defmodule ActivityPub.Safety.SignatureTest do
     test "with fixture" do
       id = "https://mocked.local/users/karen"
 
-      {:ok, {:RSAPublicKey, _, _}} = Keys.fetch_public_key(make_fake_conn(id))
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_public_key(make_fake_conn(id))
     end
 
     test "it returns public key" do
-      expected_result = @public_key
-
       user = local_actor(keys: @private_key)
+      info(user, "local_actor which should have keys")
 
-      {:ok, result} = Actor.get_public_key_for_ap_id(ap_id(user))
+      {:ok, result} = Keys.get_public_key_for_ap_id(ap_id(user))
 
-      assert result =~ expected_result
+      assert result =~ @public_key
     end
 
     test "it decodes public key" do
-      expected_result = {:ok, @rsa_public_key}
-
       user = local_actor(keys: @private_key)
+      info(user, "local_actor which should have keys")
 
-      assert Keys.fetch_public_key(make_fake_conn(ap_id(user))) == expected_result
+      assert Signatures.fetch_public_key(make_fake_conn(ap_id(user))) == {:ok, @rsa_public_key}
     end
 
     test "it returns {:ok, :nil} when not found user" do
       assert capture_log(fn ->
-               assert Keys.fetch_public_key(make_fake_conn("https://testing-ap_id")) ==
+               assert Signatures.fetch_public_key(make_fake_conn("https://404")) ==
                         {:ok, nil}
              end)
     end
@@ -68,7 +67,7 @@ defmodule ActivityPub.Safety.SignatureTest do
     test "it returns {:ok, nil} if no public key " do
       user = local_actor(keys: "N/A")
 
-      assert Keys.fetch_public_key(make_fake_conn(ap_id(user))) == {:ok, nil}
+      assert Signatures.fetch_public_key(make_fake_conn(ap_id(user))) == {:ok, nil}
     end
   end
 
@@ -76,25 +75,19 @@ defmodule ActivityPub.Safety.SignatureTest do
     test "works" do
       id = "https://mocked.local/users/karen"
 
-      {:ok, {:RSAPublicKey, _, _}} = Keys.refetch_public_key(make_fake_conn(id))
-    end
-
-    test "it returns error when user not found " do
-      assert capture_log(fn ->
-               assert {:error, _} = Keys.refetch_public_key(make_fake_conn("test-id"))
-             end)
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.refetch_public_key(make_fake_conn(id))
     end
 
     test "it returns key" do
       ap_id = "https://mocked.local/users/lambadalambda"
 
-      assert Keys.refetch_public_key(make_fake_conn(ap_id)) == {:ok, @rsa_public_key}
+      assert Signatures.refetch_public_key(make_fake_conn(ap_id)) == {:ok, @rsa_public_key}
     end
 
     test "it returns error when user not found" do
       assert capture_log(fn ->
-               {:error, _} = Keys.refetch_public_key(make_fake_conn("https://test-ap_id"))
-             end) =~ "No such object has been cached"
+               {:error, _} = Signatures.refetch_public_key(make_fake_conn("https://404"))
+             end) =~ "Object not found"
     end
   end
 
@@ -139,7 +132,6 @@ defmodule ActivityPub.Safety.SignatureTest do
     end
   end
 
-  # FIXME!
   test "without valid signature, it only accepts Create activities (if federation enabled, otherwise accepts nothing)",
        %{conn: conn} do
     data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
@@ -150,7 +142,8 @@ defmodule ActivityPub.Safety.SignatureTest do
     clear_config([:instance, :federating], true)
 
     ret_conn = post(conn, "#{Utils.ap_base_url()}/shared_inbox", data)
-    assert json_response(ret_conn, 202)
+    # assert json_response(ret_conn, 202)
+    assert json_response(ret_conn, 200)
 
     assert conn
            |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)

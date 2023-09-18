@@ -78,6 +78,11 @@ defmodule ActivityPub.Fixtures do
 
   def fixtures_generic,
     do: %{
+      "https://404" => fn "https://404" ->
+        %Tesla.Env{
+          status: 404
+        }
+      end,
       "https://mocked.local/2" => fn "https://mocked.local/2" ->
         %Tesla.Env{
           status: 200,
@@ -1505,7 +1510,14 @@ defmodule ActivityPub.Fixtures do
           status: 200,
           body: file("fixtures/oembed/providers.json")
         }
-      end
+      end,
+      "https://mastodon.local/users/admin/statuses/99542391527669785/activity" =>
+        fn "https://mastodon.local/users/admin/statuses/99542391527669785/activity", _, _, _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/mastodon/mastodon-announce.json")
+          }
+        end
     }
 
   def request(env) do

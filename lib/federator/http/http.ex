@@ -42,6 +42,8 @@ defmodule ActivityPub.Federator.HTTP do
   end
 
   defp do_http_request(method, url, body, headers, options) do
+    debug(self(), "httpid")
+
     options =
       process_request_options(options)
       |> process_sni_options(url)

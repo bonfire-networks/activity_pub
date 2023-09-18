@@ -45,7 +45,7 @@ defmodule ActivityPub.Federator.Fetcher do
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
   def fetch_object_from_id(id, opts \\ []) do
-    case cached_or_handle_incoming(id, opts) do
+    case cached_or_handle_incoming(id, opts) |> debug("cohi") do
       {:ok, object} ->
         {:ok, object}
 
@@ -116,11 +116,16 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp cached_or_handle_incoming(id_or_data, opts) do
     Object.get_cached(ap_id: id_or_data)
+    |> debug("gcc")
     |> maybe_handle_incoming(id_or_data, opts)
   end
 
   defp maybe_handle_incoming(input, id_or_data, opts) do
     case input do
+      # {:ok, %{local: true}} ->
+      #   debug("local object so don't treat as incoming")
+      #   {:ok, input}
+
       {:ok, %{pointer_id: nil, data: data} = _object} ->
         warn(
           "seems the object was already cached in object table, but not processed/saved by the adapter"
@@ -129,14 +134,21 @@ defmodule ActivityPub.Federator.Fetcher do
         handle_fetched(data, opts)
         |> debug("handled")
 
-      {:ok, object} ->
-        {:ok, object}
+      {:ok, _} ->
+        input
 
       {:error, :not_found} when is_map(id_or_data) ->
-        debug("seems like a new object")
+        case id_or_data do
+          %{local: true} ->
+            debug("local object so don't treat as incoming")
+            {:ok, id_or_data}
 
-        handle_fetched(id_or_data, opts)
-        |> debug("handled")
+          _ ->
+            debug("seems like a new object")
+
+            handle_fetched(id_or_data, opts)
+            |> debug("handled")
+        end
 
       {:error, :not_found} ->
         warn(id_or_data, "No such object has been cached")
@@ -199,6 +211,7 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def fetch_remote_object_from_id(id, options \\ []) do
     debug(id, "Attempting to fetch ActivityPub object")
+    debug(self())
 
     with true <- allowed_recursion?(options[:depth]),
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances

@@ -174,6 +174,7 @@ defmodule ActivityPub.Federator.Transformer do
     object
     |> fix_actor()
     |> fix_url()
+    |> fix_mfm_content()
     |> fix_attachments()
     |> fix_context()
     |> fix_in_reply_to(options)
@@ -504,6 +505,44 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp fix_type(object, _options), do: object
+
+  # See https://akkoma.dev/FoundKeyGang/FoundKey/issues/343
+  # Misskey/Foundkey drops some of the custom formatting when it sends remotely
+  # So this basically reprocesses the MFM source
+  defp fix_mfm_content(
+         %{"source" => %{"mediaType" => "text/x.misskeymarkdown", "content" => content}} = object
+       )
+       when is_binary(content) do
+    formatted =
+      format_input(content, "text/x.misskeymarkdown")
+
+    Map.put(object, "content", formatted)
+  end
+
+  # See https://github.com/misskey-dev/misskey/pull/8787
+  # This is for compatibility with older Misskey instances
+  defp fix_mfm_content(%{"_misskey_content" => content} = object) when is_binary(content) do
+    formatted =
+      format_input(content, "text/x.misskeymarkdown")
+
+    object
+    |> Map.put("source", %{
+      "content" => content,
+      "mediaType" => "text/x.misskeymarkdown"
+    })
+    |> Map.put("content", formatted)
+    |> Map.delete("_misskey_content")
+  end
+
+  defp fix_mfm_content(data), do: data
+
+  def format_input(text, "text/x.misskeymarkdown", options \\ []) do
+    # TODO: only run if optional mfm_parser lib and Earmark are available
+    text
+    |> Earmark.as_html!(breaks: true, compact_output: true)
+    |> MfmParser.Parser.parse()
+    |> MfmParser.Encoder.to_html()
+  end
 
   def take_emoji_tags(%{emoji: emoji}) do
     emoji

@@ -290,7 +290,22 @@ defmodule ActivityPub.Fixtures do
           body: file("fixtures/misskey/recursive_quote.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
-      end
+      end,
+      "https://misskey.local/notes/92j1n3owja" => fn "https://misskey.local/notes/92j1n3owja" ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/misskey/mfm_underscore_format.json"),
+          headers: ActivityPub.Utils.activitypub_object_headers()
+        }
+      end,
+      "https://misskey.local/notes/92j1n3owja_x" =>
+        fn "https://misskey.local/notes/92j1n3owja_x" ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/misskey/mfm_x_format.json"),
+            headers: ActivityPub.Utils.activitypub_object_headers()
+          }
+        end
       # "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924" =>
       #   fn "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924" ->
       #     %Tesla.Env{

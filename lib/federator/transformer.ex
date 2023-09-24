@@ -435,6 +435,10 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_url(object), do: object
 
+  def fix_emoji(%{"emoji" => emoji} = object) when is_list(emoji) do
+    object
+  end
+
   def fix_emoji(%{"tag" => tags} = object) when is_list(tags) do
     emoji =
       tags
@@ -745,7 +749,7 @@ defmodule ActivityPub.Federator.Transformer do
         {:ok, actor}
       else
         e ->
-          warn(e, "could not get or fetched actor: #{inspect(actor_id)}")
+          warn(e, "could not get or fetch actor: #{inspect(actor_id)}")
           Utils.service_actor()
       end
 

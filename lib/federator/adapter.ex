@@ -128,9 +128,9 @@ defmodule ActivityPub.Federator.Adapter do
   @doc """
   Creates an internal service actor by username, if missing.
   """
-  @callback get_or_create_service_actor_by_username(String.t()) :: Actor.t() | nil
-  def get_or_create_service_actor_by_username(nickname) do
-    adapter().get_or_create_service_actor_by_username(nickname)
+  @callback get_or_create_service_actor() :: Actor.t() | nil
+  def get_or_create_service_actor() do
+    adapter().get_or_create_service_actor()
   end
 
   @doc """

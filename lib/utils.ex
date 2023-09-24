@@ -471,9 +471,7 @@ defmodule ActivityPub.Utils do
 
   def service_actor() do
     with {:ok, service_actor} <-
-           ActivityPub.Federator.Adapter.get_or_create_service_actor_by_username(
-             "activitypub_fetcher"
-           ) do
+           ActivityPub.Federator.Adapter.get_or_create_service_actor() do
       {:ok, service_actor}
     end
   end

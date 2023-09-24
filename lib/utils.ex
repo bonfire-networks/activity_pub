@@ -236,6 +236,11 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  def cache_clear() do
+    Cachex.clear(:ap_actor_cache)
+    Cachex.clear(:ap_object_cache)
+  end
+
   # TODO: avoid storing multiple copies of things in cache
   # def get_with_cache(get_fun, cache_bucket, :id, identifier) do
   #   do_get_with_cache(get_fun, cache_bucket, :id, identifier)

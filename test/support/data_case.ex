@@ -37,8 +37,8 @@ defmodule ActivityPub.DataCase do
   end
 
   setup tags do
-    Cachex.clear(:ap_actor_cache)
-    Cachex.clear(:ap_object_cache)
+    ActivityPub.Utils.cache_clear()
+
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
 
     unless tags[:async] do

@@ -276,11 +276,6 @@ defmodule ActivityPub.Object do
     :ok
   end
 
-  def purge_cache() do
-    Cachex.clear(:ap_object_cache)
-    Cachex.clear(:ap_actor_cache)
-  end
-
   def changeset(attrs) do
     %__MODULE__{}
     |> changeset(attrs)

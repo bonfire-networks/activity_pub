@@ -186,8 +186,12 @@ defmodule ActivityPub.Object do
         {:reject, e}
 
       {:reject, e} ->
-        error(e, "Cannot federate due to local boundaries and filters")
+        warn(e, "Cannot federate due to local boundaries and filters")
         {:reject, e}
+
+      :ignore ->
+        warn(params, "Do not federate due to local boundaries and filters")
+        :ignore
 
       error ->
         error(error, "Error while trying to save the object for federation")

@@ -1532,6 +1532,13 @@ defmodule ActivityPub.Fixtures do
             status: 200,
             body: file("fixtures/mastodon/mastodon-announce.json")
           }
+        end,
+      "https://mocked.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6" =>
+        fn "https://mocked.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6", _, _, _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/peertube-video.json")
+          }
         end
     }
 

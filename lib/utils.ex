@@ -325,7 +325,7 @@ defmodule ActivityPub.Utils do
     if Untangle.log_level?(:info),
       do:
         info(
-          "#{request_ip(conn)} / #{Plug.Conn.get_req_header(conn, "user-agent")}",
+          "#{inspect(request_ip(conn))} / #{inspect(Plug.Conn.get_req_header(conn, "user-agent"))}",
           "request from"
         )
 

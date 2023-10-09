@@ -91,19 +91,25 @@ defmodule ActivityPub.Safety.Keys do
   Checks if an actor struct has a non-nil keys field and generates a PEM if it doesn't.
   """
   def ensure_keys_present(actor) do
-    if actor.local == false or actor.keys do
-      debug(actor.keys, "actor has keys or is remote")
-      {:ok, actor}
-    else
-      warn(actor, "actor has no keys and is local, generate new ones")
-
-      with {:ok, pem} <- generate_rsa_pem(),
-           {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-           {:ok, actor} <- Actor.set_cache(actor) do
+    cond do
+      actor.local == false ->
+        debug("actor is remote")
         {:ok, actor}
-      else
-        e -> error(e, "Could not generate or save keys")
-      end
+
+      is_binary(actor.keys) ->
+        debug(actor.keys, "actor has keys ")
+        {:ok, actor}
+
+      true ->
+        warn(actor, "actor has no keys and is local, generate new ones")
+
+        with {:ok, pem} <- generate_rsa_pem(),
+             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
+             {:ok, actor} <- Actor.set_cache(actor) do
+          {:ok, actor}
+        else
+          e -> error(e, "Could not generate or save keys")
+        end
     end
   end
 

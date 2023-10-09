@@ -43,9 +43,9 @@ defmodule ActivityPub.Federator.APPublisher do
     |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
     # |> maybe_federate_to_search_index(activity)
     |> Enum.uniq()
-    |> info("possible recipients")
+    |> info("inboxes")
     |> Instances.filter_reachable()
-    |> info("enqueue for")
+    |> info("reacheable ones")
     |> Enum.each(fn {inbox, unreachable_since} ->
       json =
         Transformer.preserve_privacy_of_outgoing(prepared_activity_data, URI.parse(inbox))
@@ -126,7 +126,7 @@ defmodule ActivityPub.Federator.APPublisher do
   defp recipients(actor, activity, tos, is_public?) do
     # if is_public? || 
     {:ok, followers} =
-      if actor.data["followers"] in tos do
+      if is_public? || actor.data["followers"] in tos do
         Actor.get_external_followers(actor)
         |> debug("external_followers")
       else

@@ -3,6 +3,7 @@ defmodule ActivityPub.Utils do
   Misc functions used for federation
   """
   alias ActivityPub.Config
+  require ActivityPub.Config
   # alias ActivityPub.Actor
   # alias ActivityPub.Object
   alias ActivityPub.Federator.Adapter
@@ -306,7 +307,8 @@ defmodule ActivityPub.Utils do
   end
 
   # FIXME: should we be caching the objects once, and just using the multiple keys to lookup a unique key?
-  defp maybe_multi_cache(:ap_actor_cache, actor) do
+  defp maybe_multi_cache(:ap_actor_cache, %{data: %{"type" => type}} = actor)
+       when ActivityPub.Config.is_in(type, :supported_actor_types) do
     ActivityPub.Actor.set_cache(actor)
     |> debug
   end
@@ -316,6 +318,7 @@ defmodule ActivityPub.Utils do
   end
 
   defp maybe_multi_cache(_, _) do
+    debug("skip caching")
     nil
   end
 

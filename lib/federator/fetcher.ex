@@ -67,29 +67,50 @@ defmodule ActivityPub.Federator.Fetcher do
     end)
   end
 
-  def maybe_fetch_async(entries, opts \\ [])
+  def maybe_fetch(entries, opts \\ [])
 
-  def maybe_fetch_async(entries, opts) when is_list(entries) do
+  def maybe_fetch(entries, opts) when is_list(entries) do
     depth = (opts[:depth] || 0) + 1
 
     if entries != [] and allowed_recursion?(depth) do
-      for {id, index} <- Enum.with_index(entries) do
-        entry_depth = depth + index
+      case opts[:mode] do
+        :async ->
+          for {id, index} <- Enum.with_index(entries) do
+            entry_depth = depth + index
 
-        if allowed_recursion?(entry_depth) do
-          Workers.RemoteFetcherWorker.enqueue(
-            "fetch_remote",
-            Enum.into(opts[:worker_attrs] || %{}, %{
-              "id" => id,
-              "depth" => entry_depth
-            })
-          )
-        end
+            if allowed_recursion?(entry_depth) do
+              Workers.RemoteFetcherWorker.enqueue(
+                "fetch_remote",
+                Enum.into(opts[:worker_attrs] || %{}, %{
+                  "id" => id,
+                  "depth" => entry_depth,
+                  "fetch_collection_entries" => opts[:fetch_collection_entries]
+                })
+              )
+            end
+          end
+
+          nil
+
+        true ->
+          for {id, index} <- Enum.with_index(entries) do
+            entry_depth = depth + index
+
+            if allowed_recursion?(entry_depth) do
+              fetch_object_from_id(id,
+                depth: entry_depth
+              )
+            end
+          end
+
+        _ ->
+          debug("skip")
+          nil
       end
     end
   end
 
-  def maybe_fetch_async(entries, opts), do: maybe_fetch_async(List.wrap(entries), opts)
+  def maybe_fetch(entries, opts), do: maybe_fetch(List.wrap(entries), opts)
 
   def fetch_fresh_object_from_id(id, opts \\ [])
 
@@ -206,6 +227,46 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  def fetch_outbox(actor, opts \\ [fetch_collection: :async])
+
+  def fetch_outbox(%{data: %{"outbox" => outbox}}, opts) do
+    fetch_outbox(%{"outbox" => outbox}, opts)
+  end
+
+  def fetch_outbox(%{"outbox" => outbox}, opts) when is_binary(outbox) do
+    debug(
+      outbox,
+      "fetch outbox collection (and maybe queue a fetch of entries as well)"
+    )
+
+    fetch_collection(outbox, mode: opts[:fetch_collection])
+  end
+
+  def fetch_outbox(other, opts) do
+    with {:ok, %{data: %{"outbox" => outbox}}} when is_binary(outbox) <- Actor.get_cached(other) do
+      fetch_outbox(%{"outbox" => outbox}, opts)
+    end
+  end
+
+  def fetch_replies(actor, opts \\ [fetch_collection: :async])
+
+  def fetch_replies(%{data: %{"replies" => replies}}, opts) do
+    fetch_replies(%{"replies" => replies}, opts)
+  end
+
+  def fetch_replies(%{"replies" => replies}, opts) do
+    Transformer.fix_replies(%{"replies" => replies |> debug()}, opts)
+  end
+
+  def fetch_replies(other, opts) do
+    with {:ok, %{data: %{"replies" => replies}}} <- Object.get_cached(other) do
+      fetch_replies(%{"replies" => replies}, opts)
+    else
+      e ->
+        error(e, "Could not find replies in ActivityPub data")
+    end
+  end
+
   @doc """
   Fetches an AS2 object from remote AP ID.
   """
@@ -300,16 +361,20 @@ defmodule ActivityPub.Federator.Fetcher do
         else
           e ->
             error(e, "Could not fetch collection #{ap_id}")
-            e
         end
 
       :async ->
         debug("queue collection to be fetched async")
 
-        maybe_fetch_async(
-          ap_id,
-          opts |> Keyword.put(:worker_attrs, %{"fetch_collection_entries" => :async})
-        )
+        {:ok,
+         maybe_fetch(
+           ap_id,
+           opts
+           |> Keyword.put_new(:fetch_collection_entries, :async)
+           # |> Keyword.put_new(:skip_cache, true)
+         )}
+
+      #  FIXME
 
       _ ->
         debug("skip")
@@ -320,6 +385,18 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_collection(%{"type" => type} = page, opts)
       when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
     {:ok, handle_collection(page, opts)}
+  end
+
+  def fetch_collection(%{data: %{"type" => type} = page}, opts)
+      when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
+    {:ok, handle_collection(page, opts)}
+  end
+
+  def fetch_collection(other, opts) do
+    with {:ok, %{data: %{"id" => collection_ap_id}}} when is_binary(collection_ap_id) <-
+           Object.get_cached(other) do
+      fetch_collection(collection_ap_id, opts)
+    end
   end
 
   defp handle_collection(page, opts) do
@@ -337,14 +414,16 @@ defmodule ActivityPub.Federator.Fetcher do
         mode when mode in [:entries_async, :async] and entries != [] ->
           debug("queue objects to be fetched async")
 
-          maybe_fetch_async(entries, opts)
-
-          entries
+          maybe_fetch(entries, opts) || entries
 
         true when entries != [] ->
           debug("fetch objects as well")
 
           fetch_objects_from_id(entries, opts)
+
+        _ when entries == [] ->
+          debug("no entries to fetch")
+          []
 
         other ->
           debug(other, "do not fetch collection entries")
@@ -383,7 +462,6 @@ defmodule ActivityPub.Federator.Fetcher do
 
         {:error, error} ->
           error(error, "Could not fetch page #{page_id}")
-          {:error, error}
       end
     end
   end
@@ -399,21 +477,22 @@ defmodule ActivityPub.Federator.Fetcher do
   defp objects_from_collection(page, opts \\ [])
 
   defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
-       when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
+       when is_list(items) and items != [] and
+              type in ["OrderedCollection", "OrderedCollectionPage"],
        do: maybe_next_page(page, items)
 
   defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
-       when is_list(items) and type in ["Collection", "CollectionPage"],
+       when is_list(items) and items != [] and type in ["Collection", "CollectionPage"],
        do: maybe_next_page(page, items)
 
   defp objects_from_collection(%{"type" => type, "first" => first}, opts)
        when is_binary(first) and type in ["Collection", "OrderedCollection"] do
-    fetch_page(first)
+    fetch_page(first, [], opts)
   end
 
   defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}}, opts)
        when is_binary(id) and type in ["Collection", "OrderedCollection"] do
-    fetch_page(id)
+    fetch_page(id, [], opts)
   end
 
   defp objects_from_collection(page, _opts) do

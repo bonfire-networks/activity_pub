@@ -178,7 +178,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_attachments()
     |> fix_context()
     |> fix_in_reply_to(options)
-    |> fix_replies()
+    |> fix_replies(options)
     |> fix_quote_url(options)
     |> fix_emoji()
     |> fix_tag()
@@ -285,8 +285,8 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_in_reply_to(%{"inReplyTo" => in_reply_to} = object, options)
       when not is_nil(in_reply_to) do
-    with in_reply_to_id <- Utils.single_ap_id(in_reply_to),
-         _ <- Fetcher.maybe_fetch_async(in_reply_to_id, options) do
+    with in_reply_to_id when is_binary(in_reply_to_id) <- Utils.single_ap_id(in_reply_to),
+         _ <- Fetcher.maybe_fetch(in_reply_to_id, options) do
       object
       |> Map.put("inReplyTo", in_reply_to_id)
       # |> Map.put("context", replied_object.data["context"] || object["conversation"]) # TODO as an update when we get the async inReplyTo?
@@ -304,8 +304,8 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_quote_url(%{"quoteUri" => quote_url} = object, options)
       when not is_nil(quote_url) do
-    with quote_ap_id <- Utils.single_ap_id(quote_url),
-         _ <- Fetcher.maybe_fetch_async(quote_ap_id, options) do
+    with quote_ap_id when is_binary(quote_ap_id) <- Utils.single_ap_id(quote_url),
+         _ <- Fetcher.maybe_fetch(quote_ap_id, options) do
       object
       |> Map.put("quoteUri", quote_ap_id)
     else
@@ -579,35 +579,36 @@ defmodule ActivityPub.Federator.Transformer do
     }
   end
 
-  defp fix_replies(%{"replies" => replies} = data) when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch_async(replies)
+  def fix_replies(%{"replies" => replies} = data, options)
+      when is_list(replies) and replies != [] do
+    Fetcher.maybe_fetch(replies, options)
     # TODO: update the data with only IDs in case we have full objects?
     data
   end
 
-  defp fix_replies(%{"replies" => %{"items" => replies}} = data)
-       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch_async(replies)
+  def fix_replies(%{"replies" => %{"items" => replies}} = data, options)
+      when is_list(replies) and replies != [] do
+    Fetcher.maybe_fetch(replies, options)
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
   end
 
-  defp fix_replies(%{"replies" => %{"first" => replies}} = data)
-       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch_async(replies)
+  def fix_replies(%{"replies" => %{"first" => replies}} = data, options)
+      when is_list(replies) and replies != [] do
+    Fetcher.maybe_fetch(replies, options)
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
   end
 
-  defp fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data)
-       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch_async(replies)
+  def fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data, options)
+      when is_list(replies) and replies != [] do
+    Fetcher.maybe_fetch(replies, options)
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
   end
 
-  defp fix_replies(%{"replies" => %{"first" => first}} = data) do
-    # Note: seems like too much recursion was triggered here:
+  def fix_replies(%{"replies" => %{"first" => first}} = data, options) do
+    # Note: seems like too much recursion was triggered with `entries_async`
     # with {:ok, replies} <- Fetcher.fetch_collection(first, mode: :entries_async) do
     #   Map.put(data, "replies", replies)
     # else
@@ -616,11 +617,20 @@ defmodule ActivityPub.Federator.Transformer do
     # Map.put(data, "replies", [])
     # end
 
-    Fetcher.fetch_collection(first, mode: :async)
+    Fetcher.fetch_collection(
+      first,
+      Keyword.merge(
+        [mode: options[:fetch_collection] || options[:fetch_collection_entries]],
+        options
+      )
+      |> debug("opts")
+    )
+    |> debug()
+
     data
   end
 
-  defp fix_replies(data), do: Map.delete(data, "replies")
+  def fix_replies(data), do: Map.delete(data, "replies")
 
   defp replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)
 

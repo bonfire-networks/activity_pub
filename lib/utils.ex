@@ -521,10 +521,10 @@ defmodule ActivityPub.Utils do
   end
 
   def format_date(date \\ NaiveDateTime.utc_now(Calendar.ISO))
+
   def format_date(%NaiveDateTime{} = date) do
     # TODO: use built-in elixir function or CLDR instead?
     # Timex.format!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
     Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
   end
-
 end

@@ -219,5 +219,4 @@ defmodule ActivityPub.Safety.Keys do
     end
     |> debug()
   end
-
 end

@@ -76,9 +76,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
 
-    date =
-      NaiveDateTime.utc_now(Calendar.ISO)
-      |> Timex.format!("{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
+    date = Utils.format_date()
 
     {:ok, signature} =
       ActivityPub.Safety.Keys.sign(actor, %{

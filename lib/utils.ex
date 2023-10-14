@@ -519,4 +519,12 @@ defmodule ActivityPub.Utils do
   def maybe_to_string(other) do
     to_string(other)
   end
+
+  def format_date(date \\ NaiveDateTime.utc_now(Calendar.ISO))
+  def format_date(%NaiveDateTime{} = date) do
+    # TODO: use built-in elixir function or CLDR instead?
+    # Timex.format!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
+    Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
+  end
+
 end

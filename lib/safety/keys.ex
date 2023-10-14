@@ -198,7 +198,7 @@ defmodule ActivityPub.Safety.Keys do
   def maybe_add_sign_headers(headers, id, date \\ nil) do
     # enabled by default :-)
     if Config.get([:sign_object_fetches], true) do
-      date = date || signed_date()
+      date = date || Utils.format_date()
       [make_signature(id, date), {"date", date} | headers]
     else
       headers
@@ -220,11 +220,4 @@ defmodule ActivityPub.Safety.Keys do
     |> debug()
   end
 
-  def signed_date, do: signed_date(NaiveDateTime.utc_now(Calendar.ISO))
-
-  def signed_date(%NaiveDateTime{} = date) do
-    # TODO: use CLDR instead?
-    # Timex.format!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
-    Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
-  end
 end

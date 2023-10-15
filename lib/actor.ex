@@ -153,6 +153,9 @@ defmodule ActivityPub.Actor do
   Remote actors are also automatically updated every 24 hours.
   """
   @spec get(ap_id: String.t()) :: {:ok, Actor.t()} | {:error, any()}
+
+  defp get(ap_id: "https://www.w3.org/ns/activitystreams#Public"), do: {:error, :not_an_actor}
+
   defp get(ap_id: ap_id) when is_binary(ap_id) do
     with {:ok, actor} <- Adapter.get_actor_by_ap_id(ap_id) do
       {:ok, actor}

@@ -338,23 +338,30 @@ defmodule ActivityPub do
   #         optional(atom()) => any()
   #       }) ::
   #         {:ok, Object.t()} | {:error, any()}
-  def update(%{to: to, cc: cc, actor: actor, object: object} = params) do
-    with activity_data <- %{
-           # avoid ID conflicts with updates
-           "id" =>
-             params[:id] || params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
-           "to" => to,
-           "cc" => cc,
-           "type" => "Update",
-           "actor" => Map.get(actor, :data, actor)["id"],
-           "object" => object
-         },
+  def update(%{to: to, actor: actor, object: object} = params) do
+    additional = params[:additional] || %{}
+
+    with activity_data <-
+           Map.merge(
+             %{
+               "id" => params[:id] || params[:activity_id] || Utils.generate_object_id(),
+               "to" => to,
+               "type" => "Update",
+               "actor" => Map.get(actor, :data, actor)["id"],
+               "object" =>
+                 object
+                 |> Map.put_new_lazy("id", fn ->
+                   Map.get(params, :pointer) |> Object.object_url()
+                 end)
+             },
+             additional
+           ),
          {:ok, activity} <-
            Object.insert(
              activity_data,
              Map.get(params, :local, true),
              Map.get(params, :pointer),
-             true
+             :update
            ),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),

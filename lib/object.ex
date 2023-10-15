@@ -126,10 +126,12 @@ defmodule ActivityPub.Object do
     raise "Unexpected args when attempting to get an object"
   end
 
-  def get_activity_for_object_ap_id(%{"id" => ap_id}) when is_binary(ap_id),
-    do: get_activity_for_object_ap_id(ap_id)
+  def get_activity_for_object_ap_id(ap_id, verb \\ "Create")
 
-  def get_activity_for_object_ap_id(ap_id, verb \\ "Create") when is_binary(ap_id) do
+  def get_activity_for_object_ap_id(%{"id" => ap_id}, verb) when is_binary(ap_id),
+    do: get_activity_for_object_ap_id(ap_id, verb)
+
+  def get_activity_for_object_ap_id(ap_id, verb) when is_binary(ap_id) do
     Queries.activity_by_object_ap_id(ap_id, verb)
     |> repo().one()
   end
@@ -219,7 +221,7 @@ defmodule ActivityPub.Object do
               ActivityPub.Config.is_in(type, :supported_activity_types) == false do
     # we're taking a shortcut by assuming that anything that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
     # check that it doesn't already exist
-    debug(object_data, "object to #{if upsert?, do: "update", else: "insert"}")
+    debug(object_data, "object to '#{if upsert?, do: "update", else: "insert"}'")
 
     with maybe_existing_object <-
            normalize(object_data, false, pointer) |> info("maybe_existing_object"),
@@ -237,6 +239,14 @@ defmodule ActivityPub.Object do
     attrs
     |> changeset()
     |> repo().insert()
+  end
+
+  def maybe_upsert(:update, %ActivityPub.Object{} = existing_object, attrs) do
+    debug(existing_object, "Object to update")
+
+    update_changeset(existing_object, attrs)
+    |> debug("to upsert")
+    |> update_and_set_cache()
   end
 
   def maybe_upsert(true, %ActivityPub.Object{} = existing_object, attrs) do
@@ -288,6 +298,17 @@ defmodule ActivityPub.Object do
   def changeset(object, attrs) do
     object
     |> cast(attrs, [:id, :data, :local, :public, :pointer_id, :is_object])
+    |> common_changeset()
+  end
+
+  def update_changeset(object, attrs) do
+    object
+    |> cast(attrs, [:data])
+    |> common_changeset()
+  end
+
+  def common_changeset(object) do
+    object
     |> validate_required(:data)
     |> unique_constraint(:pointer_id)
     |> unique_constraint(:_data____id, match: :exact)
@@ -598,6 +619,8 @@ defmodule ActivityPub.Object do
 
   def object_url(%{pointer_id: id}) when is_binary(id), do: object_url(id)
   def object_url(%{id: id}) when is_binary(id), do: object_url(id)
+  def object_url(%{pointer: %{id: id}}) when is_binary(id), do: object_url(id)
+  def object_url(%{pointer: id}) when is_binary(id), do: object_url(id)
 
   def object_url(id) when is_binary(id) do
     if Utils.is_uuid?(id) or Utils.is_ulid?(id) do

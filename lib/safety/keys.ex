@@ -50,7 +50,7 @@ defmodule ActivityPub.Safety.Keys do
     error(data, "Public key not found")
   end
 
-  def add_public_key(%{data: _} = actor) do
+  def add_public_key(%{local: true, data: _} = actor) do
     with {:ok, actor} <- ensure_keys_present(actor),
          {:ok, public_key} <- public_key_for_local_actor(actor) do
       Map.put(
@@ -74,7 +74,12 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  defp public_key_for_local_actor(%{local: true, data: _} = actor) do
+  def add_public_key(actor) do
+    error(actor, "Skip adding public key on non-local actor")
+    raise "Skip adding public key on non-local actor"
+  end
+
+  defp public_key_for_local_actor(%{} = actor) do
     with {:ok, actor} <- ensure_keys_present(actor),
          {:ok, _, public_key} <- keypair_from_pem(actor.keys) do
       public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
@@ -103,9 +108,9 @@ defmodule ActivityPub.Safety.Keys do
       true ->
         warn(actor, "actor has no keys and is local, generate new ones")
 
-        with {:ok, pem} <- generate_rsa_pem(),
-             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-             {:ok, actor} <- Actor.set_cache(actor) do
+        with {:ok, pem} <- generate_rsa_pem() |> debug(),
+             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}) |> debug(),
+             {:ok, actor} <- Actor.set_cache(actor) |> debug() do
           {:ok, actor}
         else
           e -> error(e, "Could not generate or save keys")

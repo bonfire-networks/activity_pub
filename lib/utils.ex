@@ -268,7 +268,7 @@ defmodule ActivityPub.Utils do
                {:commit, object}
 
              e ->
-               info(e, "nothing with #{key} - #{identifier} ")
+               warn(e, "nothing with #{key} - #{identifier} ")
                {:ignore, e}
            end
          end) do

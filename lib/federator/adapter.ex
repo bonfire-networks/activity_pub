@@ -36,21 +36,27 @@ defmodule ActivityPub.Federator.Adapter do
   defp validate_actor(_), do: {:error, :not_found}
 
   @doc """
-  Fetch an actor given its preferred username
+  Fetch an `Actor` given its preferred username
   """
-  @callback get_actor_by_username(String.t()) ::
+  @callback get_actor_by_username(Actor.username()) ::
               {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_username(username) do
     # debug(self())
     validate_actor(adapter().get_actor_by_username(username))
   end
 
-  @callback get_actor_by_ap_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  @doc """
+  Fetch an `Actor` by its full ActivityPub ID.
+  """
+  @callback get_actor_by_ap_id(Actor.ap_id()) :: {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_ap_id(id) do
     validate_actor(adapter().get_actor_by_ap_id(id))
   end
 
-  @callback get_actor_by_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  @doc """
+  Fetch an `Actor` by its ID in the host application database.
+  """
+  @callback get_actor_by_id(Actor.id()) :: {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_id(id) do
     validate_actor(adapter().get_actor_by_id(id))
   end
@@ -60,6 +66,9 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().maybe_create_remote_actor(actor)
   end
 
+  @doc """
+  Commit new fields to the host application database for the given `Actor`.
+  """
   @callback update_local_actor(Actor.t(), Map.t()) ::
               {:ok, Actor.t()} | {:error, any()}
   def update_local_actor(actor, params) do
@@ -83,16 +92,25 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().handle_activity(activity)
   end
 
-  @callback get_follower_local_ids(Actor.t()) :: [String.t()]
+  @doc """
+  Get the host application IDs for all `Actor`s following the given `Actor`.
+  """
+  @callback get_follower_local_ids(Actor.t()) :: [Actor.id()]
   def get_follower_local_ids(actor) do
     adapter().get_follower_local_ids(actor)
   end
 
-  @callback get_following_local_ids(Actor.t()) :: [String.t()]
+  @doc """
+  Get the host application IDs for all `Actor`s that the given `Actor` is following.
+  """
+  @callback get_following_local_ids(Actor.t()) :: [Actor.id()]
   def get_following_local_ids(actor) do
     adapter().get_following_local_ids(actor)
   end
 
+  @doc """
+  The base URL of the application serving `ActivityPub.Web.Endpoint`.
+  """
   @callback base_url() :: String.t()
   def base_url() do
     adapter().base_url()
@@ -106,7 +124,7 @@ defmodule ActivityPub.Federator.Adapter do
   @doc """
   Gets local url of an AP object to redirect in browser. Can take pointer id or an actor username.
   """
-  @callback get_redirect_url(String.t() | Map.t()) :: String.t()
+  @callback get_redirect_url(Actor.username() | Map.t()) :: String.t()
   def get_redirect_url(id_or_username_or_object) do
     adapter().get_redirect_url(id_or_username_or_object)
   end
@@ -145,10 +163,15 @@ defmodule ActivityPub.Federator.Adapter do
     end
   end
 
+  @doc """
+  Get the default locale of the host application.
+  """
   @callback get_locale() :: String.t()
   def get_locale() do
     to_string(
       adapter().get_locale() || Application.get_env(:activity_pub, :default_language, "und")
     )
   end
+
+  @optional_callbacks external_followers_for_activity: 2
 end

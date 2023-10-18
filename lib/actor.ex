@@ -1,6 +1,9 @@
 defmodule ActivityPub.Actor do
   @moduledoc """
   An ActivityPub Actor type and functions for dealing with actors.
+
+  See [4. Actors](https://www.w3.org/TR/activitypub/#actors) in the
+  ActivityPub specification for more information on Actors.
   """
   require Ecto.Query
   import ActivityPub.Utils
@@ -8,6 +11,7 @@ defmodule ActivityPub.Actor do
   import Untangle
   require ActivityPub.Config
 
+  alias Timex.NaiveDateTime
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.Fetcher
@@ -18,17 +22,77 @@ defmodule ActivityPub.Actor do
 
   require Logger
 
-  @type t :: %Actor{}
-  # @type t :: %Actor{ # FIXME
-  #         id: binary(),
-  #         data: map(),
-  #         local: boolean(),
-  #         keys: binary(),
-  #         ap_id: binary(),
-  #         username: binary(),
-  #         deactivated: boolean(),
-  #         pointer_id: binary()
-  #       }
+  @typedoc """
+  Your app's internal ID for an `Actor`.
+
+  ## Examples
+
+      "c1688a22-4e9c-42d7-935b-1f17e1d0cf58"
+
+      "1234"
+  """
+  @type id :: String.t()
+
+  @typedoc """
+  The ActivityPub ID of an object, which must be a publicly-dereferencable URI,
+  or `nil` if the object is anonymous.
+
+  Note that since the URI must be publicly-dereferencable,
+  you should set this value to `ActivityPub.Federator.Adapter.base_url() <> ~p"/pub/actors/\#{username}"`.
+  This path is defined in `ActivityPub.Web.Endpoint` and serves data provided
+  by the functions in `ActivityPub.Federator.Adapter`.
+
+  See section [3.1 Object Identifiers](https://www.w3.org/TR/activitypub/#obj-id)
+  in the ActivityPub spec for more information on the format.
+
+  ## Examples
+
+      "https://kenzoishii.example.com/"
+
+      "http://localhost:4000/pub/actors/rosa"
+  """
+  @type ap_id :: String.t()
+
+  @typedoc """
+  An `Actor`'s user name, used as part of its ActivityPub ID.
+
+  ## Examples
+
+      "alyssa"
+
+      "ben"
+  """
+  @type username :: String.t()
+
+  @typedoc """
+  A pointer ID from the `Pointers` library that references an `Actor`.
+  """
+  @type pointer_id :: String.t()
+
+  @typedoc """
+  A pointer from the `Pointers` library that references an `Actor`.
+
+  Pointers consist of a table ID, referencing a database table,
+  and a pointer ID, referencing a row in that table.
+  Table and pointer IDs are both `Pointers.ULID` strings, which is UUID-like.
+  """
+  @type pointer :: String.t()
+
+  @typedoc """
+  An ActivityPub Actor.
+  """
+  @type t :: %Actor{
+          id: id() | nil,
+          data: map(),
+          local: boolean() | nil,
+          keys: binary() | nil,
+          ap_id: ap_id() | nil,
+          username: username() | nil,
+          deactivated: boolean() | nil,
+          pointer_id: pointer_id() | nil,
+          pointer: pointer() | nil,
+          updated_at: DateTime.t() | NaiveDateTime.t() | nil
+        }
 
   defstruct [
     :id,
@@ -152,7 +216,7 @@ defmodule ActivityPub.Actor do
 
   Remote actors are also automatically updated every 24 hours.
   """
-  @spec get(ap_id: String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  @spec get(ap_id: ap_id()) :: {:ok, Actor.t()} | {:error, any()}
   defp get(ap_id: ap_id) when is_binary(ap_id) do
     with {:ok, actor} <- Adapter.get_actor_by_ap_id(ap_id) do
       {:ok, actor}
@@ -175,7 +239,7 @@ defmodule ActivityPub.Actor do
   @doc """
   Updates an existing actor struct by its AP ID.
   """
-  @spec update_actor(String.t()) :: {:ok, Actor.t()} | {:error, any()}
+  @spec update_actor(ap_id()) :: {:ok, Actor.t()} | {:error, any()}
   def update_actor(actor_id) when is_binary(actor_id) do
     # TODO: make better
     debug(actor_id, "Updating actor")

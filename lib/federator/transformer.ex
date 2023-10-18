@@ -630,7 +630,7 @@ defmodule ActivityPub.Federator.Transformer do
     data
   end
 
-  def fix_replies(data), do: Map.delete(data, "replies")
+  def fix_replies(data, _), do: Map.delete(data, "replies")
 
   defp replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)
 

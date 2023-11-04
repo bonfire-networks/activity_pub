@@ -44,6 +44,8 @@ defmodule ActivityPub.Web.Router do
 
         # note: singular is not canonical
         get("/actor/:username", ActivityPubController, :actor)
+
+        get("/shared_inbox", ActivityPubController, :inbox_info)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

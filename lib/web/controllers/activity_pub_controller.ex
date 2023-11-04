@@ -186,6 +186,14 @@ defmodule ActivityPub.Web.ActivityPubController do
     maybe_process_unsigned(conn, params)
   end
 
+  def inbox_info(conn, params) do
+    if Config.federating?() do
+      Utils.error_json(conn, "this endpoint only accepts POST requests", 403)
+    else
+      Utils.error_json(conn, "this instance is not currently federating", 403)
+    end
+  end
+
   def noop(conn, _params) do
     json(conn, "ok")
   end

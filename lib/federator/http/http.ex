@@ -60,8 +60,7 @@ defmodule ActivityPub.Federator.HTTP do
         headers ++
           [
             {"User-Agent",
-             Application.get_env(:activity_pub, :http)[:user_agent] ||
-               "ActivityPub Elixir library"}
+             "#{Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"} - #{ActivityPub.Web.base_url()}"}
           ]
       )
       |> Builder.opts(options)

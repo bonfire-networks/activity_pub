@@ -1,23 +1,24 @@
 defmodule ActivityPub.LiveFederation.ActorTest do
   use ActivityPub.Web.ConnCase, async: false
-  import Tesla.Mock
+  use Mneme
+  import ActivityPub.Factory
 
   alias ActivityPub.Actor
 
-  import ActivityPub.Factory
-
+  # WARNING: these are integration tests which run against real remote instances!
   @moduletag :live_federation
-
-  test "fetch_by_username/1" do
-    actor = ok_unwrap(Actor.fetch_by_username("bonfire@indieweb.social"))
-    assert %ActivityPub.Actor{} = actor
-
-    assert actor.data["preferredUsername"] == "bonfire"
-  end
+  # They only runs when you specifically instruct ex_unit to run this tag.
 
   test "get_or_fetch_by_ap_id/1" do
-    actor = ok_unwrap(Actor.get_or_fetch_by_ap_id("https://indieweb.social/users/bonfire"))
-    assert %ActivityPub.Actor{} = actor
+    # {:ok, actor} =
+    auto_assert Actor.get_or_fetch_by_ap_id("https://indieweb.social/users/bonfire")
+    # auto_assert actor.data
+    # assert actor.data["preferredUsername"] == "bonfire"
+  end
+
+  test "fetch_by_username/1" do
+    {:ok, actor} = Actor.fetch_by_username("bonfire@indieweb.social")
+    # auto_assert actor.data
 
     assert actor.data["preferredUsername"] == "bonfire"
   end

@@ -311,7 +311,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
       {:ok, %{status: code}} when code in [404, 410] ->
         warn(id, "ActivityPub remote replied with 404")
-        {:error, "Object not found or deleted"}
+        {:error, :not_found}
 
       %Jason.DecodeError{} = error ->
         error("Invalid ActivityPub JSON")
@@ -458,7 +458,7 @@ defmodule ActivityPub.Federator.Fetcher do
           items
         end
       else
-        {:error, "Object not found or deleted"} ->
+        {:error, :not_found} ->
           items
 
         {:error, error} ->

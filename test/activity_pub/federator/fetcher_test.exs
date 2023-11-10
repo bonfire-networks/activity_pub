@@ -136,12 +136,12 @@ defmodule ActivityPub.Federator.FetcherTest do
 
   describe "handles errors" do
     test "handle HTTP 410 Gone response" do
-      assert {:error, "Object not found or deleted"} ==
+      assert {:error, :not_found} ==
                Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone410")
     end
 
     test "handle HTTP 404 response" do
-      assert {:error, "Object not found or deleted"} ==
+      assert {:error, :not_found} ==
                Fetcher.fetch_remote_object_from_id("https://fedi.local/userisgone404")
     end
 

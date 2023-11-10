@@ -156,8 +156,8 @@ defmodule ActivityPub.Federator.Transformer do
   defp can_delete_remote_object?(ap_id) do
     debug(ap_id, "Checking delete permission for")
 
-    case Fetcher.fetch_remote_object_from_id(ap_id) do
-      {:error, "Object not found or deleted"} -> true
+    case Fetcher.fetch_remote_object_from_id(ap_id) |> debug("fetched") do
+      {:error, :not_found} -> true
       {:ok, %{"type" => "Tombstone"}} -> true
       _ -> false
     end
@@ -1235,7 +1235,8 @@ defmodule ActivityPub.Federator.Transformer do
     if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])) do
       {:ok, object}
     else
-      error(id, "no such object found")
+      warn(id, "no such object found")
+      {:error, :not_found}
     end
   end
 end

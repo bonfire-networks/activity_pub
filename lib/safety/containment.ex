@@ -50,7 +50,7 @@ defmodule ActivityPub.Safety.Containment do
 
   def contain_origin(id, %{"type" => type} = params)
       when ActivityPub.Config.is_in(type, :supported_actor_types) or
-             ActivityPub.Config.is_in(type, :collection_types) or type in ["Author"],
+             ActivityPub.Config.is_in(type, :collection_types) or type in ["Author", "Tombstone"],
       do: :ok
 
   def contain_origin(id, %{"actor" => _actor} = params) when is_binary(id) do

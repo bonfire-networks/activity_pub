@@ -749,14 +749,15 @@ defmodule ActivityPub.Fixtures do
       #     headers: ActivityPub.Utils.activitypub_object_headers()
       #   }
       # end,
-      # "https://mastodon.local/users/admin" => fn "https://mastodon.local/users/admin",
-      #                                            _,
-      #                                            _,
-      #                                            [
-      #                                              {"Accept", "application/activity+json"}
-      #                                            ] ->
-      #   {:error, :nxdomain}
-      # end,
+      #  [
+      #    {"Accept", "application/activity+json"}
+      #  ] 
+      "https://mastodon.local/users/deleted" => fn "https://mastodon.local/users/deleted",
+                                                   _,
+                                                   _,
+                                                   _ ->
+        {:error, :nxdomain}
+      end,
       "https://osada.local/.well-known/host-meta" =>
         fn "https://osada.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{status: 404, body: ""}

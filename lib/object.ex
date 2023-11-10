@@ -550,7 +550,7 @@ defmodule ActivityPub.Object do
   end
 
   def make_tombstone(
-        %Object{data: %{"id" => id, "type" => type}},
+        %Object{data: %{"id" => id, "type" => type} = data},
         deleted \\ DateTime.utc_now()
       ) do
     %{
@@ -570,9 +570,9 @@ defmodule ActivityPub.Object do
   end
 
   def delete(%Object{} = object) do
-    with {:ok, _obj} <- swap_object_with_tombstone(object),
+    with {:ok, tombstone} <- swap_object_with_tombstone(object),
          :ok <- invalidate_cache(object) do
-      {:ok, object}
+      {:ok, tombstone}
     end
   end
 

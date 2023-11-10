@@ -1024,7 +1024,6 @@ defmodule ActivityPub.Federator.Transformer do
           # {:ok, %Actor{data: %{"id" => ^actor}} = actor} ->
           {:ok, %Actor{} = actor} ->
             ActivityPub.delete(actor, false)
-            Actor.delete(actor)
 
           e ->
             error(e)

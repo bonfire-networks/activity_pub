@@ -6,6 +6,7 @@ defmodule ActivityPub.Actor do
   import ActivityPub.Utils
   use Arrows
   import Untangle
+  import Ecto.Query
 
   alias ActivityPub.Config
   require Config
@@ -484,12 +485,22 @@ defmodule ActivityPub.Actor do
     {:ok, followers}
   end
 
-  def delete(%Actor{local: false} = actor) do
+  def delete(%Actor{id: id} = actor) do
     invalidate_cache(actor)
 
-    repo().delete(%Object{
-      id: actor.id
-    })
+    if Utils.is_ulid?(id) do
+      with {:ok, object} <- Object.get_cached(pointer: id) do
+        Object.hard_delete(object)
+      else
+        other ->
+          error(other)
+          {:ok, :not_deleted}
+      end
+    else
+      repo().delete(%Object{
+        id: id
+      })
+    end
   end
 
   # TODO

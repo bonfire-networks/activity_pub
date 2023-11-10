@@ -432,7 +432,8 @@ defmodule ActivityPub do
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
     to = [actor.data["followers"]]
 
-    with data <- %{
+    with {:ok, _} <- Actor.delete(actor),
+         data <- %{
            "type" => "Delete",
            "actor" => delete_actor || id,
            "object" => id,
@@ -455,7 +456,7 @@ defmodule ActivityPub do
       ) do
     to = (object.data["to"] || []) ++ (object.data["cc"] || [])
 
-    with {:ok, _object} <- Object.delete(object),
+    with {:ok, _object} <- Object.delete(object) |> debug("dellll"),
          data <- %{
            "type" => "Delete",
            "actor" => actor,

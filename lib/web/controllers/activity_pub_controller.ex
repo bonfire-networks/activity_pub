@@ -31,21 +31,42 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def object(conn, %{"uuid" => uuid}) do
-    if get_format(conn) == "html" do
-      case Adapter.get_redirect_url(uuid) do
-        "http" <> _ = url -> redirect(conn, external: url)
-        url when is_binary(url) -> redirect(conn, to: url)
-        _ -> json_object_with_cache(conn, uuid)
-      end
-    else
-      json_object_with_cache(conn, uuid)
+    cond do
+      get_format(conn) == "html" ->
+        redirect_to_url(conn, uuid)
+
+      Config.federating?() != false ->
+        json_object_with_cache(conn, uuid)
+
+      true ->
+        # redirect_to_url(conn, uuid)
+        Utils.error_json(conn, "this instance is not currently federating", 403)
+    end
+  end
+
+  defp redirect_to_url(conn, username_or_id) do
+    case Adapter.get_redirect_url(username_or_id) do
+      "http" <> _ = url -> redirect(conn, external: url)
+      url when is_binary(url) -> redirect(conn, to: url)
+      _ -> nil
     end
   end
 
   def json_object_with_cache(conn \\ nil, id)
 
   def json_object_with_cache(conn_or_nil, id) do
-    Utils.json_with_cache(conn_or_nil, &object_json/1, :ap_object_cache, id)
+    Utils.json_with_cache(conn_or_nil, &object_json/1, :ap_object_cache, id, &maybe_return_json/3)
+    |> debug()
+  end
+
+  defp maybe_return_json(conn, meta, json) do
+    debug(json)
+
+    if Adapter.actor_federating?(json |> Map.get("actor")) != false do
+      Utils.return_json(conn, meta, json)
+    else
+      Utils.error_json(conn, "this actor is not currently federating", 403)
+    end
   end
 
   defp object_json(json: id) do
@@ -63,6 +84,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp maybe_object_json(%{public: true} = object) do
+    # debug(object)
     {:ok,
      %{
        json: ObjectView.render("object.json", %{object: object}),
@@ -88,14 +110,16 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def actor(conn, %{"username" => username}) do
-    if get_format(conn) == "html" do
-      case Adapter.get_redirect_url(username) do
-        "http" <> _ = url -> redirect(conn, external: url)
-        url when is_binary(url) -> redirect(conn, to: url)
-        _ -> actor_with_cache(conn, username)
-      end
-    else
-      actor_with_cache(conn, username)
+    cond do
+      get_format(conn) == "html" ->
+        redirect_to_url(conn, username)
+
+      Adapter.actor_federating?(username) != false ->
+        actor_with_cache(conn, username)
+
+      true ->
+        # redirect_to_url(conn, username)
+        Utils.error_json(conn, "this instance is not currently federating", 403)
     end
   end
 

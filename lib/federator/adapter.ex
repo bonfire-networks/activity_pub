@@ -151,4 +151,8 @@ defmodule ActivityPub.Federator.Adapter do
       adapter().get_locale() || Application.get_env(:activity_pub, :default_language, "und")
     )
   end
+
+  def actor_federating?(actor) do
+    adapter().actor_federating?(actor)
+  end
 end

@@ -6,7 +6,9 @@ defmodule ActivityPub.Actor do
   import ActivityPub.Utils
   use Arrows
   import Untangle
-  require ActivityPub.Config
+
+  alias ActivityPub.Config
+  require Config
 
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
@@ -214,7 +216,8 @@ defmodule ActivityPub.Actor do
   def fetch_by_username("@" <> username, opts), do: fetch_by_username(username, opts)
 
   def fetch_by_username(username, opts) do
-    with {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
+    with federating? when federating? != false <- Config.federating?(),
+         {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
            WebFinger.finger(username) do
       fetch_by_ap_id(ap_id, opts)
     else

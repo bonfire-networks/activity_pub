@@ -274,7 +274,8 @@ defmodule ActivityPub.Federator.Fetcher do
     debug(id, "Attempting to fetch ActivityPub object")
     debug(self())
 
-    with true <- allowed_recursion?(options[:depth]),
+    with federating? when federating? != false <- Config.federating?(),
+         true <- allowed_recursion?(options[:depth]),
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(URI.parse(id)),
          true <- String.starts_with?(id, "http"),

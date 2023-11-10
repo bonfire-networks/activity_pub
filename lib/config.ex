@@ -79,13 +79,15 @@ defmodule ActivityPub.Config do
   def env, do: Application.get_env(:activity_pub, :env) || @compile_env
 
   def federating? do
-    case Application.get_env(:activity_pub, :instance)[:federating] do
-      nil ->
+    case (Application.get_env(:activity_pub, :instance) || [])
+         |> Keyword.get(:federating, :not_set) do
+      :not_set ->
         # this should be handled in test.exs or dev.exs and only here as a fallback
-        System.get_env("FEDERATE") == "yes" or
-          (env() == :test and
-             (Application.get_env(:tesla, :adapter) == Tesla.Mock or
-                System.get_env("TEST_INSTANCE") == "yes"))
+        (System.get_env("FEDERATE") == "yes" or
+           (env() == :test and
+              (Application.get_env(:tesla, :adapter) == Tesla.Mock or
+                 System.get_env("TEST_INSTANCE") == "yes")))
+        |> debug("auto-setting because not set")
 
       "true" ->
         true
@@ -96,7 +98,7 @@ defmodule ActivityPub.Config do
       val ->
         val
     end
-    |> info("Federating?")
+    |> debug()
   end
 
   def get(key), do: get(key, nil)

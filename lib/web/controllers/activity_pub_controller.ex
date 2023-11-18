@@ -75,7 +75,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       #  true <- object.id != id, # huh?
       #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
       # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") 
-      maybe_object_json(Object.get_cached!(pointer: id) || Adapter.maybe_publish_object(id))
+      maybe_object_json(Object.get_cached!(pointer: id) || Adapter.maybe_publish_object(id, true))
     else
       # query by UUID
 

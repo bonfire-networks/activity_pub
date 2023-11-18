@@ -39,7 +39,7 @@ the required functions
   * `get_redirect_url/1`
   * `handle_activity/1`
   * `maybe_create_remote_actor/1`
-  * `maybe_publish_object/1`
+  * `maybe_publish_object/2`
   * `update_local_actor/2`
   * `update_remote_actor/1`
 

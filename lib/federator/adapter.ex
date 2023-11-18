@@ -98,9 +98,9 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().base_url()
   end
 
-  @callback maybe_publish_object(String.t()) :: {:ok, any()} | {:error, any()}
-  def maybe_publish_object(object) do
-    adapter().maybe_publish_object(object)
+  @callback maybe_publish_object(String.t(), Boolean.t()) :: {:ok, any()} | {:error, any()}
+  def maybe_publish_object(object, manually_fetching? \\ false) do
+    adapter().maybe_publish_object(object, manually_fetching?)
   end
 
   @doc """

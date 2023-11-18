@@ -10,6 +10,7 @@ defmodule ActivityPub.Safety.SignatureTest do
 
   alias ActivityPub.Actor
   alias ActivityPub.Safety.Keys
+  alias ActivityPub.Utils
   alias ActivityPub.Safety.Signatures
   alias ActivityPub.Federator.Fetcher
 
@@ -85,9 +86,7 @@ defmodule ActivityPub.Safety.SignatureTest do
     end
 
     test "it returns error when user not found" do
-      assert capture_log(fn ->
-               {:error, _} = Signatures.refetch_public_key(make_fake_conn("https://404"))
-             end) =~ "Object not found"
+      assert {:error, :not_found} = Signatures.refetch_public_key(make_fake_conn("https://404"))
     end
   end
 
@@ -189,12 +188,12 @@ defmodule ActivityPub.Safety.SignatureTest do
   describe "signed_date" do
     test "it returns formatted current date" do
       with_mock(NaiveDateTime, utc_now: fn _ -> ~N[2019-08-23 18:11:24.822233] end) do
-        assert Keys.signed_date() == "Fri, 23 Aug 2019 18:11:24 GMT"
+        assert Utils.format_date() == "Fri, 23 Aug 2019 18:11:24 GMT"
       end
     end
 
     test "it returns formatted date" do
-      assert Keys.signed_date(~N[2019-08-23 08:11:24.822233]) ==
+      assert Utils.format_date(~N[2019-08-23 08:11:24.822233]) ==
                "Fri, 23 Aug 2019 08:11:24 GMT"
     end
   end

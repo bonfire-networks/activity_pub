@@ -121,7 +121,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_fresh_object_from_id(id, opts) do
     # raise "STOOOP"
-    with {:ok, data} <- fetch_remote_object_from_id(id, opts),
+    with {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("QUQUQUQUQU"),
          {:ok, object} <- cached_or_handle_incoming(data, opts) do
       Instances.set_reachable(id)
 

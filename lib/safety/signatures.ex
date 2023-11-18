@@ -31,7 +31,7 @@ defmodule ActivityPub.Safety.Signatures do
 
   def refetch_public_key(conn) do
     with %{"keyId" => kid} <- HTTPSignatures.signature_for_conn(conn),
-         {:ok, actor_id} <- Keys.key_id_to_actor_id(kid),
+         {:ok, actor_id} <- Keys.key_id_to_actor_id(kid) |> debug("SESESESE"),
          # Ensure the remote actor is freshly fetched before updating
          {:ok, actor} <- Fetcher.fetch_fresh_object_from_id(actor_id) |> debug,
          #  {:ok, actor} <- Actor.update_actor(actor_id, actor) |> debug,

@@ -41,7 +41,13 @@ config :mime, :types, %{
 }
 
 config :activity_pub, Oban,
-  queues: [federator_incoming: 50, federator_outgoing: 50, remote_fetcher: 20]
+  queues: [federator_incoming: 50, federator_outgoing: 50, remote_fetcher: 20],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"@daily", ActivityPub.Pruner.PruneDatabaseWorker}
+     ]}
+  ]
 
 config :activity_pub, :mrf_simple,
   media_removal: [],

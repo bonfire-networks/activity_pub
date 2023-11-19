@@ -97,7 +97,9 @@ defmodule ActivityPub.Web.RedirectController do
           |> redirect(to: url)
       end
     else
-      _ ->
+      other ->
+        error(other)
+
         conn
         |> send_resp(
           404,
@@ -105,5 +107,16 @@ defmodule ActivityPub.Web.RedirectController do
         )
         |> halt
     end
+  end
+
+  def remote_interaction(conn, params) do
+    error(params, "unrecognised params")
+
+    conn
+    |> send_resp(
+      404,
+      "Sorry, your actor or remote interaction URL was not found"
+    )
+    |> halt
   end
 end

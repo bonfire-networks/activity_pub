@@ -169,7 +169,7 @@ defmodule ActivityPub.Object do
             end) do
       # Splice in the child object if we have one.
       activity =
-        if !is_nil(object) do
+        if not is_nil(object) do
           Map.put(activity, :object, object)
         else
           activity

@@ -228,26 +228,28 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       if is_binary(headers["signature"]) do
         if String.contains?(headers["signature"], params["actor"]) do
-          error(
+          warn(
             headers,
             "Unknown HTTP signature validation error, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
           )
         else
-          error(
+          warn(
             headers,
             "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
           )
         end
       else
-        error(
+        warn(
           params,
           "No HTTP signature provided, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
         )
       end
 
-      with {:ok, object} <-
-             Fetcher.fetch_object_from_id(params["id"]) do
-        debug(object, "unsigned activity workaround worked")
+      with id when is_binary(id) <-
+             params["id"],
+           {:ok, object} <-
+             Fetcher.enqueue_fetch(id) do
+        debug(id, "unsigned activity workaround worked")
 
         # Utils.error_json(
         #   conn,
@@ -270,7 +272,7 @@ defmodule ActivityPub.Web.ActivityPubController do
           else
             error(
               e,
-              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication."
+              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
             )
 
             Utils.error_json(conn, "please send signed activities - activity was rejected", 401)

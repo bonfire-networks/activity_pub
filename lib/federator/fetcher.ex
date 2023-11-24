@@ -79,10 +79,9 @@ defmodule ActivityPub.Federator.Fetcher do
             entry_depth = depth + index
 
             if allowed_recursion?(entry_depth) do
-              Workers.RemoteFetcherWorker.enqueue(
-                "fetch_remote",
+              enqueue_fetch(
+                id,
                 Enum.into(opts[:worker_attrs] || %{}, %{
-                  "id" => id,
                   "depth" => entry_depth,
                   "fetch_collection_entries" => opts[:fetch_collection_entries]
                 })
@@ -111,6 +110,15 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def maybe_fetch(entries, opts), do: maybe_fetch(List.wrap(entries), opts)
+
+  def enqueue_fetch(id, worker_attrs \\ %{}) do
+    Workers.RemoteFetcherWorker.enqueue(
+      "fetch_remote",
+      Enum.into(worker_attrs || %{}, %{
+        "id" => id
+      })
+    )
+  end
 
   def fetch_fresh_object_from_id(id, opts \\ [])
 

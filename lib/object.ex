@@ -121,6 +121,10 @@ defmodule ActivityPub.Object do
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(ap_id: ap_id), do: get(ap_id)
 
+  defp get(nil) do
+    raise "Cannot get an object without an ID"
+  end
+
   defp get(opts) do
     error(opts, "Unexpected args")
     raise "Unexpected args when attempting to get an object"

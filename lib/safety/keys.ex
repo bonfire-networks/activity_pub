@@ -29,25 +29,34 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  defp public_key_from_data(%{
-         data: %{
-           "publicKey" => %{"publicKeyPem" => public_key_pem}
-         }
-       })
-       when is_binary(public_key_pem) do
+  def public_key_from_data(%{
+        data: %{
+          "publicKey" => %{"publicKeyPem" => public_key_pem}
+        }
+      })
+      when is_binary(public_key_pem) do
     {:ok, public_key_pem}
   end
 
-  defp public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = actor) do
-    key
+  def public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = actor) do
+    {:ok, key}
   end
 
-  defp public_key_from_data(%{local: true} = actor) do
-    public_key_for_local_actor(actor)
+  def public_key_from_data(%{keys: keys} = _actor) when not is_nil(keys) do
+    public_key_from_private_key(%{keys: keys})
   end
 
-  defp public_key_from_data(data) do
+  def public_key_from_data(data) do
     error(data, "Public key not found")
+  end
+
+  defp public_key_from_private_key(%{keys: keys} = _actor) do
+    with {:ok, _, public_key} <- keypair_from_pem(keys) do
+      public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
+      public_key = :public_key.pem_encode([public_key])
+
+      {:ok, public_key}
+    end
   end
 
   def add_public_key(actor, generate_if_missing \\ true)
@@ -55,7 +64,7 @@ defmodule ActivityPub.Safety.Keys do
   def add_public_key(%Actor{local: true, data: _} = actor, generate_if_missing) do
     with {:ok, actor} <-
            if(generate_if_missing, do: ensure_keys_present(actor), else: {:ok, actor}),
-         {:ok, public_key} <- public_key_for_local_actor(actor) do
+         {:ok, public_key} <- public_key_from_private_key(actor) do
       Map.put(
         actor,
         :data,
@@ -82,18 +91,6 @@ defmodule ActivityPub.Safety.Keys do
     warn(actor, e)
     # raise e
     actor
-  end
-
-  defp public_key_for_local_actor(%{} = actor) do
-    with {:ok, _, public_key} <- keypair_from_pem(actor.keys) do
-      public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
-      public_key = :public_key.pem_encode([public_key])
-
-      {:ok, public_key}
-    else
-      e ->
-        error(e, "Could not find or create a public key")
-    end
   end
 
   @doc """

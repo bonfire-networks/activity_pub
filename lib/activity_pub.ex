@@ -156,20 +156,20 @@ defmodule ActivityPub do
 
   def accept_activity(%{to: to, actor: actor, object: activity_to_accept_id} = params) do
     with actor_id <- actor.data["id"],
+         %Object{data: %{"type" => type}} = activity_to_accept <-
+           Object.get_cached!(ap_id: activity_to_accept_id),
+         {:ok, accepted_activity} <- Object.update_state(activity_to_accept, type, "accept"),
          data <- %{
            "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
            "to" => to,
            "type" => "Accept",
            "actor" => actor_id,
-           "object" => activity_to_accept_id
+           "object" => accepted_activity.data
          },
-         %Object{data: %{"type" => type}} = activity_to_accept <-
-           Object.get_cached!(ap_id: activity_to_accept_id),
          {:ok, accept_activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(accept_activity),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity),
-         {:ok, accepted_activity} <- Object.update_state(activity_to_accept, type, "accept") do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity) do
       {:ok, accept_activity, adapter_object, accepted_activity}
     end
   end
@@ -425,17 +425,17 @@ defmodule ActivityPub do
   @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary() | nil) ::
           {:ok, Object.t()} | {:error, any()}
   def delete(
-        %{data: %{"id" => id, "type" => type}} = actor,
+        %{data: %{"id" => id, "type" => type}} = delete_actor,
         local,
-        delete_actor
+        subject_actor
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
-    to = [actor.data["followers"]]
+    to = [delete_actor.data["followers"], Map.get(subject_actor || %{}, :data, %{})["followers"]]
 
-    with {:ok, _} <- Actor.delete(actor),
+    with {:ok, _} <- Actor.delete(delete_actor) |> debug("deleeeted"),
          data <- %{
            "type" => "Delete",
-           "actor" => delete_actor || id,
+           "actor" => subject_actor || id,
            "object" => id,
            "to" => to
          },
@@ -452,14 +452,14 @@ defmodule ActivityPub do
   def delete(
         %Object{data: %{"id" => id, "actor" => actor}} = object,
         local,
-        _delete_actor
+        subject_actor
       ) do
     to = (object.data["to"] || []) ++ (object.data["cc"] || [])
 
     with {:ok, _object} <- Object.delete(object) |> debug("dellll"),
          data <- %{
            "type" => "Delete",
-           "actor" => actor,
+           "actor" => subject_actor || actor,
            "object" => id,
            "to" => to
          },

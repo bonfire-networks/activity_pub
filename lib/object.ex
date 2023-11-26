@@ -23,6 +23,7 @@ defmodule ActivityPub.Object do
     field(:data, :map)
     field(:local, :boolean, default: true)
     field(:public, :boolean, default: false)
+    # is it an object rather than an activity?
     field(:is_object, :boolean, default: false)
     belongs_to(:pointer, Pointers.Pointer, type: ULID)
 
@@ -554,7 +555,7 @@ defmodule ActivityPub.Object do
   end
 
   def make_tombstone(
-        %Object{data: %{"id" => id, "type" => type} = data},
+        %{data: %{"id" => id, "type" => type} = data},
         deleted \\ DateTime.utc_now()
       ) do
     %{
@@ -569,11 +570,11 @@ defmodule ActivityPub.Object do
     tombstone = make_tombstone(object)
 
     object
-    |> Object.changeset(%{data: tombstone})
+    |> changeset(%{data: tombstone})
     |> repo().update()
   end
 
-  def delete(%Object{} = object) do
+  def delete(%{} = object) do
     with {:ok, tombstone} <- swap_object_with_tombstone(object),
          :ok <- invalidate_cache(object) do
       {:ok, tombstone}

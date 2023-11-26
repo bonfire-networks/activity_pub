@@ -50,8 +50,11 @@ defmodule ActivityPub.Safety.Keys do
     error(data, "Public key not found")
   end
 
-  def add_public_key(%{local: true, data: _} = actor) do
-    with {:ok, actor} <- ensure_keys_present(actor),
+  def add_public_key(actor, generate_if_missing \\ true)
+
+  def add_public_key(%Actor{local: true, data: _} = actor, generate_if_missing) do
+    with {:ok, actor} <-
+           if(generate_if_missing, do: ensure_keys_present(actor), else: {:ok, actor}),
          {:ok, public_key} <- public_key_for_local_actor(actor) do
       Map.put(
         actor,
@@ -74,14 +77,15 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def add_public_key(actor) do
-    error(actor, "Skip adding public key on non-local actor")
-    raise "Skip adding public key on non-local actor"
+  def add_public_key(actor, _) do
+    e = "Skip adding public key on non-local or non-actor"
+    warn(actor, e)
+    # raise e
+    actor
   end
 
   defp public_key_for_local_actor(%{} = actor) do
-    with {:ok, actor} <- ensure_keys_present(actor),
-         {:ok, _, public_key} <- keypair_from_pem(actor.keys) do
+    with {:ok, _, public_key} <- keypair_from_pem(actor.keys) do
       public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
       public_key = :public_key.pem_encode([public_key])
 
@@ -95,7 +99,7 @@ defmodule ActivityPub.Safety.Keys do
   @doc """
   Checks if an actor struct has a non-nil keys field and generates a PEM if it doesn't.
   """
-  def ensure_keys_present(actor) do
+  def ensure_keys_present(%Actor{data: %{"type" => type}} = actor) when type != "Tombstone" do
     cond do
       actor.local == false ->
         debug("actor is remote")
@@ -116,6 +120,11 @@ defmodule ActivityPub.Safety.Keys do
           e -> error(e, "Could not generate or save keys")
         end
     end
+  end
+
+  def ensure_keys_present(object) do
+    warn(object, "not an actor, no keys are not applicable")
+    {:ok, object}
   end
 
   def generate_rsa_pem() do

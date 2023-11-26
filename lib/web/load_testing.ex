@@ -1,4 +1,4 @@
-if Code.ensure_loaded?(Chaperon) do
+if Code.ensure_loaded?(Chaperon.Scenario) do
   defmodule ActivityPub.Web.LoadTesting do
     defmodule Scenario do
       use Chaperon.Scenario

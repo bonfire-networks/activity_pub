@@ -54,7 +54,8 @@ defmodule ActivityPub.Federator.APPublisher do
       ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, %{
         inbox: inbox,
         json: json,
-        actor_username: actor.username,
+        actor_username: Map.get(actor, :username),
+        actor_id: Map.get(actor, :id),
         id: prepared_activity_data["id"],
         unreachable_since: unreachable_since
       })
@@ -70,33 +71,67 @@ defmodule ActivityPub.Federator.APPublisher do
   * `actor`: the actor which is signing the message
   * `id`: the ActivityStreams URI of the message
   """
-  def publish_one(%{inbox: inbox, json: json, actor: %Actor{} = actor, id: id} = params) do
-    info(inbox, "Federating #{id} to")
+  def publish_one(%{json: json, actor: %Actor{} = actor, inbox: inbox} = params) do
     %{host: host, path: path} = URI.parse(inbox)
 
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
-
     date = Utils.format_date()
 
-    {:ok, signature} =
-      ActivityPub.Safety.Keys.sign(actor, %{
-        "(request-target)": "post #{path}",
-        host: host,
-        "content-length": byte_size(json),
-        digest: digest,
-        date: date
-      })
+    with {:ok, signature} <-
+           ActivityPub.Safety.Keys.sign(actor, %{
+             "(request-target)": "post #{path}",
+             host: host,
+             "content-length": byte_size(json),
+             digest: digest,
+             date: date
+           }) do
+      do_publish_one(params, date, digest, [{"signature", signature}])
+    else
+      e ->
+        error(e, "problem adding a signature, skip")
+        do_publish_one(params, date, digest)
+    end
+  end
+
+  def publish_one(%{json: json} = params) do
+    digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
+    date = Utils.format_date()
+
+    do_publish_one(params, date, digest)
+  end
+
+  def publish_one(%{actor_username: username} = params) when is_binary(username) do
+    {:ok, actor} = Actor.get_cached(username: username)
+
+    params
+    |> Map.delete(:actor_username)
+    |> Map.put(:actor, actor)
+    |> publish_one()
+  end
+
+  def publish_one(%{actor_id: id} = params) when is_binary(id) do
+    # special case for Tombstone actor
+    {:ok, actor} = ActivityPub.Object.get_cached(id: id)
+
+    params
+    |> Map.delete(:actor_id)
+    |> Map.put(:actor, actor)
+    |> publish_one()
+  end
+
+  defp do_publish_one(%{inbox: inbox, json: json, id: id} = params, date, digest, headers \\ []) do
+    info(inbox, "Federating #{id} to")
 
     with result = {:ok, %{status: code}} when code in 200..299 <-
            HTTP.post(
              inbox,
              json,
-             [
-               {"Content-Type", "application/activity+json"},
-               {"Date", date},
-               {"signature", signature},
-               {"digest", digest}
-             ]
+             headers ++
+               [
+                 {"Content-Type", "application/activity+json"},
+                 {"Date", date},
+                 {"digest", digest}
+               ]
            ) do
       if !Map.has_key?(params, :unreachable_since) ||
            params[:unreachable_since],
@@ -110,15 +145,6 @@ defmodule ActivityPub.Federator.APPublisher do
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
         error(response)
     end
-  end
-
-  def publish_one(%{actor_username: username} = params) do
-    {:ok, actor} = Actor.get_cached(username: username)
-
-    params
-    |> Map.delete(:actor_username)
-    |> Map.put(:actor, actor)
-    |> publish_one()
   end
 
   defp recipients(actor, activity, tos, is_public?) do

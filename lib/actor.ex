@@ -272,16 +272,23 @@ defmodule ActivityPub.Actor do
   def get_remote_actor(ap_id, maybe_create \\ true) do
     # raise "STOOOP"
 
-    with {:ok, actor} <- Object.get_cached(ap_id: ap_id),
-         false <- check_if_time_to_update(actor),
-         actor <- format_remote_actor(actor),
+    with {:ok, %{data: %{"type" => type}} = actor_object} <-
+           Object.get_cached(ap_id: ap_id) |> debug("gct"),
+         false <- check_if_time_to_update(actor_object),
+         actor <- format_remote_actor(actor_object),
          {:ok, adapter_actor} <-
-           if(maybe_create, do: Adapter.maybe_create_remote_actor(actor), else: {:ok, nil}),
+           if(maybe_create and type != "Tombstone",
+             do: Adapter.maybe_create_remote_actor(actor),
+             else: {:ok, nil}
+           ),
          actor <- Map.put(actor, :pointer, adapter_actor) do
       {:ok, actor}
     else
       true ->
         update_actor(ap_id)
+
+      {:error, :not_found} ->
+        if maybe_create, do: update_actor(ap_id), else: {:error, :not_found}
 
       nil ->
         error(ap_id, "Remote actor not found")
@@ -436,6 +443,12 @@ defmodule ActivityPub.Actor do
     {:ok, actor}
   end
 
+  def set_cache(%{data: %{"type" => type}} = actor)
+      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+    format_remote_actor(actor)
+    |> set_cache()
+  end
+
   def set_cache(e), do: error(e, "Not an actor")
 
   def invalidate_cache(%Actor{} = actor) do
@@ -488,18 +501,52 @@ defmodule ActivityPub.Actor do
   def delete(%Actor{id: id} = actor) do
     invalidate_cache(actor)
 
-    if Utils.is_ulid?(id) do
-      with {:ok, object} <- Object.get_cached(pointer: id) do
-        Object.hard_delete(object)
-      else
-        other ->
-          error(other)
-          {:ok, :not_deleted}
-      end
-    else
-      repo().delete(%Object{
-        id: id
-      })
+    # TODO: only add a tombstone for local actors
+
+    swap_or_create_actor_tombstone(actor)
+    |> debug("tombstoned")
+
+    # if Utils.is_ulid?(id) do
+    #   with {:ok, object} <- Object.get_cached(pointer: id) do
+    #     Object.hard_delete(object)
+    #   else
+    #     other ->
+    #       error(other)
+    #       {:ok, :not_deleted}
+    #   end
+    # else
+    #   repo().delete(%Object{
+    #     id: id
+    #   })
+    # end
+  end
+
+  def swap_or_create_actor_tombstone(%Actor{} = actor) do
+    actor = Keys.add_public_key(actor, false)
+
+    tombstone =
+      Object.make_tombstone(actor)
+      |> Map.merge(Map.take(actor.data, ["publicKey", "preferredUsername"]))
+
+    case update_actor_data(actor, %{data: tombstone, public: true}) do
+      {:ok, del} ->
+        {:ok, del}
+
+      e ->
+        debug(e, "no such actor in AP db, create a tombstone instead")
+
+        %{
+          id: Ecto.UUID.generate(),
+          pointer_id: actor.pointer_id,
+          data: tombstone,
+          public: true,
+          local: actor.local,
+          is_object: true
+        }
+        |> debug()
+        |> Object.changeset()
+        |> debug()
+        |> repo().insert()
     end
   end
 

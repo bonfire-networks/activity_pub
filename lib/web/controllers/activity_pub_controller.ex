@@ -92,6 +92,19 @@ defmodule ActivityPub.Web.ActivityPubController do
      }}
   end
 
+  defp maybe_object_json(%{data: %{"type" => type}} = object)
+       when type in ["Accept", "Undo", "Delete", "Tombstone"] do
+    debug(
+      "workaround for being able to delete, and accept follow and unfollow without HTTP Signatures"
+    )
+
+    {:ok,
+     %{
+       json: ObjectView.render("object.json", %{object: object}),
+       meta: %{updated_at: object.updated_at}
+     }}
+  end
+
   defp maybe_object_json({:ok, object}) do
     maybe_object_json(object)
   end
@@ -249,16 +262,11 @@ defmodule ActivityPub.Web.ActivityPubController do
              params["id"],
            {:ok, object} <-
              Fetcher.enqueue_fetch(id) do
-        debug(id, "unsigned activity workaround worked")
+        debug(params, "unsigned activity workaround enqueued")
 
-        # Utils.error_json(
-        #   conn,
-        #   "please send signed activities - object was not accepted as-in and instead re-fetched from origin",
-        #   202
-        # )
         json(
           conn,
-          "Please send signed activities - object was not accepted as-in and instead re-fetched from origin"
+          "Please send signed activities - object was not accepted as-in and will instead be re-fetched from origin"
         )
       else
         e ->

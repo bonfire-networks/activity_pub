@@ -118,6 +118,18 @@ defmodule ActivityPub.Object do
     end
   end
 
+  defp get(username: username) when is_binary(username) do
+    case repo().one(
+           from(object in Object,
+             # support for looking up by non-canonical URL
+             where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
+           )
+         ) do
+      %Object{} = object -> {:ok, object}
+      _ -> {:error, :not_found}
+    end
+  end
+
   defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(ap_id: ap_id), do: get(ap_id)

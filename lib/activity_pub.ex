@@ -433,18 +433,33 @@ defmodule ActivityPub do
     to = [delete_actor.data["followers"], Map.get(subject_actor || %{}, :data, %{})["followers"]]
 
     with {:ok, _} <- Actor.delete(delete_actor) |> debug("deleeeted"),
-         data <- %{
-           "type" => "Delete",
-           "actor" => subject_actor || id,
-           "object" => id,
-           "to" => to
-         },
-         {:ok, activity} <- Object.insert(data, local),
+         params <-
+           %{
+             "type" => "Delete",
+             "actor" => subject_actor || id,
+             "object" => id,
+             "to" => to
+           }
+           |> debug("params"),
+         {:ok, activity} <- Object.insert(params, local),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
+  end
+
+  def delete(
+        %{data: %{"id" => _id, "formerType" => type}} = delete_actor,
+        local,
+        subject_actor
+      )
+      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+    delete(
+      Map.update(delete_actor, :data, %{}, fn data -> Map.merge(data, %{"type" => type}) end),
+      local,
+      subject_actor
+    )
   end
 
   @spec delete(Object.t(), local :: boolean(), delete_actor :: binary()) ::

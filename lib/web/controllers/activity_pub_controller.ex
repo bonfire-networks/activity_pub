@@ -149,7 +149,17 @@ defmodule ActivityPub.Web.ActivityPubController do
        }}
     else
       _ ->
-        {:error, 404, "not found"}
+        with {:ok, actor} <- Object.get_cached(username: username) do
+          # for Tombstone
+          {:ok,
+           %{
+             json: ActorView.render("actor.json", %{actor: actor}),
+             meta: %{updated_at: actor.updated_at}
+           }}
+        else
+          _ ->
+            {:error, 404, "not found"}
+        end
     end
   end
 

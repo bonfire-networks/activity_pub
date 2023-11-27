@@ -186,12 +186,25 @@ defmodule ActivityPub.Actor do
     # TODO: make better
     debug(actor_id, "Updating actor")
 
-    with {:ok, data} <- Fetcher.fetch_remote_object_from_id(actor_id) |> info do
+    with {:ok, data} <- Fetcher.fetch_remote_object_from_id(actor_id) |> debug() do
       update_actor(actor_id, data)
     end
   end
 
   def update_actor(actor_id, %{data: data}), do: update_actor(actor_id, data)
+
+  def update_actor(actor_id, %{"id" => ap_id, "type" => "Tombstone"} = data) do
+    debug(actor_id, "Making tombstone for actor")
+
+    with {:ok, object} <-
+           save_actor_tombstone(
+             %Actor{data: data, local: nil, ap_id: ap_id},
+             Map.drop(data, ["@context"])
+           ),
+         {:ok, actor} <- get(ap_id: actor_id) do
+      set_cache(actor)
+    end
+  end
 
   def update_actor(actor_id, %{"id" => _} = data) do
     # TODO: make better
@@ -199,7 +212,7 @@ defmodule ActivityPub.Actor do
     # dump(ActivityPub.Object.all())
 
     with {:ok, object} <- update_actor_data(actor_id, data),
-         done = Adapter.update_remote_actor(object),
+         _done <- Adapter.update_remote_actor(object),
          {:ok, actor} <- get(ap_id: actor_id) do
       set_cache(actor)
     end
@@ -272,7 +285,8 @@ defmodule ActivityPub.Actor do
   def get_remote_actor(ap_id, maybe_create \\ true) do
     # raise "STOOOP"
 
-    with {:ok, %{data: %{"type" => type}} = actor_object} <-
+    with {:ok, %{data: %{"type" => type}} = actor_object}
+         when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
            Object.get_cached(ap_id: ap_id) |> debug("gct"),
          false <- check_if_time_to_update(actor_object),
          actor <- format_remote_actor(actor_object),
@@ -499,12 +513,15 @@ defmodule ActivityPub.Actor do
   end
 
   def delete(%Actor{id: id} = actor) do
-    invalidate_cache(actor)
-
     # TODO: only add a tombstone for local actors
 
-    swap_or_create_actor_tombstone(actor)
-    |> debug("tombstoned")
+    ret =
+      swap_or_create_actor_tombstone(actor)
+      |> debug("tombstoned")
+
+    invalidate_cache(actor)
+
+    ret
 
     # if Utils.is_ulid?(id) do
     #   with {:ok, object} <- Object.get_cached(pointer: id) do
@@ -527,8 +544,14 @@ defmodule ActivityPub.Actor do
     tombstone =
       Object.make_tombstone(actor)
       |> Map.merge(Map.take(actor.data, ["publicKey", "preferredUsername"]))
+      |> Map.put("preferredUsername", actor.username)
+      |> debug()
 
-    case update_actor_data(actor, %{data: tombstone, public: true}) do
+    save_actor_tombstone(actor, tombstone)
+  end
+
+  def save_actor_tombstone(%Actor{} = actor, tombstone) do
+    case update_actor_data(actor, tombstone, false) do
       {:ok, del} ->
         {:ok, del}
 
@@ -560,30 +583,35 @@ defmodule ActivityPub.Actor do
     []
   end
 
-  defp update_actor_data(%{ap_id: ap_id}, data) when is_binary(ap_id) do
-    update_actor_data(ap_id, data)
+  defp update_actor_data(actor, data, fetch_remote? \\ true)
+
+  defp update_actor_data(%{ap_id: ap_id}, data, fetch_remote?) when is_binary(ap_id) do
+    update_actor_data(ap_id, data, fetch_remote?)
   end
 
-  defp update_actor_data(%{"actor" => ap_id}, data) when is_binary(ap_id) do
-    update_actor_data(ap_id, data)
+  defp update_actor_data(%{"actor" => ap_id}, data, fetch_remote?) when is_binary(ap_id) do
+    update_actor_data(ap_id, data, fetch_remote?)
   end
 
-  defp update_actor_data(%{"id" => ap_id}, data) when is_binary(ap_id) do
-    update_actor_data(ap_id, data)
+  defp update_actor_data(%{"id" => ap_id}, data, fetch_remote?) when is_binary(ap_id) do
+    update_actor_data(ap_id, data, fetch_remote?)
   end
 
-  defp update_actor_data(ap_id, data) when is_binary(ap_id) do
+  defp update_actor_data(ap_id, data, fetch_remote?) when is_binary(ap_id) do
     with {:ok, object} <- Object.get_uncached(ap_id: ap_id) do
-      update_actor_data(object, data)
+      update_actor_data(object, data, fetch_remote?)
       {:ok, object}
     else
       e ->
         warn(e)
-        fetch_by_ap_id(ap_id)
+
+        if fetch_remote?,
+          do: fetch_by_ap_id(ap_id),
+          else: error(ap_id, "Cannot update non-existing actor")
     end
   end
 
-  defp update_actor_data(%Object{} = object, data) do
+  defp update_actor_data(%Object{} = object, data, _fetch_remote?) do
     object
     |> Ecto.Changeset.change(%{
       data: data,
@@ -651,7 +679,13 @@ defmodule ActivityPub.Actor do
   def actor_url(username) when is_binary(username),
     do: Utils.ap_base_url() <> "/actors/" <> username
 
-  def actor?(%{data: %{"type" => type}} = _object)
+  def actor?(%{data: data}), do: actor?(data)
+
+  def actor?(%{"type" => type})
+      when ActivityPub.Config.is_in(type, :supported_actor_types),
+      do: true
+
+  def actor?(%{"formerType" => type})
       when ActivityPub.Config.is_in(type, :supported_actor_types),
       do: true
 

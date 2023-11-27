@@ -153,13 +153,14 @@ defmodule ActivityPub.Federator.Transformer do
     recipient_is_from_instance?(bto, host)
   end
 
-  defp can_delete_remote_object?(ap_id) do
+  defp check_remote_object_deleted(ap_id) do
     debug(ap_id, "Checking delete permission for")
 
     case Fetcher.fetch_remote_object_from_id(ap_id) |> debug("fetched") do
-      {:error, :not_found} -> true
-      {:ok, %{"type" => "Tombstone"}} -> true
-      _ -> false
+      {:error, :not_found} -> {:ok, ap_id}
+      {:ok, %{"type" => "Tombstone"} = data} -> {:ok, data}
+      {:ok, %{data: %{"type" => "Tombstone"}} = actor} -> {:ok, actor}
+      _ -> {:error, :not_deleted}
     end
   end
 
@@ -786,6 +787,11 @@ defmodule ActivityPub.Federator.Transformer do
     with nil <- Object.get_activity_for_object_ap_id(object) do
       ActivityPub.create(params)
     else
+      %{data: %{"type" => "Tombstone"}} = activity ->
+        debug("do not save Tombstone in adapter")
+
+        :skip
+
       %Object{pointer_id: nil} = activity ->
         debug("a Create for this Object already exists, but not in the Adapter, try again")
 
@@ -1002,18 +1008,18 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(
         %{
           "type" => "Delete",
-          "object" => object_id,
+          "object" => object,
           "actor" => _actor
         } = _data
       ) do
     info("Handle incoming deletion")
 
-    object_id = Object.get_ap_id(object_id)
+    object_id = Object.get_ap_id(object)
 
-    with true <- can_delete_remote_object?(object_id),
-         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
-         {:actor, false} <- {:actor, Actor.actor?(object)},
-         {:ok, activity} <- ActivityPub.delete(object, false) do
+    with {:ok, data} <- check_remote_object_deleted(object_id),
+         object <- Object.normalize(object_id, false),
+         {:actor, false} <- {:actor, Actor.actor?(object) || Actor.actor?(data)},
+         {:ok, activity} <- ActivityPub.delete(object || data, false) do
       {:ok, activity}
     else
       {:actor, true} ->
@@ -1026,11 +1032,14 @@ defmodule ActivityPub.Federator.Transformer do
             ActivityPub.delete(actor, false)
 
           e ->
-            error(e)
+            error(e, "Could not find actor to delete")
         end
 
+      {:error, :not_deleted} ->
+        error("Could not verify incoming deletion")
+
       e ->
-        error(e)
+        error(e, "Could not handle incoming deletion")
     end
   end
 

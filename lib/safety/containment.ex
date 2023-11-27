@@ -19,7 +19,7 @@ defmodule ActivityPub.Safety.Containment do
   @spec is_public?(Object.t() | Activity.t() | map()) :: boolean()
   def is_public?(%{public: true}), do: true
   def is_public?(%{public: false}), do: false
-  def is_public?(%{"type" => "Tombstone"}), do: false
+  def is_public?(%{"type" => "Tombstone"}), do: true
   def is_public?(%{"type" => "Move"}), do: true
   def is_public?(%{"directMessage" => true}), do: false
   def is_public?(%Object{data: data}), do: is_public?(data)
@@ -130,7 +130,7 @@ defmodule ActivityPub.Safety.Containment do
   end
 
   @spec visible_for_user?(Object.t() | nil, User.t() | nil) :: boolean()
-  def visible_for_user?(%Object{data: %{"type" => "Tombstone"}}, _), do: false
+  def visible_for_user?(%Object{data: %{"type" => "Tombstone"}}, _), do: true
 
   # def visible_for_user?(%Object{data: %{"actor" => ap_id}}, %User{ap_id: user_ap_id}) when ap_id==user_ap_id, do: true # TODO
   def visible_for_user?(nil, _), do: false

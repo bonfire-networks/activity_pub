@@ -46,7 +46,7 @@ defmodule ActivityPub.Web.RedirectController do
   # incoming remote interaction
   def remote_interaction(conn, %{"acct" => username_or_uri}) do
     with {:ok, actor_or_object} <-
-           ActivityPub.Actor.get_or_fetch(username_or_uri),
+           ActivityPub.Actor.get_cached_or_fetch(username_or_uri),
          url when is_binary(url) <- Adapter.get_redirect_url(actor_or_object) do
       case url <> "?remote_interaction=follow" do
         "http" <> _ = url ->

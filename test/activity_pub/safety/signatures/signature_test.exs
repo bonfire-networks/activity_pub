@@ -131,32 +131,39 @@ defmodule ActivityPub.Safety.SignatureTest do
     end
   end
 
-  test "without valid signature, it only accepts Create activities (if federation enabled, otherwise accepts nothing)",
+  test "without valid signature, it responds with an error, but tries to re-fetch the activity/object (if federation enabled, otherwise accepts nothing)",
        %{conn: conn} do
-    data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+    create_data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
     non_create_data = file("fixtures/mastodon/mastodon-announce.json") |> Jason.decode!()
 
     conn = put_req_header(conn, "content-type", "application/activity+json")
 
-    clear_config([:instance, :federating], true)
+    Oban.Testing.with_testing_mode(:inline, fn ->
+      clear_config([:instance, :federating], true)
 
-    ret_conn = post(conn, "#{Utils.ap_base_url()}/shared_inbox", data)
-    # assert json_response(ret_conn, 202)
-    assert json_response(ret_conn, 200)
+      assert conn
+             |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
+             |> json_response(401)
 
-    assert conn
-           |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
-           |> json_response(401)
+      assert {:ok, _} =
+               Object.get_cached(
+                 ap_id: "https://mastodon.local/users/admin/statuses/99512778738411822"
+               )
 
-    clear_config([:instance, :federating], false)
+      assert json_response(post(conn, "#{Utils.ap_base_url()}/shared_inbox", create_data), 401)
 
-    assert conn
-           |> post("#{Utils.ap_base_url()}/shared_inbox", data)
-           |> json_response(403)
+      clear_config([:instance, :federating], false)
 
-    assert conn
-           |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
-           |> json_response(403)
+      assert conn
+             |> post("#{Utils.ap_base_url()}/shared_inbox", create_data)
+             |> json_response(403)
+
+      assert conn
+             |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
+             |> json_response(403)
+
+      clear_config([:instance, :federating], true)
+    end)
   end
 
   describe "key_id_to_actor_id/1" do

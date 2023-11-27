@@ -105,7 +105,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
   defp user_from_key_id(conn) do
     with key_actor_id when is_binary(key_actor_id) <- key_id_from_conn(conn),
-         {:ok, %Actor{} = user} <- Actor.get_or_fetch_by_ap_id(key_actor_id) do
+         {:ok, %Actor{} = user} <- Actor.get_cached_or_fetch(ap_id: key_actor_id) do
       user
     else
       _ ->

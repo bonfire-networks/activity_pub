@@ -97,7 +97,7 @@ defmodule ActivityPub.Actor do
   @doc """
   Fetches a local actor given its preferred username.
   """
-  defp get(username: "@" <> username), do: get_cached(username: username)
+  defp get(username: "@" <> username), do: get(username: username)
 
   defp get(username: username) do
     with {:ok, actor} <- Adapter.get_actor_by_username(username) do
@@ -134,38 +134,20 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  # defp get(ap_id: id) when not is_nil(id) do
-  #   with {:ok, actor} <- ActivityPub.Object.get_cached(ap_id: id) do
-  #     {:ok, format_remote_actor(actor)}
-  #   else _ ->
-  #      with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
-  #       {:ok, actor}
-  #     else
-  #       e ->
-  #         error(e, "Adapter did not return an actor")
-  #         {:error, :not_found}
-  #     end
-  #   end
-  # end
-
-  @doc """
-  Fetches an actor given its AP ID.
-
-  Remote actors are first checked if they exist in database and are fetched remotely if they don't.
-
-  Remote actors are also automatically updated every 24 hours.
-  """
-  @spec get(ap_id: String.t()) :: {:ok, Actor.t()} | {:error, any()}
-
   defp get(ap_id: "https://www.w3.org/ns/activitystreams#Public"), do: {:error, :not_an_actor}
 
-  defp get(ap_id: ap_id) when is_binary(ap_id) do
-    with {:ok, actor} <- Adapter.get_actor_by_ap_id(ap_id) do
-      {:ok, actor}
+  defp get(ap_id: id) when not is_nil(id) do
+    with {:ok, actor} <- ActivityPub.Object.get_cached(ap_id: id) do
+      {:ok, format_remote_actor(actor)}
     else
-      e ->
-        debug(e, "result of Adapter.get_actor_by_ap_id")
-        get_remote_actor(ap_id)
+      _ ->
+        with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
+          {:ok, actor}
+        else
+          e ->
+            error(e, "Adapter did not return an actor")
+            {:error, :not_found}
+        end
     end
   end
 
@@ -176,6 +158,141 @@ defmodule ActivityPub.Actor do
   defp get(opts) do
     error(opts, "Unexpected args")
     raise "Unexpected args when attempting to get an actor"
+  end
+
+  @doc """
+  Fetches an actor given its AP ID.
+
+  Remote actors are first checked if they exist in database and are fetched remotely if they don't.
+
+  Remote actors are also automatically updated every 24 hours.
+  """
+  def get_cached_or_fetch(ap_id: ap_id) when is_binary(ap_id) do
+    with {:ok, actor} <- get_cached(ap_id: ap_id) do
+      {:ok, actor}
+    else
+      e ->
+        debug(e, "not a cached actor")
+
+        # case get_remote_actor(ap_id) |> debug() do
+        #   {:ok, actor} ->
+        #     {:ok, actor}
+
+        #   other ->
+        #     debug(ap_id, "not an known local or remote actor, try fetching")
+
+        Fetcher.fetch_fresh_object_from_id(ap_id)
+        |> debug("fetched")
+
+        # end
+    end
+  end
+
+  @doc """
+  Tries to get a local actor by username or tries to fetch it remotely if username is provided in `username@domain.tld` format.
+  """
+
+  def get_cached_or_fetch(username: "@" <> username),
+    do: get_cached_or_fetch(username: username)
+
+  def get_cached_or_fetch(username: username) do
+    with {:ok, actor} <- get_cached(username: username) do
+      {:ok, actor}
+    else
+      _e ->
+        with [_nick, domain] <- String.split(username, "@"),
+             false <- domain == URI.parse(Adapter.base_url()).host,
+             {:ok, actor} <- fetch_by_username(username) do
+          {:ok, actor}
+        else
+          %ActivityPub.Actor{} = actor -> {:ok, actor}
+          true -> get_cached(username: hd(String.split(username, "@")))
+          {:error, reason} -> error(reason)
+          e -> error(e, "Actor not found: #{username}")
+        end
+    end
+  end
+
+  # fallbacks
+  def get_cached_or_fetch(username_or_uri) when is_binary(username_or_uri) do
+    if String.starts_with?(username_or_uri, "http"),
+      do: get_cached_or_fetch(ap_id: username_or_uri),
+      else: get_cached_or_fetch(username: username_or_uri)
+  end
+
+  def get_cached_or_fetch(username: other), do: get_cached_or_fetch(other)
+  def get_cached_or_fetch(ap_id: other), do: get_cached_or_fetch(other)
+
+  def get_cached_or_fetch(%{data: %{"id" => ap_id}}) when is_binary(ap_id),
+    do: get_cached_or_fetch(ap_id: ap_id)
+
+  def get_cached_or_fetch(%{"id" => ap_id}) when is_binary(ap_id),
+    do: get_cached_or_fetch(ap_id: ap_id)
+
+  def get_cached_or_fetch(%{data: %{"preferredUsername" => username}}) when is_binary(username),
+    do: get_cached_or_fetch(username: username)
+
+  def get_cached_or_fetch(%{"preferredUsername" => username}) when is_binary(username),
+    do: get_cached_or_fetch(username: username)
+
+  def get_cached_or_fetch(%Actor{data: _} = actor), do: {:ok, actor}
+
+  # TODO?
+  # def get_remote_actor(ap_id, maybe_create \\ true) do
+  #   # raise "STOOOP"
+
+  #   with {:ok, %{data: %{"type" => type}} = actor_object}
+  #        when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
+  #          Object.get_cached(ap_id: ap_id) |> debug("gct"),
+  #        false <- check_if_time_to_update(actor_object),
+  #        actor <- format_remote_actor(actor_object),
+  #        {:ok, adapter_actor} <-
+  #          if(maybe_create and type != "Tombstone",
+  #            do: Adapter.maybe_create_remote_actor(actor),
+  #            else: {:ok, nil}
+  #          ),
+  #        actor <- Map.put(actor, :pointer, adapter_actor) do
+  #     {:ok, actor}
+  #   else
+  #     true ->
+  #       update_actor(ap_id)
+
+  #     {:error, :not_found} ->
+  #       if maybe_create, do: update_actor(ap_id), else: {:error, :not_found}
+
+  #     nil ->
+  #       error(ap_id, "Remote actor not found")
+
+  #     {:ok, actor} ->
+  #       {:ok, actor}
+
+  #     %Actor{} = actor ->
+  #       {:ok, actor}
+
+  #     {:error, e} ->
+  #       {:error, e}
+  #   end
+  # end
+
+  @doc """
+  Fetches a remote actor by username in `username@domain.tld` format
+  """
+  def fetch_by_username(username, opts \\ [])
+  def fetch_by_username("@" <> username, opts), do: fetch_by_username(username, opts)
+
+  def fetch_by_username(username, opts) do
+    with federating? when federating? != false <- Config.federating?(),
+         {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
+           WebFinger.finger(username) do
+      fetch_by_ap_id(ap_id, opts)
+    else
+      {:error, e} when is_binary(e) ->
+        e
+
+      e ->
+        warn(e)
+        {:error, "No AP id in WebFinger"}
+    end
   end
 
   @doc """
@@ -223,100 +340,11 @@ defmodule ActivityPub.Actor do
     |> info("Time to update the actor?")
   end
 
-  @doc """
-  Fetches a remote actor by username in `username@domain.tld` format
-  """
-  def fetch_by_username(username, opts \\ [])
-  def fetch_by_username("@" <> username, opts), do: fetch_by_username(username, opts)
-
-  def fetch_by_username(username, opts) do
-    with federating? when federating? != false <- Config.federating?(),
-         {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
-           WebFinger.finger(username) do
-      fetch_by_ap_id(ap_id, opts)
-    else
-      {:error, e} when is_binary(e) ->
-        e
-
-      e ->
-        warn(e)
-        {:error, "No AP id in WebFinger"}
-    end
-  end
-
-  @doc """
-  Tries to get a local actor by username or tries to fetch it remotely if username is provided in `username@domain.tld` format.
-  """
-  def get_or_fetch_by_username(username, opts \\ [])
-
-  def get_or_fetch_by_username("@" <> username, opts),
-    do: get_or_fetch_by_username(username, opts)
-
-  def get_or_fetch_by_username(username, opts) do
-    with {:ok, actor} <- get_cached(username: username) do
-      {:ok, actor}
-    else
-      _e ->
-        with [_nick, domain] <- String.split(username, "@"),
-             false <- domain == URI.parse(Adapter.base_url()).host,
-             {:ok, actor} <- fetch_by_username(username, opts) do
-          {:ok, actor}
-        else
-          %ActivityPub.Actor{} = actor -> {:ok, actor}
-          true -> get_cached(username: hd(String.split(username, "@")))
-          {:error, reason} -> error(reason)
-          e -> error(e, "Actor not found: #{username}")
-        end
-    end
-  end
-
-  def get_or_fetch(username_or_uri) do
-    if String.starts_with?(username_or_uri, "http"),
-      do: get_or_fetch_by_ap_id(username_or_uri),
-      else: get_or_fetch_by_username(username_or_uri)
-  end
-
   # defp username_from_ap_id(ap_id) do
   #   ap_id
   #   |> String.split("/")
   #   |> List.last()
   # end
-
-  def get_remote_actor(ap_id, maybe_create \\ true) do
-    # raise "STOOOP"
-
-    with {:ok, %{data: %{"type" => type}} = actor_object}
-         when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
-           Object.get_cached(ap_id: ap_id) |> debug("gct"),
-         false <- check_if_time_to_update(actor_object),
-         actor <- format_remote_actor(actor_object),
-         {:ok, adapter_actor} <-
-           if(maybe_create and type != "Tombstone",
-             do: Adapter.maybe_create_remote_actor(actor),
-             else: {:ok, nil}
-           ),
-         actor <- Map.put(actor, :pointer, adapter_actor) do
-      {:ok, actor}
-    else
-      true ->
-        update_actor(ap_id)
-
-      {:error, :not_found} ->
-        if maybe_create, do: update_actor(ap_id), else: {:error, :not_found}
-
-      nil ->
-        error(ap_id, "Remote actor not found")
-
-      {:ok, actor} ->
-        {:ok, actor}
-
-      %Actor{} = actor ->
-        {:ok, actor}
-
-      {:error, e} ->
-        {:error, e}
-    end
-  end
 
   def format_username(%{data: data}), do: format_username(data)
 
@@ -385,10 +413,6 @@ defmodule ActivityPub.Actor do
     Fetcher.fetch_object_from_id(ap_id, opts)
   end
 
-  defp fetch_fresh_by_ap_id(ap_id) when is_binary(ap_id) do
-    Fetcher.fetch_fresh_object_from_id(ap_id)
-  end
-
   def maybe_create_actor_from_object(actor) do
     case do_maybe_create_actor_from_object(actor) do
       {:ok, %Actor{} = actor} ->
@@ -419,25 +443,6 @@ defmodule ActivityPub.Actor do
   # end
   defp do_maybe_create_actor_from_object({:ok, object}), do: {:ok, object}
   defp do_maybe_create_actor_from_object(object), do: object
-
-  def get_or_fetch_by_ap_id(ap_id, maybe_create \\ true)
-  def get_or_fetch_by_ap_id(%Actor{data: _} = actor, _), do: actor
-
-  def get_or_fetch_by_ap_id(%{"id" => id}, maybe_create),
-    do: get_or_fetch_by_ap_id(id, maybe_create)
-
-  def get_or_fetch_by_ap_id(ap_id, maybe_create) do
-    case get_remote_actor(ap_id, maybe_create) |> debug() do
-      {:ok, actor} ->
-        {:ok, actor}
-
-      other ->
-        debug(ap_id, "not an known remote actor, try fetching")
-
-        fetch_fresh_by_ap_id(ap_id)
-        |> debug()
-    end
-  end
 
   def set_cache({:ok, actor}), do: set_cache(actor)
 

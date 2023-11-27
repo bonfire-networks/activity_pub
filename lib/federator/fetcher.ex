@@ -260,7 +260,8 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def fetch_outbox(other, opts) do
-    with {:ok, %{data: %{"outbox" => outbox}}} when is_binary(outbox) <- Actor.get_cached(other) do
+    with {:ok, %{data: %{"outbox" => outbox}}} when is_binary(outbox) <-
+           Actor.get_cached_or_fetch(other) do
       fetch_outbox(%{"outbox" => outbox}, opts)
     end
   end

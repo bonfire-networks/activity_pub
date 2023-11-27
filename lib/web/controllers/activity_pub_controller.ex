@@ -233,11 +233,15 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   # accept (but verify) unsigned Creates
   # def inbox(conn, %{"type" => "Create"} = params) do
-  #   maybe_process_unsigned(conn, params)
+  #   maybe_process_unsigned(conn, params, nil)
   # end
 
+  def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
+    maybe_process_unsigned(conn, params, true)
+  end
+
   def inbox(conn, params) do
-    maybe_process_unsigned(conn, params)
+    maybe_process_unsigned(conn, params, false)
   end
 
   def inbox_info(conn, params) do
@@ -252,11 +256,11 @@ defmodule ActivityPub.Web.ActivityPubController do
     json(conn, "ok")
   end
 
-  defp maybe_process_unsigned(conn, params) do
+  defp maybe_process_unsigned(conn, params, signed?) do
     if Config.federating?() do
       headers = Enum.into(conn.req_headers, %{})
 
-      if is_binary(headers["signature"]) do
+      if signed? and is_binary(headers["signature"]) do
         if String.contains?(headers["signature"], params["actor"]) do
           warn(
             headers,
@@ -265,13 +269,13 @@ defmodule ActivityPub.Web.ActivityPubController do
         else
           warn(
             headers,
-            "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
+            "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source"
           )
         end
       else
         warn(
           params,
-          "No HTTP signature provided, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
+          "No HTTP signature provided, will attempt re-fetching AP activity from source (note: if using a reverse proxy make sure you are forwarding the HTTP Host header)"
         )
       end
 
@@ -281,10 +285,19 @@ defmodule ActivityPub.Web.ActivityPubController do
              Fetcher.enqueue_fetch(id) do
         debug(params, "unsigned activity workaround enqueued")
 
-        json(
-          conn,
-          "Please send signed activities - object was not accepted as-in and will instead be re-fetched from origin"
-        )
+        if signed? == true,
+          do:
+            Utils.error_json(
+              conn,
+              "HTTP Signature was invalid - object was not accepted as-in and will instead be re-fetched from origin",
+              401
+            ),
+          else:
+            Utils.error_json(
+              conn,
+              "Please send activities with HTTP Signature - object was not accepted as-in and will instead be re-fetched from origin",
+              401
+            )
       else
         e ->
           if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do

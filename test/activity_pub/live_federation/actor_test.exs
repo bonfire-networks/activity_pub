@@ -11,7 +11,7 @@ defmodule ActivityPub.LiveFederation.ActorTest do
 
   test "get_or_fetch_by_ap_id/1" do
     # {:ok, actor} =
-    auto_assert Actor.get_or_fetch_by_ap_id("https://indieweb.social/users/bonfire")
+    auto_assert Actor.get_cached_or_fetch(ap_id: "https://indieweb.social/users/bonfire")
     # auto_assert actor.data
     # assert actor.data["preferredUsername"] == "bonfire"
   end

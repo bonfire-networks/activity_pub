@@ -564,7 +564,15 @@ defmodule ActivityPub do
          activity_id
        ) do
     object_actor_id = ActivityPub.Object.actor_from_data(object.data)
-    {:ok, object_actor} = Actor.get_cached(ap_id: object_actor_id)
+
+    object_actor_followers =
+      with {:ok, object_actor} <- Actor.get_cached(ap_id: object_actor_id) do
+        object_actor.data["followers"]
+      else
+        e ->
+          warn(e)
+          nil
+      end
 
     to =
       if Utils.public?(object.data) do
@@ -576,7 +584,7 @@ defmodule ActivityPub do
     cc =
       ((object.data["to"] || []) ++ (object.data["cc"] || []))
       |> List.delete(ap_id)
-      |> List.delete(object_actor.data["followers"])
+      |> List.delete(object_actor_followers)
 
     data = %{
       "type" => "Like",

@@ -20,7 +20,7 @@ defmodule ActivityPub.Safety.Keys do
   Fetches the public key for given actor AP ID.
   """
   def get_public_key_for_ap_id(ap_id) do
-    with %Actor{} = actor <- Utils.ok_unwrap(Actor.get_or_fetch_by_ap_id(ap_id)),
+    with %Actor{} = actor <- Utils.ok_unwrap(Actor.get_cached_or_fetch(ap_id: ap_id)),
          {:ok, public_key} <- public_key_from_data(actor) do
       {:ok, public_key}
     else

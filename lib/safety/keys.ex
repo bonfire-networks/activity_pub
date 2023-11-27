@@ -20,7 +20,7 @@ defmodule ActivityPub.Safety.Keys do
   Fetches the public key for given actor AP ID.
   """
   def get_public_key_for_ap_id(ap_id) do
-    with %Actor{} = actor <- Utils.ok_unwrap(Actor.get_cached_or_fetch(ap_id: ap_id)),
+    with {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: ap_id),
          {:ok, public_key} <- public_key_from_data(actor) do
       {:ok, public_key}
     else
@@ -206,28 +206,39 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def maybe_add_sign_headers(headers, id, date \\ nil) do
+  def maybe_add_fetch_signature_headers(headers, id, date \\ nil) do
     # enabled by default :-)
     if Config.get([:sign_object_fetches], true) do
       date = date || Utils.format_date()
-      [make_signature(id, date), {"date", date} | headers]
+      [make_fetch_signature(id, date), {"date", date} | headers]
     else
       headers
     end
   end
 
-  defp make_signature(id, date) do
-    uri = URI.parse(id)
-
+  defp make_fetch_signature(%URI{} = uri, date) do
+    # TODO: optionally fetch with the signature of user doing the request?
     with {:ok, service_actor} <- Utils.service_actor(),
          {:ok, signature} <-
            Keys.sign(service_actor, %{
              "(request-target)": "get #{uri.path}",
-             host: uri.host,
+             host: http_host(uri),
              date: date
            }) do
       {"signature", signature}
     end
     |> debug()
+  end
+
+  defp make_fetch_signature(id, date) do
+    make_fetch_signature(URI.parse(id), date)
+  end
+
+  def http_host(%{host: host, port: port}) when port in [80, 443] do
+    host
+  end
+
+  def http_host(%{host: host, port: port}) when is_integer(port) or is_binary(port) do
+    "#{host}:#{port}"
   end
 end

@@ -290,17 +290,18 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def fetch_remote_object_from_id(id, options \\ []) do
     debug(id, "Attempting to fetch ActivityPub object")
-    debug(self())
+    # debug(self())
 
-    with federating? when federating? != false <- Config.federating?(),
+    with true <- Config.federating?() != false || {:error, "Federation is disabled"},
          true <- allowed_recursion?(options[:depth]),
+         uri <- URI.parse(id),
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
-         {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(URI.parse(id)),
+         {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
          true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
          headers <-
            [{"Accept", "application/activity+json"}]
-           |> Keys.maybe_add_sign_headers(id),
+           |> Keys.maybe_add_fetch_signature_headers(uri),
          {:ok, %{body: body, status: code}} when code in 200..299 <-
            HTTP.get(
              id,

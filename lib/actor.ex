@@ -144,6 +144,10 @@ defmodule ActivityPub.Actor do
         with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
           {:ok, actor}
         else
+          {:error, :not_found} ->
+            warn(id, "Adapter did not return an actor, must not be local")
+            {:error, :not_found}
+
           e ->
             error(e, "Adapter did not return an actor")
             {:error, :not_found}
@@ -288,6 +292,9 @@ defmodule ActivityPub.Actor do
     else
       {:error, e} when is_binary(e) ->
         e
+
+      false ->
+        {:error, "Federation is disabled"}
 
       e ->
         warn(e)

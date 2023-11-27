@@ -26,17 +26,24 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
         |> put_req_header("(request-target)", request_target)
         |> case do
           %{assigns: %{digest: digest}} = conn ->
-            put_req_header(conn, "digest", digest)
+            put_req_header(
+              conn,
+              "digest",
+              digest
+              |> debug("diggest")
+            )
 
           conn ->
+            debug(conn.assigns, "no diggest")
             conn
         end
 
-      validate =
+      assign(
+        conn,
+        :valid_signature,
         HTTPSignatures.validate_conn(conn)
         |> info("valid_signature?")
-
-      assign(conn, :valid_signature, validate)
+      )
     else
       warn("conn has no signature header!")
       conn

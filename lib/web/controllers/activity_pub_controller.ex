@@ -262,18 +262,18 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       if signed? and is_binary(headers["signature"]) do
         if String.contains?(headers["signature"], params["actor"]) do
-          warn(
+          error(
             headers,
-            "Unknown HTTP signature validation error, will attempt re-fetching AP activity from source (note: make sure you are forwarding the HTTP Host header)"
+            "Unknown HTTP signature validation error, will attempt re-fetching AP activity from source"
           )
         else
-          warn(
+          error(
             headers,
             "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source"
           )
         end
       else
-        warn(
+        error(
           params,
           "No HTTP signature provided, will attempt re-fetching AP activity from source (note: if using a reverse proxy make sure you are forwarding the HTTP Host header)"
         )
@@ -283,21 +283,23 @@ defmodule ActivityPub.Web.ActivityPubController do
              params["id"],
            {:ok, object} <-
              Fetcher.enqueue_fetch(id) do
-        debug(params, "unsigned activity workaround enqueued")
+        if signed? == true do
+          debug(params, "HTTP Signature was invalid - unsigned activity workaround enqueued")
 
-        if signed? == true,
-          do:
-            Utils.error_json(
-              conn,
-              "HTTP Signature was invalid - object was not accepted as-in and will instead be re-fetched from origin",
-              401
-            ),
-          else:
-            Utils.error_json(
-              conn,
-              "Please send activities with HTTP Signature - object was not accepted as-in and will instead be re-fetched from origin",
-              401
-            )
+          Utils.error_json(
+            conn,
+            "HTTP Signature was invalid - object was not accepted as-in and will instead be re-fetched from origin",
+            401
+          )
+        else
+          debug(params, "No HTTP Signature provided - unsigned activity workaround enqueued")
+
+          Utils.error_json(
+            conn,
+            "Please send activities with HTTP Signature - object was not accepted as-in and will instead be re-fetched from origin",
+            401
+          )
+        end
       else
         e ->
           if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do

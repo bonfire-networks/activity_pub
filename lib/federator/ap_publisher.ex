@@ -72,15 +72,15 @@ defmodule ActivityPub.Federator.APPublisher do
   * `id`: the ActivityStreams URI of the message
   """
   def publish_one(%{json: json, actor: %Actor{} = actor, inbox: inbox} = params) do
-    %{host: host, path: path} = URI.parse(inbox)
+    uri = URI.parse(inbox)
 
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
     date = Utils.format_date()
 
     with {:ok, signature} <-
            ActivityPub.Safety.Keys.sign(actor, %{
-             "(request-target)": "post #{path}",
-             host: host,
+             "(request-target)": "post #{uri.path}",
+             host: ActivityPub.Safety.Keys.http_host(uri),
              "content-length": byte_size(json),
              digest: digest,
              date: date
@@ -91,13 +91,6 @@ defmodule ActivityPub.Federator.APPublisher do
         error(e, "problem adding a signature, skip")
         do_publish_one(params, date, digest)
     end
-  end
-
-  def publish_one(%{json: json} = params) do
-    digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
-    date = Utils.format_date()
-
-    do_publish_one(params, date, digest)
   end
 
   def publish_one(%{actor_username: username} = params) when is_binary(username) do
@@ -119,6 +112,15 @@ defmodule ActivityPub.Federator.APPublisher do
     |> publish_one()
   end
 
+  def publish_one(%{json: json} = params) do
+    digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
+    date = Utils.format_date()
+
+    error(params, "not adding a signature, because we don't have an Actor")
+
+    do_publish_one(params, date, digest)
+  end
+
   defp do_publish_one(%{inbox: inbox, json: json, id: id} = params, date, digest, headers \\ []) do
     info(inbox, "Federating #{id} to")
 
@@ -128,8 +130,8 @@ defmodule ActivityPub.Federator.APPublisher do
              json,
              headers ++
                [
-                 {"Content-Type", "application/activity+json"},
-                 {"Date", date},
+                 {"content-type", "application/activity+json"},
+                 {"date", date},
                  {"digest", digest}
                ]
            ) do

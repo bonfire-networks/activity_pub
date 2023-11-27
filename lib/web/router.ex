@@ -30,6 +30,7 @@ defmodule ActivityPub.Web.Router do
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do
+        # pipe_through(:signed_activity_pub) # TODO: check signature of fetches too
         pipe_through(:activity_pub)
 
         get("/objects/:uuid", ActivityPubController, :object)

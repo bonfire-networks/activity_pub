@@ -1,4 +1,4 @@
-# TODO: We don't need endpoint when running in library mode but some modules rely on functions provided by it...
+# NOTICE: We don't use this endpoint when running in library mode but some modules rely on functions provided by it...
 
 defmodule ActivityPub.Web.Endpoint do
   use Phoenix.Endpoint, otp_app: :activity_pub
@@ -33,7 +33,8 @@ defmodule ActivityPub.Web.Endpoint do
   plug(Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+    json_decoder: Phoenix.json_library(),
+    body_reader: {ActivityPub.Web.Plugs.DigestPlug, :read_body, []}
   )
 
   plug(Plug.MethodOverride)

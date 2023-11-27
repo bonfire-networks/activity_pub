@@ -98,7 +98,8 @@ defmodule ActivityPub.Config do
       val ->
         val
     end
-    |> debug()
+
+    # |> debug()
   end
 
   def get(key), do: get(key, nil)

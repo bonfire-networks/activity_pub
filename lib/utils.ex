@@ -321,9 +321,16 @@ defmodule ActivityPub.Utils do
     nil
   end
 
-  def json_with_cache(conn \\ nil, get_fun, cache_bucket, id, ret_fn \\ &return_json/3)
+  def json_with_cache(
+        conn \\ nil,
+        get_fun,
+        cache_bucket,
+        id,
+        ret_fn \\ &return_json/4,
+        opts \\ []
+      )
 
-  def json_with_cache(%Plug.Conn{} = conn, get_fun, cache_bucket, id, ret_fn) do
+  def json_with_cache(%Plug.Conn{} = conn, get_fun, cache_bucket, id, ret_fn, opts) do
     if Untangle.log_level?(:info),
       do:
         info(
@@ -335,7 +342,7 @@ defmodule ActivityPub.Utils do
       # TODO: cache the actual json so it doesn't have to go through Jason each time?
       # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
 
-      ret_fn.(conn, meta, json)
+      ret_fn.(conn, meta, json, opts)
     else
       {:error, code, msg} ->
         error_json(conn, msg, code)
@@ -346,7 +353,7 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def json_with_cache(_, get_fun, cache_bucket, id, _ret_fn) do
+  def json_with_cache(_, get_fun, cache_bucket, id, _ret_fn, _opts) do
     with {:ok, %{json: json}} <- get_with_cache(get_fun, cache_bucket, :json, id) do
       # TODO: cache the actual json so it doesn't have to go through Jason each time?
       # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
@@ -360,7 +367,7 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def return_json(conn, meta, json) do
+  def return_json(conn, meta, json, _opts \\ []) do
     conn
     |> PlugHTTPValidator.set(meta |> debug)
     #  4.2 hours - TODO: configurable

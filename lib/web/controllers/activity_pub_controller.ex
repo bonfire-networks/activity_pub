@@ -52,17 +52,24 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def json_object_with_cache(conn \\ nil, id)
+  def json_object_with_cache(conn \\ nil, id, opts \\ [])
 
-  def json_object_with_cache(conn_or_nil, id) do
-    Utils.json_with_cache(conn_or_nil, &object_json/1, :ap_object_cache, id, &maybe_return_json/3)
+  def json_object_with_cache(conn_or_nil, id, opts) do
+    Utils.json_with_cache(
+      conn_or_nil,
+      &object_json/1,
+      :ap_object_cache,
+      id,
+      &maybe_return_json/4,
+      opts
+    )
     |> debug()
   end
 
-  defp maybe_return_json(conn, meta, json) do
+  defp maybe_return_json(conn, meta, json, opts) do
     debug(json)
 
-    if Adapter.actor_federating?(json |> Map.get("actor")) != false do
+    if opts[:exporting] == true or Adapter.actor_federating?(json |> Map.get("actor")) != false do
       Utils.return_json(conn, meta, json)
     else
       Utils.error_json(conn, "this actor is not currently federating", 403)

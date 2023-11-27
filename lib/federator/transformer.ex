@@ -94,6 +94,9 @@ defmodule ActivityPub.Federator.Transformer do
       %Object{} = object ->
         prepare_outgoing_object(object)
 
+      %{ap_id: ap_id} = object ->
+        ap_id
+
       other ->
         if is_list(object) do
           # support for list of objects (eg. in flags)

@@ -1,5 +1,5 @@
 defmodule ActivityPub.MoveTest do
-  use ActivityPub.DataCase, async: true
+  use ActivityPub.DataCase, async: false
   use Oban.Testing, repo: repo()
   import ActivityPub.Factory
   alias ActivityPub.Object
@@ -8,7 +8,7 @@ defmodule ActivityPub.MoveTest do
   import Tesla.Mock
 
   setup_all do
-    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 

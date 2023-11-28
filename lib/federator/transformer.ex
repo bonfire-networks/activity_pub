@@ -748,15 +748,22 @@ defmodule ActivityPub.Federator.Transformer do
       }),
       do: Actor.get_cached_or_fetch(ap_id: ap_id)
 
-  def handle_incoming(%{"type" => "Create", "object" => object} = data) do
+  def handle_incoming(%{"type" => "Create", "object" => _object} = data) do
     info("Handle incoming creation of an object")
-    info(object, "the incoming object")
 
-    data =
+    %{"object" => object} =
+      data =
       Object.normalize_actors(data)
-      |> debug("actors normalized")
 
-    actor_id = Object.actor_id_from_data(data)
+    # |> debug("with actors normalized")
+
+    object =
+      fix_object(object)
+      |> info("normalized incoming object")
+
+    actor_id =
+      Object.actor_id_from_data(data)
+      |> debug("the actor_id")
 
     {:ok, actor} =
       with {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor_id) do
@@ -766,8 +773,6 @@ defmodule ActivityPub.Federator.Transformer do
           warn(e, "could not get or fetch actor: #{inspect(actor_id)}")
           Utils.service_actor()
       end
-
-    object = fix_object(object)
 
     params = %{
       activity_id: data["id"],
@@ -1188,17 +1193,20 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def handle_incoming(%{"id" => id} = data) do
-    info("Wrap standalone non-actor object in a Create activity?")
-    debug(data)
+    info("Wrapping standalone non-actor object in a Create activity?")
+    # debug(data)
 
-    handle_incoming(%{
-      "type" => "Create",
-      "to" => data["to"],
-      "cc" => data["cc"],
-      "actor" => Object.actor_from_data(data),
-      "object" => data,
-      "id" => "#{id}#virtual_create_activity"
-    })
+    handle_incoming(
+      %{
+        "type" => "Create",
+        "to" => data["to"],
+        "cc" => data["cc"],
+        "actor" => Object.actor_from_data(data),
+        "object" => data,
+        "id" => "#{id}?virtual_create_activity"
+      }
+      |> debug("generated activity")
+    )
   end
 
   def handle_incoming(%{"links" => _} = data) do

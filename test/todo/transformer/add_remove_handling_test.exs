@@ -8,7 +8,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
   alias ActivityPub.Federator.Transformer
 
   setup_all do
-    Tesla.Mock.mock(fn env -> HttpRequestMock.request(env) end)
+    Tesla.Mock.mock_global(fn env -> HttpRequestMock.request(env) end)
     :ok
   end
 

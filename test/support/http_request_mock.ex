@@ -1,13 +1,13 @@
 defmodule ActivityPub.Test.HttpRequestMock do
   import ActivityPub.Test.Helpers
-  import Untangle
+  # import Untangle
   alias ActivityPub.Fixtures
   import Fixtures
 
   require Phoenix.ConnTest
-  alias Phoenix.ConnTest
+  # alias Phoenix.ConnTest
 
-  alias ActivityPub.Utils
+  # alias ActivityPub.Utils
 
   @endpoint endpoint()
 

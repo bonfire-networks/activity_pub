@@ -61,7 +61,7 @@ defmodule ActivityPub.Factory do
   end
 
   def add_alias(%{local: true} = actor, to_alias) do
-    {:ok, actor} =
+    {:ok, _actor} =
       Adapter.update_local_actor(actor, %{
         data:
           Map.put(
@@ -73,7 +73,7 @@ defmodule ActivityPub.Factory do
   end
 
   def add_alias(actor, to_alias) do
-    {:ok, actor} =
+    {:ok, _actor} =
       Adapter.update_remote_actor(actor.pointer, %{
         data:
           Map.put(

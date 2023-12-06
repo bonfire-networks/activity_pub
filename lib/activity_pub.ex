@@ -195,7 +195,7 @@ defmodule ActivityPub do
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("handled"),
          {:ok, _rejected_activity} <-
            Object.update_state(activity_to_reject, type, "reject") |> debug("rejected_activity"),
-         #  {:ok, activity} <- Object.get_cached(ap_id: activity), 
+         #  {:ok, activity} <- Object.get_cached(ap_id: activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end

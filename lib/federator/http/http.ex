@@ -69,7 +69,7 @@ defmodule ActivityPub.Federator.HTTP do
       |> Builder.add_param(:body, :body, body)
       |> Builder.add_param(:query, :query, params)
       |> Enum.into([])
-      |> IO.inspect(label: "HTTP built")
+      # |> IO.inspect(label: "HTTP built")
     )
 
     # |> debug("requested")

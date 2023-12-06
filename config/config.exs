@@ -79,6 +79,13 @@ config :activity_pub, :http,
 
 config :activity_pub, :endpoint, ActivityPub.Web.Endpoint
 
+config :activity_pub, ActivityPub.Federator.HTTP.RateLimit,
+  scale_ms: String.to_integer(System.get_env("AP_RATELIMIT_PER_MS", "10000")),
+  limit: String.to_integer(System.get_env("AP_RATELIMIT_NUM", "20"))
+
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{Mix.env()}.exs"

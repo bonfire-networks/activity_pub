@@ -47,12 +47,13 @@ defmodule ActivityPub.Federator.HTTP do
     options =
       process_request_options(options)
       |> process_sni_options(url)
-      |> debug("options")
+
+    # |> debug("options")
 
     params = Keyword.get(options, :params, [])
 
     Connection.new(options)
-    |> debug("connection")
+    # |> debug("connection")
     |> ActivityPub.Federator.HTTP.Tesla.request(
       %{}
       |> Builder.method(method)
@@ -60,7 +61,7 @@ defmodule ActivityPub.Federator.HTTP do
         headers ++
           [
             {"User-Agent",
-             "#{Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"} - #{ActivityPub.Web.base_url()}"}
+             "#{ActivityPub.Web.base_url()} - #{Application.get_env(:activity_pub, :http)[:user_agent] || "ActivityPub Elixir library"}"}
           ]
       )
       |> Builder.opts(options)
@@ -68,7 +69,7 @@ defmodule ActivityPub.Federator.HTTP do
       |> Builder.add_param(:body, :body, body)
       |> Builder.add_param(:query, :query, params)
       |> Enum.into([])
-      |> debug("built")
+      |> IO.inspect(label: "HTTP built")
     )
 
     # |> debug("requested")

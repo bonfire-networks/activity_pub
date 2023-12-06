@@ -6,33 +6,36 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
 
   @behaviour Tesla.Middleware
 
+  import Untangle
   alias ActivityPub.Config
 
   @impl Tesla.Middleware
   def call(env, next, opts) do
-    if Config.env() != :test do
-      # Keyword.fetch!(opts, :scale_ms)
-      scale_ms = Config.get([ActivityPub.Federator.HTTP.RateLimit, :scale_ms], 10000)
-      # Keyword.fetch!(opts, :limit)
-      limit = Config.get([ActivityPub.Federator.HTTP.RateLimit, :limit], 20)
+    # if Config.env() != :test do
 
-      %{host: host} = URI.parse(env.url)
+    # Keyword.fetch!(opts, :scale_ms)
+    scale_ms = Config.get([ActivityPub.Federator.HTTP.RateLimit, :scale_ms], 10000)
+    # Keyword.fetch!(opts, :limit)
+    limit = Config.get([ActivityPub.Federator.HTTP.RateLimit, :limit], 20)
 
-      case Hammer.check_rate(
-             "rate_limit:#{host}",
-             scale_ms,
-             limit
-           ) do
-        {:allow, _} ->
-          Tesla.run(env, next)
+    %{host: host} = URI.parse(env.url)
 
-        {:deny, _} ->
-          :timer.sleep(scale_ms)
-          IO.inspect(scale_ms, label: "RateLimit reached, wait for")
-          Tesla.run(env, next)
-      end
-    else
-      Tesla.run(env, next)
+    case Hammer.check_rate(
+           "rate_limit:#{host}",
+           scale_ms,
+           limit
+         ) do
+      {:allow, _} ->
+        Tesla.run(env, next)
+
+      {:deny, _} ->
+        :timer.sleep(scale_ms)
+        info(scale_ms, "RateLimit reached, wait (ms)")
+        Tesla.run(env, next)
     end
+
+    # else
+    #   Tesla.run(env, next)
+    # end
   end
 end

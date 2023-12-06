@@ -69,7 +69,7 @@ defmodule ActivityPub.MixProject do
       {:http_signatures,
        git: "https://github.com/bonfire-networks/http_signatures",
        branch: "master"},
-      {:hammer, "~> 6.1"},
+      {:hammer_plug, "~> 3.0"},
       {:timex, "~> 3.5"},
       {:cachex, "~> 3.2"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},

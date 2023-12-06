@@ -94,22 +94,29 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   def publish_one(%{actor_username: username} = params) when is_binary(username) do
-    {:ok, actor} = Actor.get_cached(username: username)
-
-    params
-    |> Map.delete(:actor_username)
-    |> Map.put(:actor, actor)
-    |> publish_one()
+    with {:ok, actor} <- Actor.get_cached(username: username) do
+      params
+      |> Map.delete(:actor_username)
+      |> Map.put(:actor, actor)
+      |> publish_one()
+    else
+      e ->
+        warn(params, "Could not find actor by username, try another way...")
+        publish_one(Map.drop(params, [:actor_username]))
+    end
   end
 
   def publish_one(%{actor_id: id} = params) when is_binary(id) do
     # special case for Tombstone actor
-    {:ok, actor} = ActivityPub.Object.get_cached(id: id)
-
-    params
-    |> Map.delete(:actor_id)
-    |> Map.put(:actor, actor)
-    |> publish_one()
+    with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
+      params
+      |> Map.delete(:actor_id)
+      |> Map.put(:actor, actor)
+      |> publish_one()
+    else
+      e ->
+        warn(e, "Could not find actor by ID")
+    end
   end
 
   def publish_one(%{json: json} = params) do

@@ -17,6 +17,9 @@ defmodule ActivityPub.Web do
   and import those modules here.
   """
 
+  import Untangle
+  alias ActivityPub.Config
+
   def controller do
     quote do
       use Phoenix.Controller, namespace: ActivityPub.Web
@@ -73,7 +76,21 @@ defmodule ActivityPub.Web do
     apply(__MODULE__, which, [])
   end
 
+  ### Helpers ###
+
   def base_url do
     ActivityPub.Federator.Adapter.base_url() || ActivityPub.Web.Endpoint.url()
+  end
+
+  def rate_limit_reached(conn, opts) do
+    limit_ms =
+      Keyword.get(opts, :limit_ms) ||
+        Config.get(Map.get(conn.private, :phoenix_controller) || :default_rate_limit_ms) || 10_000
+
+    conn
+    |> Plug.Conn.put_resp_header("retry-after", limit_ms |> div(1000) |> Integer.to_string())
+    |> Plug.Conn.send_resp(429, "Too Many Requests")
+    |> warn("responding with 429 Too Many Requests and retry-after header")
+    |> Plug.Conn.halt()
   end
 end

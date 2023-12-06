@@ -4,6 +4,17 @@ defmodule ActivityPub.Web.RedirectController do
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.WebFinger
 
+  @limit_num Application.compile_env(:activity_pub, __MODULE__, 20)
+  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 5_000)
+
+  plug Hammer.Plug,
+    rate_limit: {"activity_pub_api", @limit_ms, @limit_num},
+    by: :ip,
+    # when_nil: :raise,
+    on_deny: &ActivityPub.Web.rate_limit_reached/2
+
+  # when action == :object
+
   def object(conn, %{"uuid" => uuid}) do
     object =
       ActivityPub.Object.get_cached!(id: uuid) ||

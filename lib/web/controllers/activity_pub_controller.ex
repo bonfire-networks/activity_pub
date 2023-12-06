@@ -24,6 +24,17 @@ defmodule ActivityPub.Web.ActivityPubController do
   alias ActivityPub.Web.ObjectView
   # alias ActivityPub.Web.RedirectController
 
+  @limit_num Application.compile_env(:activity_pub, __MODULE__, 50)
+  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 5_000)
+
+  plug Hammer.Plug,
+    rate_limit: {"activity_pub_api", @limit_ms, @limit_num},
+    by: :ip,
+    # when_nil: :raise,
+    on_deny: &ActivityPub.Web.rate_limit_reached/2
+
+  # when action == :object
+
   def ap_route_helper(uuid) do
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 

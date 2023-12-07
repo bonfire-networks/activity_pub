@@ -65,7 +65,7 @@ defmodule ActivityPub.MixProject do
       {:oban, "~> 2.13.3"},
       # {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
-      {:tesla_extra, "~> 0.2"},
+      # {:tesla_extra, "~> 0.2"},
       {:http_signatures,
        git: "https://github.com/bonfire-networks/http_signatures",
        branch: "master"},

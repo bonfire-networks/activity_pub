@@ -62,7 +62,7 @@ defmodule ActivityPub.MixProject do
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
       {:mime, "~> 2.0.3"},
-      {:oban, "~> 2.13.3"},
+      {:oban, "~> 2.17"},
       # {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
       # {:tesla_extra, "~> 0.2"},

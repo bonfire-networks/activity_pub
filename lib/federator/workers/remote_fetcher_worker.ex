@@ -13,4 +13,7 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
       fetch_collection_entries: ActivityPub.Utils.maybe_to_atom(args["fetch_collection_entries"])
     )
   end
+
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(5)
 end

@@ -11,7 +11,7 @@ defmodule ActivityPub.Federator do
 
   import Untangle
 
-  def incoming_ap_doc(params) do
+  def enqueue_incoming_ap_doc(params) do
     ReceiverWorker.enqueue("incoming_ap_doc", %{"params" => params})
   end
 

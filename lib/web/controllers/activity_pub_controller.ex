@@ -335,12 +335,11 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp process_incoming(conn, params) do
-    Logger.metadata(action: info("incoming_ap_doc"))
-
     if Config.federating?() do
-      Federator.incoming_ap_doc(params)
+      Federator.enqueue_incoming_ap_doc(params)
       |> info("processed")
 
+      # TODO: async
       Instances.set_reachable(params["actor"])
 
       json(conn, "ok")

@@ -11,4 +11,7 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
     Logger.metadata(action: info(op))
     Federator.perform(:incoming_ap_doc, params)
   end
+
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(5)
 end

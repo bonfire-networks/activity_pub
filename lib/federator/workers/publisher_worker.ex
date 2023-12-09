@@ -50,4 +50,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
       Map.new(params, fn {k, v} -> {String.to_atom(k), v} end)
     )
   end
+
+  @impl Oban.Worker
+  def timeout(_job), do: :timer.minutes(5)
 end

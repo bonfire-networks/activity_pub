@@ -133,8 +133,6 @@ defmodule ActivityPub.Federator.Fetcher do
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
          {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("QUQUQUQUQU"),
          {:ok, object} <- cached_or_handle_incoming(data, opts) do
-      Instances.set_reachable(id)
-
       {:ok, object}
     else
       true ->
@@ -261,7 +259,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_outbox(other, opts) do
     with {:ok, %{data: %{"outbox" => outbox}}} when is_binary(outbox) <-
-           Actor.get_cached_or_fetch(other) do
+           Actor.get_cached(other) do
       fetch_outbox(%{"outbox" => outbox}, opts)
     end
   end
@@ -293,12 +291,16 @@ defmodule ActivityPub.Federator.Fetcher do
     # debug(self())
 
     with true <- Config.federating?() != false || {:error, "Federation is disabled"},
-         true <- allowed_recursion?(options[:depth]),
+         true <-
+           allowed_recursion?(options[:depth]) || {:error, "Stopping to avoid too much recursion"},
+         true <-
+           String.starts_with?(id, "http") || {:error, "Unsupported URL (should start with http)"},
          uri <- URI.parse(id),
+         true <- Instances.reachable?(uri) || {:error, "Instance was recently not reachable"},
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
-         true <- String.starts_with?(id, "http"),
-         false <- String.starts_with?(id, ActivityPub.Web.base_url()),
+         true <-
+           not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :local_actor},
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(uri),
@@ -307,16 +309,16 @@ defmodule ActivityPub.Federator.Fetcher do
              id,
              headers
            ),
+         _ <- Instances.set_reachable(uri),
          {:ok, data} <- Jason.decode(body),
          {:ok, _} <-
            {options[:skip_contain_origin_check] ||
               Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
       {:ok, data}
     else
-      {:ok, %{status: 401}} ->
+      {:ok, %{status: 401} = ret} ->
         debug(id, "Received a 401 - authentication required response")
-
-        {:error, :needs_login}
+        {:error, maybe_error_body(ret) || :needs_login}
 
       {:ok, %{status: 304}} ->
         debug(
@@ -335,8 +337,13 @@ defmodule ActivityPub.Federator.Fetcher do
       %Jason.DecodeError{} = error ->
         error("Invalid ActivityPub JSON")
 
-      {:error, :econnrefused} = e ->
+      {:error, :econnrefused} ->
+        Instances.set_unreachable(id)
         error("Could not connect to ActivityPub remote")
+
+      {:error, :local_actor} ->
+        warn("seems we're trying to fetch a local actor")
+        Adapter.get_actor_by_ap_id(id)
 
       {{:error, e}, data} ->
         error(data, e)
@@ -344,20 +351,36 @@ defmodule ActivityPub.Federator.Fetcher do
       {:error, e} ->
         error(e)
 
-      {:ok, %{status: code} = e} ->
-        error(e, "ActivityPub remote replied with HTTP #{code}")
+      {:ok, %{status: code} = ret} ->
+        error(ret, maybe_error_body(ret) || "ActivityPub remote replied with HTTP #{code}")
 
       {:reject, e} ->
         {:reject, e}
-
-      true ->
-        warn("seems we're trying to fetch a local actor")
-        Adapter.get_actor_by_ap_id(id)
 
       e ->
         error(e, "Error trying to connect with ActivityPub remote")
     end
   end
+
+  defp maybe_error_body(%{body: body, status: code}) when is_binary(body) and body != "" do
+    prefix = "Remote response with HTTP #{code}:"
+
+    case Jason.decode(body) do
+      {:ok, %{"error" => %{"message" => e}}} ->
+        "#{prefix} #{e}"
+
+      {:ok, %{"error" => e}} ->
+        "#{prefix} #{e}"
+
+      {:ok, %{"message" => e}} ->
+        "#{prefix} #{e}"
+
+      _ ->
+        nil
+    end
+  end
+
+  defp maybe_error_body(_), do: nil
 
   defp check_if_public(public) when public == true, do: :ok
   # discard for now, to avoid privacy leaks

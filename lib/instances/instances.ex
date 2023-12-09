@@ -30,11 +30,21 @@ defmodule ActivityPub.Instances do
     end
   end
 
+  def host(%URI{host: host}) do
+    host
+  end
+
   def host(url_or_host) when is_binary(url_or_host) do
     if url_or_host =~ ~r/^http/i do
       URI.parse(url_or_host).host
     else
       url_or_host
     end
+    |> case do
+      "" -> nil
+      host -> host
+    end
   end
+
+  def host(_), do: nil
 end

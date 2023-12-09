@@ -4,7 +4,7 @@ defmodule ActivityPub.Federator.Worker do
   alias ActivityPub.Config
 
   def worker_args(queue) do
-    case Config.get([:workers, :retries, queue]) do
+    case Config.get([:workers, :retries, queue], 3) do
       nil -> []
       max_attempts -> [max_attempts: max_attempts]
     end
@@ -18,7 +18,7 @@ defmodule ActivityPub.Federator.Worker do
       # Note: `max_attempts` is intended to be overridden in `new/2` call
       use Oban.Worker,
         queue: unquote(queue),
-        max_attempts: 1
+        max_attempts: 3
 
       def enqueueable(op, params, worker_args \\ []) do
         params = Map.merge(%{"op" => op, "repo" => ActivityPub.Utils.repo()}, params)

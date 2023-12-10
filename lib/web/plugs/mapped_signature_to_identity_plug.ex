@@ -49,7 +49,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
-        |> assign(:valid_signature, false)
+        |> assign(:valid_signature, nil)
 
       other ->
         info(other, "Failed to verify signature identity (no pattern matched)")
@@ -74,7 +74,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
         debug("key_id=#{inspect(key_id)}")
 
         conn
-        |> assign(:valid_signature, false)
+        |> assign(:valid_signature, nil)
 
       nil ->
         info("Failed to map identity from signature (lookup failure)")

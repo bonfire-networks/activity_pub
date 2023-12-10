@@ -34,7 +34,10 @@ defmodule ActivityPub.MRF do
   def subdomains_regex(domains) when is_list(domains) do
     for domain <- List.flatten(domains) do
       domain =
-        domain
+        case domain do
+          {domain, _} -> domain
+          _ -> domain
+        end
         |> String.replace(".", "\\.")
         |> String.replace("*", ".*")
 

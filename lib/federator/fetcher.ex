@@ -480,7 +480,7 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp fetch_page(page_id, items \\ [], opts \\ []) do
-    max = Config.get([:activitypub, :max_collection_objects], 10)
+    max = Config.get([:activity_pub, :max_collection_objects], 10)
 
     if Enum.count(items) >= max do
       info(

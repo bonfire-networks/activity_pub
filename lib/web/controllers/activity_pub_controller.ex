@@ -80,7 +80,12 @@ defmodule ActivityPub.Web.ActivityPubController do
   defp maybe_return_json(conn, meta, json, opts) do
     debug(json)
 
-    if opts[:exporting] == true or Adapter.actor_federating?(json |> Map.get("actor")) != false do
+    if opts[:exporting] == true or
+         Adapter.federate_actor?(
+           json |> Map.get("actor"),
+           :out,
+           Map.get(conn.assigns, :current_actor)
+         ) != false do
       Utils.return_json(conn, meta, json)
     else
       Utils.error_json(conn, "this actor is not currently federating", 403)
@@ -145,7 +150,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       get_format(conn) == "html" ->
         redirect_to_url(conn, username)
 
-      Adapter.actor_federating?(username) != false ->
+      Adapter.federate_actor?(username, :out, Map.get(conn.assigns, :current_actor)) != false ->
         actor_with_cache(conn, username)
 
       true ->

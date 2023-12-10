@@ -3,6 +3,7 @@
 defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
   import Plug.Conn
   import Untangle
+  alias ActivityPub.Config
 
   def init(options) do
     options
@@ -13,13 +14,14 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     conn
   end
 
-  def call(conn, _opts) do
+  def call(%{method: http_method} = conn, _opts) do
     Logger.metadata(action: info("HTTPSignaturePlug"))
 
-    if has_signature_header?(conn) do
+    if has_signature_header?(conn) &&
+         (http_method == "POST" or Config.get([:activity_pub, :reject_unsigned], false)) do
       # set (request-target) header to the appropriate value
       # we also replace the digest header with the one we computed
-      request_target = String.downcase("#{conn.method}") <> " #{conn.request_path}"
+      request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
 
       conn =
         conn

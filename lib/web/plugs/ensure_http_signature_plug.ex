@@ -7,7 +7,7 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
   Ensures HTTP signature has been validated by previous plugs on ActivityPub requests.
   """
   import Plug.Conn
-  import Phoenix.Controller, only: [get_format: 1, text: 2]
+  import Untangle
 
   alias ActivityPub.Config
 
@@ -18,14 +18,26 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
   def call(%{assigns: %{valid_signature: true}} = conn, _), do: conn
 
   def call(conn, _) do
-    with true <- get_format(conn) in ["json", "activity+json"],
-         true <- Config.get([:activitypub, :authorized_fetch_mode], true) do
-      conn
-      |> put_status(:unauthorized)
-      |> text("Request not signed")
-      |> halt()
-    else
-      _ -> conn
-    end
+    maybe_reject!(
+      conn,
+      conn.method != "POST" and Phoenix.Controller.get_format(conn) != "html" and
+        Config.get([:activity_pub, :reject_unsigned], false)
+    )
+  end
+
+  def maybe_reject!(conn, false), do: conn
+  def maybe_reject!(%{assigns: %{valid_signature: true}} = conn, _true), do: conn
+
+  def maybe_reject!(conn, _true) do
+    info("Rejecting ActivityPub request with invalid signature")
+    debug(conn)
+    unauthorized(conn)
+  end
+
+  def unauthorized(conn) do
+    conn
+    |> put_status(:unauthorized)
+    |> Phoenix.Controller.text("Please include an HTTP Signature in your requests")
+    |> halt()
   end
 end

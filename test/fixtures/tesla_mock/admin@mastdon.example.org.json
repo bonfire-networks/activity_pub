@@ -57,12 +57,12 @@
   "icon": {
     "type": "Image",
     "mediaType": "image/jpeg",
-    "url": "https://cdn.niu.moe/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+    "url": "https://cdn.niu.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
   },
   "image": {
     "type": "Image",
     "mediaType": "image/png",
-    "url": "https://cdn.niu.moe/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+    "url": "https://cdn.niu.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
   },
   "alsoKnownAs": [
     "http://exampleorg.local/users/foo"

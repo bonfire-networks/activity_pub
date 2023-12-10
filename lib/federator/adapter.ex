@@ -152,7 +152,18 @@ defmodule ActivityPub.Federator.Adapter do
     )
   end
 
-  def actor_federating?(actor) do
-    adapter().actor_federating?(actor)
+  @doc """
+  Whether this (local or remote) actor has federation enabled and/or is blocked on this instance
+
+  actor: the actor to check (eg. Alice)
+  direction: :in or :out - whether we're dealing with incoming federation or outgoing (optional)
+  by_actor: optionally another actor (eg. if Alice is sending something to Bob, this would be Bob) 
+  """
+  def federate_actor?(
+        actor,
+        direction \\ nil,
+        by_actor \\ nil
+      ) do
+    adapter().federate_actor?(actor, direction, by_actor)
   end
 end

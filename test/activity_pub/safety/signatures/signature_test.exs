@@ -1,5 +1,5 @@
 defmodule ActivityPub.Safety.SignatureTest do
-  use ActivityPub.Web.ConnCase, async: false
+  use ActivityPub.Web.ConnCase, async: true
 
   import ActivityPub.Factory
   import ExUnit.CaptureLog
@@ -25,8 +25,8 @@ defmodule ActivityPub.Safety.SignatureTest do
     65_537
   }
 
-  setup_all do
-    mock_global(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
+  setup do
+    mock(fn env -> apply(ActivityPub.Test.HttpRequestMock, :request, [env]) end)
     :ok
   end
 

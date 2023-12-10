@@ -636,7 +636,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(data, _), do: Map.delete(data, "replies")
 
-  defp replies_limit, do: Config.get([:activitypub, :note_replies_output_limit], 10)
+  defp replies_limit, do: Config.get([:activity_pub, :note_replies_output_limit], 10)
 
   @doc """
   Serialized Mastodon-compatible `replies` collection containing _self-replies_.

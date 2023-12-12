@@ -16,11 +16,13 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
   end
 
   def call(%{assigns: %{valid_signature: true}} = conn, _), do: conn
+
   def call(%{assigns: %{valid_signature: nil}} = conn, _) do
     info("Rejecting ActivityPub request from blocked actor/instance")
     debug(conn)
     ignore(conn)
   end
+
   def call(conn, _) do
     maybe_reject!(
       conn,
@@ -28,9 +30,10 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
         Config.get([:activity_pub, :reject_unsigned], false)
     )
   end
-  
+
   def maybe_reject!(conn, false), do: conn
   def maybe_reject!(%{assigns: %{valid_signature: true}} = conn, _true), do: conn
+
   def maybe_reject!(conn, _true) do
     info("Rejecting ActivityPub request with invalid signature")
     debug(conn)
@@ -49,5 +52,4 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
     |> Phoenix.Controller.text("OK")
     |> halt()
   end
-
 end

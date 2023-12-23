@@ -6,7 +6,7 @@ defmodule ActivityPub.Actor do
   import ActivityPub.Utils
   use Arrows
   import Untangle
-  import Ecto.Query
+  # import Ecto.Query
 
   alias ActivityPub.Config
   require Config
@@ -320,7 +320,7 @@ defmodule ActivityPub.Actor do
   def update_actor(actor_id, %{"id" => ap_id, "type" => "Tombstone"} = data) do
     debug(actor_id, "Making tombstone for actor")
 
-    with {:ok, object} <-
+    with {:ok, _object} <-
            save_actor_tombstone(
              %Actor{data: data, local: nil, ap_id: ap_id},
              Map.drop(data, ["@context"])
@@ -342,10 +342,10 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp check_if_time_to_update(actor) do
-    (NaiveDateTime.diff(NaiveDateTime.utc_now(Calendar.ISO), actor.updated_at) >= 86_400)
-    |> info("Time to update the actor?")
-  end
+  # defp check_if_time_to_update(actor) do
+  #   (NaiveDateTime.diff(NaiveDateTime.utc_now(Calendar.ISO), actor.updated_at) >= 86_400)
+  #   |> info("Time to update the actor?")
+  # end
 
   # defp username_from_ap_id(ap_id) do
   #   ap_id
@@ -487,13 +487,13 @@ defmodule ActivityPub.Actor do
     Object.invalidate_cache(actor)
   end
 
-  defp get_actor_from_follow(follow) do
-    with {:ok, actor} <- get_cached(pointer: follow.creator_id) do
-      actor
-    else
-      _ -> nil
-    end
-  end
+  # defp get_actor_from_follow(follow) do
+  #   with {:ok, actor} <- get_cached(pointer: follow.creator_id) do
+  #     actor
+  #   else
+  #     _ -> nil
+  #   end
+  # end
 
   def get_followings(actor) do
     followings =
@@ -524,7 +524,7 @@ defmodule ActivityPub.Actor do
     {:ok, followers}
   end
 
-  def delete(%Actor{id: id} = actor) do
+  def delete(%Actor{id: _id} = actor) do
     # TODO: only add a tombstone for local actors
 
     ret =
@@ -586,14 +586,14 @@ defmodule ActivityPub.Actor do
   end
 
   # TODO
-  defp get_and_format_collections_for_actor(_actor) do
-    []
-  end
+  # defp get_and_format_collections_for_actor(_actor) do
+  #   []
+  # end
 
   # TODO
-  defp get_and_format_resources_for_actor(_actor) do
-    []
-  end
+  # defp get_and_format_resources_for_actor(_actor) do
+  #   []
+  # end
 
   defp update_actor_data(actor, data, fetch_remote? \\ true)
 
@@ -656,21 +656,21 @@ defmodule ActivityPub.Actor do
     set_cache(get(ap_id: actor.ap_id))
   end
 
-  defp get_creator_ap_id(actor) do
-    with {:ok, actor} <- get_cached(pointer: actor.creator_id) do
-      actor.ap_id
-    else
-      {:error, _} -> nil
-    end
-  end
+  # defp get_creator_ap_id(actor) do
+  #   with {:ok, actor} <- get_cached(pointer: actor.creator_id) do
+  #     actor.ap_id
+  #   else
+  #     {:error, _} -> nil
+  #   end
+  # end
 
-  defp get_community_ap_id(actor) do
-    with {:ok, actor} <- get_cached(pointer: actor.community_id) do
-      actor.ap_id
-    else
-      {:error, _} -> nil
-    end
-  end
+  # defp get_community_ap_id(actor) do
+  #   with {:ok, actor} <- get_cached(pointer: actor.community_id) do
+  #     actor.ap_id
+  #   else
+  #     {:error, _} -> nil
+  #   end
+  # end
 
   def check_actor_is_active(actor) do
     if not is_nil(actor) do

@@ -7,7 +7,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   alias ActivityPub.Safety.Keys
   alias Keys, as: Signature
   alias ActivityPub.Actor
-  alias ActivityPub.Utils
+  # alias ActivityPub.Utils
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Object
 

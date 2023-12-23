@@ -2,7 +2,7 @@ defmodule ActivityPub.Fixtures do
   import Untangle
   use Arrows
 
-  alias ActivityPub.Utils
+  # alias ActivityPub.Utils
 
   @mod_path __DIR__
   def file(path), do: File.read!(@mod_path <> "/../test/" <> path)
@@ -751,7 +751,7 @@ defmodule ActivityPub.Fixtures do
       # end,
       #  [
       #    {"Accept", "application/activity+json"}
-      #  ] 
+      #  ]
       "https://mastodon.local/users/deleted" => fn "https://mastodon.local/users/deleted",
                                                    _,
                                                    _,
@@ -1575,10 +1575,10 @@ defmodule ActivityPub.Fixtures do
 
   def get(url, query, body, headers) when is_list(headers) and headers != [] do
     # case [{"Accept", headers[:Accept] || headers[:"Accept"]}] do
-    #   ^headers -> 
+    #   ^headers ->
     #     debug("try with maybe_get_local")
     #     maybe_get_local(url, query, body, headers)
-    #   head -> 
+    #   head ->
     #   debug("try with get/4")
 
     get(url, query, body, [])
@@ -1614,7 +1614,7 @@ defmodule ActivityPub.Fixtures do
   def none(url, query, body, headers) do
     raise "No implemented mock response for get #{inspect(url)}, #{inspect(query)}, #{inspect(headers)}"
 
-    # error(body, 
+    # error(body,
     #   "No implemented mock response for get #{inspect(url)}, #{inspect query}, #{inspect(headers)}"
     # )
 

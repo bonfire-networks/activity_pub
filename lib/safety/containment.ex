@@ -48,7 +48,7 @@ defmodule ActivityPub.Safety.Containment do
   Checks that an imported AP object's actor matches the host it came from.
   """
 
-  def contain_origin(id, %{"type" => type} = params)
+  def contain_origin(_id, %{"type" => type} = _params)
       when ActivityPub.Config.is_in(type, :supported_actor_types) or
              ActivityPub.Config.is_in(type, :collection_types) or type in ["Author", "Tombstone"],
       do: :ok
@@ -116,9 +116,9 @@ defmodule ActivityPub.Safety.Containment do
 
   def contain_child(_), do: :ok
 
-  def contain_uri(id, data) when data == %{} or is_nil(data), do: :ok
+  def contain_uri(_id, data) when data == %{} or is_nil(data), do: :ok
 
-  def contain_uri(id, %{"id" => json_id} = data) do
+  def contain_uri(id, %{"id" => json_id} = _data) do
     id_uri = URI.parse(id)
     json_id_uri = URI.parse(json_id)
 

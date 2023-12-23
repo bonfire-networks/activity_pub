@@ -7,9 +7,9 @@ defmodule ActivityPub.Safety.Signatures do
   import Untangle
   use Arrows
 
-  alias ActivityPub.Config
-  alias ActivityPub.Utils
-  alias ActivityPub.Actor
+  # alias ActivityPub.Config
+  # alias ActivityPub.Utils
+  # alias ActivityPub.Actor
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Fetcher
 

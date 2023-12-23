@@ -336,7 +336,7 @@ defmodule ActivityPub.Object do
       {:ok, object} ->
         do_update_existing(object, attrs)
 
-      e ->
+      _e ->
         error(object_id, "Could not find the object to update")
     end
   end
@@ -428,7 +428,7 @@ defmodule ActivityPub.Object do
   defp lazy_put_object_defaults(%{data: data}, activity_id, pointer, context),
     do: lazy_put_object_defaults(data, activity_id, pointer, context)
 
-  defp lazy_put_object_defaults(map, activity_id, pointer, context) do
+  defp lazy_put_object_defaults(map, _activity_id, pointer, context) do
     map
     |> Map.put_new_lazy("id", fn ->
       map["url"] ||
@@ -458,13 +458,13 @@ defmodule ActivityPub.Object do
       get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id) ||
         maybe_fetch(ap_id, fetch_remote?)
 
-  def normalize(_, fetch_remote?, pointer) when is_binary(pointer),
+  def normalize(_, _fetch_remote?, pointer) when is_binary(pointer),
     do: get_cached!(pointer: pointer)
 
   def normalize(ap_id, fetch_remote?, _) when is_binary(ap_id),
     do: get_cached!(ap_id: ap_id) || maybe_fetch(ap_id, fetch_remote?)
 
-  def normalize(%{"id" => ap_id} = data, false, pointer)
+  def normalize(%{"id" => ap_id} = _data, false, pointer)
       when is_binary(ap_id) do
     normalize(ap_id, false, pointer) || nil
   end
@@ -567,7 +567,7 @@ defmodule ActivityPub.Object do
   end
 
   def make_tombstone(
-        %{data: %{"id" => id, "type" => type} = data},
+        %{data: %{"id" => id, "type" => type} = _data},
         deleted \\ DateTime.utc_now()
       ) do
     %{

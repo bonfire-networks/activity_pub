@@ -334,7 +334,7 @@ defmodule ActivityPub.Federator.Fetcher do
         warn(id, "ActivityPub remote replied with 404")
         {:error, :not_found}
 
-      %Jason.DecodeError{} = error ->
+      %Jason.DecodeError{} = _error ->
         error("Invalid ActivityPub JSON")
 
       {:error, :econnrefused} ->
@@ -382,9 +382,9 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp maybe_error_body(_), do: nil
 
-  defp check_if_public(public) when public == true, do: :ok
+  # defp check_if_public(public) when public == true, do: :ok
   # discard for now, to avoid privacy leaks
-  defp check_if_public(_public), do: {:error, "Not public"}
+  # defp check_if_public(_public), do: {:error, "Not public"}
 
   @spec fetch_collection(String.t() | map()) :: {:ok, [Object.t()]} | {:error, any()}
   def fetch_collection(ap_id, opts \\ [])
@@ -479,7 +479,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp fetch_page(page_id, items \\ [], opts \\ []) do
+  defp fetch_page(page_id, items \\ [], _opts \\ []) do
     max = Config.get([:activity_pub, :max_collection_objects], 10)
 
     if Enum.count(items) >= max do
@@ -519,12 +519,12 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp objects_from_collection(page, opts \\ [])
 
-  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
+  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, _opts)
        when is_list(items) and items != [] and
               type in ["OrderedCollection", "OrderedCollectionPage"],
        do: maybe_next_page(page, items)
 
-  defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
+  defp objects_from_collection(%{"type" => type, "items" => items} = page, _opts)
        when is_list(items) and items != [] and type in ["Collection", "CollectionPage"],
        do: maybe_next_page(page, items)
 

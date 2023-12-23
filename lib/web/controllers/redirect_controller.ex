@@ -2,7 +2,7 @@ defmodule ActivityPub.Web.RedirectController do
   use ActivityPub.Web, :controller
   import Untangle
   alias ActivityPub.Federator.Adapter
-  alias ActivityPub.Federator.WebFinger
+  # alias ActivityPub.Federator.WebFinger
 
   @limit_num Application.compile_env(:activity_pub, __MODULE__, 20)
   @limit_ms Application.compile_env(:activity_pub, __MODULE__, 5_000)

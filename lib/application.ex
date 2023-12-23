@@ -97,18 +97,18 @@ defmodule ActivityPub.Application do
       else: []
   end
 
-  defp oban_config() do
-    opts = Application.get_env(:activity_pub, Oban)
+  # defp oban_config() do
+  #   opts = Application.get_env(:activity_pub, Oban)
 
-    # Prevent running queues or scheduling jobs from an iex console, i.e. when starting app with `iex -S mix`
-    if Code.ensure_loaded?(IEx) and IEx.started?() do
-      opts
-      |> Keyword.put(:crontab, false)
-      |> Keyword.put(:queues, false)
-    else
-      opts
-    end
-  end
+  #   # Prevent running queues or scheduling jobs from an iex console, i.e. when starting app with `iex -S mix`
+  #   if Code.ensure_loaded?(IEx) and IEx.started?() do
+  #     opts
+  #     |> Keyword.put(:crontab, false)
+  #     |> Keyword.put(:queues, false)
+  #   else
+  #     opts
+  #   end
+  # end
 
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.

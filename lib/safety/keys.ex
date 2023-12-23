@@ -10,8 +10,8 @@ defmodule ActivityPub.Safety.Keys do
   alias ActivityPub.Actor
   alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
-  alias ActivityPub.Safety.Signatures
-  alias ActivityPub.Federator.Fetcher
+  # alias ActivityPub.Safety.Signatures
+  # alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.Adapter
 
   @known_suffixes ["/publickey", "/main-key"]
@@ -38,7 +38,7 @@ defmodule ActivityPub.Safety.Keys do
     {:ok, public_key_pem}
   end
 
-  def public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = actor) do
+  def public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = _actor) do
     {:ok, key}
   end
 

@@ -359,10 +359,10 @@ defmodule ActivityPub.Utils do
       # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
       Jason.encode(json)
     else
-      {:error, code, msg} ->
+      {:error, _code, msg} ->
         %{error: msg}
 
-      other ->
+      _other ->
         %{error: "unknown"}
     end
   end
@@ -490,7 +490,7 @@ defmodule ActivityPub.Utils do
   end
 
   @doc """
-  Takes a map or keyword list, and returns a map with any atom keys converted to string keys. It can optionally do so recursively. 
+  Takes a map or keyword list, and returns a map with any atom keys converted to string keys. It can optionally do so recursively.
   """
   def stringify_keys(map, recursive \\ false)
   def stringify_keys(nil, _recursive), do: nil

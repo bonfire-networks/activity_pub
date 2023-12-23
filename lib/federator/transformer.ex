@@ -14,7 +14,7 @@ defmodule ActivityPub.Federator.Transformer do
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
-  alias ActivityPub.Safety.Containment
+  # alias ActivityPub.Safety.Containment
 
   @doc """
   Translates MN Entity to an AP compatible format
@@ -501,18 +501,18 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_content_map(object), do: object
 
-  defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => _} = object, options)
-       when is_binary(reply_id) do
-    options = Keyword.put(options, :fetch, true)
+  # defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => _} = object, options)
+  #      when is_binary(reply_id) do
+  #   options = Keyword.put(options, :fetch, true)
 
-    with %Object{data: %{"type" => "Question"}} <- Object.normalize(reply_id, options) do
-      Map.put(object, "type", "Answer")
-    else
-      _ -> object
-    end
-  end
+  #   with %Object{data: %{"type" => "Question"}} <- Object.normalize(reply_id, options) do
+  #     Map.put(object, "type", "Answer")
+  #   else
+  #     _ -> object
+  #   end
+  # end
 
-  defp fix_type(object, _options), do: object
+  # defp fix_type(object, _options), do: object
 
   # See https://akkoma.dev/FoundKeyGang/FoundKey/issues/343
   # Misskey/Foundkey drops some of the custom formatting when it sends remotely
@@ -544,7 +544,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp fix_mfm_content(data), do: data
 
-  def format_input(text, "text/x.misskeymarkdown", options \\ []) do
+  def format_input(text, "text/x.misskeymarkdown", _options \\ []) do
     # TODO: only run if optional mfm_parser lib and Earmark are available
     text
     |> Earmark.as_html!(breaks: true, compact_output: true)
@@ -795,7 +795,7 @@ defmodule ActivityPub.Federator.Transformer do
     with nil <- Object.get_activity_for_object_ap_id(object) do
       ActivityPub.create(params)
     else
-      %{data: %{"type" => "Tombstone"}} = activity ->
+      %{data: %{"type" => "Tombstone"}} = _activity ->
         debug("do not save Tombstone in adapter")
 
         :skip
@@ -967,7 +967,7 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(
         %{
           "type" => "Update",
-          "object" => %{"type" => object_type} = object,
+          "object" => %{"type" => _object_type} = object,
           "actor" => actor
         } = data
       ) do

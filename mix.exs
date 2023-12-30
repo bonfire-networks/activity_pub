@@ -78,20 +78,18 @@ defmodule ActivityPub.MixProject do
       {:chaperon, "~> 0.3.1", only: [:dev, :test]},
       {:plug_http_validator, git: "https://github.com/bonfire-networks/plug_http_validator", branch: "pr-naive-datetime"},
       {
-        :pointers_ulid,
-        # "~> 0.2"
-        git: "https://github.com/bonfire-networks/pointers_ulid", branch: "main"
+        :needle_ulid,
+        "~> 0.3"
+        #git: "https://github.com/bonfire-networks/needle_ulid", branch: "main"
       },
-      # {:pointers,
+      # {:needle,
       #   #"~> 0.5"
-      #   git: "https://github.com/bonfire-networks/pointers", branch: "main",
+      #   git: "https://github.com/bonfire-networks/needle", branch: "main",
       #   optional: true
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
-      {:arrows,
-       git: "https://github.com/bonfire-networks/arrows", branch: "main"},
-      {:untangle,
-       git: "https://github.com/bonfire-networks/untangle", branch: "main"}
+      {:arrows, "~> 0.1"},
+      {:untangle, "~> 0.3"}
     ]
   end
 

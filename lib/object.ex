@@ -10,7 +10,7 @@ defmodule ActivityPub.Object do
   alias ActivityPub.Object
   alias ActivityPub.MRF
   alias ActivityPub.Queries
-  alias Pointers.ULID
+  alias Needle.ULID
   import ActivityPub.Utils
   alias ActivityPub.Utils
 
@@ -25,7 +25,7 @@ defmodule ActivityPub.Object do
     field(:public, :boolean, default: false)
     # is it an object rather than an activity?
     field(:is_object, :boolean, default: false)
-    belongs_to(:pointer, Pointers.Pointer, type: ULID)
+    belongs_to(:pointer, Needle.Pointer, type: ULID)
 
     # Attention: these is are fake relations, don't try to join them blindly and expect it to work!
     # The foreign keys are embedded in a jsonb field.

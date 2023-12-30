@@ -85,7 +85,7 @@ defmodule ActivityPub.Factory do
   end
 
   def actor_factory(attrs \\ %{}) do
-    username = sequence(:username, &"actor_#{&1}_#{Pointers.ULID.generate()}")
+    username = sequence(:username, &"actor_#{&1}_#{Needle.ULID.generate()}")
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
     id =

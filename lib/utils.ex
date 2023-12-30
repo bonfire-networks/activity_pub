@@ -151,7 +151,7 @@ defmodule ActivityPub.Utils do
   end
 
   def is_ulid?(str) when is_binary(str) and byte_size(str) == 26 do
-    with :error <- Pointers.ULID.cast(str) do
+    with :error <- Needle.ULID.cast(str) do
       false
     else
       _ -> true

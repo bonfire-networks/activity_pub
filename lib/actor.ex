@@ -487,14 +487,6 @@ defmodule ActivityPub.Actor do
     Object.invalidate_cache(actor)
   end
 
-  # defp get_actor_from_follow(follow) do
-  #   with {:ok, actor} <- get_cached(pointer: follow.creator_id) do
-  #     actor
-  #   else
-  #     _ -> nil
-  #   end
-  # end
-
   def get_followings(actor) do
     followings =
       Adapter.get_following_local_ids(actor)
@@ -585,16 +577,6 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  # TODO
-  # defp get_and_format_collections_for_actor(_actor) do
-  #   []
-  # end
-
-  # TODO
-  # defp get_and_format_resources_for_actor(_actor) do
-  #   []
-  # end
-
   defp update_actor_data(actor, data, fetch_remote? \\ true)
 
   defp update_actor_data(%{ap_id: ap_id}, data, fetch_remote?) when is_binary(ap_id) do
@@ -655,22 +637,6 @@ defmodule ActivityPub.Actor do
     # Return Actor
     set_cache(get(ap_id: actor.ap_id))
   end
-
-  # defp get_creator_ap_id(actor) do
-  #   with {:ok, actor} <- get_cached(pointer: actor.creator_id) do
-  #     actor.ap_id
-  #   else
-  #     {:error, _} -> nil
-  #   end
-  # end
-
-  # defp get_community_ap_id(actor) do
-  #   with {:ok, actor} <- get_cached(pointer: actor.community_id) do
-  #     actor.ap_id
-  #   else
-  #     {:error, _} -> nil
-  #   end
-  # end
 
   def check_actor_is_active(actor) do
     if not is_nil(actor) do

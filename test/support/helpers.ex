@@ -27,7 +27,7 @@ defmodule ActivityPub.Test.Helpers do
   def follow(actor_1, actor_2) do
     # TODO: make into a generic adapter callback?
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do
-      Bonfire.Social.Follows.follow(user_by_ap_id(actor_1), user_by_ap_id(actor_2))
+      Bonfire.Social.Graph.Follows.follow(user_by_ap_id(actor_1), user_by_ap_id(actor_2))
     else
       ActivityPub.LocalActor.follow(actor_1, actor_2)
     end
@@ -35,7 +35,7 @@ defmodule ActivityPub.Test.Helpers do
 
   def following?(actor_1, actor_2) do
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do
-      Bonfire.Social.Follows.following?(user_by_ap_id(actor_1), user_by_ap_id(actor_2))
+      Bonfire.Social.Graph.Follows.following?(user_by_ap_id(actor_1), user_by_ap_id(actor_2))
     else
       # TODO
       # ActivityPub.LocalActor.following?(actor_1, actor_2)

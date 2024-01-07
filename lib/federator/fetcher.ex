@@ -304,18 +304,27 @@ defmodule ActivityPub.Federator.Fetcher do
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(uri),
-         {:ok, %{body: body, status: code}} when code in 200..299 <-
+         {:ok, %{body: body, status: code, headers: headers}} when code in 200..299 <-
            HTTP.get(
              id,
              headers
            ),
-         _ <- Instances.set_reachable(uri),
-         {:ok, data} <- Jason.decode(body),
-         {:ok, _} <-
-           {options[:skip_contain_origin_check] ||
-              Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
-      {:ok, data}
+         _ <- Instances.set_reachable(uri) do
+      with {:ok, data} <- Jason.decode(body),
+           {:ok, _} <-
+             {options[:skip_contain_origin_check] ||
+                Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
+        {:ok, data}
+      else
+        returned -> handle_fetch_error(returned, id, options, code, headers)
+      end
     else
+      returned -> handle_fetch_error(returned, id, options)
+    end
+  end
+
+  defp handle_fetch_error(returned, id, options, status \\ nil, headers \\ nil) do
+    case returned do
       {:ok, %{status: 401} = ret} ->
         debug(id, "Received a 401 - authentication required response")
         {:error, maybe_error_body(ret) || :needs_login}
@@ -330,12 +339,46 @@ defmodule ActivityPub.Federator.Fetcher do
           _ -> {:ok, id}
         end
 
+      {:ok, %{status: code, body: body}}
+      when code in [404, 410] and is_binary(body) and body != "" ->
+        with true <- options[:return_tombstones],
+             {:ok, data} <- Jason.decode(body) do
+          warn(id, "ActivityPub remote replied with #{code} and an object (probably a Tombstone)")
+          {:ok, data}
+        else
+          e ->
+            warn(e, "ActivityPub remote replied with #{code}, and could not process object")
+            {:error, :not_found}
+        end
+
       {:ok, %{status: code}} when code in [404, 410] ->
-        warn(id, "ActivityPub remote replied with 404")
+        warn(id, "ActivityPub remote replied with #{code}")
         {:error, :not_found}
 
-      %Jason.DecodeError{} = _error ->
-        error("Invalid ActivityPub JSON")
+      {:error, %Jason.DecodeError{data: data}} ->
+        with true <- is_list(headers),
+             linked_object_id when is_binary(linked_object_id) <-
+               Enum.find_value(headers, fn
+                 {"link", link} -> maybe_parse_header_url(link, "application/activity+json")
+                 _ -> false
+               end) do
+          info(headers, "fetch activity+json link found in headers")
+          fetch_remote_object_from_id(linked_object_id, options)
+        else
+          e ->
+            error(e, "Could not fallback to finding the object in headers")
+
+            with {:ok, doc} <- Floki.parse_document(data),
+                 link <- Floki.find(doc, "link[type='application/activity+json']"),
+                 [linked_object_id] when linked_object_id != id <- Floki.attribute(link, "href") do
+              info(link, "fetch activity+json link found in html")
+              fetch_remote_object_from_id(linked_object_id, options)
+            else
+              e ->
+                error(e, "Could not fallback to finding the object in (headers nor) HTML")
+                error(data, "Invalid ActivityPub JSON")
+            end
+        end
 
       {:error, :econnrefused} ->
         Instances.set_unreachable(id)
@@ -359,6 +402,16 @@ defmodule ActivityPub.Federator.Fetcher do
 
       e ->
         error(e, "Error trying to connect with ActivityPub remote")
+    end
+  end
+
+  def maybe_parse_header_url(str, type) do
+    case String.split(str, ">", parts: 2) do
+      [url_part, rest] ->
+        if String.contains?(rest, type), do: String.trim_leading(url_part, "<")
+
+      _ ->
+        nil
     end
   end
 

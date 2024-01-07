@@ -54,15 +54,15 @@ defmodule ActivityPub.Web.Router do
         # note: singular is not canonical
         get("/actor/:username", ActivityPubController, :actor)
 
-        get("/shared_inbox", ActivityPubController, :inbox_info)
+        get("/shared_inbox", IncomingActivityPubController, :inbox_info)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
         pipe_through(:signed_activity_pub)
 
-        post("/actors/:username/inbox", ActivityPubController, :inbox)
-        post("/shared_inbox", ActivityPubController, :inbox)
+        post("/actors/:username/inbox", IncomingActivityPubController, :inbox)
+        post("/shared_inbox", IncomingActivityPubController, :inbox)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

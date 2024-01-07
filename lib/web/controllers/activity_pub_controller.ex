@@ -24,8 +24,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   alias ActivityPub.Web.ObjectView
   # alias ActivityPub.Web.RedirectController
 
-  @limit_num Application.compile_env(:activity_pub, __MODULE__, 50)
-  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 5_000)
+  @limit_num Application.compile_env(:activity_pub, __MODULE__, 60)
+  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 60_000)
 
   plug Hammer.Plug,
     rate_limit: {"activity_pub_api", @limit_ms, @limit_num},
@@ -240,116 +240,6 @@ defmodule ActivityPub.Web.ActivityPubController do
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
       |> render("outbox.json", %{actor: actor})
-    end
-  end
-
-  def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
-    process_incoming(conn, params)
-  end
-
-  # accept (but verify) unsigned Creates
-  # def inbox(conn, %{"type" => "Create"} = params) do
-  #   maybe_process_unsigned(conn, params, nil)
-  # end
-
-  def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
-    maybe_process_unsigned(conn, params, true)
-  end
-
-  def inbox(conn, params) do
-    maybe_process_unsigned(conn, params, false)
-  end
-
-  def inbox_info(conn, params) do
-    if Config.federating?() do
-      Utils.error_json(conn, "this endpoint only accepts POST requests", 403)
-    else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
-    end
-  end
-
-  def noop(conn, _params) do
-    json(conn, "ok")
-  end
-
-  defp maybe_process_unsigned(conn, params, signed?) do
-    if Config.federating?() do
-      headers = Enum.into(conn.req_headers, %{})
-
-      if signed? and is_binary(headers["signature"]) do
-        if String.contains?(headers["signature"], params["actor"]) do
-          error(
-            headers,
-            "Unknown HTTP signature validation error, will attempt re-fetching AP activity from source"
-          )
-        else
-          error(
-            headers,
-            "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source"
-          )
-        end
-      else
-        error(
-          params,
-          "No HTTP signature provided, will attempt re-fetching AP activity from source (note: if using a reverse proxy make sure you are forwarding the HTTP Host header)"
-        )
-      end
-
-      with id when is_binary(id) <-
-             params["id"],
-           {:ok, object} <-
-             Fetcher.enqueue_fetch(id) do
-        if signed? == true do
-          debug(params, "HTTP Signature was invalid - unsigned activity workaround enqueued")
-
-          Utils.error_json(
-            conn,
-            "HTTP Signature was invalid - object was not accepted as-in and will instead be re-fetched from origin",
-            401
-          )
-        else
-          debug(params, "No HTTP Signature provided - unsigned activity workaround enqueued")
-
-          Utils.error_json(
-            conn,
-            "Please send activities with HTTP Signature - object was not accepted as-in and will instead be re-fetched from origin",
-            401
-          )
-        end
-      else
-        e ->
-          if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
-            warn(
-              e,
-              "Unsigned incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication. Accept anyway because ACCEPT_UNSIGNED_ACTIVITIES is set in env."
-            )
-
-            process_incoming(conn, params)
-          else
-            error(
-              e,
-              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
-            )
-
-            Utils.error_json(conn, "please send signed activities - activity was rejected", 401)
-          end
-      end
-    else
-      Utils.error_json(conn, "This instance is not currently federating", 403)
-    end
-  end
-
-  defp process_incoming(conn, params) do
-    if Config.federating?() do
-      Federator.enqueue_incoming_ap_doc(params)
-      |> info("processed")
-
-      # TODO: async
-      Instances.set_reachable(params["actor"])
-
-      json(conn, "ok")
-    else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
     end
   end
 

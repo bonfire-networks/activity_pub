@@ -4,6 +4,11 @@ defmodule ActivityPub.Pruner do
   """
   @remote_misc_retention_days 10
   @remote_post_retention_days 30
+  @default_prune_objects [
+    prune_orphaned_activities: true,
+    keep_threads: false,
+    keep_non_public: false
+  ]
 
   alias ActivityPub.Object
   alias ActivityPub.Config
@@ -14,7 +19,7 @@ defmodule ActivityPub.Pruner do
 
   def prune_all(cutoff_days \\ nil) do
     Logger.info("Pruning old data from the database")
-    prune_objects(remote_post_retention_days: cutoff_days)
+    prune_objects(@default_prune_objects ++ [remote_post_retention_days: cutoff_days])
 
     prune_deletes(cutoff_days)
 
@@ -27,9 +32,7 @@ defmodule ActivityPub.Pruner do
     prune_tombstones(cutoff_days)
   end
 
-  def prune_objects(
-        options \\ [prune_orphaned_activities: true, keep_threads: false, keep_non_public: false]
-      ) do
+  def prune_objects(options \\ @default_prune_objects) do
     # TODO: do not keep threads by default after we're sure reply_to still works for pruned posts
 
     deadline =
@@ -144,7 +147,7 @@ defmodule ActivityPub.Pruner do
 
     # Prune activities who were linked to an array of pruned objects
     """
-    delete from  ap_object
+    delete from ap_object
     where id in (
       select a.id from  ap_object a
       join json_array_elements_text((a."data" -> 'object')::json) as j on jsonb_typeof(a."data" -> 'object') = 'array'

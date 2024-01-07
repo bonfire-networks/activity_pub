@@ -103,8 +103,11 @@ defmodule ActivityPub.Actor do
     with {:ok, actor} <- Adapter.get_actor_by_username(username) do
       {:ok, actor}
     else
+      {:error, :not_found} ->
+        error(username, "Adapter did not find a local actor")
+
       e ->
-        error(e, "Adapter did not find a local actor")
+        error(e, "Adapter could not find a local actor")
         {:error, :not_found}
     end
   end
@@ -127,8 +130,11 @@ defmodule ActivityPub.Actor do
         with {:ok, actor} <- Adapter.get_actor_by_id(id) do
           {:ok, actor}
         else
+          {:error, :not_found} ->
+            error(id, "Adapter did not find a local actor")
+
           e ->
-            error(e, "Adapter did not find a local actor")
+            error(e, "Adapter could not find a local actor")
             {:error, :not_found}
         end
     end

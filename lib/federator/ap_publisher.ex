@@ -107,7 +107,8 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   def publish_one(%{actor_id: id} = params) when is_binary(id) do
-    # special case for Tombstone actor
+    debug("special case for Tombstone actor")
+
     with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
       params
       |> Map.delete(:actor_id)

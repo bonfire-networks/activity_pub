@@ -136,7 +136,7 @@ defmodule ActivityPub.Federator.Fetcher do
       {:ok, object}
     else
       true ->
-        warn("seems we're trying to fetch a local actor")
+        warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
         Adapter.get_actor_by_ap_id(id)
 
       other ->
@@ -385,7 +385,7 @@ defmodule ActivityPub.Federator.Fetcher do
         error("Could not connect to ActivityPub remote")
 
       {:error, :local_actor} ->
-        warn("seems we're trying to fetch a local actor")
+        warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
         Adapter.get_actor_by_ap_id(id)
 
       {{:error, e}, data} ->

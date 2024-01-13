@@ -37,6 +37,7 @@ defmodule ActivityPub.Object do
   end
 
   def get_cached(id: id) when is_binary(id), do: do_get_cached(:id, id)
+  # def get_cached(uuid: id) when is_binary(id), do: do_get_cached(:uuid, id)
   def get_cached(ap_id: id) when is_binary(id), do: do_get_cached(:ap_id, id)
   def get_cached(pointer: id) when is_binary(id), do: do_get_cached(:pointer, id)
 
@@ -52,12 +53,12 @@ defmodule ActivityPub.Object do
 
   def get_cached(id) when is_binary(id) do
     if Utils.is_ulid?(id) do
-      get(pointer: id)
+      get_cached(pointer: id)
     else
       if String.starts_with?(id, "http") do
-        get(ap_id: id)
+        get_cached(ap_id: id)
       else
-        get(id: id)
+        get_cached(id: id)
       end
     end
   end
@@ -86,11 +87,19 @@ defmodule ActivityPub.Object do
     if Utils.is_ulid?(id) do
       get(pointer: id)
     else
-      get(id: id)
+      get(uuid: id)
     end
   end
 
+  defp get(id: id) when is_binary(id) and byte_size(id) == 26 do
+    get(id)
+  end
+
   defp get(id: id) when is_binary(id) do
+    get(uuid: id)
+  end
+
+  defp get(uuid: id) when is_binary(id) do
     case repo().get(Object, id) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}

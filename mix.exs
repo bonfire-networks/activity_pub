@@ -75,7 +75,6 @@ defmodule ActivityPub.MixProject do
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},
-      {:chaperon, "~> 0.3.1", only: [:dev, :test]},
       {:plug_http_validator, git: "https://github.com/bonfire-networks/plug_http_validator", branch: "pr-naive-datetime"},
       {
         :needle_ulid,

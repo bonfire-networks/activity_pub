@@ -6,6 +6,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
   use ActivityPub.Web.ConnCase, async: false
   alias ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug
   alias ActivityPub.Config
+  alias ActivityPub.Safety.Signatures
 
   import Tesla.Mock
   import Plug.Conn
@@ -25,6 +26,12 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     conn =
       build_conn(:get, "/doesntmattter")
       |> set_signature("https://mastodon.local/users/admin")
+
+    # added this line because the plug should not fetch but only use an already known key/actor
+    {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+    conn =
+      conn
       |> MappedSignatureToIdentityPlug.call(%{})
 
     refute is_nil(Map.get(conn.assigns, :current_actor))
@@ -34,6 +41,12 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     conn =
       build_conn(:post, "/doesntmattter", %{"actor" => "https://mastodon.local/users/admin"})
       |> set_signature("https://mastodon.local/users/admin")
+
+    # added this line because the plug should not fetch but only use an already known key/actor
+    {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+    conn =
+      conn
       |> MappedSignatureToIdentityPlug.call(%{})
 
     refute is_nil(Map.get(conn.assigns, :current_actor))
@@ -43,6 +56,12 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     conn =
       build_conn(:post, "/doesntmattter", %{"actor" => "https://mastodon.local/users/admin"})
       |> set_signature("https://niu.local/users/rye")
+
+    # added this line because the plug should not fetch but only use an already known key/actor
+    {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+    conn =
+      conn
       |> MappedSignatureToIdentityPlug.call(%{})
 
     assert %{valid_signature: false} == conn.assigns
@@ -63,6 +82,12 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     conn =
       build_conn(:post, "/doesntmattter", %{"actor" => "https://mastodon.local/users/admin"})
       |> set_signature("https://mastodon.local/users/admin")
+
+    # added this line because the plug should not fetch but only use an already known key/actor
+    Signatures.fetch_fresh_public_key(conn)
+
+    conn =
+      conn
       |> MappedSignatureToIdentityPlug.call(%{})
 
     assert %{valid_signature: false} == conn.assigns
@@ -83,6 +108,12 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     conn =
       build_conn(:post, "/doesntmattter", %{"actor" => "https://mastodon.local/users/admin"})
       |> set_signature("https://mastodon.local/users/admin")
+
+    # added this line because the plug should not fetch but only use an already known key/actor
+    {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+    conn =
+      conn
       |> MappedSignatureToIdentityPlug.call(%{})
 
     assert conn.assigns[:valid_signature]
@@ -115,6 +146,12 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     conn =
       build_conn(:post, "/doesntmattter", %{"actor" => "https://mastodon.local/users/admin"})
       |> set_signature("https://niu.local/users/rye")
+
+    # added this line because the plug should not fetch but only use an already known key/actor
+    {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+    conn =
+      conn
       |> MappedSignatureToIdentityPlug.call(%{})
 
     assert %{valid_signature: false} == conn.assigns

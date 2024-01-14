@@ -11,10 +11,6 @@ defmodule ActivityPub.Federator do
 
   import Untangle
 
-  def enqueue_incoming_ap_doc(params) do
-    ReceiverWorker.enqueue("incoming_ap_doc", %{"params" => params})
-  end
-
   def publish(%{id: activity}) do
     publish(activity)
   end
@@ -46,12 +42,6 @@ defmodule ActivityPub.Federator do
           "Cannot publish because the actor #{inspect(actor_id)} is invalid"
         )
     end
-  end
-
-  def perform(:incoming_ap_doc, params) do
-    debug("Handling incoming AP activity")
-
-    Transformer.handle_incoming(params)
   end
 
   def perform(type, _) do

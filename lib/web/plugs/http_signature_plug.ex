@@ -17,8 +17,10 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
   def call(%{method: http_method} = conn, _opts) do
     Logger.metadata(action: info("HTTPSignaturePlug"))
 
-    if has_signature_header?(conn) &&
-         (http_method == "POST" or Config.get([:activity_pub, :reject_unsigned], false)) do
+    reject_unsigned? = Config.get([:activity_pub, :reject_unsigned], false)
+    has_signature_header? = has_signature_header?(conn)
+
+    if has_signature_header? && (http_method == "POST" or reject_unsigned?) do
       # set (request-target) header to the appropriate value
       # we also replace the digest header with the one we computed
       request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
@@ -43,11 +45,19 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
       assign(
         conn,
         :valid_signature,
-        HTTPSignatures.validate_conn(conn)
+        HTTPSignatures.validate_cached(conn)
         |> info("valid_signature?")
       )
     else
-      warn("conn has no signature header!")
+      if !has_signature_header? do
+        warn(conn.req_headers, "conn has no signature header!")
+      else
+        warn(
+          reject_unsigned?,
+          "skip verifying signature for #{http_method} and `reject_unsigned?` set to "
+        )
+      end
+
       conn
     end
   end

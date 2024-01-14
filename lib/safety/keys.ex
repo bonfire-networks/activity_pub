@@ -17,9 +17,22 @@ defmodule ActivityPub.Safety.Keys do
   @known_suffixes ["/publickey", "/main-key"]
 
   @doc """
-  Fetches the public key for given actor AP ID.
+  Get the public key for given actor AP ID.
   """
   def get_public_key_for_ap_id(ap_id) do
+    with {:ok, actor} <- Actor.get_cached(ap_id: ap_id),
+         {:ok, public_key} <- public_key_from_data(actor) do
+      {:ok, public_key}
+    else
+      e ->
+        error(e)
+    end
+  end
+
+  @doc """
+  Fetches the remote public key for given actor AP ID.
+  """
+  def fetch_public_key_for_ap_id(ap_id) do
     with {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: ap_id),
          {:ok, public_key} <- public_key_from_data(actor) do
       {:ok, public_key}

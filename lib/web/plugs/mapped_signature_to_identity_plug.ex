@@ -96,9 +96,8 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   def call(conn, _opts), do: conn
 
   defp key_id_from_conn(conn) do
-    with %{"keyId" => key_id} <- HTTPSignatures.signature_for_conn(conn),
-         {:ok, ap_id} <- Signature.key_id_to_actor_id(key_id) do
-      ap_id
+    with %{"keyId" => key_id} <- HTTPSignatures.extract_signature(conn) do
+      key_id
     else
       _ ->
         nil
@@ -106,9 +105,10 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   end
 
   defp actor_from_key_id(key_actor_id) do
-    with {:ok, %Actor{} = user} <-
-           is_binary(key_actor_id) and Actor.get_cached_or_fetch(ap_id: key_actor_id) do
-      user
+    with {:ok, ap_id} <- Signature.key_id_to_actor_id(key_actor_id),
+         {:ok, %Actor{} = actor} <-
+           is_binary(key_actor_id) and Actor.get_cached(ap_id: ap_id) do
+      actor
     else
       _ ->
         nil

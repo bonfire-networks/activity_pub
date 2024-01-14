@@ -35,11 +35,20 @@ defmodule ActivityPub.Safety.SignatureTest do
   defp make_fake_conn(key_id),
     do: %Plug.Conn{req_headers: %{"signature" => make_fake_signature(key_id <> "#main-key")}}
 
-  describe "fetch_public_key/1" do
-    test "with fixture" do
+  describe "get_public_key/1" do
+    test "with fresh fixture" do
       id = "https://mocked.local/users/karen"
+      conn = make_fake_conn(id)
+      assert {:ok, nil} = Signatures.get_public_key(conn)
+    end
 
-      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_public_key(make_fake_conn(id))
+    test "with pre-fetched fixture" do
+      id = "https://mocked.local/users/karen"
+      conn = make_fake_conn(id)
+
+      # added this line because `get_public_key` should not fetch but only return an already known key
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.get_public_key(conn)
     end
 
     test "it returns public key" do
@@ -55,12 +64,12 @@ defmodule ActivityPub.Safety.SignatureTest do
       user = local_actor(keys: @private_key)
       info(user, "local_actor which should have keys")
 
-      assert Signatures.fetch_public_key(make_fake_conn(ap_id(user))) == {:ok, @rsa_public_key}
+      assert Signatures.get_public_key(make_fake_conn(ap_id(user))) == {:ok, @rsa_public_key}
     end
 
     test "it returns {:ok, :nil} when not found user" do
       assert capture_log(fn ->
-               assert Signatures.fetch_public_key(make_fake_conn("https://404")) ==
+               assert Signatures.get_public_key(make_fake_conn("https://404")) ==
                         {:ok, nil}
              end)
     end
@@ -68,25 +77,26 @@ defmodule ActivityPub.Safety.SignatureTest do
     test "it returns {:ok, nil} if no public key " do
       user = local_actor(keys: "N/A")
 
-      assert Signatures.fetch_public_key(make_fake_conn(ap_id(user))) == {:ok, nil}
+      assert Signatures.get_public_key(make_fake_conn(ap_id(user))) == {:ok, nil}
     end
   end
 
-  describe "refetch_public_key" do
+  describe "fetch_fresh_public_key" do
     test "works" do
       id = "https://mocked.local/users/karen"
 
-      {:ok, {:RSAPublicKey, _, _}} = Signatures.refetch_public_key(make_fake_conn(id))
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(make_fake_conn(id))
     end
 
     test "it returns key" do
       ap_id = "https://mocked.local/users/lambadalambda"
 
-      assert Signatures.refetch_public_key(make_fake_conn(ap_id)) == {:ok, @rsa_public_key}
+      assert Signatures.fetch_fresh_public_key(make_fake_conn(ap_id)) == {:ok, @rsa_public_key}
     end
 
     test "it returns error when user not found" do
-      assert {:error, :not_found} = Signatures.refetch_public_key(make_fake_conn("https://404"))
+      assert {:error, :not_found} =
+               Signatures.fetch_fresh_public_key(make_fake_conn("https://404"))
     end
   end
 
@@ -131,7 +141,7 @@ defmodule ActivityPub.Safety.SignatureTest do
     end
   end
 
-  test "without valid signature, it responds with an error, but tries to re-fetch the activity/object (if federation enabled, otherwise accepts nothing)",
+  test "without valid signature, it tries to re-fetch the activity/object (if federation enabled, otherwise accepts nothing)",
        %{conn: conn} do
     create_data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
     non_create_data = file("fixtures/mastodon/mastodon-announce.json") |> Jason.decode!()
@@ -143,14 +153,21 @@ defmodule ActivityPub.Safety.SignatureTest do
 
       assert conn
              |> post("#{Utils.ap_base_url()}/shared_inbox", non_create_data)
-             |> json_response(401)
+             # because we check the signature async
+             |> json_response(200)
+
+      #  |> json_response(401)
 
       assert {:ok, _} =
                Object.get_cached(
                  ap_id: "https://mastodon.local/users/admin/statuses/99512778738411822"
                )
 
-      assert json_response(post(conn, "#{Utils.ap_base_url()}/shared_inbox", create_data), 401)
+      assert post(conn, "#{Utils.ap_base_url()}/shared_inbox", create_data)
+             # because we check the signature async
+             |> json_response(200)
+
+      # |> json_response(401)
 
       clear_config([:instance, :federating], false)
 

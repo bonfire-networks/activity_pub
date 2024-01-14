@@ -24,8 +24,8 @@
    "type":"Undo",
    "object":{
       "type":"Follow",
-      "object":"http://testing.local/users/lain",
-      "nickname":"lain",
+      "object":"https://testing.local/users/karen",
+      "nickname":"karen",
       "id":"https://mastodon.local/users/admin#follows/2",
       "actor":"https://mastodon.local/users/admin"
    },

@@ -9,10 +9,10 @@
   "object": {
     "type": "Follow",
     "object": "https://mastodon.local/users/admin",
-    "id": "http://testing.local/users/lain#follows/4",
-    "actor": "http://testing.local/users/lain"
+    "id": "https://testing.local/users/karen#follows/4",
+    "actor": "https://testing.local/users/karen"
   },
-  "nickname": "lain",
+  "nickname": "karen",
   "id": "https://mastodon.local/users/admin#rejects/follows/4",
   "actor": "https://mastodon.local/users/admin",
   "@context": [

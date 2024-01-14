@@ -1,1 +1,41 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://patch.local/schemas/litepub-0.1.jsonld",{"@language":"und"}],"attachment":[],"endpoints":{"oauthAuthorizationEndpoint":"https://patch.local/oauth/authorize","oauthRegistrationEndpoint":"https://patch.local/api/v1/apps","oauthTokenEndpoint":"https://patch.local/oauth/token","sharedInbox":"https://patch.local/inbox"},"followers":"https://patch.local/users/rin/followers","following":"https://patch.local/users/rin/following","icon":{"type":"Image","url":"https://patch.local/media/4e914f5b84e4a259a3f6c2d2edc9ab642f2ab05f3e3d9c52c81fc2d984b3d51e.jpg"},"id":"https://patch.local/users/rin","image":{"type":"Image","url":"https://patch.local/media/f739efddefeee49c6e67e947c4811fdc911785c16ae43da4c3684051fbf8da6a.jpg?name=f739efddefeee49c6e67e947c4811fdc911785c16ae43da4c3684051fbf8da6a.jpg"},"inbox":"https://patch.local/users/rin/inbox","manuallyApprovesFollowers":false,"name":"rinpatch","outbox":"https://patch.local/users/rin/outbox","preferredUsername":"rin","publicKey":{"id":"https://patch.local/users/rin#main-key","owner":"https://patch.local/users/rin","publicKeyPem":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5DLtwGXNZElJyxFGfcVc\nXANhaMadj/iYYQwZjOJTV9QsbtiNBeIK54PJrYuU0/0YIdrvS1iqheX5IwXRhcwa\nhm3ZyLz7XeN9st7FBni4BmZMBtMpxAuYuu5p/jbWy13qAiYOhPreCx0wrWgm/lBD\n9mkgaxIxPooBE0S4ZWEJIDIV1Vft3AWcRUyWW1vIBK0uZzs6GYshbQZB952S0yo4\nFzI1hABGHncH8UvuFauh4EZ8tY7/X5I0pGRnDOcRN1dAht5w5yTA+6r5kebiFQjP\nIzN/eCO/a9Flrj9YGW7HDNtjSOH0A31PLRGlJtJO3yK57dnf5ppyCZGfL4emShQo\ncQIDAQAB\n-----END PUBLIC KEY-----\n\n"},"summary":"your friendly neighborhood pleroma developer<br>I like cute things and distributed systems, and really hate delete and redrafts","tag":[],"type":"Person","url":"https://patch.local/users/rin"}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://patch.local/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "attachment": [],
+    "endpoints": {
+        "oauthAuthorizationEndpoint": "https://patch.local/oauth/authorize",
+        "oauthRegistrationEndpoint": "https://patch.local/api/v1/apps",
+        "oauthTokenEndpoint": "https://patch.local/oauth/token",
+        "sharedInbox": "https://patch.local/inbox"
+    },
+    "followers": "https://patch.local/users/rin/followers",
+    "following": "https://patch.local/users/rin/following",
+    "icon": {
+        "type": "Image",
+        "url": "https://patch.local/media/4e914f5b84e4a259a3f6c2d2edc9ab642f2ab05f3e3d9c52c81fc2d984b3d51e.jpg"
+    },
+    "id": "https://patch.local/users/rin",
+    "image": {
+        "type": "Image",
+        "url": "https://patch.local/media/f739efddefeee49c6e67e947c4811fdc911785c16ae43da4c3684051fbf8da6a.jpg?name=f739efddefeee49c6e67e947c4811fdc911785c16ae43da4c3684051fbf8da6a.jpg"
+    },
+    "inbox": "https://patch.local/users/rin/inbox",
+    "manuallyApprovesFollowers": false,
+    "name": "rinpatch",
+    "outbox": "https://patch.local/users/rin/outbox",
+    "preferredUsername": "rin",
+    "publicKey": {
+        "id": "https://patch.local/users/rin#main-key",
+        "owner": "https://patch.local/users/rin",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5DLtwGXNZElJyxFGfcVc\nXANhaMadj/iYYQwZjOJTV9QsbtiNBeIK54PJrYuU0/0YIdrvS1iqheX5IwXRhcwa\nhm3ZyLz7XeN9st7FBni4BmZMBtMpxAuYuu5p/jbWy13qAiYOhPreCx0wrWgm/lBD\n9mkgaxIxPooBE0S4ZWEJIDIV1Vft3AWcRUyWW1vIBK0uZzs6GYshbQZB952S0yo4\nFzI1hABGHncH8UvuFauh4EZ8tY7/X5I0pGRnDOcRN1dAht5w5yTA+6r5kebiFQjP\nIzN/eCO/a9Flrj9YGW7HDNtjSOH0A31PLRGlJtJO3yK57dnf5ppyCZGfL4emShQo\ncQIDAQAB\n-----END PUBLIC KEY-----\n\n"
+    },
+    "summary": "your friendly neighborhood pleroma developer<br>I like cute things and distributed systems, and really hate delete and redrafts",
+    "tag": [],
+    "type": "Person",
+    "url": "https://patch.local/users/rin"
+}

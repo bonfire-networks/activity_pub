@@ -1,1 +1,53 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"Hashtag":"as:Hashtag"}],"id":"https://miss.local/notes/7x9tmrp97i","type":"Question","attributedTo":"https://miss.local/users/7v1w1r8ce6","summary":null,"content":"<p><a href=\"https://marchgenso.me/users/march\" class=\"mention\">@march@marchgenso.me</a><span> How are your notifications now?<br></span><a href=\"https://miss.local/notes/7x9tmrp97i\"><span>リモートで結果を表示</span></a></p>","_misskey_content":"@march@marchgenso.me How are your notifications now?\n[リモートで結果を表示](https://miss.local/notes/7x9tmrp97i)","published":"2019-09-05T05:35:32.541Z","to":["https://www.w3.org/ns/activitystreams#Public"],"cc":["https://miss.local/users/7v1w1r8ce6/followers","https://marchgenso.me/users/march"],"inReplyTo":null,"attachment":[],"sensitive":false,"tag":[{"type":"Mention","href":"https://marchgenso.me/users/march","name":"@march@marchgenso.me"}],"_misskey_fallback_content":"<p><a href=\"https://marchgenso.me/users/march\" class=\"mention\">@march@marchgenso.me</a><span> How are your notifications now?<br></span><a href=\"https://miss.local/notes/7x9tmrp97i\"><span>リモートで結果を表示</span></a><span><br>----------------------------------------<br>0: Working<br>1: Broken af<br>----------------------------------------<br>番号を返信して投票</span></p>","endTime":null,"oneOf":[{"type":"Note","name":"Working","replies":{"type":"Collection","totalItems":0}},{"type":"Note","name":"Broken af","replies":{"type":"Collection","totalItems":1}}]}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "Hashtag": "as:Hashtag"
+        }
+    ],
+    "id": "https://miss.local/notes/7x9tmrp97i",
+    "type": "Question",
+    "attributedTo": "https://miss.local/users/7v1w1r8ce6",
+    "summary": null,
+    "content": "<p><a href=\"https://marchgenso.me/users/march\" class=\"mention\">@march@marchgenso.me</a><span> How are your notifications now?<br></span><a href=\"https://miss.local/notes/7x9tmrp97i\"><span>リモートで結果を表示</span></a></p>",
+    "_misskey_content": "@march@marchgenso.me How are your notifications now?\n[リモートで結果を表示](https://miss.local/notes/7x9tmrp97i)",
+    "published": "2019-09-05T05:35:32.541Z",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "cc": [
+        "https://miss.local/users/7v1w1r8ce6/followers",
+        "https://marchgenso.me/users/march"
+    ],
+    "inReplyTo": null,
+    "attachment": [],
+    "sensitive": false,
+    "tag": [
+        {
+            "type": "Mention",
+            "href": "https://marchgenso.me/users/march",
+            "name": "@march@marchgenso.me"
+        }
+    ],
+    "_misskey_fallback_content": "<p><a href=\"https://marchgenso.me/users/march\" class=\"mention\">@march@marchgenso.me</a><span> How are your notifications now?<br></span><a href=\"https://miss.local/notes/7x9tmrp97i\"><span>リモートで結果を表示</span></a><span><br>----------------------------------------<br>0: Working<br>1: Broken af<br>----------------------------------------<br>番号を返信して投票</span></p>",
+    "endTime": null,
+    "oneOf": [
+        {
+            "type": "Note",
+            "name": "Working",
+            "replies": {
+                "type": "Collection",
+                "totalItems": 0
+            }
+        },
+        {
+            "type": "Note",
+            "name": "Broken af",
+            "replies": {
+                "type": "Collection",
+                "totalItems": 1
+            }
+        }
+    ]
+}

@@ -1,1 +1,55 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1","https://hubzilla.local/apschema/v1.2"],"type":"Person","id":"https://hubzilla.local/channel/kaniini","preferredUsername":"kaniini","name":"kaniini","icon":{"type":"Image","mediaType":"image/jpeg","url":"https://hubzilla.local/photo/profile/l/281","height":300,"width":300},"url":{"type":"Link","mediaType":"text/html","href":"https://hubzilla.local/channel/kaniini"},"inbox":"https://hubzilla.local/inbox/kaniini","outbox":"https://hubzilla.local/outbox/kaniini","followers":"https://hubzilla.local/followers/kaniini","following":"https://hubzilla.local/following/kaniini","endpoints":{"sharedInbox":"https://hubzilla.local/inbox"},"publicKey":{"id":"https://hubzilla.local/channel/kaniini/public_key_pem","owner":"https://hubzilla.local/channel/kaniini","publicKeyPem":"-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvXCDkQPw+1N8B2CUd5s2\nbYvjHt+t7soMNfUiRy0qGbgW46S45k5lCq1KpbFIX3sgGZ4OWjnXVbvjCJi4kl5M\nfm5DBXzpuu05AmjVl8hqk4GejajiE/1Nq0uWHPiOSFWispUjCzzCu65V+IsiE5JU\nvcL6WEf/pYNRq7gYqyT693F7+cO5/rVv9OScx5UOxbIuU1VXYhdHCqAMDJWadC89\nhePrcD3HOQKl06W2tDxHcWk6QjrdsUQGbNOgK/QIN9gSxA+rCFEvH5O0HAhI0aXq\ncOB+vysJUFLeQOAqmAKvKS5V6RqE1GqqT0pDWHack4EmQi0gkgVzo+45xoP6wfDl\nWwG88w21LNxGvGHuN4I8mg6cEoApqKQBSOj086UtfDfSlPC1B+PRD2phE5etucHd\nF/RIWN3SxVzU9BKIiaDm2gwOpvI8QuorQb6HDtZFO5NsSN3PnMnSywPe7kXl/469\nuQRYXrseqyOVIi6WjhvXkyWVKVE5CBz+S8wXHfKph+9YOyUcJeAVMijp9wrjBlMc\noSzOGu79oM7tpMSq/Xo6ePJ/glNOwZR+OKrg92Qp9BGTKDNwGrxuxP/9KwWtGLNf\nOMTtIkxtC3ubhxL3lBxOd7l+Bmum0UJV2f8ogkCgvTpIz05jMoyU8qWl6kkWNQlY\nDropXWaOfy7Lac+G4qlfSgsCAwEAAQ==\n-----END PUBLIC KEY-----\n"},"nomadicLocations":[{"id":"https://hubzilla.local/locs/kaniini","type":"nomadicLocation","locationAddress":"acct:kaniini@hubzilla.example.org","locationPrimary":true,"locationDeleted":false}],"signature":{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1"],"type":"RsaSignature2017","nonce":"6b981a2f3bdcffc20252e3b131d4a4569fd2dea9fac543e5196136302f492694","creator":"https://hubzilla.local/channel/kaniini/public_key_pem","created":"2018-05-19T08:19:13Z","signatureValue":"ezpT4iCIUzJSeJa/Jsf4EkgbX9enWZG/0eliLXZcvkeCX9mZabaX9LMQRViP2GSlAJBHJu+UqK5LWaoWw9pYkQQHUL+43w2DeBxQicEcPqpT46j6pHuWptfwB8YHTC2/Pb56Y/jseU37j+FW8xVmcGZk4cPqJRLQNojwJlQiFOpBEd4Cel6081W12Pep578+6xBL+h92RJsWznA1gE/NV9dkCqoAoNdiORJg68sVTm0yYxPit2D/DLwXUFeBhC47EZtY3DtAOf7rADGwbquXKug/wtEI47R4p9dJvMWERSVW9O2FmDk8deUjRR3qO1iYGce8O+uMnnBHmuTcToRUHH7mxfMdqjfbcZ9DGBjKtLPSOyVPT9rENeyX8fsksmX0XhfHsNSWkmeDaU5/Au3IY75gDewiGzmzLOpRc6GUnHHro7lMpyMuo3lLZKjNVsFZbx+sXCYwORz5GAMuwIt/iCUdrsQsF5aycqfUAZrFBPguH6DVjbMUqyLvS78sDKiWqgWVhq9VDKse+WuQaJLGBDJNF9APoA6NDMjjIBZfmkGf2mV7ubIYihoOncUjahFqxU5306cNxAcdj2uNcwkgX4BCnBe/L2YsvMHhZrupzDewWWy4fxhktyoZ7VhLSl1I7fMPytjOpb9EIvng4DHGX2t+hKfon2rCGfECPavwiTM="}}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        "https://hubzilla.local/apschema/v1.2"
+    ],
+    "type": "Person",
+    "id": "https://hubzilla.local/channel/kaniini",
+    "preferredUsername": "kaniini",
+    "name": "kaniini",
+    "icon": {
+        "type": "Image",
+        "mediaType": "image/jpeg",
+        "url": "https://hubzilla.local/photo/profile/l/281",
+        "height": 300,
+        "width": 300
+    },
+    "url": {
+        "type": "Link",
+        "mediaType": "text/html",
+        "href": "https://hubzilla.local/channel/kaniini"
+    },
+    "inbox": "https://hubzilla.local/inbox/kaniini",
+    "outbox": "https://hubzilla.local/outbox/kaniini",
+    "followers": "https://hubzilla.local/followers/kaniini",
+    "following": "https://hubzilla.local/following/kaniini",
+    "endpoints": {
+        "sharedInbox": "https://hubzilla.local/inbox"
+    },
+    "publicKey": {
+        "id": "https://hubzilla.local/channel/kaniini/public_key_pem",
+        "owner": "https://hubzilla.local/channel/kaniini",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvXCDkQPw+1N8B2CUd5s2\nbYvjHt+t7soMNfUiRy0qGbgW46S45k5lCq1KpbFIX3sgGZ4OWjnXVbvjCJi4kl5M\nfm5DBXzpuu05AmjVl8hqk4GejajiE/1Nq0uWHPiOSFWispUjCzzCu65V+IsiE5JU\nvcL6WEf/pYNRq7gYqyT693F7+cO5/rVv9OScx5UOxbIuU1VXYhdHCqAMDJWadC89\nhePrcD3HOQKl06W2tDxHcWk6QjrdsUQGbNOgK/QIN9gSxA+rCFEvH5O0HAhI0aXq\ncOB+vysJUFLeQOAqmAKvKS5V6RqE1GqqT0pDWHack4EmQi0gkgVzo+45xoP6wfDl\nWwG88w21LNxGvGHuN4I8mg6cEoApqKQBSOj086UtfDfSlPC1B+PRD2phE5etucHd\nF/RIWN3SxVzU9BKIiaDm2gwOpvI8QuorQb6HDtZFO5NsSN3PnMnSywPe7kXl/469\nuQRYXrseqyOVIi6WjhvXkyWVKVE5CBz+S8wXHfKph+9YOyUcJeAVMijp9wrjBlMc\noSzOGu79oM7tpMSq/Xo6ePJ/glNOwZR+OKrg92Qp9BGTKDNwGrxuxP/9KwWtGLNf\nOMTtIkxtC3ubhxL3lBxOd7l+Bmum0UJV2f8ogkCgvTpIz05jMoyU8qWl6kkWNQlY\nDropXWaOfy7Lac+G4qlfSgsCAwEAAQ==\n-----END PUBLIC KEY-----\n"
+    },
+    "nomadicLocations": [
+        {
+            "id": "https://hubzilla.local/locs/kaniini",
+            "type": "nomadicLocation",
+            "locationAddress": "acct:kaniini@hubzilla.example.org",
+            "locationPrimary": true,
+            "locationDeleted": false
+        }
+    ],
+    "signature": {
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1"
+        ],
+        "type": "RsaSignature2017",
+        "nonce": "6b981a2f3bdcffc20252e3b131d4a4569fd2dea9fac543e5196136302f492694",
+        "creator": "https://hubzilla.local/channel/kaniini/public_key_pem",
+        "created": "2018-05-19T08:19:13Z",
+        "signatureValue": "ezpT4iCIUzJSeJa/Jsf4EkgbX9enWZG/0eliLXZcvkeCX9mZabaX9LMQRViP2GSlAJBHJu+UqK5LWaoWw9pYkQQHUL+43w2DeBxQicEcPqpT46j6pHuWptfwB8YHTC2/Pb56Y/jseU37j+FW8xVmcGZk4cPqJRLQNojwJlQiFOpBEd4Cel6081W12Pep578+6xBL+h92RJsWznA1gE/NV9dkCqoAoNdiORJg68sVTm0yYxPit2D/DLwXUFeBhC47EZtY3DtAOf7rADGwbquXKug/wtEI47R4p9dJvMWERSVW9O2FmDk8deUjRR3qO1iYGce8O+uMnnBHmuTcToRUHH7mxfMdqjfbcZ9DGBjKtLPSOyVPT9rENeyX8fsksmX0XhfHsNSWkmeDaU5/Au3IY75gDewiGzmzLOpRc6GUnHHro7lMpyMuo3lLZKjNVsFZbx+sXCYwORz5GAMuwIt/iCUdrsQsF5aycqfUAZrFBPguH6DVjbMUqyLvS78sDKiWqgWVhq9VDKse+WuQaJLGBDJNF9APoA6NDMjjIBZfmkGf2mV7ubIYihoOncUjahFqxU5306cNxAcdj2uNcwkgX4BCnBe/L2YsvMHhZrupzDewWWy4fxhktyoZ7VhLSl1I7fMPytjOpb9EIvng4DHGX2t+hKfon2rCGfECPavwiTM="
+    }
+}

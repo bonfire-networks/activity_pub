@@ -18,19 +18,19 @@
     "actor": "https://mastodon.local/users/admin",
     "cc": [
         "https://mastodon.local/users/admin/followers",
-        "http://testing.local/users/lain"
+        "https://testing.local/users/karen"
     ],
     "id": "https://mastodon.local/users/admin/statuses/99512778738411822/activity",
-    "nickname": "lain",
+    "nickname": "karen",
     "object": {
         "atomUri": "https://mastodon.local/users/admin/statuses/99512778738411822",
         "attachment": [],
         "attributedTo": "https://mastodon.local/users/admin",
         "cc": [
             "https://mastodon.local/users/admin/followers",
-            "http://testing.local/users/lain"
+            "https://testing.local/users/karen"
         ],
-        "content": "<p><span class=\"h-card\"><a href=\"http://testing.local/users/lain\" class=\"u-url mention\">@<span>lain</span></a></span> #moo</p>",
+        "content": "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> #moo</p>",
         "conversation": "tag:mastodon.local,2018-02-12:objectId=20:objectType=Conversation",
         "id": "https://mastodon.local/users/admin/statuses/99512778738411822",
         "inReplyTo": null,
@@ -40,8 +40,8 @@
         "summary": "cw",
         "tag": [
             {
-                "href": "http://testing.local/users/lain",
-                "name": "@lain@testing.local",
+                "href": "https://testing.local/users/karen",
+                "name": "@karen@testing.local",
                 "type": "Mention"
             },
             {

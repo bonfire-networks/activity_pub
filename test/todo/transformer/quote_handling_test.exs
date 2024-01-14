@@ -22,7 +22,7 @@ defmodule ActivityPub.Federator.Transformer.QuoteHandlingTest do
     :ok
   end
 
-  setup do: clear_config([:instance, :max_remote_account_fields])
+  # setup do: clear_config([:instance, :max_remote_account_fields])
 
   describe "fix_quote_url/1" do
     test "a misskey quote should work", _ do

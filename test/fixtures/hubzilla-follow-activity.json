@@ -6,7 +6,7 @@
     "creator": "https://hubzilla.local/channel/kaniini#main-key",
     "created": "2018-02-17T13:29:31Z"
   },
-  "object": "https://testing.local/users/lain",
+  "object": "https://testing.local/users/admin",
   "nickname": "lain",
   "id": "https://hubzilla.local/channel/kaniini#follows/2",
   "actor": {

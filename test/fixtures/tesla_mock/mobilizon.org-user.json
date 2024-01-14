@@ -1,1 +1,80 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://litepub.social/litepub/context.jsonld",{"GeoCoordinates":"sc:GeoCoordinates","Hashtag":"as:Hashtag","Place":"sc:Place","PostalAddress":"sc:PostalAddress","address":{"@id":"sc:address","@type":"sc:PostalAddress"},"addressCountry":"sc:addressCountry","addressLocality":"sc:addressLocality","addressRegion":"sc:addressRegion","category":"sc:category","commentsEnabled":{"@id":"pt:commentsEnabled","@type":"sc:Boolean"},"geo":{"@id":"sc:geo","@type":"sc:GeoCoordinates"},"ical":"http://www.w3.org/2002/12/cal/ical#","joinMode":{"@id":"mz:joinMode","@type":"mz:joinModeType"},"joinModeType":{"@id":"mz:joinModeType","@type":"rdfs:Class"},"location":{"@id":"sc:location","@type":"sc:Place"},"maximumAttendeeCapacity":"sc:maximumAttendeeCapacity","mz":"https://joinmobilizon.org/ns#","postalCode":"sc:postalCode","pt":"https://joinpeertube.org/ns#","repliesModerationOption":{"@id":"mz:repliesModerationOption","@type":"mz:repliesModerationOptionType"},"repliesModerationOptionType":{"@id":"mz:repliesModerationOptionType","@type":"rdfs:Class"},"sc":"http://schema.org#","streetAddress":"sc:streetAddress","uuid":"sc:identifier"}],"endpoints":{"sharedInbox":"https://mobilizon.local/inbox"},"followers":"https://mobilizon.local/@tcit/followers","following":"https://mobilizon.local/@tcit/following","icon":{"mediaType":null,"type":"Image","url":"https://mobilizon.local/media/3a5f18c058a8193b1febfaf561f94ae8b91f85ac64c01ddf5ad7b251fb43baf5.jpg?name=profil.jpg"},"id":"https://mobilizon.local/@tcit","inbox":"https://mobilizon.local/@tcit/inbox","manuallyApprovesFollowers":false,"name":"Thomas Citharel","outbox":"https://mobilizon.local/@tcit/outbox","preferredUsername":"tcit","publicKey":{"id":"https://mobilizon.local/@tcit#main-key","owner":"https://mobilizon.local/@tcit","publicKeyPem":"-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEAtzuZFviv5f12SuA0wZFMuwKS8RIlT3IjPCMLRDhiorZeV3UJ1lik\nDYO6mEh22KDXYgJtNVSYGF0Q5LJivgcvuvU+VQ048iTB1B2x0rHMr47KPByPjfVb\nKDeHt6fkHcLY0JK8UkIxW542wXAg4jX5w3gJi3pgTQrCT8VNyPbH1CaA0uW//9jc\nqzZQVFzpfdJoVOM9E3Urc/u58HC4xOptlM7+B/594ZI9drYwy5m+ZxHwlQUYCva4\n34dvwsfOGxkQyIrzXoep80EnWnFpYCLMcCiz+sEhPYxqLgNE+Cmn/6pv7SIscz6p\neVlQXIchdw+J4yl07paJDkFc6CNTCmaIHQIDAQAB\n-----END RSA PUBLIC KEY-----\n\n"},"summary":"Main profile","type":"Person","url":"https://mobilizon.local/@tcit"}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://litepub.social/litepub/context.jsonld",
+        {
+            "GeoCoordinates": "sc:GeoCoordinates",
+            "Hashtag": "as:Hashtag",
+            "Place": "sc:Place",
+            "PostalAddress": "sc:PostalAddress",
+            "address": {
+                "@id": "sc:address",
+                "@type": "sc:PostalAddress"
+            },
+            "addressCountry": "sc:addressCountry",
+            "addressLocality": "sc:addressLocality",
+            "addressRegion": "sc:addressRegion",
+            "category": "sc:category",
+            "commentsEnabled": {
+                "@id": "pt:commentsEnabled",
+                "@type": "sc:Boolean"
+            },
+            "geo": {
+                "@id": "sc:geo",
+                "@type": "sc:GeoCoordinates"
+            },
+            "ical": "http://www.w3.org/2002/12/cal/ical#",
+            "joinMode": {
+                "@id": "mz:joinMode",
+                "@type": "mz:joinModeType"
+            },
+            "joinModeType": {
+                "@id": "mz:joinModeType",
+                "@type": "rdfs:Class"
+            },
+            "location": {
+                "@id": "sc:location",
+                "@type": "sc:Place"
+            },
+            "maximumAttendeeCapacity": "sc:maximumAttendeeCapacity",
+            "mz": "https://joinmobilizon.org/ns#",
+            "postalCode": "sc:postalCode",
+            "pt": "https://joinpeertube.org/ns#",
+            "repliesModerationOption": {
+                "@id": "mz:repliesModerationOption",
+                "@type": "mz:repliesModerationOptionType"
+            },
+            "repliesModerationOptionType": {
+                "@id": "mz:repliesModerationOptionType",
+                "@type": "rdfs:Class"
+            },
+            "sc": "http://schema.org#",
+            "streetAddress": "sc:streetAddress",
+            "uuid": "sc:identifier"
+        }
+    ],
+    "endpoints": {
+        "sharedInbox": "https://mobilizon.local/inbox"
+    },
+    "followers": "https://mobilizon.local/@tcit/followers",
+    "following": "https://mobilizon.local/@tcit/following",
+    "icon": {
+        "mediaType": null,
+        "type": "Image",
+        "url": "https://mobilizon.local/media/3a5f18c058a8193b1febfaf561f94ae8b91f85ac64c01ddf5ad7b251fb43baf5.jpg?name=profil.jpg"
+    },
+    "id": "https://mobilizon.local/@tcit",
+    "inbox": "https://mobilizon.local/@tcit/inbox",
+    "manuallyApprovesFollowers": false,
+    "name": "Thomas Citharel",
+    "outbox": "https://mobilizon.local/@tcit/outbox",
+    "preferredUsername": "tcit",
+    "publicKey": {
+        "id": "https://mobilizon.local/@tcit#main-key",
+        "owner": "https://mobilizon.local/@tcit",
+        "publicKeyPem": "-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEAtzuZFviv5f12SuA0wZFMuwKS8RIlT3IjPCMLRDhiorZeV3UJ1lik\nDYO6mEh22KDXYgJtNVSYGF0Q5LJivgcvuvU+VQ048iTB1B2x0rHMr47KPByPjfVb\nKDeHt6fkHcLY0JK8UkIxW542wXAg4jX5w3gJi3pgTQrCT8VNyPbH1CaA0uW//9jc\nqzZQVFzpfdJoVOM9E3Urc/u58HC4xOptlM7+B/594ZI9drYwy5m+ZxHwlQUYCva4\n34dvwsfOGxkQyIrzXoep80EnWnFpYCLMcCiz+sEhPYxqLgNE+Cmn/6pv7SIscz6p\neVlQXIchdw+J4yl07paJDkFc6CNTCmaIHQIDAQAB\n-----END RSA PUBLIC KEY-----\n\n"
+    },
+    "summary": "Main profile",
+    "type": "Person",
+    "url": "https://mobilizon.local/@tcit"
+}

@@ -1,1 +1,60 @@
-{"subject":"acct:winterdienst@gnusocial.local","aliases":["https:\/\/gnusocial.de\/user\/249296","https:\/\/gnusocial.de\/winterdienst","https:\/\/gnusocial.de\/index.php\/user\/249296","https:\/\/gnusocial.de\/index.php\/winterdienst"],"links":[{"rel":"http:\/\/webfinger.net\/rel\/profile-page","type":"text\/html","href":"https:\/\/gnusocial.de\/winterdienst"},{"rel":"http:\/\/gmpg.org\/xfn\/11","type":"text\/html","href":"https:\/\/gnusocial.de\/winterdienst"},{"rel":"describedby","type":"application\/rdf+xml","href":"https:\/\/gnusocial.de\/winterdienst\/foaf"},{"rel":"http:\/\/apinamespace.org\/atom","type":"application\/atomsvc+xml","href":"https:\/\/gnusocial.de\/api\/statusnet\/app\/service\/winterdienst.xml"},{"rel":"http:\/\/apinamespace.org\/twitter","href":"https:\/\/gnusocial.de\/api\/"},{"rel":"http:\/\/schemas.google.com\/g\/2010#updates-from","type":"application\/atom+xml","href":"https:\/\/gnusocial.de\/api\/statuses\/user_timeline\/249296.atom"},{"rel":"magic-public-key","href":"data:application\/magic-public-key,RSA.qfYaxztz7ZELrE4v5WpJrPM99SKI3iv9Y3Tw6nfLGk-4CRljNYqV8IYX2FXjeucC_DKhPNnlF6fXyASpcSmA_qupX9WC66eVhFhZ5OuyBOeLvJ1C4x7Hi7Di8MNBxY3VdQuQR0tTaS_YAZCwASKp7H6XEid3EJpGt0EQZoNzRd8=.AQAB"},{"rel":"salmon","href":"https:\/\/gnusocial.de\/main\/salmon\/user\/249296"},{"rel":"http:\/\/salmon-protocol.org\/ns\/salmon-replies","href":"https:\/\/gnusocial.de\/main\/salmon\/user\/249296"},{"rel":"http:\/\/salmon-protocol.org\/ns\/salmon-mention","href":"https:\/\/gnusocial.de\/main\/salmon\/user\/249296"},{"rel":"http:\/\/ostatus.org\/schema\/1.0\/subscribe","template":"https:\/\/gnusocial.de\/main\/ostatussub?profile={uri}"}]}
+{
+    "subject": "acct:winterdienst@gnusocial.local",
+    "aliases": [
+        "https:\/\/gnusocial.de\/user\/249296",
+        "https:\/\/gnusocial.de\/winterdienst",
+        "https:\/\/gnusocial.de\/index.php\/user\/249296",
+        "https:\/\/gnusocial.de\/index.php\/winterdienst"
+    ],
+    "links": [
+        {
+            "rel": "http:\/\/webfinger.net\/rel\/profile-page",
+            "type": "text\/html",
+            "href": "https:\/\/gnusocial.de\/winterdienst"
+        },
+        {
+            "rel": "http:\/\/gmpg.org\/xfn\/11",
+            "type": "text\/html",
+            "href": "https:\/\/gnusocial.de\/winterdienst"
+        },
+        {
+            "rel": "describedby",
+            "type": "application\/rdf+xml",
+            "href": "https:\/\/gnusocial.de\/winterdienst\/foaf"
+        },
+        {
+            "rel": "http:\/\/apinamespace.org\/atom",
+            "type": "application\/atomsvc+xml",
+            "href": "https:\/\/gnusocial.de\/api\/statusnet\/app\/service\/winterdienst.xml"
+        },
+        {
+            "rel": "http:\/\/apinamespace.org\/twitter",
+            "href": "https:\/\/gnusocial.de\/api\/"
+        },
+        {
+            "rel": "http:\/\/schemas.google.com\/g\/2010#updates-from",
+            "type": "application\/atom+xml",
+            "href": "https:\/\/gnusocial.de\/api\/statuses\/user_timeline\/249296.atom"
+        },
+        {
+            "rel": "magic-public-key",
+            "href": "data:application\/magic-public-key,RSA.qfYaxztz7ZELrE4v5WpJrPM99SKI3iv9Y3Tw6nfLGk-4CRljNYqV8IYX2FXjeucC_DKhPNnlF6fXyASpcSmA_qupX9WC66eVhFhZ5OuyBOeLvJ1C4x7Hi7Di8MNBxY3VdQuQR0tTaS_YAZCwASKp7H6XEid3EJpGt0EQZoNzRd8=.AQAB"
+        },
+        {
+            "rel": "salmon",
+            "href": "https:\/\/gnusocial.de\/main\/salmon\/user\/249296"
+        },
+        {
+            "rel": "http:\/\/salmon-protocol.org\/ns\/salmon-replies",
+            "href": "https:\/\/gnusocial.de\/main\/salmon\/user\/249296"
+        },
+        {
+            "rel": "http:\/\/salmon-protocol.org\/ns\/salmon-mention",
+            "href": "https:\/\/gnusocial.de\/main\/salmon\/user\/249296"
+        },
+        {
+            "rel": "http:\/\/ostatus.org\/schema\/1.0\/subscribe",
+            "template": "https:\/\/gnusocial.de\/main\/ostatussub?profile={uri}"
+        }
+    ]
+}

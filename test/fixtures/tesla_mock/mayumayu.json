@@ -1,1 +1,47 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"manuallyApprovesFollowers":"as:manuallyApprovesFollowers","sensitive":"as:sensitive","movedTo":"as:movedTo","Hashtag":"as:Hashtag","ostatus":"http://ostatus.org#","atomUri":"ostatus:atomUri","inReplyToAtomUri":"ostatus:inReplyToAtomUri","conversation":"ostatus:conversation","toot":"http://joinmastodon.org/ns#","Emoji":"toot:Emoji"}],"id":"https://mstdn.local/users/mayuutann","type":"Person","following":"https://mstdn.local/users/mayuutann/following","followers":"https://mstdn.local/users/mayuutann/followers","inbox":"https://mstdn.local/users/mayuutann/inbox","outbox":"https://mstdn.local/users/mayuutann/outbox","preferredUsername":"mayuutann","name":"Mayutan☕","summary":"\u003cp\u003eI enjoy programming as a hobby.\u003cbr /\u003eJava.Ruby. Practicing English . I love karaoke.\u003cbr /\u003eAichi Japan.\u003cbr /\u003eI\u0026apos;d be glad if you pointed out it when my English is unnatural.\u003c/p\u003e","url":"https://mstdn.local/@mayuutann","manuallyApprovesFollowers":false,"publicKey":{"id":"https://mstdn.local/users/mayuutann#main-key","owner":"https://mstdn.local/users/mayuutann","publicKeyPem":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvz+MncrdPxQ5R99g9m8X\nY6QO1WNOsCj0wXuDmCHJxXfJx5NFYgsYSX3y2UTzoHNcxZIwbSy24HlYR44cEygy\nimiysTk3o0pVquXhFQNDBXJkAkPfY+9O/gz1FTbwEUzFS1m9zmoQUesDjHEBXvpW\nHkNRdVThsDHotiMYjd+WYS09XjCYxhUHcwsnEFZ+55y1Uz6OveY2OZH+jTEluF+s\nLLTDopY37Ogniah0zVm7Q+/WPdbjOullpWh8s/c5fYGl5xMaS950l5r4gkPU7MVE\n4dGSd/v4pUAxlZrhbRHrKMD4c9cmxn9gJuqmW49ZmPzIeG+SaLnad6zh0BN9nveR\njQIDAQAB\n-----END PUBLIC KEY-----\n"},"endpoints":{"sharedInbox":"https://mstdn.local/inbox"},"icon":{"type":"Image","mediaType":"image/jpeg","url":"https://mstdn.local/system/accounts/avatars/000/021/478/original/40fe303d51305ba4.jpg"},"image":{"type":"Image","mediaType":"image/jpeg","url":"https://mstdn.local/system/accounts/headers/000/021/478/original/4e1e9b5e1f350abb.jpg"}}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "sensitive": "as:sensitive",
+            "movedTo": "as:movedTo",
+            "Hashtag": "as:Hashtag",
+            "ostatus": "http://ostatus.org#",
+            "atomUri": "ostatus:atomUri",
+            "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+            "conversation": "ostatus:conversation",
+            "toot": "http://joinmastodon.org/ns#",
+            "Emoji": "toot:Emoji"
+        }
+    ],
+    "id": "https://mstdn.local/users/mayuutann",
+    "type": "Person",
+    "following": "https://mstdn.local/users/mayuutann/following",
+    "followers": "https://mstdn.local/users/mayuutann/followers",
+    "inbox": "https://mstdn.local/users/mayuutann/inbox",
+    "outbox": "https://mstdn.local/users/mayuutann/outbox",
+    "preferredUsername": "mayuutann",
+    "name": "Mayutan☕",
+    "summary": "\u003cp\u003eI enjoy programming as a hobby.\u003cbr /\u003eJava.Ruby. Practicing English . I love karaoke.\u003cbr /\u003eAichi Japan.\u003cbr /\u003eI\u0026apos;d be glad if you pointed out it when my English is unnatural.\u003c/p\u003e",
+    "url": "https://mstdn.local/@mayuutann",
+    "manuallyApprovesFollowers": false,
+    "publicKey": {
+        "id": "https://mstdn.local/users/mayuutann#main-key",
+        "owner": "https://mstdn.local/users/mayuutann",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvz+MncrdPxQ5R99g9m8X\nY6QO1WNOsCj0wXuDmCHJxXfJx5NFYgsYSX3y2UTzoHNcxZIwbSy24HlYR44cEygy\nimiysTk3o0pVquXhFQNDBXJkAkPfY+9O/gz1FTbwEUzFS1m9zmoQUesDjHEBXvpW\nHkNRdVThsDHotiMYjd+WYS09XjCYxhUHcwsnEFZ+55y1Uz6OveY2OZH+jTEluF+s\nLLTDopY37Ogniah0zVm7Q+/WPdbjOullpWh8s/c5fYGl5xMaS950l5r4gkPU7MVE\n4dGSd/v4pUAxlZrhbRHrKMD4c9cmxn9gJuqmW49ZmPzIeG+SaLnad6zh0BN9nveR\njQIDAQAB\n-----END PUBLIC KEY-----\n"
+    },
+    "endpoints": {
+        "sharedInbox": "https://mstdn.local/inbox"
+    },
+    "icon": {
+        "type": "Image",
+        "mediaType": "image/jpeg",
+        "url": "https://mstdn.local/system/accounts/avatars/000/021/478/original/40fe303d51305ba4.jpg"
+    },
+    "image": {
+        "type": "Image",
+        "mediaType": "image/jpeg",
+        "url": "https://mstdn.local/system/accounts/headers/000/021/478/original/4e1e9b5e1f350abb.jpg"
+    }
+}

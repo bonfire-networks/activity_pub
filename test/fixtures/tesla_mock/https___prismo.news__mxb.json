@@ -1,1 +1,33 @@
-{"id":"https://prismo.local/@mxb","type":"Person","name":"mxb","preferredUsername":"mxb","summary":"Creator of △ Prismo\r\n\r\nFollow me at @mb@mstdn.io","inbox":"https://prismo.local/ap/accounts/mxb/inbox","outbox":"https://prismo.local/ap/accounts/mxb/outbox","url":"https://prismo.local/@mxb","publicKey":{"id":"https://prismo.local/@mxb#main-key","owner":"https://prismo.local/@mxb","publicKeyPem":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA41gqLkBYuPLurC2TarF8\nbdyvqP54XzKyScJ6iPNkk4D4plYdWUVj0aOIHQ8LVfBeziH83jDMpRegm1sRLpNG\n1Ti+SzlWyTwugJ8wfQvwJL7iEzqhuPFddjPLpv0djMptvm5vtG6u6O3g4RpX12bv\n4pYRoMStPSv9KRKD/8Naw5Nv85PIWRc9rOly/EoVZBnbesroo69caiGthgChE2pa\niisQ5CEgj/615WUlUATkz3VdExKQkQOdeVABheIvcS5OsMurXnpWyLQ4n9WalNvF\nlJc08aOTIo4plsLAvdcGRDsBzio4qPok3jgzPpFkDqe+02WG/QMPT9VrzKO49N5R\nqQIDAQAB\n-----END PUBLIC KEY-----\n"},"icon":{"type":"Image","url":"https://prismo.s3.wasabisys.com/account/1/avatar/size_400-b6e570850878684362ba3b4bd9ceb007.jpg","media_type":null},"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"Hashtag":"as:Hashtag"},{"votes":{"@id":"as:votes","@type":"@id"}}]}
+{
+    "id": "https://prismo.local/@mxb",
+    "type": "Person",
+    "name": "mxb",
+    "preferredUsername": "mxb",
+    "summary": "Creator of △ Prismo\r\n\r\nFollow me at @mb@mstdn.io",
+    "inbox": "https://prismo.local/ap/accounts/mxb/inbox",
+    "outbox": "https://prismo.local/ap/accounts/mxb/outbox",
+    "url": "https://prismo.local/@mxb",
+    "publicKey": {
+        "id": "https://prismo.local/@mxb#main-key",
+        "owner": "https://prismo.local/@mxb",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA41gqLkBYuPLurC2TarF8\nbdyvqP54XzKyScJ6iPNkk4D4plYdWUVj0aOIHQ8LVfBeziH83jDMpRegm1sRLpNG\n1Ti+SzlWyTwugJ8wfQvwJL7iEzqhuPFddjPLpv0djMptvm5vtG6u6O3g4RpX12bv\n4pYRoMStPSv9KRKD/8Naw5Nv85PIWRc9rOly/EoVZBnbesroo69caiGthgChE2pa\niisQ5CEgj/615WUlUATkz3VdExKQkQOdeVABheIvcS5OsMurXnpWyLQ4n9WalNvF\nlJc08aOTIo4plsLAvdcGRDsBzio4qPok3jgzPpFkDqe+02WG/QMPT9VrzKO49N5R\nqQIDAQAB\n-----END PUBLIC KEY-----\n"
+    },
+    "icon": {
+        "type": "Image",
+        "url": "https://prismo.s3.wasabisys.com/account/1/avatar/size_400-b6e570850878684362ba3b4bd9ceb007.jpg",
+        "media_type": null
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "Hashtag": "as:Hashtag"
+        },
+        {
+            "votes": {
+                "@id": "as:votes",
+                "@type": "@id"
+            }
+        }
+    ]
+}

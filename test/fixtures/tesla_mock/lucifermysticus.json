@@ -1,1 +1,42 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://w3id.org/security/v1",{"manuallyApprovesFollowers":"as:manuallyApprovesFollowers","sensitive":"as:sensitive","movedTo":"as:movedTo","Hashtag":"as:Hashtag","ostatus":"http://ostatus.org#","atomUri":"ostatus:atomUri","inReplyToAtomUri":"ostatus:inReplyToAtomUri","conversation":"ostatus:conversation","toot":"http://joinmastodon.org/ns#","Emoji":"toot:Emoji"}],"id":"https://interlinked.local/users/luciferMysticus","type":"Person","following":"https://interlinked.local/users/luciferMysticus/following","followers":"https://interlinked.local/users/luciferMysticus/followers","inbox":"https://interlinked.local/users/luciferMysticus/inbox","outbox":"https://interlinked.local/users/luciferMysticus/outbox","preferredUsername":"luciferMysticus","name":"Louis Cypher","summary":"\u003cp\u003eFounding member of Interlinked, recovering band geek, aviation enthusiast, and software developer\u003c/p\u003e\u003cp\u003eStuck in Wisconsin, USA\u003c/p\u003e\u003cp\u003e\u003ca href=\"https://interlinked.local/tags/nobot\" class=\"mention hashtag\" rel=\"tag\"\u003e#\u003cspan\u003enobot\u003c/span\u003e\u003c/a\u003e\u003c/p\u003e","url":"https://interlinked.local/@luciferMysticus","manuallyApprovesFollowers":false,"publicKey":{"id":"https://interlinked.local/users/luciferMysticus#main-key","owner":"https://interlinked.local/users/luciferMysticus","publicKeyPem":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx2+Q4KKYrzM7K/IglGGq\nQrpQmgs1ZhxE6hI4y5Jsv2b9FWxaVOWgf0YcDG2XO4wZoBmcyqJTaKUFnMCwasaC\nN2YbzUgMWk3krT2yYZMQD6rbHPb8c3Ou/iI84UbLrFeCBu9RgnzPXcvRyH2ktjmZ\npSTvTcys+QARa//NNVS+nns4ZkZbHF9hQm4+kEOpotzOgMratVSTteQVfIwziwHh\n7SZIfLYCgamBsF7wu7DtEDh317SYiyoZD9cj+kF0eXs/tT8oY+yVUYOAtbhkDgcj\nBuK9TKEmIKGTTDeLYCsXh5B8Attb9+A/9ZUmBc0/DgrMtXSI2daGPiRBeAbH7BZP\nKwIDAQAB\n-----END PUBLIC KEY-----\n"},"endpoints":{"sharedInbox":"https://interlinked.local/inbox"},"icon":{"type":"Image","mediaType":"image/jpeg","url":"https://s3-us-east-2.amazonaws.com/interlinked-mst3k/accounts/avatars/000/000/008/original/2ee4e270d680aaa6.jpg"}}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "sensitive": "as:sensitive",
+            "movedTo": "as:movedTo",
+            "Hashtag": "as:Hashtag",
+            "ostatus": "http://ostatus.org#",
+            "atomUri": "ostatus:atomUri",
+            "inReplyToAtomUri": "ostatus:inReplyToAtomUri",
+            "conversation": "ostatus:conversation",
+            "toot": "http://joinmastodon.org/ns#",
+            "Emoji": "toot:Emoji"
+        }
+    ],
+    "id": "https://interlinked.local/users/luciferMysticus",
+    "type": "Person",
+    "following": "https://interlinked.local/users/luciferMysticus/following",
+    "followers": "https://interlinked.local/users/luciferMysticus/followers",
+    "inbox": "https://interlinked.local/users/luciferMysticus/inbox",
+    "outbox": "https://interlinked.local/users/luciferMysticus/outbox",
+    "preferredUsername": "luciferMysticus",
+    "name": "Louis Cypher",
+    "summary": "\u003cp\u003eFounding member of Interlinked, recovering band geek, aviation enthusiast, and software developer\u003c/p\u003e\u003cp\u003eStuck in Wisconsin, USA\u003c/p\u003e\u003cp\u003e\u003ca href=\"https://interlinked.local/tags/nobot\" class=\"mention hashtag\" rel=\"tag\"\u003e#\u003cspan\u003enobot\u003c/span\u003e\u003c/a\u003e\u003c/p\u003e",
+    "url": "https://interlinked.local/@luciferMysticus",
+    "manuallyApprovesFollowers": false,
+    "publicKey": {
+        "id": "https://interlinked.local/users/luciferMysticus#main-key",
+        "owner": "https://interlinked.local/users/luciferMysticus",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx2+Q4KKYrzM7K/IglGGq\nQrpQmgs1ZhxE6hI4y5Jsv2b9FWxaVOWgf0YcDG2XO4wZoBmcyqJTaKUFnMCwasaC\nN2YbzUgMWk3krT2yYZMQD6rbHPb8c3Ou/iI84UbLrFeCBu9RgnzPXcvRyH2ktjmZ\npSTvTcys+QARa//NNVS+nns4ZkZbHF9hQm4+kEOpotzOgMratVSTteQVfIwziwHh\n7SZIfLYCgamBsF7wu7DtEDh317SYiyoZD9cj+kF0eXs/tT8oY+yVUYOAtbhkDgcj\nBuK9TKEmIKGTTDeLYCsXh5B8Attb9+A/9ZUmBc0/DgrMtXSI2daGPiRBeAbH7BZP\nKwIDAQAB\n-----END PUBLIC KEY-----\n"
+    },
+    "endpoints": {
+        "sharedInbox": "https://interlinked.local/inbox"
+    },
+    "icon": {
+        "type": "Image",
+        "mediaType": "image/jpeg",
+        "url": "https://s3-us-east-2.amazonaws.com/interlinked-mst3k/accounts/avatars/000/000/008/original/2ee4e270d680aaa6.jpg"
+    }
+}

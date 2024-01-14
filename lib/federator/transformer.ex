@@ -297,7 +297,7 @@ defmodule ActivityPub.Federator.Transformer do
       |> Map.drop(["conversation", "inReplyToAtomUri"])
     else
       e ->
-        warn(e, "Couldn't fetch reply@#{inspect(in_reply_to)}")
+        warn(e, "Couldn't fetch reply @ #{inspect(in_reply_to)}")
         object
     end
   end
@@ -695,11 +695,11 @@ defmodule ActivityPub.Federator.Transformer do
   @doc """
   Handles incoming data, inserts it into the database and triggers side effects if the data is a supported activity type.
   """
-  def handle_incoming(data)
+  def handle_incoming(data, opts \\ [])
 
   # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them
   # with nil ID.
-  def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data) do
+  def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, _opts) do
     with context <- data["context"],
          content <- data["content"] || "",
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
@@ -735,20 +735,23 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # disallow objects with bogus IDs
-  def handle_incoming(%{"id" => nil}), do: {:error, "No object ID"}
-  def handle_incoming(%{"id" => ""}), do: {:error, "No object ID"}
+  def handle_incoming(%{"id" => nil}, _opts), do: {:error, "No object ID"}
+  def handle_incoming(%{"id" => ""}, _opts), do: {:error, "No object ID"}
   # length of https:// = 8, should validate better, but good enough for now.
-  def handle_incoming(%{"id" => id}) when is_binary(id) and byte_size(id) < 8,
+  def handle_incoming(%{"id" => id}, _opts) when is_binary(id) and byte_size(id) < 8,
     do: {:error, "No object ID"}
 
   # Incoming actor create, just fetch from source
-  def handle_incoming(%{
-        "type" => "Create",
-        "object" => %{"type" => "Group", "id" => ap_id}
-      }),
+  def handle_incoming(
+        %{
+          "type" => "Create",
+          "object" => %{"type" => "Group", "id" => ap_id}
+        },
+        _opts
+      ),
       do: Actor.get_cached_or_fetch(ap_id: ap_id)
 
-  def handle_incoming(%{"type" => "Create", "object" => _object} = data) do
+  def handle_incoming(%{"type" => "Create", "object" => _object} = data, opts) do
     info("Handle incoming creation of an object")
 
     %{"object" => object} =
@@ -758,7 +761,7 @@ defmodule ActivityPub.Federator.Transformer do
     # |> debug("with actors normalized")
 
     object =
-      fix_object(object)
+      fix_object(object, opts)
       |> info("normalized incoming object")
 
     actor_id =
@@ -821,7 +824,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Follow",
           "object" => followed,
           "actor" => follower
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming follow")
 
@@ -841,7 +845,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Accept" = type,
           "object" => follow_object,
           "actor" => _actor
-        } = data
+        } = data,
+        _opts
       ) do
     debug("Handle incoming Accept")
 
@@ -868,7 +873,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Reject" = type,
           "object" => follow_object,
           "actor" => _actor
-        } = data
+        } = data,
+        _opts
       ) do
     debug("Handle incoming Reject")
 
@@ -895,7 +901,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Like",
           "object" => object_id,
           "actor" => _actor
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming like")
 
@@ -915,7 +922,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Announce",
           "object" => object_id,
           "actor" => _actor
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming boost")
 
@@ -942,7 +950,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Update",
           "object" => %{"type" => type, "id" => update_actor_id} = object,
           "actor" => actor_id
-        } = data
+        } = data,
+        _opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) and actor_id == update_actor_id do
     info("update an Actor")
@@ -969,7 +978,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Update",
           "object" => %{"type" => _object_type} = object,
           "actor" => actor
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming update of an Object")
 
@@ -994,7 +1004,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Block",
           "object" => blocked,
           "actor" => blocker
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming block")
 
@@ -1018,7 +1029,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Delete",
           "object" => object,
           "actor" => _actor
-        } = _data
+        } = _data,
+        _opts
       ) do
     info("Handle incoming deletion")
 
@@ -1056,7 +1068,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Undo",
           "object" => %{"type" => "Announce", "object" => object_id},
           "actor" => _actor
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming unboost")
 
@@ -1081,7 +1094,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Undo",
           "object" => %{"type" => "Like", "object" => object_id},
           "actor" => _actor
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming unlike")
 
@@ -1106,7 +1120,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Undo",
           "object" => %{"type" => "Follow", "object" => followed},
           "actor" => follower
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming unfollow")
 
@@ -1128,7 +1143,8 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Undo",
           "object" => %{"type" => "Block", "object" => blocked},
           "actor" => blocker
-        } = data
+        } = data,
+        _opts
       ) do
     info("Handle incoming unblock")
 
@@ -1148,12 +1164,15 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def handle_incoming(%{
-        "type" => "Move",
-        "actor" => origin_actor,
-        "object" => origin_actor,
-        "target" => target_actor
-      }) do
+  def handle_incoming(
+        %{
+          "type" => "Move",
+          "actor" => origin_actor,
+          "object" => origin_actor,
+          "target" => target_actor
+        },
+        _opts
+      ) do
     with {:ok, %{} = origin_user} <- Actor.get_cached(ap_id: origin_actor),
          {:ok, %{} = target_user} <- Actor.get_cached_or_fetch(ap_id: target_actor) do
       ActivityPub.move(origin_user, target_user, false)
@@ -1163,14 +1182,14 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # Handle other activity types (and their object)
-  def handle_incoming(%{"type" => type} = data)
+  def handle_incoming(%{"type" => type} = data, _opts)
       when ActivityPub.Config.is_in(type, :supported_activity_types) do
     info(type, "ActivityPub - some other Activity type - store it and pass to adapter...")
 
     maybe_handle_other_activity(data)
   end
 
-  def handle_incoming(%{"type" => type} = data)
+  def handle_incoming(%{"type" => type} = data, _opts)
       when ActivityPub.Config.is_in(type, :supported_actor_types) or type in ["Author"] do
     info(type, "Save actor or collection without an activity")
 
@@ -1178,7 +1197,7 @@ defmodule ActivityPub.Federator.Transformer do
     ~> ActivityPub.Actor.maybe_create_actor_from_object()
   end
 
-  def handle_incoming(%{"type" => type} = data)
+  def handle_incoming(%{"type" => type} = data, _opts)
       when ActivityPub.Config.is_in(type, :collection_types) do
     debug(type, "don't store Collections")
 
@@ -1187,12 +1206,12 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def handle_incoming(%{"type" => type, "object" => _} = data) do
+  def handle_incoming(%{"type" => type, "object" => _} = data, _opts) do
     info(type, "Save a seemingly unknown activity type")
     maybe_handle_other_activity(data)
   end
 
-  def handle_incoming(%{"id" => id} = data) do
+  def handle_incoming(%{"id" => id} = data, opts) do
     info("Wrapping standalone non-actor object in a Create activity?")
     # debug(data)
 
@@ -1205,14 +1224,15 @@ defmodule ActivityPub.Federator.Transformer do
         "object" => data,
         "id" => "#{id}?virtual_create_activity"
       }
-      |> debug("generated activity")
+      |> debug("generated activity"),
+      opts
     )
   end
 
-  def handle_incoming(%{"links" => _} = data) do
+  def handle_incoming(%{"links" => _} = data, opts) do
     # maybe be webfinger
     {:ok, fingered} = ActivityPub.Federator.WebFinger.webfinger_from_json(data)
-    Fetcher.fetch_object_from_id(fingered["id"])
+    Fetcher.fetch_object_from_id(fingered["id"], opts)
   end
 
   def maybe_handle_other_activity(data) do

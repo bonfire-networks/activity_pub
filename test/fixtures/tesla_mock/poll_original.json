@@ -1,1 +1,46 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://patch.local/schemas/litepub-0.1.jsonld",{"@language":"und"}],"actor":"https://patch.local/users/rin","attachment":[],"attributedTo":"https://patch.local/users/rin","cc":["https://patch.local/users/rin/followers"],"closed":"2019-09-19T00:32:36.785333","content":"can you vote on this poll?","context":"https://patch.local/contexts/626ecafd-3377-46c4-b908-3721a4d4373c","conversation":"https://patch.local/contexts/626ecafd-3377-46c4-b908-3721a4d4373c","id":"https://patch.local/objects/9a172665-2bc5-452d-8428-2361d4c33b1d","oneOf":[{"name":"yes","replies":{"totalItems":4,"type":"Collection"},"type":"Note"},{"name":"no","replies":{"totalItems":0,"type":"Collection"},"type":"Note"}],"published":"2019-09-18T14:32:36.802152Z","sensitive":false,"summary":"","tag":[],"to":["https://www.w3.org/ns/activitystreams#Public"],"type":"Question"}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://patch.local/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "actor": "https://patch.local/users/rin",
+    "attachment": [],
+    "attributedTo": "https://patch.local/users/rin",
+    "cc": [
+        "https://patch.local/users/rin/followers"
+    ],
+    "closed": "2019-09-19T00:32:36.785333",
+    "content": "can you vote on this poll?",
+    "context": "https://patch.local/contexts/626ecafd-3377-46c4-b908-3721a4d4373c",
+    "conversation": "https://patch.local/contexts/626ecafd-3377-46c4-b908-3721a4d4373c",
+    "id": "https://patch.local/objects/9a172665-2bc5-452d-8428-2361d4c33b1d",
+    "oneOf": [
+        {
+            "name": "yes",
+            "replies": {
+                "totalItems": 4,
+                "type": "Collection"
+            },
+            "type": "Note"
+        },
+        {
+            "name": "no",
+            "replies": {
+                "totalItems": 0,
+                "type": "Collection"
+            },
+            "type": "Note"
+        }
+    ],
+    "published": "2019-09-18T14:32:36.802152Z",
+    "sensitive": false,
+    "summary": "",
+    "tag": [],
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Question"
+}

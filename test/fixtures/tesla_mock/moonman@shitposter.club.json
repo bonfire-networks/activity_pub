@@ -1,1 +1,41 @@
-{"@context":["https://www.w3.org/ns/activitystreams","https://sposter.local/schemas/litepub-0.1.jsonld",{"@language":"und"}],"attachment":[],"endpoints":{"oauthAuthorizationEndpoint":"https://sposter.local/oauth/authorize","oauthRegistrationEndpoint":"https://sposter.local/api/v1/apps","oauthTokenEndpoint":"https://sposter.local/oauth/token","sharedInbox":"https://sposter.local/inbox"},"followers":"https://sposter.local/users/moonman/followers","following":"https://sposter.local/users/moonman/following","icon":{"type":"Image","url":"https://sposter.local/media/bda6e00074f6a02cbf32ddb0abec08151eb4c795e580927ff7ad638d00cde4c8.jpg?name=blob.jpg"},"id":"https://sposter.local/users/moonman","image":{"type":"Image","url":"https://sposter.local/media/4eefb90d-cdb2-2b4f-5f29-7612856a99d2/4eefb90d-cdb2-2b4f-5f29-7612856a99d2.jpeg"},"inbox":"https://sposter.local/users/moonman/inbox","manuallyApprovesFollowers":false,"name":"Captain Howdy","outbox":"https://sposter.local/users/moonman/outbox","preferredUsername":"moonman","publicKey":{"id":"https://sposter.local/users/moonman#main-key","owner":"https://sposter.local/users/moonman","publicKeyPem":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnOTitJ19ZqcOZHwSXQUM\nJq9ip4GNblp83LgwG1t5c2h2iaI3fXMsB4EaEBs8XHsoSFyDeDNRSPE3mtVgOnWv\n1eaXWMDerBT06th6DrElD9k5IoEPtZRY4HtZa1xGnte7+6RjuPOzZ1fR9C8WxGgi\nwb9iOUMhazpo85fC3iKCAL5XhiuA3Nas57MDJgueeI9BF+2oFelFZdMSWwG96uch\niDfp8nfpkmzYI6SWbylObjm8RsfZbGTosLHwWyJPEITeYI/5M0XwJe9dgVI1rVNU\n52kplWOGTo1rm6V0AMHaYAd9RpiXxe8xt5OeranrsE/5LvEQUl0fz7SE36YmsOaH\nTwIDAQAB\n-----END PUBLIC KEY-----\n\n"},"summary":"EMAIL:shitposterclub@gmail.com<br>XMPP: moon@talk.shitposter.club<br>PRONOUNS: none of your business<br><br>Purported leftist kike piece of shit","tag":[],"type":"Person","url":"https://sposter.local/users/moonman"}
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://sposter.local/schemas/litepub-0.1.jsonld",
+        {
+            "@language": "und"
+        }
+    ],
+    "attachment": [],
+    "endpoints": {
+        "oauthAuthorizationEndpoint": "https://sposter.local/oauth/authorize",
+        "oauthRegistrationEndpoint": "https://sposter.local/api/v1/apps",
+        "oauthTokenEndpoint": "https://sposter.local/oauth/token",
+        "sharedInbox": "https://sposter.local/inbox"
+    },
+    "followers": "https://sposter.local/users/moonman/followers",
+    "following": "https://sposter.local/users/moonman/following",
+    "icon": {
+        "type": "Image",
+        "url": "https://sposter.local/media/bda6e00074f6a02cbf32ddb0abec08151eb4c795e580927ff7ad638d00cde4c8.jpg?name=blob.jpg"
+    },
+    "id": "https://sposter.local/users/moonman",
+    "image": {
+        "type": "Image",
+        "url": "https://sposter.local/media/4eefb90d-cdb2-2b4f-5f29-7612856a99d2/4eefb90d-cdb2-2b4f-5f29-7612856a99d2.jpeg"
+    },
+    "inbox": "https://sposter.local/users/moonman/inbox",
+    "manuallyApprovesFollowers": false,
+    "name": "Captain Howdy",
+    "outbox": "https://sposter.local/users/moonman/outbox",
+    "preferredUsername": "moonman",
+    "publicKey": {
+        "id": "https://sposter.local/users/moonman#main-key",
+        "owner": "https://sposter.local/users/moonman",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnOTitJ19ZqcOZHwSXQUM\nJq9ip4GNblp83LgwG1t5c2h2iaI3fXMsB4EaEBs8XHsoSFyDeDNRSPE3mtVgOnWv\n1eaXWMDerBT06th6DrElD9k5IoEPtZRY4HtZa1xGnte7+6RjuPOzZ1fR9C8WxGgi\nwb9iOUMhazpo85fC3iKCAL5XhiuA3Nas57MDJgueeI9BF+2oFelFZdMSWwG96uch\niDfp8nfpkmzYI6SWbylObjm8RsfZbGTosLHwWyJPEITeYI/5M0XwJe9dgVI1rVNU\n52kplWOGTo1rm6V0AMHaYAd9RpiXxe8xt5OeranrsE/5LvEQUl0fz7SE36YmsOaH\nTwIDAQAB\n-----END PUBLIC KEY-----\n\n"
+    },
+    "summary": "EMAIL:shitposterclub@gmail.com<br>XMPP: moon@talk.shitposter.club<br>PRONOUNS: none of your business<br><br>Purported leftist kike piece of shit",
+    "tag": [],
+    "type": "Person",
+    "url": "https://sposter.local/users/moonman"
+}

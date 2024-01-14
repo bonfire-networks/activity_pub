@@ -68,17 +68,23 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def maybe_fetch(entries, opts \\ [])
+  def maybe_fetch([], _opts), do: nil
 
   def maybe_fetch(entries, opts) when is_list(entries) do
     depth = (opts[:depth] || 0) + 1
+    max_items = Config.get([:instance, :federation_incoming_max_items]) || 5
 
-    if entries != [] and allowed_recursion?(depth) do
+    if allowed_recursion?(depth) do
       case opts[:mode] do
-        :async ->
+        false ->
+          debug("skip because of mode: false")
+          nil
+
+        mode when mode in [:async, nil] ->
           for {id, index} <- Enum.with_index(entries) do
             entry_depth = depth + index
 
-            if allowed_recursion?(entry_depth) do
+            if allowed_recursion?(entry_depth, max_items) do
               enqueue_fetch(
                 id,
                 Enum.into(opts[:worker_attrs] || %{}, %{
@@ -95,17 +101,20 @@ defmodule ActivityPub.Federator.Fetcher do
           for {id, index} <- Enum.with_index(entries) do
             entry_depth = depth + index
 
-            if allowed_recursion?(entry_depth) do
+            if allowed_recursion?(entry_depth, max_items) do
               fetch_object_from_id(id,
                 depth: entry_depth
               )
             end
           end
 
-        _ ->
-          debug("skip")
+        other ->
+          debug(other, "skip because of mode")
           nil
       end
+    else
+      debug(depth, "skip because of recursion limits")
+      nil
     end
   end
 
@@ -197,9 +206,10 @@ defmodule ActivityPub.Federator.Fetcher do
   defp handle_fetched(%{data: data}, opts), do: handle_fetched(data, opts)
 
   defp handle_fetched(data, opts) do
-    with {:ok, object} <- Transformer.handle_incoming(data) |> debug() do
+    debug(opts)
+
+    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug() do
       #  :ok <- check_if_public(object.public) do # huh?
-      debug(opts)
       skip_fetch_collection? = !opts[:fetch_collection]
       skip_fetch_collection_entries? = !opts[:fetch_collection_entries]
 
@@ -617,6 +627,8 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def allowed_recursion?(distance, max_recursion \\ nil) do
     max_distance = max_recursion || max_recursion()
+
+    debug(max_distance, "max_distance")
 
     if is_number(distance) and is_number(max_distance) and max_distance >= 0 do
       # Default depth is 0 (an object has zero distance from itself in its thread)

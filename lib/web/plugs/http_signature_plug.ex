@@ -14,7 +14,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     conn
   end
 
-  def call(%{method: http_method} = conn, _opts) do
+  def call(%{method: http_method} = conn, opts) do
     Logger.metadata(action: info("HTTPSignaturePlug"))
 
     reject_unsigned? = Config.get([:activity_pub, :reject_unsigned], false)
@@ -42,10 +42,17 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
             conn
         end
 
+      validated? =
+        if opts[:fetch_public_key] do
+          HTTPSignatures.validate(conn)
+        else
+          HTTPSignatures.validate_cached(conn)
+        end
+
       assign(
         conn,
         :valid_signature,
-        HTTPSignatures.validate_cached(conn)
+        validated?
         |> info("valid_signature?")
       )
     else

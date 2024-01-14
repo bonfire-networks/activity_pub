@@ -24,8 +24,14 @@ defmodule ActivityPub.Web.Router do
         plug(:accepts, ["json", "activity+json", "ld+json", "html"])
       end
 
-      pipeline :signed_activity_pub do
+      pipeline :signed_activity_pub_incoming do
         plug(ActivityPub.Web.Plugs.HTTPSignaturePlug)
+        plug(ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug)
+        plug(ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug)
+      end
+
+      pipeline :signed_activity_pub_fetch do
+        plug(ActivityPub.Web.Plugs.FetchHTTPSignaturePlug)
         plug(ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug)
         plug(ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug)
       end
@@ -38,7 +44,7 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
-        pipe_through(:signed_activity_pub)
+        pipe_through(:signed_activity_pub_fetch)
 
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
@@ -59,7 +65,7 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
-        pipe_through(:signed_activity_pub)
+        pipe_through(:signed_activity_pub_incoming)
 
         post("/actors/:username/inbox", IncomingActivityPubController, :inbox)
         post("/shared_inbox", IncomingActivityPubController, :inbox)

@@ -56,8 +56,7 @@ defmodule ActivityPub.MoveTest do
       "target" => new_user.ap_id
     }
 
-    {:ok, _new_user} =
-      add_alias(new_user, old_user.ap_id)
+    {:ok, _new_user} = add_alias(new_user, old_user.ap_id)
 
     assert @mismatch = Transformer.handle_incoming(message)
   end
@@ -193,8 +192,7 @@ defmodule ActivityPub.MoveTest do
       old_user = local_actor().actor
       new_user = local_actor().actor
 
-      assert @mismatch =
-               ActivityPub.move(old_user, new_user)
+      assert @mismatch = ActivityPub.move(old_user, new_user)
     end
 
     test "do not move remote user following relationships" do

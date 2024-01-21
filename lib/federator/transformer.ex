@@ -521,8 +521,7 @@ defmodule ActivityPub.Federator.Transformer do
          %{"source" => %{"mediaType" => "text/x.misskeymarkdown", "content" => content}} = object
        )
        when is_binary(content) do
-    formatted =
-      format_input(content, "text/x.misskeymarkdown")
+    formatted = format_input(content, "text/x.misskeymarkdown")
 
     Map.put(object, "content", formatted)
   end
@@ -530,8 +529,7 @@ defmodule ActivityPub.Federator.Transformer do
   # See https://github.com/misskey-dev/misskey/pull/8787
   # This is for compatibility with older Misskey instances
   defp fix_mfm_content(%{"_misskey_content" => content} = object) when is_binary(content) do
-    formatted =
-      format_input(content, "text/x.misskeymarkdown")
+    formatted = format_input(content, "text/x.misskeymarkdown")
 
     object
     |> Map.put("source", %{
@@ -754,9 +752,7 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(%{"type" => "Create", "object" => _object} = data, opts) do
     info("Handle incoming creation of an object")
 
-    %{"object" => object} =
-      data =
-      Object.normalize_actors(data)
+    %{"object" => object} = data = Object.normalize_actors(data)
 
     # |> debug("with actors normalized")
 

@@ -30,6 +30,9 @@ defmodule ActivityPub.Web.Endpoint do
   plug(Plug.RequestId)
   plug(Plug.Logger)
 
+  # parses real IP in conn if behind proxy 
+  plug(RemoteIp)
+
   plug(Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],

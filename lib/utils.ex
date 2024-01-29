@@ -334,7 +334,7 @@ defmodule ActivityPub.Utils do
     if Untangle.log_level?(:info),
       do:
         info(
-          "#{inspect(request_ip(conn))} / #{inspect(Plug.Conn.get_req_header(conn, "user-agent"))}",
+          "#{inspect(request_ip(conn.remote_ip))} / #{inspect(Plug.Conn.get_req_header(conn, "user-agent"))}",
           "request from"
         )
 
@@ -449,38 +449,39 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def request_ip(conn) do
-    cond do
-      remote_ip = Code.ensure_compiled?(RemoteIp) and RemoteIp.from(conn.req_headers) ->
-        remote_ip
+  # def request_ip(conn) do
+  # NOTE: now using RemoteIp in plug to avoid needing all this
+  # cond do
+  #   remote_ip = Code.ensure_compiled?(RemoteIp) and RemoteIp.from(conn.req_headers) ->
+  #     remote_ip
 
-      # TODO: just use RemoteIp in plug and avoid needed this whole function?
+  #   cf_connecting_ip = List.first(Plug.Conn.get_req_header(conn, "cf-connecting-ip")) ->
+  #     cf_connecting_ip
 
-      cf_connecting_ip = List.first(Plug.Conn.get_req_header(conn, "cf-connecting-ip")) ->
-        cf_connecting_ip
+  #   # List.first(Plug.Conn.get_req_header(conn, "b-forwarded-for")) ->
+  #   #   parse_forwarded_for(b_forwarded_for)
 
-      # List.first(Plug.Conn.get_req_header(conn, "b-forwarded-for")) ->
-      #   parse_forwarded_for(b_forwarded_for)
+  #   x_forwarded_for = List.first(Plug.Conn.get_req_header(conn, "x-forwarded-for")) ->
+  #     parse_forwarded_for(x_forwarded_for)
 
-      x_forwarded_for = List.first(Plug.Conn.get_req_header(conn, "x-forwarded-for")) ->
-        parse_forwarded_for(x_forwarded_for)
+  #   forwarded = List.first(Plug.Conn.get_req_header(conn, "forwarded")) ->
+  #     Regex.named_captures(~r/for=(?<for>[^;,]+).*$/, forwarded)
+  #     |> Map.get("for")
+  #     # IPv6 addresses are enclosed in quote marks and square brackets: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
+  #     |> String.trim("\"")
 
-      forwarded = List.first(Plug.Conn.get_req_header(conn, "forwarded")) ->
-        Regex.named_captures(~r/for=(?<for>[^;,]+).*$/, forwarded)
-        |> Map.get("for")
-        # IPv6 addresses are enclosed in quote marks and square brackets: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
-        |> String.trim("\"")
-
-      true ->
-        to_string(:inet_parse.ntoa(conn.remote_ip))
-    end
-  end
-
-  defp parse_forwarded_for(header) do
-    String.split(header, ",")
-    |> Enum.map(&String.trim/1)
-    |> List.first()
-  end
+  #   true ->
+  #     conn.remote_ip
+  # end
+  # |> request_ip()
+  # end
+  def request_ip(%{remote_ip: remote_ip}), do: request_ip(remote_ip)
+  def request_ip(remote_ip), do: to_string(:inet_parse.ntoa(remote_ip))
+  # defp parse_forwarded_for(header) do
+  #   String.split(header, ",")
+  #   |> Enum.map(&String.trim/1)
+  #   |> List.first()
+  # end
 
   def service_actor() do
     with {:ok, service_actor} <-

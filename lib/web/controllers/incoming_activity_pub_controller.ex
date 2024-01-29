@@ -19,16 +19,13 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   alias ActivityPub.Federator
 
-  @limit_num Application.compile_env(:activity_pub, __MODULE__, 1200)
-  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 60_000)
+  @limit_num Application.compile_env(:activity_pub, __MODULE__, 5000)
+  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 120_000)
 
   plug Hammer.Plug,
     rate_limit: {"activity_pub_incoming", @limit_ms, @limit_num},
     by: :ip,
-    # when_nil: :raise,
     on_deny: &ActivityPub.Web.rate_limit_reached/2
-
-  # when action == :object
 
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
     process_incoming(conn, params)

@@ -4,8 +4,8 @@ defmodule ActivityPub.Web.RedirectController do
   alias ActivityPub.Federator.Adapter
   # alias ActivityPub.Federator.WebFinger
 
-  @limit_num Application.compile_env(:activity_pub, __MODULE__, 20)
-  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 5_000)
+  @limit_num Application.compile_env(:activity_pub, __MODULE__, 200)
+  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 60_000)
 
   plug Hammer.Plug,
     rate_limit: {"activity_pub_api", @limit_ms, @limit_num},

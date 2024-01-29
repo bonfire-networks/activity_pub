@@ -153,7 +153,7 @@ defmodule ActivityPub.Federator.APPublisher do
     else
       {_post_result, response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
-        error(response)
+        error(response, "could not push activity to #{inspect(inbox)}")
     end
   end
 

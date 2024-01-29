@@ -496,8 +496,10 @@ defmodule ActivityPub.Actor do
   def get_followings(actor) do
     followings =
       Adapter.get_following_local_ids(actor)
+      |> debug()
+      |> Enum.reject(&is_nil/1)
       |> Enum.map(&get_cached!(pointer: &1))
-      |> Enum.filter(fn x -> x end)
+      |> Enum.reject(&is_nil/1)
 
     {:ok, followings}
   end

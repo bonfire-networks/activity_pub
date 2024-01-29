@@ -24,8 +24,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   alias ActivityPub.Web.ObjectView
   # alias ActivityPub.Web.RedirectController
 
-  @limit_num Application.compile_env(:activity_pub, __MODULE__, 60)
-  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 60_000)
+  @limit_num Application.compile_env(:activity_pub, __MODULE__, 3000)
+  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 120_000)
 
   plug Hammer.Plug,
     rate_limit: {"activity_pub_api", @limit_ms, @limit_num},

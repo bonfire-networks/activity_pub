@@ -159,8 +159,10 @@ defmodule ActivityPub.Federator.Transformer do
   defp check_remote_object_deleted(ap_id) do
     debug(ap_id, "Checking delete permission for")
 
-    case Fetcher.fetch_remote_object_from_id(ap_id) |> debug("fetched") do
-      {:error, :not_found} -> {:ok, ap_id}
+    case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true)
+         |> debug("fetched") do
+      {:error, :not_found} -> {:ok, nil}
+      {:ok, %{"suspended" => true} = actor} -> {:ok, actor}
       {:ok, %{"type" => "Tombstone"} = data} -> {:ok, data}
       {:ok, %{data: %{"type" => "Tombstone"}} = actor} -> {:ok, actor}
       _ -> {:error, :not_deleted}
@@ -749,6 +751,19 @@ defmodule ActivityPub.Federator.Transformer do
       ),
       do: Actor.get_cached_or_fetch(ap_id: ap_id)
 
+  def handle_incoming(
+        %{"type" => "Create", "object" => %{"type" => "Tombstone"} = object} = _data,
+        opts
+      ) do
+    handle_incoming(
+      %{
+        "type" => "Delete",
+        "object" => object
+      },
+      opts
+    )
+  end
+
   def handle_incoming(%{"type" => "Create", "object" => _object} = data, opts) do
     info("Handle incoming creation of an object")
 
@@ -1023,8 +1038,8 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(
         %{
           "type" => "Delete",
-          "object" => object,
-          "actor" => _actor
+          "object" => object
+          # "actor" => _actor
         } = _data,
         _opts
       ) do
@@ -1033,9 +1048,9 @@ defmodule ActivityPub.Federator.Transformer do
     object_id = Object.get_ap_id(object)
 
     with {:ok, data} <- check_remote_object_deleted(object_id),
-         object <- Object.normalize(object_id, false),
+         object <- Object.normalize(data || object, false),
          {:actor, false} <- {:actor, Actor.actor?(object) || Actor.actor?(data)},
-         {:ok, activity} <- ActivityPub.delete(object || data, false) do
+         {:ok, activity} <- ActivityPub.delete(object, false) do
       {:ok, activity}
     else
       {:actor, true} ->

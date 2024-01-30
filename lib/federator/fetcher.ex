@@ -353,16 +353,24 @@ defmodule ActivityPub.Federator.Fetcher do
       when code in [404, 410] and is_binary(body) and body != "" ->
         with true <- options[:return_tombstones],
              {:ok, data} <- Jason.decode(body) do
-          warn(id, "ActivityPub remote replied with #{code} and an object (probably a Tombstone)")
+          warn(
+            id,
+            "Not found - ActivityPub remote replied with #{code} and an object (probably a Tombstone)"
+          )
+
           {:ok, data}
         else
           e ->
-            warn(e, "ActivityPub remote replied with #{code}, and could not process object")
+            warn(
+              e,
+              "Not found - ActivityPub remote replied with #{code}, and could not process object"
+            )
+
             {:error, :not_found}
         end
 
       {:ok, %{status: code}} when code in [404, 410] ->
-        warn(id, "ActivityPub remote replied with #{code}")
+        warn(id, "Not found - ActivityPub remote replied with #{code}")
         {:error, :not_found}
 
       {:error, %Jason.DecodeError{data: data}} ->

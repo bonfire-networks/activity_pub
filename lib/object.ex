@@ -449,8 +449,13 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(_, fetch_remote? \\ true, pointer \\ nil)
-  def normalize({:ok, object}, _, _), do: normalize(object)
-  def normalize(%{__struct__: Object, data: %{"object" => object}}, _, _), do: normalize(object)
+
+  def normalize({:ok, object}, fetch_remote?, pointer),
+    do: normalize(object, fetch_remote?, pointer)
+
+  def normalize(%{__struct__: Object, data: %{"object" => object}}, fetch_remote?, pointer),
+    do: normalize(object, fetch_remote?, pointer)
+
   def normalize(%{__struct__: Object} = object, _, _), do: object
 
   def normalize(%{"id" => ap_id} = _object, true, pointer)

@@ -751,19 +751,6 @@ defmodule ActivityPub.Federator.Transformer do
       ),
       do: Actor.get_cached_or_fetch(ap_id: ap_id)
 
-  def handle_incoming(
-        %{"type" => "Create", "object" => %{"type" => "Tombstone"} = object} = _data,
-        opts
-      ) do
-    handle_incoming(
-      %{
-        "type" => "Delete",
-        "object" => object
-      },
-      opts
-    )
-  end
-
   def handle_incoming(%{"type" => "Create", "object" => _object} = data, opts) do
     info("Handle incoming creation of an object")
 
@@ -1190,6 +1177,19 @@ defmodule ActivityPub.Federator.Transformer do
     else
       e -> error(e)
     end
+  end
+
+  def handle_incoming(
+        %{"type" => "Tombstone"} = object,
+        opts
+      ) do
+    handle_incoming(
+      %{
+        "type" => "Delete",
+        "object" => object
+      },
+      opts
+    )
   end
 
   # Handle other activity types (and their object)

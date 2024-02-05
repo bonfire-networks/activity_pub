@@ -19,9 +19,11 @@ defmodule ActivityPub do
   @doc """
   Enqueues an activity for federation if it's local
   """
-  defp maybe_federate(%Object{local: true} = activity) do
+  defp maybe_federate(%Object{local: true} = activity, opts \\ []) do
+    debug(opts, "oopts")
+
     if Config.federating?() do
-      with {:ok, job} <- ActivityPub.Federator.publish(activity) do
+      with {:ok, job} <- ActivityPub.Federator.publish(activity, opts) do
         info(
           job,
           "ActivityPub outgoing federation has been queued"
@@ -38,7 +40,7 @@ defmodule ActivityPub do
     end
   end
 
-  defp maybe_federate(object) do
+  defp maybe_federate(object, _) do
     warn(
       object,
       "Skip outgoing federation of non-local object"
@@ -420,29 +422,32 @@ defmodule ActivityPub do
     end
   end
 
-  def delete(object, local \\ true, delete_actor \\ nil)
+  def delete(object, is_local?, opts \\ [])
 
-  @spec delete(Actor.t(), local :: boolean(), delete_actor :: binary() | nil) ::
-          {:ok, Object.t()} | {:error, any()}
   def delete(
         %{data: %{"id" => id, "type" => type}} = delete_actor,
         local,
-        subject_actor
+        opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
-    to = [delete_actor.data["followers"], Map.get(subject_actor || %{}, :data, %{})["followers"]]
+    to = [
+      delete_actor.data["followers"],
+      Map.get(opts[:subject] || %{}, :data, %{})["followers"],
+      ActivityPub.Config.public_uri()
+    ]
 
     with {:ok, _} <- Actor.delete(delete_actor) |> debug("deleeeted"),
          params <-
            %{
              "type" => "Delete",
-             "actor" => subject_actor || id,
+             "actor" => opts[:subject] || id,
              "object" => id,
-             "to" => to
+             "to" => to,
+             "bcc" => opts[:bcc]
            }
            |> debug("params"),
          {:ok, activity} <- Object.insert(params, local),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(activity, opts),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -452,34 +457,34 @@ defmodule ActivityPub do
   def delete(
         %{data: %{"id" => _id, "formerType" => type}} = delete_actor,
         local,
-        subject_actor
+        opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
     delete(
       Map.update(delete_actor, :data, %{}, fn data -> Map.merge(data, %{"type" => type}) end),
       local,
-      subject_actor
+      opts
     )
   end
 
-  @spec delete(Object.t(), local :: boolean(), delete_actor :: binary()) ::
-          {:ok, Object.t()} | {:error, any()}
   def delete(
         %Object{data: %{"id" => id, "actor" => actor}} = object,
         local,
-        subject_actor
+        opts
       ) do
-    to = (object.data["to"] || []) ++ (object.data["cc"] || [])
+    to =
+      (object.data["to"] || []) ++ (object.data["cc"] || []) ++ [ActivityPub.Config.public_uri()]
 
     with {:ok, _object} <- Object.delete(object) |> debug("dellll"),
          data <- %{
            "type" => "Delete",
-           "actor" => subject_actor || actor,
+           "actor" => opts[:subject] || actor,
            "object" => id,
-           "to" => to
+           "to" => to,
+           "bcc" => opts[:bcc]
          },
          {:ok, activity} <- Object.insert(data, local),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(activity, opts),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -496,21 +501,18 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) :: {:ok, Object.t()} | {:error, any()}
   def flag(%{} = params) do
-    forward = params[:forward] == true
-
     additional = params[:additional] || %{}
 
     additional =
-      if is_map(params[:account]) and forward do
-        Map.merge(additional, %{"to" => [], "cc" => [params[:account].data["id"]]})
+      if is_map(params[:account]) and params[:forward] == true do
+        Map.merge(additional, %{"to" => [], "bcc" => [params[:account].data["id"]]})
       else
         Map.merge(additional, %{"to" => [], "cc" => []})
       end
 
-    with flag_data <-
-           make_flag_data(params, [params[:account]] ++ (params[:statuses] || []), additional),
-         {:ok, activity} <-
-           Object.insert(flag_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+    with {:ok, activity} <-
+           make_flag_data(params, [params[:account]] ++ (params[:statuses] || []), additional)
+           |> Object.insert(Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -792,7 +794,11 @@ defmodule ActivityPub do
     data =
       %{
         "type" => "Flag",
-        "actor" => params.actor.data["id"],
+        "actor" =>
+          if(is_struct(params[:actor]),
+            do: params[:actor].data["id"],
+            else: params[:actor] || Utils.service_actor!()
+          ),
         "content" => params[:content],
         "object" => objects,
         "context" => params[:context],

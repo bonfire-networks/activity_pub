@@ -32,7 +32,7 @@ defmodule ActivityPub.Federator.Worker do
       end
 
       def enqueue(op, params, worker_args \\ []) do
-        Oban.insert(enqueueable(op, params, worker_args))
+        Oban.insert(enqueueable(op, params, worker_args || []))
       end
     end
   end

@@ -28,17 +28,17 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     on_deny: &ActivityPub.Web.rate_limit_reached/2
 
   def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
-    process_incoming(conn, params)
+    apply_process(conn, params, &process_incoming/3)
   end
 
   # accept (but re-fetch) unsigned unsigned (or invalidly signed) activities
   def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
-    maybe_process_unsigned(conn, params, true)
+    apply_process(conn, params, &maybe_process_unsigned/3)
   end
 
   # accept (but verify) unsigned Creates only?
   # def inbox(conn, %{"type" => "Create"} = params) do
-  #   maybe_process_unsigned(conn, params, nil)
+  #       apply_process(conn, params, &maybe_process_unsigned/3)
   # end
   # def inbox(conn, params) do
   #   Utils.error_json(conn, "please send signed activities - activity was rejected", 401)
@@ -46,7 +46,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   # accept (but verify) unsigned any activities
   def inbox(conn, params) do
-    maybe_process_unsigned(conn, params, false)
+    apply_process(conn, params, &maybe_process_unsigned/3)
   end
 
   def inbox_info(conn, params) do
@@ -57,11 +57,25 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     end
   end
 
-  defp process_incoming(conn, params) do
+  defp apply_process(conn, %{"type" => "Delete"} = params, fun) do
+    # TODO: check if the actor/object being deleted is even known locally before bothering?
+    #  workaround in case the remote actor is not yet actually deleted
+    fun.(conn, params, schedule_in: {2, :minutes})
+  end
+
+  defp apply_process(conn, params, fun) do
+    fun.(conn, params, [])
+  end
+
+  defp process_incoming(conn, params, worker_args \\ []) do
     if Config.federating?() do
-      ActivityPub.Federator.Workers.ReceiverWorker.enqueue("incoming_ap_doc", %{
-        "params" => params
-      })
+      ActivityPub.Federator.Workers.ReceiverWorker.enqueue(
+        "incoming_ap_doc",
+        %{
+          "params" => params
+        },
+        worker_args
+      )
       |> debug("handling enqueued or processed")
 
       # TODO: async
@@ -73,12 +87,16 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     end
   end
 
-  defp maybe_process_unsigned(conn, params, _signed?) do
+  defp maybe_process_unsigned(conn, params, worker_args \\ []) do
     if Config.federating?() do
-      ActivityPub.Federator.Workers.ReceiverWorker.enqueue("incoming_unverified_ap_doc", %{
-        "params" => params,
-        "headers" => Enum.into(conn.req_headers, %{})
-      })
+      ActivityPub.Federator.Workers.ReceiverWorker.enqueue(
+        "incoming_unverified_ap_doc",
+        %{
+          "params" => params,
+          "headers" => Enum.into(conn.req_headers, %{})
+        },
+        worker_args
+      )
       |> debug("verification enqueued or processed")
 
       # TODO: async

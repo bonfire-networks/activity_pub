@@ -15,7 +15,7 @@ defmodule ActivityPub.Federator.APPublisher do
   # handle all types
   def is_representable?(_activity), do: true
 
-  def publish(actor, activity) do
+  def publish(actor, activity, opts \\ []) do
     {:ok, prepared_activity_data} =
       Transformer.prepare_outgoing(activity.data)
       |> info("data ready to publish as JSON")
@@ -34,12 +34,15 @@ defmodule ActivityPub.Federator.APPublisher do
     cc = activity.data["cc"] || []
     tos = to ++ cc
     is_public? = ActivityPub.Config.public_uri() in tos
-    # TODO: include bcc, etc
-    num_recipients = length(to) + length(cc)
     type = activity.data["type"]
 
-    recipients(actor, prepared_activity_data, tos, is_public?)
-    |> info("initial recipients")
+    recipients =
+      recipients(actor, prepared_activity_data, tos, is_public?)
+      |> info("initial recipients")
+
+    num_recipients = length(recipients)
+
+    recipients
     |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
     # |> maybe_federate_to_search_index(activity)
     |> Enum.uniq()
@@ -51,14 +54,20 @@ defmodule ActivityPub.Federator.APPublisher do
         Transformer.preserve_privacy_of_outgoing(prepared_activity_data, URI.parse(inbox))
         |> Jason.encode!()
 
-      ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, %{
+      params = %{
         inbox: inbox,
         json: json,
         actor_username: Map.get(actor, :username),
         actor_id: Map.get(actor, :id),
         id: prepared_activity_data["id"],
         unreachable_since: unreachable_since
-      })
+      }
+
+      if opts[:federate_inline] do
+        publish_one(params)
+      else
+        ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, params)
+      end
     end)
   end
 
@@ -159,13 +168,19 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp recipients(actor, activity, tos, is_public?) do
     # if is_public? || 
-    {:ok, followers} =
+    followers =
       if is_public? || actor.data["followers"] in tos do
         Actor.get_external_followers(actor)
         |> debug("external_followers")
       else
         # optionally send it to a subset of followers
-        Adapter.external_followers_for_activity(actor, activity)
+        with {:ok, followers} <- Adapter.external_followers_for_activity(actor, activity) do
+          followers
+        else
+          e ->
+            error(e)
+            nil
+        end
       end
 
     (remote_recipients(actor, activity) |> info("remote_recipients")) ++

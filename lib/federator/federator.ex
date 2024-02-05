@@ -11,30 +11,42 @@ defmodule ActivityPub.Federator do
 
   import Untangle
 
-  def publish(%{id: activity}) do
-    publish(activity)
+  def publish(activity, opts \\ [])
+
+  def publish(%{id: activity_id} = activity, opts) do
+    if opts[:federate_inline] do
+      perform(:publish, activity, opts)
+    else
+      publish(activity_id, opts[:worker_args])
+    end
   end
 
-  def publish(%{"id" => _} = activity) do
-    PublisherWorker.enqueue("publish", %{"activity" => activity})
+  def publish(%{"id" => _} = activity, opts) do
+    if opts[:federate_inline] do
+      perform(:publish, activity, opts)
+    else
+      PublisherWorker.enqueue("publish", %{"activity" => activity}, opts[:worker_args])
+    end
   end
 
-  def publish(activity) when is_binary(activity) do
-    PublisherWorker.enqueue("publish", %{"activity_id" => activity})
+  def publish(activity_id, opts) when is_binary(activity_id) do
+    PublisherWorker.enqueue("publish", %{"activity_id" => activity_id}, opts[:worker_args])
   end
 
-  @spec perform(atom(), module(), any()) :: {:ok, any()} | {:error, any()}
-  def perform(:publish_one, module, params) do
-    apply(module, :publish_one, [params])
-  end
+  def perform(task, activity_or_module, params_or_opts \\ [])
 
-  def perform(:publish, %{data: _} = activity) do
+  def perform(:publish, %{data: _} = activity, opts) do
     actor_id = activity.data["actor"]
 
     with {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
          actor <- Keys.add_public_key(actor) do
       debug(activity.data["id"], "Running publish for")
-      Publisher.publish(actor, activity)
+
+      if opts[:federate_inline] do
+        ActivityPub.Federator.APPublisher.publish(actor, activity, opts)
+      else
+        Publisher.publish(actor, activity)
+      end
     else
       e ->
         error(
@@ -44,7 +56,11 @@ defmodule ActivityPub.Federator do
     end
   end
 
-  def perform(type, _) do
+  def perform(:publish_one, module, params) do
+    apply(module, :publish_one, [params])
+  end
+
+  def perform(type, _, _) do
     error(type, "Unknown federator task")
   end
 end

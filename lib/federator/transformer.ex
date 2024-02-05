@@ -161,11 +161,18 @@ defmodule ActivityPub.Federator.Transformer do
 
     case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true)
          |> debug("fetched") do
-      {:error, :not_found} -> {:ok, nil}
-      {:ok, %{"suspended" => true} = actor} -> {:ok, actor}
-      {:ok, %{"type" => "Tombstone"} = data} -> {:ok, data}
-      {:ok, %{data: %{"type" => "Tombstone"}} = actor} -> {:ok, actor}
-      _ -> {:error, :not_deleted}
+      {:error, :not_found} ->
+        {:ok, nil}
+
+      {:ok, %{} = data} ->
+        if Object.is_deleted?(data) do
+          {:ok, data}
+        else
+          {:error, :not_deleted}
+        end
+
+      _ ->
+        {:error, :not_deleted}
     end
   end
 
@@ -1051,6 +1058,8 @@ defmodule ActivityPub.Federator.Transformer do
 
           e ->
             error(e, "Could not find actor to delete")
+            # so oban doesn't try again
+            :ok
         end
 
       {:error, :not_deleted} ->

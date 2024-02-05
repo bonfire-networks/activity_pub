@@ -56,7 +56,7 @@ defmodule ActivityPub.Web.ActorView do
   end
 
   def render("followers.json", %{actor: actor, page: page}) do
-    {:ok, followers} = Actor.get_followers(actor)
+    followers = Actor.get_followers(actor)
 
     total = length(followers)
 
@@ -65,7 +65,7 @@ defmodule ActivityPub.Web.ActorView do
   end
 
   def render("followers.json", %{actor: actor}) do
-    {:ok, followers} = Actor.get_followers(actor)
+    followers = Actor.get_followers(actor)
 
     total = length(followers)
 

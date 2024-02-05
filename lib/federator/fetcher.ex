@@ -324,7 +324,12 @@ defmodule ActivityPub.Federator.Fetcher do
            {:ok, _} <-
              {options[:skip_contain_origin_check] ||
                 Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
-        {:ok, data}
+        if !options[:return_tombstones] and Object.is_deleted?(data) do
+          debug("object was marked as deleted/suspended, return as not found")
+          {:error, :not_found}
+        else
+          {:ok, data}
+        end
       else
         returned -> handle_fetch_error(returned, id, options, code, headers)
       end
@@ -354,11 +359,17 @@ defmodule ActivityPub.Federator.Fetcher do
         with true <- options[:return_tombstones],
              {:ok, data} <- Jason.decode(body) do
           warn(
-            id,
-            "Not found - ActivityPub remote replied with #{code} and an object (probably a Tombstone)"
+            data,
+            "Not found - ActivityPub remote replied with #{code} and an object (maybe a Tombstone)"
           )
 
-          {:ok, data}
+          case data do
+            %{"suspended" => true} -> {:ok, data}
+            %{"type" => "Tombstone"} -> {:ok, data}
+            %{"type" => "Delete"} -> {:ok, data}
+            %{"object" => %{"type" => "Tombstone"} = actor} -> {:ok, actor}
+            _ -> {:error, :not_found}
+          end
         else
           e ->
             warn(

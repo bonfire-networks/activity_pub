@@ -490,6 +490,17 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  def service_actor!() do
+    with {:ok, service_actor} <-
+           ActivityPub.Federator.Adapter.get_or_create_service_actor() do
+      service_actor
+    else
+      e ->
+        error(e)
+        nil
+    end
+  end
+
   @doc """
   Takes a map or keyword list, and returns a map with any atom keys converted to string keys. It can optionally do so recursively.
   """

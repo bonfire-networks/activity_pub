@@ -592,6 +592,19 @@ defmodule ActivityPub.Object do
     }
   end
 
+  def is_deleted?(%{data: data}), do: is_deleted?(data)
+
+  def is_deleted?(data) do
+    case data do
+      %{"suspended" => true} -> true
+      %{"type" => "Tombstone"} -> true
+      %{"type" => "Delete"} -> true
+      %{"object" => %{"type" => "Tombstone"}} -> true
+      nil -> true
+      _ -> false
+    end
+  end
+
   def swap_object_with_tombstone(object) do
     tombstone = make_tombstone(object)
 

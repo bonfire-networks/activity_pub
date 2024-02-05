@@ -505,23 +505,18 @@ defmodule ActivityPub.Actor do
   end
 
   def get_followers(actor) do
-    followers =
-      Adapter.get_follower_local_ids(actor)
-      |> debug("followers")
-      |> Enum.map(&get_cached!(pointer: &1))
-      # Filter nils
-      |> Enum.filter(fn x -> x end)
-
-    {:ok, followers}
+    Adapter.get_follower_local_ids(actor)
+    |> debug("followers")
+    |> Enum.map(&get_cached!(pointer: &1))
+    # Filter nils
+    |> Enum.filter(fn x -> x end)
   end
 
   def get_external_followers(actor) do
     followers =
       get_followers(actor)
       # Filter locals
-      ~> Enum.filter(fn x -> !x.local end)
-
-    {:ok, followers}
+      |> Enum.filter(fn x -> !x.local end)
   end
 
   def delete(%Actor{id: _id} = actor) do

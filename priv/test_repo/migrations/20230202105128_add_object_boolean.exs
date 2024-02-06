@@ -1,4 +1,4 @@
-defmodule ActivityPub.Repo.Migrations.AddObjectBoolean  do
+defmodule ActivityPub.Repo.Migrations.AddObjectBoolean do
   @moduledoc false
   use Ecto.Migration
 

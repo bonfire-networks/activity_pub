@@ -1,4 +1,4 @@
-defmodule ActivityPub.TestRepo.Migrations.CreatePointersTable  do
+defmodule ActivityPub.TestRepo.Migrations.CreatePointersTable do
   @moduledoc false
   use Ecto.Migration
 

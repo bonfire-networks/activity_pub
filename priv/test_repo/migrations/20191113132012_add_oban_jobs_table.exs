@@ -1,4 +1,4 @@
-defmodule ActivityPub.Repo.Migrations.AddObanJobsTable  do
+defmodule ActivityPub.Repo.Migrations.AddObanJobsTable do
   @moduledoc false
   use Ecto.Migration
 

@@ -170,6 +170,10 @@ defmodule ActivityPub.Actor do
     raise "Unexpected args when attempting to get an actor"
   end
 
+  def get_non_cached(opts) do
+    get(opts)
+  end
+
   @doc """
   Fetches an actor given its AP ID.
 

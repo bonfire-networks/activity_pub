@@ -155,7 +155,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp cached_or_handle_incoming(%{"type" => type} = id_or_data, opts)
        when ActivityPub.Config.is_in(type, :supported_actor_types) do
-    debug("update the Actor")
+    debug("create/update an Actor")
     handle_fetched(id_or_data, opts)
   end
 

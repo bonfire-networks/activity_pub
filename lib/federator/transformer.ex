@@ -362,63 +362,64 @@ defmodule ActivityPub.Federator.Transformer do
     |> Map.drop(["conversation"])
   end
 
-  def fix_attachments(%{"attachment" => attachment} = object) when is_list(attachment) do
-    attachments =
-      Enum.map(attachment, fn data ->
-        url =
-          cond do
-            is_list(data["url"]) -> List.first(data["url"])
-            is_map(data["url"]) -> data["url"]
-            true -> nil
-          end
+  def fix_attachments(%{"attachment" => attachments} = object) when is_list(attachments) do
+    attachments
+    |> debug()
+    |> Enum.map(fn data ->
+      url =
+        cond do
+          is_list(data["url"]) -> List.first(data["url"])
+          is_map(data["url"]) -> data["url"]
+          true -> nil
+        end
 
-        media_type =
-          cond do
-            is_map(url) && MIME.extensions(url["mediaType"]) != [] ->
-              url["mediaType"]
+      media_type =
+        cond do
+          is_map(url) && MIME.extensions(url["mediaType"]) != [] ->
+            url["mediaType"]
 
-            is_bitstring(data["mediaType"]) && MIME.extensions(data["mediaType"]) != [] ->
-              data["mediaType"]
+          is_bitstring(data["mediaType"]) && MIME.extensions(data["mediaType"]) != [] ->
+            data["mediaType"]
 
-            is_bitstring(data["mimeType"]) && MIME.extensions(data["mimeType"]) != [] ->
-              data["mimeType"]
+          is_bitstring(data["mimeType"]) && MIME.extensions(data["mimeType"]) != [] ->
+            data["mimeType"]
 
-            true ->
-              nil
-          end
+          true ->
+            nil
+        end
 
-        href =
-          cond do
-            is_map(url) && is_binary(url["href"]) -> url["href"]
-            is_binary(data["url"]) -> data["url"]
-            is_binary(data["href"]) -> data["href"]
-            true -> nil
-          end
+      href =
+        cond do
+          is_map(url) && is_binary(url["href"]) -> url["href"]
+          is_binary(data["url"]) -> data["url"]
+          is_binary(data["href"]) -> data["href"]
+          true -> nil
+        end
 
-        if href do
-          attachment_url =
-            %{
-              "href" => href,
-              "type" => Map.get(url || %{}, "type", "Link")
-            }
-            |> Utils.put_if_present("mediaType", media_type)
-            |> Utils.put_if_present("width", (url || %{})["width"] || data["width"])
-            |> Utils.put_if_present("height", (url || %{})["height"] || data["height"])
-
+      if href do
+        attachment_url =
           %{
-            "url" => [attachment_url],
-            "type" => data["type"] || "Document"
+            "href" => href,
+            "type" => Map.get(url || %{}, "type", "Link")
           }
           |> Utils.put_if_present("mediaType", media_type)
-          |> Utils.put_if_present("name", data["name"])
-          |> Utils.put_if_present("blurhash", data["blurhash"])
-        else
-          nil
-        end
-      end)
-      |> Enum.filter(& &1)
+          |> Utils.put_if_present("width", (url || %{})["width"] || data["width"])
+          |> Utils.put_if_present("height", (url || %{})["height"] || data["height"])
 
-    Map.put(object, "attachment", attachments)
+        %{
+          "url" => [attachment_url],
+          "type" => data["type"] || "Document"
+        }
+        |> Utils.put_if_present("mediaType", media_type)
+        |> Utils.put_if_present("name", data["name"])
+        |> Utils.put_if_present("blurhash", data["blurhash"])
+      else
+        nil
+      end
+    end)
+    |> Enum.filter(& &1)
+    |> debug()
+    |> Map.put(object, "attachment", ...)
   end
 
   def fix_attachments(%{"attachment" => attachment} = object) when is_map(attachment) do
@@ -1218,8 +1219,7 @@ defmodule ActivityPub.Federator.Transformer do
       when ActivityPub.Config.is_in(type, :supported_actor_types) or type in ["Author"] do
     info(type, "Save actor or collection without an activity")
 
-    maybe_handle_other_object(data)
-    ~> ActivityPub.Actor.maybe_create_actor_from_object()
+    ActivityPub.Actor.maybe_create_actor_from_object(data)
   end
 
   def handle_incoming(%{"type" => type} = data, _opts)
@@ -1276,18 +1276,27 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def maybe_handle_other_object(data) do
-    with {:ok, object} <- Object.prepare_data(data),
+  def maybe_handle_actor(data) do
+    case do_maybe_handle_actor(data) do
+      {:ok, %Object{} = object} -> ActivityPub.Actor.maybe_create_actor_from_object(object)
+      other -> other |> debug("did not get an object")
+    end
+  end
+
+  defp do_maybe_handle_actor(data) do
+    with {:error, :not_found} <- Object.get_cached(data),
+         {:ok, object} <- Object.prepare_data(data),
          {:ok, object} <- Object.do_insert(object) do
       {:ok, object}
     else
       {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
-        case Actor.get_cached(data) do
+        case Actor.get_non_cached(data) do
           {:ok, %{ap_id: actor}} ->
+            warn(data, "Actor already exists, update it instead")
             Actor.update_actor(actor, data)
 
           _ ->
-            Object.get_cached(data)
+            error(data, "Not an actor?")
         end
 
       other ->

@@ -436,7 +436,11 @@ defmodule ActivityPub do
       ActivityPub.Config.public_uri()
     ]
 
-    with {:ok, _} <- Actor.delete(delete_actor) |> debug("deleeeted"),
+    with {:ok, _} <-
+           delete_actor
+           |> debug()
+           |> Actor.delete(local)
+           |> debug("deleeeted"),
          params <-
            %{
              "type" => "Delete",

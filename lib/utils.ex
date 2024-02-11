@@ -267,14 +267,25 @@ defmodule ActivityPub.Utils do
 
                {:commit, object}
 
+             {:error, :not_found} ->
+               warn("nothing found for #{key} - #{identifier} - cache :not_found ")
+               {:commit, :not_found}
+
              e ->
-               warn(e, "nothing with #{key} - #{identifier} ")
+               warn(e, "error attempting to get with #{key} - #{identifier} ")
                {:ignore, e}
            end
          end) do
+      {:ok, :not_found} ->
+        debug(":not_found was cached for #{key}: #{identifier}")
+        {:error, :not_found}
+
       {:ok, object} ->
-        debug("found in cache - #{key}: #{identifier}")
+        debug("found in cache for #{key}: #{identifier}")
         {:ok, object}
+
+      {:commit, :not_found} ->
+        {:error, :not_found}
 
       {:commit, object} ->
         {:ok, object}

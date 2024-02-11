@@ -22,7 +22,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
 
     if has_signature_header? && (http_method == "POST" or reject_unsigned?) do
       # set (request-target) header to the appropriate value
-      # we also replace the digest header with the one we computed
+      # we also replace the digest header with the one we computed in `ActivityPub.Web.Plugs.DigestPlug`
       request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
 
       conn =

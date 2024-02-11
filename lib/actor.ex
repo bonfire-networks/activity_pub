@@ -519,12 +519,15 @@ defmodule ActivityPub.Actor do
       |> Enum.filter(fn x -> !x.local end)
   end
 
-  def delete(%Actor{id: _id} = actor) do
-    # TODO: only add a tombstone for local actors
+  def delete(actor, is_local?)
+
+  def delete(%Actor{id: _id} = actor, true) do
+    # only add a tombstone for local actors
 
     ret =
       swap_or_create_actor_tombstone(actor)
-      |> debug("tombstoned")
+
+    # |> debug("tombstoned")
 
     invalidate_cache(actor)
 
@@ -545,8 +548,23 @@ defmodule ActivityPub.Actor do
     # end
   end
 
+  def delete(%Actor{ap_id: ap_id} = actor, false) do
+    with {:ok, object} <- Object.get_cached(ap_id: ap_id) do
+      ret = Object.hard_delete(object)
+      invalidate_cache(actor)
+      ret
+    else
+      other ->
+        error(other)
+        {:ok, :not_deleted}
+    end
+  end
+
   def swap_or_create_actor_tombstone(%Actor{} = actor) do
-    actor = Keys.add_public_key(actor, false)
+    actor =
+      actor
+      |> debug()
+      |> Keys.add_public_key(false)
 
     tombstone =
       Object.make_tombstone(actor)

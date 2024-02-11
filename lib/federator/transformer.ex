@@ -1041,10 +1041,11 @@ defmodule ActivityPub.Federator.Transformer do
 
     object_id = Object.get_ap_id(object)
 
-    with {:ok, data} <- check_remote_object_deleted(object_id),
-         object <- Object.normalize(data || object, false),
+    with {:ok, _cached_object} <- Object.get_cached(ap_id: object_id),
+         {:ok, data} <- check_remote_object_deleted(object_id),
+         object <- Object.normalize(debug(data || object), false) |> debug("normied"),
          {:actor, false} <- {:actor, Actor.actor?(object) || Actor.actor?(data)},
-         {:ok, activity} <- ActivityPub.delete(object, false) do
+         {:ok, activity} <- ActivityPub.delete(object || object_id, false) do
       {:ok, activity}
     else
       {:actor, true} ->
@@ -1061,6 +1062,10 @@ defmodule ActivityPub.Federator.Transformer do
             # so oban doesn't try again
             :ok
         end
+
+      {:error, :not_found} ->
+        error(object_id, "Object is not cached locally, skip deletion")
+        :ok
 
       {:error, :not_deleted} ->
         error("Could not verify incoming deletion")

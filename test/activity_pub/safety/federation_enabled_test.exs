@@ -15,18 +15,18 @@ defmodule ActivityPub.Web.FederationEnabledTest do
   test "can disable federation entirely" do
     Config.put([:instance, :federating], false)
 
-    auto_assert false <- Config.federating?()
+    assert false == Config.federating?()
   end
 
   test "can set federation to manual mode" do
     Config.put([:instance, :federating], nil)
 
-    auto_assert nil <- Config.federating?()
+    assert nil == Config.federating?()
   end
 
   test "can enable federation" do
     Config.put([:instance, :federating], true)
 
-    auto_assert true <- Config.federating?()
+    assert true == Config.federating?()
   end
 end

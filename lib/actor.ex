@@ -436,7 +436,7 @@ defmodule ActivityPub.Actor do
         {:ok, actor}
 
       {:ok, %{} = object} ->
-        debug(object, "Not an actor?")
+        info(object, "Not an actor?")
         {:ok, object}
 
       e ->
@@ -444,9 +444,18 @@ defmodule ActivityPub.Actor do
     end
   end
 
+  defp do_maybe_create_actor_from_object(%{"type" => type} = data)
+       when ActivityPub.Config.is_in(type, :supported_actor_types) do
+    case maybe_create_ap_object_for_actor(data) do
+      {:ok, %Object{} = object} -> maybe_create_actor_from_object(object)
+      other -> other |> debug("did not get an object")
+    end
+  end
+
   defp do_maybe_create_actor_from_object(%{data: %{"type" => type}} = actor)
        when ActivityPub.Config.is_in(type, :supported_actor_types) do
     with actor <- format_remote_actor(actor),
+         {:ok, actor} <- set_cache(actor),
          {:ok, adapter_actor} <- Adapter.maybe_create_remote_actor(actor),
          {:ok, actor} <- set_cache(actor) do
       {:ok, actor |> Map.put(:pointer, adapter_actor)}
@@ -458,8 +467,31 @@ defmodule ActivityPub.Actor do
   #     do_maybe_create_actor_from_object(object)
   #   end
   # end
-  defp do_maybe_create_actor_from_object({:ok, object}), do: {:ok, object}
+  defp do_maybe_create_actor_from_object({:ok, object}),
+    do: do_maybe_create_actor_from_object(object)
+
   defp do_maybe_create_actor_from_object(object), do: object
+
+  defp maybe_create_ap_object_for_actor(%{"type" => _type} = data) do
+    with {:error, :not_found} <- Object.get_cached(data),
+         {:ok, object} <- Object.prepare_data(data),
+         {:ok, object} <- Object.do_insert(object) do
+      {:ok, object}
+    else
+      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
+        case Actor.get_non_cached(data) do
+          {:ok, %{ap_id: actor}} ->
+            warn(data, "Actor already exists, update it instead")
+            Actor.update_actor(actor, data)
+
+          _ ->
+            error(data, "Not an actor?")
+        end
+
+      other ->
+        other
+    end
+  end
 
   def set_cache({:ok, actor}), do: set_cache(actor)
 

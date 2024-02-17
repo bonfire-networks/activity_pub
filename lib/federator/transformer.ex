@@ -1276,34 +1276,6 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def maybe_handle_actor(data) do
-    case do_maybe_handle_actor(data) do
-      {:ok, %Object{} = object} -> ActivityPub.Actor.maybe_create_actor_from_object(object)
-      other -> other |> debug("did not get an object")
-    end
-  end
-
-  defp do_maybe_handle_actor(data) do
-    with {:error, :not_found} <- Object.get_cached(data),
-         {:ok, object} <- Object.prepare_data(data),
-         {:ok, object} <- Object.do_insert(object) do
-      {:ok, object}
-    else
-      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
-        case Actor.get_non_cached(data) do
-          {:ok, %{ap_id: actor}} ->
-            warn(data, "Actor already exists, update it instead")
-            Actor.update_actor(actor, data)
-
-          _ ->
-            error(data, "Not an actor?")
-        end
-
-      other ->
-        other
-    end
-  end
-
   defp object_normalize_and_maybe_fetch(id, opts \\ []) do
     if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])) do
       {:ok, object}

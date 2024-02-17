@@ -13,9 +13,13 @@ defmodule ActivityPub.Federator.WebFinger do
 
   def base_url(account) do
     host =
-      with [_name, domain] <- String.split(account, "@") do
-        domain
-      else
+      case String.split(account, "@") do
+        [_name, domain] ->
+          domain
+
+        ["", _name, domain] ->
+          domain
+
         _e ->
           uri = URI.parse(account)
           if uri.port not in [80, 443], do: "#{uri.host}:#{uri.port}", else: uri.host
@@ -32,11 +36,9 @@ defmodule ActivityPub.Federator.WebFinger do
   def finger(account) do
     account = String.trim_leading(account, "@")
 
-    address = "#{base_url(account)}/.well-known/webfinger?resource=acct:#{account}"
-
     with response <-
            HTTP.get(
-             address,
+             "#{base_url(account)}/.well-known/webfinger?#{URI.encode_query(%{"resource" => "acct:#{account}"})}",
              [{"Accept", "application/jrd+json"}]
            ),
          {:ok, %{status: status, body: body}} when status in 200..299 <-

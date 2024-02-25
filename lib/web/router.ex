@@ -49,6 +49,8 @@ defmodule ActivityPub.Web.Router do
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
         get("/actors/:username/outbox", ActivityPubController, :outbox)
+        # return error saying only POST supported
+        get("/actors/:username/inbox", IncomingActivityPubController, :inbox_info)
 
         pipe_through(:activity_json_or_html)
 
@@ -60,7 +62,33 @@ defmodule ActivityPub.Web.Router do
         # note: singular is not canonical
         get("/actor/:username", ActivityPubController, :actor)
 
+        # maybe return the public outbox
+        get("/shared_outbox", ActivityPubController, :outbox)
+        # return error saying only POST supported
         get("/shared_inbox", IncomingActivityPubController, :inbox_info)
+      end
+
+      scope "/", ActivityPub.Web do
+        pipe_through(:activity_json)
+        pipe_through(:signed_activity_pub_fetch)
+
+        pipe_through(:activity_json_or_html)
+
+        # URLs for interop with Mastodon clients / AP testing tools
+        # get("/api/v1/timelines/public", ActivityPubController, :outbox) # maybe return the public outbox 
+        get("/users/:username", ActivityPubController, :actor)
+      end
+
+      scope "/", ActivityPub.Web do
+        pipe_through(:activity_json)
+
+        pipe_through(:signed_activity_pub_incoming)
+
+        # URLs for interop with Mastodon clients / AP testing tools
+        post("/users/:username", IncomingActivityPubController, :inbox)
+        post("/users/:username/inbox", IncomingActivityPubController, :inbox)
+        # return error saying only POST supported - TODO: implement this for AP C2S API
+        post("/users/:username/outbox", IncomingActivityPubController, :outbox_info)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

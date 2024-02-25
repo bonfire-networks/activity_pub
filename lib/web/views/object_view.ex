@@ -30,7 +30,7 @@ defmodule ActivityPub.Web.ObjectView do
 
     %{
       "id" => "#{actor.ap_id}/outbox",
-      "type" => "Collection",
+      "type" => "OrderedCollection",
       "first" => collection(outbox, "#{actor.ap_id}/outbox", 1, total),
       "totalItems" => total
     }
@@ -39,16 +39,16 @@ defmodule ActivityPub.Web.ObjectView do
 
   # only for testing purposes
   def render("outbox.json", %{outbox: :shared_outbox} = params) do
-    instance = ActivityPub.Web.base_url()
+    ap_base_url = Utils.ap_base_url()
     page = params[:page] || 1
     outbox = Object.get_outbox_for_instance()
 
     total = length(outbox)
 
     %{
-      "id" => "#{instance}/shared_outbox",
-      "type" => "Collection",
-      "first" => collection(outbox, "#{instance}/shared_outbox", page, total),
+      "id" => "#{ap_base_url}/shared_outbox",
+      "type" => "OrderedCollection",
+      "first" => collection(outbox, "#{ap_base_url}/shared_outbox", page, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header(:object))

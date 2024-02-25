@@ -240,6 +240,21 @@ defmodule ActivityPub.Web.ActivityPubController do
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
       |> render("outbox.json", %{actor: actor})
+    else
+      e ->
+        Utils.error_json(conn, "Invalid actor", 500)
+    end
+  end
+
+  def outbox(conn, _) do
+    with true <- Config.env() != :prod do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("outbox.json", %{outbox: :shared_outbox})
+    else
+      e ->
+        Utils.error_json(conn, "Not allowed", 400)
     end
   end
 

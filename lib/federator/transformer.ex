@@ -90,7 +90,7 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp prepare_outgoing_object(object) do
-    case Object.normalize(object, true) do
+    case Object.normalize(object, false) do
       %Object{} = object ->
         prepare_outgoing_object(object)
 
@@ -104,8 +104,8 @@ defmodule ActivityPub.Federator.Transformer do
           object
         else
           error(other, "Unexpected normalised object")
-          debug(object, "Non-normalised object")
-          nil
+          debug(object, "Just return the non-normalised object")
+          object
         end
     end
   end

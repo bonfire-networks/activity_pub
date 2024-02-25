@@ -57,6 +57,14 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     end
   end
 
+  def outbox_info(conn, params) do
+    if Config.federating?() do
+      Utils.error_json(conn, "this API path only accepts GET requests", 403)
+    else
+      Utils.error_json(conn, "this instance is not currently federating", 403)
+    end
+  end
+
   defp apply_process(conn, %{"type" => "Delete"} = params, fun) do
     # TODO: check if the actor/object being deleted is even known locally before bothering?
     #  workaround in case the remote actor is not yet actually deleted

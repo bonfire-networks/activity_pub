@@ -167,7 +167,7 @@ defmodule ActivityPub.Actor do
 
   defp get(opts) do
     error(opts, "Unexpected args")
-    raise "Unexpected args when attempting to get an actor"
+    # raise "Unexpected args when attempting to get an actor"
   end
 
   def get_non_cached(opts) do

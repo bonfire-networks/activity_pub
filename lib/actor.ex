@@ -46,6 +46,14 @@ defmodule ActivityPub.Actor do
     :updated_at
   ]
 
+  defimpl Inspect do
+    def inspect(%Actor{} = a, opts) do
+      a
+      |> Map.put(:keys, "***")
+      |> Inspect.Any.inspect(opts)
+    end
+  end
+
   def get_cached(id: id), do: do_get_cached(:id, id)
 
   # def get_cached(pointer: %{id: id} = pointer),

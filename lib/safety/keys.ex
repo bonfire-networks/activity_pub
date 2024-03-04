@@ -116,15 +116,15 @@ defmodule ActivityPub.Safety.Keys do
         {:ok, actor}
 
       is_binary(actor.keys) ->
-        debug(actor.keys, "actor has keys ")
+        debug("actor has keys ")
         {:ok, actor}
 
       true ->
         warn(actor, "actor has no keys and is local, generate new ones")
 
-        with {:ok, pem} <- generate_rsa_pem() |> debug(),
-             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}) |> debug(),
-             {:ok, actor} <- Actor.set_cache(actor) |> debug() do
+        with {:ok, pem} <- generate_rsa_pem(),
+             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
+             {:ok, actor} <- Actor.set_cache(actor) do
           {:ok, actor}
         else
           e -> error(e, "Could not generate or save keys")
@@ -240,7 +240,8 @@ defmodule ActivityPub.Safety.Keys do
            }) do
       {"signature", signature}
     end
-    |> debug()
+
+    # |> debug()
   end
 
   defp make_fetch_signature(id, date) do

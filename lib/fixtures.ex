@@ -1612,13 +1612,13 @@ defmodule ActivityPub.Fixtures do
   end
 
   def none(url, query, body, headers) do
-    raise "No implemented mock response for get #{inspect(url)}, #{inspect(query)}, #{inspect(headers)}"
+    error(
+      body,
+      "No implemented mock response for get #{inspect(url)}, #{inspect(query)}, #{inspect(headers)}"
+    )
 
-    # error(body,
-    #   "No implemented mock response for get #{inspect(url)}, #{inspect query}, #{inspect(headers)}"
-    # )
-
-    # %Tesla.Env{status: 304, body: "{}"}
+    # throw {:no_mock, "No implemented mock response for get #{inspect(url)}"}
+    %Tesla.Env{status: 304, body: "{error: 'No implemented mock response'}"}
   end
 
   # Most of the rich media mocks are missing HEAD requests, so we just return 404.

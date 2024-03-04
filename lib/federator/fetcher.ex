@@ -28,6 +28,10 @@ defmodule ActivityPub.Federator.Fetcher do
       {:ok, object} ->
         {:ok, object}
 
+      {:error, :remote_error} ->
+        warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
+        {:error, :not_found}
+
       _ ->
         fetch_remote_object_from_id(id, opts)
     end
@@ -48,6 +52,10 @@ defmodule ActivityPub.Federator.Fetcher do
     case cached_or_handle_incoming(id, opts) |> debug("cohi") do
       {:ok, object} ->
         {:ok, object}
+
+      {:error, :remote_error} ->
+        warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
+        {:error, :not_found}
 
       _ ->
         fetch_fresh_object_from_id(id, opts)
@@ -197,6 +205,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
       {:error, :not_found} ->
         warn(id_or_data, "No such object has been cached")
+        {:error, :not_found}
 
       other ->
         error(other)
@@ -354,6 +363,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
         if !options[:return_tombstones] and Object.is_deleted?(data) do
           debug("object was marked as deleted/suspended, return as not found")
+          cache_fetch_error(id)
           {:error, :not_found}
         else
           {:ok, data}
@@ -392,24 +402,36 @@ defmodule ActivityPub.Federator.Fetcher do
           )
 
           case data do
-            %{"suspended" => true} -> {:ok, data}
-            %{"type" => "Tombstone"} -> {:ok, data}
-            %{"type" => "Delete"} -> {:ok, data}
-            %{"object" => %{"type" => "Tombstone"} = actor} -> {:ok, actor}
-            _ -> {:error, :not_found}
+            %{"suspended" => true} ->
+              {:ok, data}
+
+            %{"type" => "Tombstone"} ->
+              {:ok, data}
+
+            %{"type" => "Delete"} ->
+              {:ok, data}
+
+            %{"object" => %{"type" => "Tombstone"} = actor} ->
+              {:ok, actor}
+
+            _ ->
+              cache_fetch_error(id)
+              {:error, :not_found}
           end
         else
           e ->
             warn(
               e,
-              "Not found - ActivityPub remote replied with #{code}, and could not process object"
+              "Not found - ActivityPub remote replied with #{code}, and did not request `return_tombstones` or could not process body"
             )
 
+            cache_fetch_error(id)
             {:error, :not_found}
         end
 
       {:ok, %{status: code}} when code in [404, 410] ->
         warn(id, "Not found - ActivityPub remote replied with #{code}")
+        cache_fetch_error(id)
         {:error, :not_found}
 
       {:error, %Jason.DecodeError{data: data}} ->
@@ -432,6 +454,7 @@ defmodule ActivityPub.Federator.Fetcher do
               fetch_remote_object_from_id(linked_object_id, options)
             else
               e ->
+                cache_fetch_error(id)
                 error(e, "Could not fallback to finding the object in (headers nor) HTML")
 
                 if options[:return_html] do
@@ -443,6 +466,7 @@ defmodule ActivityPub.Federator.Fetcher do
         end
 
       {:error, :econnrefused} ->
+        # cache_fetch_error(id)
         Instances.set_unreachable(id)
         error("Could not connect to ActivityPub remote")
 
@@ -451,20 +475,28 @@ defmodule ActivityPub.Federator.Fetcher do
         Adapter.get_actor_by_ap_id(id)
 
       {{:error, e}, data} ->
+        # cache_fetch_error(id)
         error(data, e)
 
       {:error, e} ->
+        # cache_fetch_error(id)
         error(e)
 
       {:ok, %{status: code} = ret} ->
+        cache_fetch_error(id)
         error(ret, maybe_error_body(ret) || "ActivityPub remote replied with HTTP #{code}")
 
       {:reject, e} ->
         {:reject, e}
 
       e ->
+        # cache_fetch_error(id)
         error(e, "Error trying to connect with ActivityPub remote")
     end
+  end
+
+  def cache_fetch_error(id) do
+    Cachex.put(:ap_actor_cache, id, {:error, :remote_error})
   end
 
   def maybe_parse_header_url(str, type) do

@@ -4,7 +4,7 @@ defmodule ActivityPub.Federator.Worker do
   alias ActivityPub.Config
 
   def worker_args(queue) do
-    case Config.get([:workers, :retries, queue], 3) do
+    case Config.get([:oban_queues, :retries, queue], 3) do
       nil -> []
       max_attempts -> [max_attempts: max_attempts]
     end

@@ -49,14 +49,6 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     apply_process(conn, params, &maybe_process_unsigned/3)
   end
 
-  def inbox_info(conn, params) do
-    if Config.federating?() do
-      Utils.error_json(conn, "this API path only accepts POST requests", 403)
-    else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
-    end
-  end
-
   def outbox_info(conn, params) do
     if Config.federating?() do
       Utils.error_json(conn, "this API path only accepts GET requests", 403)

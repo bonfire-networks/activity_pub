@@ -642,21 +642,56 @@ defmodule ActivityPub.Object do
       limit: 10,
       offset: ^offset
     )
+    |> Queries.ordered()
     |> Queries.by_actor(ap_id)
     |> Queries.with_preloaded_object()
     |> repo().all()
   end
 
-  def get_outbox_for_instance() do
-    instance_filter = "#{ActivityPub.Web.base_url()}%"
+  def get_outbox_for_instance(page \\ 1) do
+    from(object in Object,
+      where:
+        object.local == true and
+          object.public == true and
+          object.is_object != true
+    )
+    |> do_list_all(page)
+  end
+
+  def get_inbox(all_or_instance_or_actor_url, page \\ 1)
+
+  def get_inbox(:shared, page) do
+    offset = (page - 1) * 10
 
     from(object in Object,
       where:
-        fragment("(?)->>'actor' ilike ?", object.data, ^instance_filter) and
+        object.local == false and
           object.public == true and
-          object.is_object != true,
-      limit: 10
+          object.is_object != true
     )
+    |> do_list_all(page)
+  end
+
+  def get_inbox(instance_or_actor_url, page) do
+    instance_or_actor_filter = "#{instance_or_actor_url}%"
+
+    from(object in Object,
+      where:
+        fragment("(?)->>'actor' ilike ?", object.data, ^instance_or_actor_filter) and
+          object.local != true and
+          object.public == true and
+          object.is_object != true
+    )
+    |> do_list_all(page)
+  end
+
+  defp do_list_all(query, page) do
+    offset = (page - 1) * 10
+
+    query
+    |> Queries.ordered()
+    |> limit(10)
+    |> offset(^offset)
     |> Queries.with_preloaded_object()
     |> repo().all()
   end

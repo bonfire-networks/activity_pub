@@ -49,8 +49,8 @@ defmodule ActivityPub.Web.Router do
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
         get("/actors/:username/outbox", ActivityPubController, :outbox)
-        # return error saying only POST supported
-        get("/actors/:username/inbox", IncomingActivityPubController, :inbox_info)
+        # maybe return inbox, or error saying only POST supported
+        get("/actors/:username/inbox", ActivityPubController, :maybe_inbox)
 
         pipe_through(:activity_json_or_html)
 
@@ -64,8 +64,8 @@ defmodule ActivityPub.Web.Router do
 
         # maybe return the public outbox
         get("/shared_outbox", ActivityPubController, :outbox)
-        # return error saying only POST supported
-        get("/shared_inbox", IncomingActivityPubController, :inbox_info)
+        # maybe return inbox, or error saying only POST supported
+        get("/shared_inbox", ActivityPubController, :maybe_inbox)
       end
 
       scope "/", ActivityPub.Web do

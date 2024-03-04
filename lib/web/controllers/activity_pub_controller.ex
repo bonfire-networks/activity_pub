@@ -80,12 +80,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   defp maybe_return_json(conn, meta, json, opts) do
     debug(json)
 
-    if opts[:exporting] == true or
-         Adapter.federate_actor?(
-           json |> Map.get("actor"),
-           :out,
-           Map.get(conn.assigns, :current_actor)
-         ) != false do
+    if opts[:exporting] == true or federate_actor?(Map.get(json, "actor"), conn) do
       Utils.return_json(conn, meta, json)
     else
       Utils.error_json(conn, "this actor is not currently federating", 403)
@@ -150,7 +145,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       get_format(conn) == "html" ->
         redirect_to_url(conn, username)
 
-      Adapter.federate_actor?(username, :out, Map.get(conn.assigns, :current_actor)) != false ->
+      federate_actor?(username, conn) ->
         actor_with_cache(conn, username)
 
       true ->
@@ -187,7 +182,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def following(conn, %{"username" => username, "page" => page}) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
+    with true <- federate_actor?(username, conn),
+         {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -196,7 +192,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def following(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
+    with true <- federate_actor?(username, conn),
+         {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -205,7 +202,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def followers(conn, %{"username" => username, "page" => page}) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
+    with true <- federate_actor?(username, conn),
+         {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -214,7 +212,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def followers(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
+    with true <- federate_actor?(username, conn),
+         {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
@@ -223,7 +222,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def outbox(conn, %{"username" => username, "page" => page}) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
+    with true <- federate_actor?(username, conn),
+         {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
@@ -235,7 +235,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def outbox(conn, %{"username" => username}) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
+    with true <- federate_actor?(username, conn),
+         {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
@@ -246,16 +247,38 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def outbox(conn, _) do
-    with true <- Config.env() != :prod do
+  def outbox(conn, _params) do
+    if Config.env() != :prod and Config.federating?() do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
       |> render("outbox.json", %{outbox: :shared_outbox})
     else
-      e ->
-        Utils.error_json(conn, "Not allowed", 400)
+      Utils.error_json(conn, "Not allowed", 400)
     end
+  end
+
+  def maybe_inbox(conn, %{"username" => username}) do
+    # if Config.env() != :prod and federate_actor?(username, conn) do
+    #  # TODO?
+    # else
+    Utils.error_json(conn, "this API path only accepts POST requests", 403)
+    # end
+  end
+
+  def maybe_inbox(conn, _params) do
+    if Config.env() != :prod and Config.federating?() do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("inbox.json", %{inbox: :shared_inbox})
+    else
+      Utils.error_json(conn, "this API path only accepts POST requests", 403)
+    end
+  end
+
+  defp federate_actor?(username, conn) do
+    Adapter.federate_actor?(username, :out, Map.get(conn.assigns, :current_actor)) != false
   end
 
   defp page_number("true"), do: 1

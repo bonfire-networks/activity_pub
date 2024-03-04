@@ -167,9 +167,9 @@ defmodule ActivityPub.Queries do
           activity.data,
           ^followed_id
         ),
-      order_by: [fragment("? desc nulls last", activity.inserted_at)],
       limit: 1
     )
+    |> ordered()
   end
 
   def replies(%{} = object, opts \\ []) do
@@ -181,7 +181,7 @@ defmodule ActivityPub.Queries do
         [o],
         fragment("(?)->>'inReplyTo' = ?", o.data, ^object.data["id"])
       )
-      |> order_by([o], asc: o.id)
+      |> ordered()
 
     if opts[:self_only] do
       by_actor(query, object.data["actor"])
@@ -192,4 +192,13 @@ defmodule ActivityPub.Queries do
 
   def self_replies(object),
     do: replies(object, self_only: true)
+
+  def ordered(query) do
+    query
+    |> order_by([activity], [
+      fragment("?->'published' desc nulls last", activity.data),
+      fragment("? desc nulls last", activity.inserted_at),
+      desc: activity.id
+    ])
+  end
 end

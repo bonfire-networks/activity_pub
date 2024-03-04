@@ -41,7 +41,7 @@ defmodule ActivityPub.Web.ObjectView do
   def render("outbox.json", %{outbox: :shared_outbox} = params) do
     ap_base_url = Utils.ap_base_url()
     page = params[:page] || 1
-    outbox = Object.get_outbox_for_instance()
+    outbox = Object.get_outbox_for_instance(page)
 
     total = length(outbox)
 
@@ -49,6 +49,22 @@ defmodule ActivityPub.Web.ObjectView do
       "id" => "#{ap_base_url}/shared_outbox",
       "type" => "OrderedCollection",
       "first" => collection(outbox, "#{ap_base_url}/shared_outbox", page, total),
+      "totalItems" => total
+    }
+    |> Map.merge(Utils.make_json_ld_header(:object))
+  end
+
+  def render("inbox.json", %{inbox: :shared_inbox} = params) do
+    ap_base_url = Utils.ap_base_url()
+    page = params[:page] || 1
+    outbox = Object.get_inbox(:shared, page)
+
+    total = length(outbox)
+
+    %{
+      "id" => "#{ap_base_url}/shared_inbox",
+      "type" => "OrderedCollection",
+      "first" => collection(outbox, "#{ap_base_url}/shared_inbox", page, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header(:object))
@@ -63,7 +79,6 @@ defmodule ActivityPub.Web.ObjectView do
       |> Enum.map(fn object ->
         render("object.json", %{object: object})
       end)
-      |> debug()
 
     total = total || length(collection)
 
@@ -80,5 +95,6 @@ defmodule ActivityPub.Web.ObjectView do
     else
       map
     end
+    |> debug()
   end
 end

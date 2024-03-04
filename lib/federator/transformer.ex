@@ -189,7 +189,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_url()
     |> fix_mfm_content()
     |> fix_attachments()
-    |> fix_context()
+    |> fix_context(options)
     |> fix_in_reply_to(options)
     |> fix_replies(options)
     |> fix_quote_url(options)
@@ -306,7 +306,7 @@ defmodule ActivityPub.Federator.Transformer do
       |> Map.drop(["conversation", "inReplyToAtomUri"])
     else
       e ->
-        warn(e, "Couldn't fetch reply @ #{inspect(in_reply_to)}")
+        warn(e, "Couldn't find reply_to @ #{inspect(in_reply_to)}")
         object
     end
   end
@@ -354,11 +354,20 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_quote_url(object, _), do: object
 
-  def fix_context(object) do
-    context = object["context"] || object["conversation"] || Utils.generate_object_id()
+  def fix_context(object, options) do
+    context = object["context"] || object["conversation"] || object["inReplyTo"]
 
-    object
-    |> Map.put("context", context)
+    with context when is_binary(context) <- Utils.single_ap_id(context),
+         _ <- Fetcher.maybe_fetch(context, options) do
+      object
+      |> Map.put("context", context)
+    else
+      e ->
+        warn(e, "Couldn't find context @ #{inspect(context)}")
+
+        object
+        |> Map.put("context", object["id"])
+    end
     |> Map.drop(["conversation"])
   end
 

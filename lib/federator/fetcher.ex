@@ -274,6 +274,29 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  def fetch_thread(actor, opts \\ [fetch_collection: :async])
+
+  def fetch_thread(%{data: data}, opts) do
+    fetch_thread(data, opts)
+  end
+
+  def fetch_thread(%{"id" => _} = data, opts) do
+    data
+    |> Transformer.fix_replies(opts)
+    |> Transformer.fix_in_reply_to(opts)
+    |> Transformer.fix_context(opts)
+    |> debug()
+  end
+
+  def fetch_thread(other, opts) do
+    with {:ok, %{data: data}} <- Object.get_cached(other) |> debug() do
+      fetch_thread(data, opts)
+    else
+      e ->
+        error(e, "Could not find replies in ActivityPub data")
+    end
+  end
+
   def fetch_replies(actor, opts \\ [fetch_collection: :async])
 
   def fetch_replies(%{data: %{"replies" => replies}}, opts) do
@@ -282,10 +305,15 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_replies(%{"replies" => replies}, opts) do
     Transformer.fix_replies(%{"replies" => replies |> debug()}, opts)
+    |> debug()
+  end
+
+  def fetch_replies(%{"id" => _} = data, opts) do
+    error("Could not find replies in ActivityPub data")
   end
 
   def fetch_replies(other, opts) do
-    with {:ok, %{data: %{"replies" => replies}}} <- Object.get_cached(other) do
+    with {:ok, %{data: %{"replies" => replies} = data}} <- Object.get_cached(other) |> debug() do
       fetch_replies(%{"replies" => replies}, opts)
     else
       e ->

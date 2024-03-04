@@ -90,7 +90,7 @@ defmodule ActivityPub.Web.ObjectView do
       "orderedItems" => items
     }
 
-    if offset < total do
+    if offset < total or total == 10 do
       Map.put(map, "next", "#{iri}?page=#{page + 1}")
     else
       map

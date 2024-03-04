@@ -181,84 +181,51 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def following(conn, %{"username" => username, "page" => page}) do
+  def following(conn, %{"username" => username} = params) do
     with true <- federate_actor?(username, conn),
          {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
-      |> render("following.json", %{actor: actor, page: page_number(page)})
+      |> render("following.json", %{actor: actor, page: page_number(params["page"])})
     end
   end
 
-  def following(conn, %{"username" => username}) do
+  def followers(conn, %{"username" => username} = params) do
     with true <- federate_actor?(username, conn),
          {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
-      |> render("following.json", %{actor: actor})
+      |> render("followers.json", %{actor: actor, page: page_number(params["page"])})
     end
   end
 
-  def followers(conn, %{"username" => username, "page" => page}) do
-    with true <- federate_actor?(username, conn),
-         {:ok, actor} <- Actor.get_cached(username: username) do
-      conn
-      |> put_resp_content_type("application/activity+json")
-      |> put_view(ActorView)
-      |> render("followers.json", %{actor: actor, page: page_number(page)})
-    end
-  end
-
-  def followers(conn, %{"username" => username}) do
-    with true <- federate_actor?(username, conn),
-         {:ok, actor} <- Actor.get_cached(username: username) do
-      conn
-      |> put_resp_content_type("application/activity+json")
-      |> put_view(ActorView)
-      |> render("followers.json", %{actor: actor})
-    end
-  end
-
-  def outbox(conn, %{"username" => username, "page" => page}) do
+  def outbox(conn, %{"username" => username} = params) do
     with true <- federate_actor?(username, conn),
          {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
-      |> render("outbox.json", %{actor: actor, page: page_number(page)})
+      |> render("outbox.json", %{actor: actor, page: page_number(params["page"])})
     else
       e ->
         Utils.error_json(conn, "Invalid actor", 500)
     end
   end
 
-  def outbox(conn, %{"username" => username}) do
-    with true <- federate_actor?(username, conn),
-         {:ok, actor} <- Actor.get_cached(username: username) do
-      conn
-      |> put_resp_content_type("application/activity+json")
-      |> put_view(ObjectView)
-      |> render("outbox.json", %{actor: actor})
-    else
-      e ->
-        Utils.error_json(conn, "Invalid actor", 500)
-    end
-  end
-
-  def outbox(conn, _params) do
+  def outbox(conn, params) do
     if Config.env() != :prod and Config.federating?() do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
-      |> render("outbox.json", %{outbox: :shared_outbox})
+      |> render("outbox.json", %{outbox: :shared_outbox, page: page_number(params["page"])})
     else
       Utils.error_json(conn, "Not allowed", 400)
     end
   end
 
-  def maybe_inbox(conn, %{"username" => username}) do
+  def maybe_inbox(conn, %{"username" => username} = params) do
     # if Config.env() != :prod and federate_actor?(username, conn) do
     #  # TODO?
     # else
@@ -266,12 +233,12 @@ defmodule ActivityPub.Web.ActivityPubController do
     # end
   end
 
-  def maybe_inbox(conn, _params) do
+  def maybe_inbox(conn, params) do
     if Config.env() != :prod and Config.federating?() do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
-      |> render("inbox.json", %{inbox: :shared_inbox})
+      |> render("inbox.json", %{inbox: :shared_inbox, page: page_number(params["page"])})
     else
       Utils.error_json(conn, "this API path only accepts POST requests", 403)
     end

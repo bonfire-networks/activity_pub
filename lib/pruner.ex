@@ -240,7 +240,7 @@ defmodule ActivityPub.Pruner do
     The worker to prune old data from the database.
     """
     require Logger
-    use Oban.Worker, queue: "database_prune"
+    use Oban.Worker, queue: :database_prune
     # TODO: schedule this worker to run automatically
 
     @impl Oban.Worker

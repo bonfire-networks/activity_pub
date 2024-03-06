@@ -584,20 +584,11 @@ defmodule ActivityPub.Object do
   end
 
   def normalise_tos(object) do
-    # {:ok, %User{follower_address: follower_collection}} =
-    #   object
-    #   |> Object.actor_id_from_data()
-    #   |> Actor.get_cached(ap_id: ...)
-
     object
     |> normalise_to()
     |> normalise_addressing_field("cc")
     |> normalise_addressing_field("bto")
     |> normalise_addressing_field("bcc")
-
-    # TODO?
-    # |> fix_explicit_addressing(follower_collection)
-    # |> CommonFixes.fix_implicit_addressing(follower_collection)
   end
 
   defp normalise_to(map) do

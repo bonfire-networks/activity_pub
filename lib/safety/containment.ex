@@ -16,18 +16,6 @@ defmodule ActivityPub.Safety.Containment do
   alias ActivityPub.Config
   alias ActivityPub.Utils
 
-  @spec is_public?(Object.t() | Activity.t() | map()) :: boolean()
-  def is_public?(%{public: true}), do: true
-  def is_public?(%{public: false}), do: false
-  def is_public?(%{"type" => "Tombstone"}), do: true
-  def is_public?(%{"type" => "Move"}), do: true
-  def is_public?(%{"directMessage" => true}), do: false
-  def is_public?(%Object{data: data}), do: is_public?(data)
-
-  def is_public?(data) do
-    Utils.label_in_message?(ActivityPub.Config.public_uri(), data)
-  end
-
   def get_object(%{"object" => %{"id" => id}}) when is_binary(id) do
     id
   end
@@ -150,7 +138,7 @@ defmodule ActivityPub.Safety.Containment do
       when module in [Object] do
     if restrict_unauthenticated_access?(object),
       do: false,
-      else: is_public?(object)
+      else: Utils.public?(object)
   end
 
   def visible_for_user?(object, %{actor: actor}), do: visible_for_user?(object, actor)
@@ -175,7 +163,7 @@ defmodule ActivityPub.Safety.Containment do
       |> List.flatten()
       |> debug("audiences")
 
-    (is_public?(object) || Enum.any?(x, &(&1 in y))) and actor.local
+    (Utils.public?(object) || Enum.any?(x, &(&1 in y))) and actor.local
   end
 
   def restrict_unauthenticated_access?(%Object{} = object) do

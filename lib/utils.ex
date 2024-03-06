@@ -65,25 +65,9 @@ defmodule ActivityPub.Utils do
   Determines if an object or an activity is public.
   """
 
-  # TODO: consolidate this and the others below?
-  # def public?(data) do
-  #   recipients = List.wrap(data["to"]) ++ List.wrap(data["cc"])
-
-  #   cond do
-  #     recipients == [] ->
-  #       # let's NOT assume things are public by default?
-  #       false
-
-  #     Enum.member?(recipients, ActivityPub.Config.public_uri()) or
-  #       Enum.member?(recipients, "Public") or
-  #         Enum.member?(recipients, "as:Public") ->
-  #       # see note at https://www.w3.org/TR/activitypub/#public-addressing
-  #       true
-
-  #     true ->
-  #       false
-  #   end
-  # end
+  def public?(%{public: true}, %{public: true}), do: true
+  def public?(%{public: false}, %{public: _}), do: false
+  def public?(%{public: _}, %{public: false}), do: false
 
   def public?(activity_data, %{data: object_data}) do
     public?(activity_data, object_data)
@@ -106,39 +90,56 @@ defmodule ActivityPub.Utils do
     public?(activity_data)
   end
 
-  def public?(_, object_data) do
-    public?(object_data)
+  def public?(activity_data, object_data) do
+    public?(activity_data) || public?(object_data)
   end
 
   def public?(_, _) do
     false
   end
 
+  def public?(%{public: true}), do: true
+  def public?(%{public: false}), do: false
   def public?(%{data: data}), do: public?(data)
   def public?(%{"type" => "Tombstone"}), do: false
   def public?(%{"type" => "Move"}), do: true
-  # for bookwyrm
+  def public?(%{"directMessage" => true}), do: false
+
   def public?(%{"publishedDate" => _}) do
+    # workaround for bookwyrm
     true
   end
 
-  def public?(%{"directMessage" => true}), do: false
-
-  def public?(data) do
-    label_in_message?(ActivityPub.Config.public_uri(), data) or
-      label_in_message?(as_local_public(), data)
+  def public?(%{} = params) when is_map(params) or is_list(params) do
+    [params["to"], params["cc"], params["bto"], params["bcc"]]
+    |> has_as_public?()
   end
 
-  @spec label_in_collection?(any(), any()) :: boolean()
-  defp label_in_collection?(ap_id, coll) when is_binary(coll), do: ap_id == coll
-  defp label_in_collection?(ap_id, coll) when is_list(coll), do: ap_id in coll
-  defp label_in_collection?(_, _), do: false
+  def public?(data) when is_binary(data) do
+    has_as_public?(data)
+  end
 
-  @spec label_in_message?(String.t(), map()) :: boolean()
-  def label_in_message?(label, params),
-    do:
-      [params["to"], params["cc"], params["bto"], params["bcc"]]
-      |> Enum.any?(&label_in_collection?(label, &1))
+  def public?(_data) do
+    false
+  end
+
+  def has_as_public?(tos) do
+    tos = List.flatten(tos)
+
+    label_in_collection?(ActivityPub.Config.public_uri(), tos) or
+      label_in_collection?("as:Public", tos) or
+      label_in_collection?("Public", tos) or
+      label_in_collection?(as_local_public(), tos)
+  end
+
+  @spec label_in_collection?(String.t(), map()) :: boolean()
+  def label_in_collection?(label, collection),
+    do: Enum.any?(collection, &do_label_in_collection?(label, &1))
+
+  @spec do_label_in_collection?(any(), any()) :: boolean()
+  defp do_label_in_collection?(ap_id, coll) when is_binary(coll), do: ap_id == coll
+  defp do_label_in_collection?(ap_id, coll) when is_list(coll), do: ap_id in coll
+  defp do_label_in_collection?(_, _), do: false
 
   @doc "Takes a string and returns true if it is a valid UUID (Universally Unique Identifier)"
   def is_uuid?(str) do

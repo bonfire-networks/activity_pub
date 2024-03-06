@@ -3,6 +3,7 @@ defmodule ActivityPub.Object do
   import Ecto.Changeset
   import Ecto.Query
   import Untangle
+  use Arrows
   require ActivityPub.Config
 
   alias ActivityPub.Federator.Fetcher
@@ -573,11 +574,55 @@ defmodule ActivityPub.Object do
     # Some implementations include actors as URIs, others inline the entire actor object, this function figures out what the URIs are based on what we have.
     params
     |> Utils.maybe_put("actor", get_ap_id(params["actor"]))
-    |> Utils.maybe_put("to", get_ap_ids(params["to"]))
-    |> Utils.maybe_put("bto", get_ap_ids(params["bto"]))
-    |> Utils.maybe_put("cc", get_ap_ids(params["cc"]))
-    |> Utils.maybe_put("bcc", get_ap_ids(params["bcc"]))
-    |> Utils.maybe_put("audience", get_ap_ids(params["audience"]))
+    |> normalise_tos()
+
+    # |> Utils.maybe_put("to", get_ap_ids(params["to"]))
+    # |> Utils.maybe_put("bto", get_ap_ids(params["bto"]))
+    # |> Utils.maybe_put("cc", get_ap_ids(params["cc"]))
+    # |> Utils.maybe_put("bcc", get_ap_ids(params["bcc"]))
+    # |> Utils.maybe_put("audience", get_ap_ids(params["audience"]))
+  end
+
+  def normalise_tos(object) do
+    # {:ok, %User{follower_address: follower_collection}} =
+    #   object
+    #   |> Object.actor_id_from_data()
+    #   |> Actor.get_cached(ap_id: ...)
+
+    object
+    |> normalise_to()
+    |> normalise_addressing_field("cc")
+    |> normalise_addressing_field("bto")
+    |> normalise_addressing_field("bcc")
+
+    # TODO?
+    # |> fix_explicit_addressing(follower_collection)
+    # |> CommonFixes.fix_implicit_addressing(follower_collection)
+  end
+
+  defp normalise_to(map) do
+    extra = if Utils.public?(map), do: [ActivityPub.Config.public_uri()], else: []
+    debug(extra)
+    normalise_addressing_field(map, "to", extra)
+  end
+
+  defp normalise_addressing_field(map, field, extra \\ []) do
+    addrs = Map.get(map, field)
+
+    cond do
+      is_list(addrs) ->
+        Enum.filter(addrs, &is_binary/1)
+
+      is_binary(addrs) ->
+        [addrs]
+
+      true ->
+        []
+    end
+    |> Enum.reject(&(&1 in ["as:Public", "Public"]))
+    |> Kernel.++(extra)
+    |> Enum.uniq()
+    |> Utils.maybe_put(map, field, ...)
   end
 
   def make_tombstone(

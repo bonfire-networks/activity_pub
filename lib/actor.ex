@@ -149,6 +149,8 @@ defmodule ActivityPub.Actor do
   end
 
   defp get(ap_id: "https://www.w3.org/ns/activitystreams#Public"), do: {:error, :not_an_actor}
+  defp get(ap_id: "as:Public"), do: {:error, :not_an_actor}
+  defp get(ap_id: "Public"), do: {:error, :not_an_actor}
 
   defp get(ap_id: id) when not is_nil(id) do
     with {:ok, actor} <- ActivityPub.Object.get_cached(ap_id: id) do

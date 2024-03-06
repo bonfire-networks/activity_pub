@@ -213,60 +213,6 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_summary(object), do: Map.put(object, "summary", "")
 
-  def fix_addressing_list(map, field) do
-    addrs = Map.get(map, field)
-
-    cond do
-      is_list(addrs) ->
-        Map.put(map, field, Enum.filter(addrs, &is_binary/1))
-
-      is_binary(addrs) ->
-        Map.put(map, field, [addrs])
-
-      true ->
-        Map.put(map, field, [])
-    end
-  end
-
-  # if directMessage flag is set to true, leave the addressing alone
-  def fix_explicit_addressing(%{"directMessage" => true} = object, _follower_collection),
-    do: object
-
-  def fix_explicit_addressing(%{"to" => to, "cc" => cc} = object, follower_collection) do
-    explicit_mentions =
-      determine_explicit_mentions(object) ++
-        [ActivityPub.Config.public_uri(), follower_collection]
-
-    explicit_to = Enum.filter(to, fn x -> x in explicit_mentions end)
-    explicit_cc = Enum.filter(to, fn x -> x not in explicit_mentions end)
-
-    final_cc =
-      (cc ++ explicit_cc)
-      |> Enum.filter(& &1)
-      |> Enum.reject(fn x -> String.ends_with?(x, "/followers") and x != follower_collection end)
-      |> Enum.uniq()
-
-    object
-    |> Map.put("to", explicit_to)
-    |> Map.put("cc", final_cc)
-  end
-
-  @spec determine_explicit_mentions(map()) :: [any]
-  def determine_explicit_mentions(%{"tag" => tag}) when is_list(tag) do
-    Enum.flat_map(tag, fn
-      %{"type" => "Mention", "href" => href} -> [href]
-      _ -> []
-    end)
-  end
-
-  def determine_explicit_mentions(%{"tag" => tag} = object) when is_map(tag) do
-    object
-    |> Map.put("tag", [tag])
-    |> determine_explicit_mentions()
-  end
-
-  def determine_explicit_mentions(_), do: []
-
   def fix_addressing(object) do
     # {:ok, %User{follower_address: follower_collection}} =
     #   object
@@ -274,14 +220,51 @@ defmodule ActivityPub.Federator.Transformer do
     #   |> Actor.get_cached(ap_id: ...)
 
     object
-    |> fix_addressing_list("to")
-    |> fix_addressing_list("cc")
-    |> fix_addressing_list("bto")
-    |> fix_addressing_list("bcc")
+    |> Object.normalise_tos()
 
+    # TODO?
     # |> fix_explicit_addressing(follower_collection)
     # |> CommonFixes.fix_implicit_addressing(follower_collection)
   end
+
+  # if directMessage flag is set to true, leave the addressing alone
+  # def fix_explicit_addressing(%{"directMessage" => true} = object, _follower_collection),
+  #   do: object
+
+  # def fix_explicit_addressing(%{"to" => to, "cc" => cc} = object, follower_collection) do
+  #   explicit_mentions =
+  #     determine_explicit_mentions(object) ++
+  #       [ActivityPub.Config.public_uri(), follower_collection]
+
+  #   explicit_to = Enum.filter(to, fn x -> x in explicit_mentions end)
+  #   explicit_cc = Enum.filter(to, fn x -> x not in explicit_mentions end)
+
+  #   final_cc =
+  #     (cc ++ explicit_cc)
+  #     |> Enum.filter(& &1)
+  #     |> Enum.reject(fn x -> String.ends_with?(x, "/followers") and x != follower_collection end)
+  #     |> Enum.uniq()
+
+  #   object
+  #   |> Map.put("to", explicit_to)
+  #   |> Map.put("cc", final_cc)
+  # end
+
+  # @spec determine_explicit_mentions(map()) :: [any]
+  # def determine_explicit_mentions(%{"tag" => tag}) when is_list(tag) do
+  #   Enum.flat_map(tag, fn
+  #     %{"type" => "Mention", "href" => href} -> [href]
+  #     _ -> []
+  #   end)
+  # end
+
+  # def determine_explicit_mentions(%{"tag" => tag} = object) when is_map(tag) do
+  #   object
+  #   |> Map.put("tag", [tag])
+  #   |> determine_explicit_mentions()
+  # end
+
+  # def determine_explicit_mentions(_), do: []
 
   def fix_actor(data) do
     actor =

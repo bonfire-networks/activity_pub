@@ -30,5 +30,5 @@ activity_pub-*.tar
 .hex/
 .cache/
 .mix/
-data/
+./data/
 .vscode

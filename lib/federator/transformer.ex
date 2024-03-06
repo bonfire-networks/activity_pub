@@ -364,16 +364,18 @@ defmodule ActivityPub.Federator.Transformer do
           is_map(data["url"]) -> data["url"]
           true -> nil
         end
+        |> debug()
 
       media_type =
         cond do
-          is_map(url) && MIME.extensions(url["mediaType"]) != [] ->
+          is_map(url) and is_bitstring(url["mediaType"]) and
+              MIME.extensions(url["mediaType"]) != [] ->
             url["mediaType"]
 
-          is_bitstring(data["mediaType"]) && MIME.extensions(data["mediaType"]) != [] ->
+          is_bitstring(data["mediaType"]) and MIME.extensions(data["mediaType"]) != [] ->
             data["mediaType"]
 
-          is_bitstring(data["mimeType"]) && MIME.extensions(data["mimeType"]) != [] ->
+          is_bitstring(data["mimeType"]) and MIME.extensions(data["mimeType"]) != [] ->
             data["mimeType"]
 
           true ->
@@ -387,6 +389,7 @@ defmodule ActivityPub.Federator.Transformer do
           is_binary(data["href"]) -> data["href"]
           true -> nil
         end
+        |> debug()
 
       if href do
         attachment_url =
@@ -767,7 +770,7 @@ defmodule ActivityPub.Federator.Transformer do
       |> debug("the actor_id")
 
     {:ok, actor} =
-      with {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor_id) do
+      with {:ok, actor} <- is_binary(actor_id) and Actor.get_cached_or_fetch(ap_id: actor_id) do
         {:ok, actor}
       else
         e ->

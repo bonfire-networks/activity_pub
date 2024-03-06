@@ -72,6 +72,48 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
       {:error, _} = Transformer.handle_incoming(data)
     end
 
+    test "it works without published" do
+      data =
+        file("fixtures/mastodon/mastodon-post-activity.json")
+        |> Jason.decode!()
+        |> Map.drop(["published"])
+
+      object =
+        data["object"]
+        |> Map.drop(["published"])
+
+      data =
+        Map.put(data, "object", object)
+        |> debug("precreate")
+
+      {:ok, %{data: object_data}} =
+        Transformer.handle_incoming(data)
+        |> debug("postcreate")
+    end
+
+    # see https://codeberg.org/helge/funfedidev/issues/138#issuecomment-1647777
+    test "it works without an actor" do
+      data =
+        file("fixtures/mastodon/mastodon-post-activity.json")
+        |> Jason.decode!()
+        |> Map.drop(["actor", "attributedTo", "signature"])
+
+      object =
+        data["object"]
+        |> Map.drop(["actor", "attributedTo"])
+
+      data =
+        Map.put(data, "object", object)
+        |> debug("precreate")
+
+      {:ok, %{data: object_data}} =
+        Transformer.handle_incoming(data)
+        |> debug("postcreate")
+
+      # FIXME?
+      # assert (is_nil(object_data["actor"]) or object_data["actor"] ==  Object.get_ap_id(Utils.service_actor()))
+    end
+
     test "it works for incoming notices" do
       data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
 
@@ -285,7 +327,7 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
         |> Map.put("cc", cc)
 
       object =
-        data["object"] 
+        data["object"]
         |> Map.put("attributedTo", actor)
         |> Map.put("to", to)
         |> Map.put("cc", cc)
@@ -489,6 +531,75 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
                      %{
                        "href" => "https://pe.er/stat-480.mp4",
                        "mediaType" => "video/mp4",
+                       "type" => "Link"
+                     }
+                   ]
+                 }
+               ]
+             }
+    end
+
+    test "returns modified object when url is list" do
+      assert Transformer.fix_attachments(%{
+               "attachment" => %{
+                 "type" => "Video",
+                 "url" => [
+                   %{
+                     "type" => "Link",
+                     "href" => "https://pe.er/stat-480.mp4"
+                   }
+                   # TODO
+                   # %{
+                   #   "href"=> "https://pe.er/stat-480.mp4"
+                   # }
+                 ]
+               }
+             }) == %{
+               "attachment" => [
+                 %{
+                   #  "mediaType" => "video/mp4",
+                   "type" => "Video",
+                   "url" => [
+                     %{
+                       "href" => "https://pe.er/stat-480.mp4",
+                       #  "mediaType" => "video/mp4",
+                       "type" => "Link"
+                     }
+                   ]
+                 }
+                 #  %{
+                 #    "mediaType" => "video/mp4",
+                 #    "type" => "Video",
+                 #    "url" => [
+                 #      %{
+                 #        "href" => "https://pe.er/stat-480.mp4",
+                 #       #  "mediaType" => "video/mp4",
+                 #        "type" => "Link"
+                 #      }
+                 #    ]
+                 #  }
+               ]
+             }
+    end
+
+    test "returns modified object when url is link object" do
+      assert Transformer.fix_attachments(%{
+               "attachment" => %{
+                 "type" => "Video",
+                 "url" => %{
+                   "type" => "Link",
+                   "href" => "https://pe.er/stat-480.mp4"
+                 }
+               }
+             }) == %{
+               "attachment" => [
+                 %{
+                   #  "mediaType" => "video/mp4",
+                   "type" => "Video",
+                   "url" => [
+                     %{
+                       "href" => "https://pe.er/stat-480.mp4",
+                       #  "mediaType" => "video/mp4",
                        "type" => "Link"
                      }
                    ]

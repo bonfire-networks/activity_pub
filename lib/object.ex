@@ -530,17 +530,17 @@ defmodule ActivityPub.Object do
 
   def actor_from_data(%{data: data}), do: actor_from_data(data)
 
-  def actor_id_from_data(id) when is_binary(id) do
-    id
-  end
-
   def actor_from_data(e) when is_binary(e) do
     warn(e, "We got a string, just assume that's the actor...")
     e
   end
 
   def actor_from_data(e) do
-    warn(e, "No actor found")
+    error(e, "No actor found")
+  end
+
+  def actor_id_from_data(id) when is_binary(id) do
+    id
   end
 
   def actor_id_from_data(data) do

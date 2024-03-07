@@ -14,7 +14,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.Config
   require Config
 
-  alias Timex.NaiveDateTime
+  # alias Timex.NaiveDateTime # now provided by stdlib
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.Fetcher
@@ -68,12 +68,12 @@ defmodule ActivityPub.Actor do
   @type username :: String.t()
 
   @typedoc """
-  A pointer ID from the `Pointers` library that references an `Actor`.
+  A ULID ID (eg. using the `Needle.ULID`library) that links an `Actor` to its object in the app's database.
   """
   @type pointer_id :: String.t()
 
   @typedoc """
-  A pointer from the `Pointers` library that references an `Actor`.
+  An association (by default a `Needle.Pointer`) that references an `Actor`.
 
   Pointers consist of a table ID, referencing a database table,
   and a pointer ID, referencing a row in that table.
@@ -173,7 +173,6 @@ defmodule ActivityPub.Actor do
       {:error, _e} -> nil
     end
   end
-
 
   defp get(username: "@" <> username), do: get(username: username)
 

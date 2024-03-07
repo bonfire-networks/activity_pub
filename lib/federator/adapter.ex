@@ -187,6 +187,6 @@ defmodule ActivityPub.Federator.Adapter do
       ) do
     adapter().federate_actor?(actor, direction, by_actor)
   end
-  
+
   @optional_callbacks external_followers_for_activity: 2
 end

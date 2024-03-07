@@ -26,6 +26,8 @@ defmodule ActivityPub.Object do
     field(:public, :boolean, default: false)
     # is it an object rather than an activity?
     field(:is_object, :boolean, default: false)
+
+    # TODO: get the table to reference from config? and maybe the type as well
     belongs_to(:pointer, Needle.Pointer, type: ULID)
 
     # Attention: these is are fake relations, don't try to join them blindly and expect it to work!
@@ -162,6 +164,7 @@ defmodule ActivityPub.Object do
     Queries.activity_by_object_ap_id(ap_id, verb)
     |> repo().one()
   end
+
   def get_activity_for_object_ap_id(ap_id, _verb) do
     error(ap_id, "object has no ID")
     nil

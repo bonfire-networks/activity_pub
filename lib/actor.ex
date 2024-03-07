@@ -1,6 +1,9 @@
 defmodule ActivityPub.Actor do
   @moduledoc """
   An ActivityPub Actor type and functions for dealing with actors.
+
+  See [4. Actors](https://www.w3.org/TR/activitypub/#actors) in the
+  ActivityPub specification for more information on Actors.
   """
   require Ecto.Query
   import ActivityPub.Utils
@@ -11,6 +14,7 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.Config
   require Config
 
+  alias Timex.NaiveDateTime
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.Fetcher
@@ -21,17 +25,77 @@ defmodule ActivityPub.Actor do
 
   require Logger
 
-  @type t :: %Actor{}
-  # @type t :: %Actor{ # FIXME
-  #         id: binary(),
-  #         data: map(),
-  #         local: boolean(),
-  #         keys: binary(),
-  #         ap_id: binary(),
-  #         username: binary(),
-  #         deactivated: boolean(),
-  #         pointer_id: binary()
-  #       }
+  @typedoc """
+  Your app's internal ID for an `Actor`.
+
+  ## Examples
+
+      "c1688a22-4e9c-42d7-935b-1f17e1d0cf58"
+
+      "1234"
+  """
+  @type id :: String.t()
+
+  @typedoc """
+  The ActivityPub ID of an object, which must be a publicly-dereferencable URI,
+  or `nil` if the object is anonymous.
+
+  Note that since the URI must be publicly-dereferencable,
+  you should set this value to `ActivityPub.Federator.Adapter.base_url() <> ~p"/pub/actors/\#{username}"`.
+  This path is defined in `ActivityPub.Web.Endpoint` and serves data provided
+  by the functions in `ActivityPub.Federator.Adapter`.
+
+  See section [3.1 Object Identifiers](https://www.w3.org/TR/activitypub/#obj-id)
+  in the ActivityPub spec for more information on the format.
+
+  ## Examples
+
+      "https://kenzoishii.example.com/"
+
+      "http://localhost:4000/pub/actors/rosa"
+  """
+  @type ap_id :: String.t()
+
+  @typedoc """
+  An `Actor`'s user name, used as part of its ActivityPub ID.
+
+  ## Examples
+
+      "alyssa"
+
+      "ben"
+  """
+  @type username :: String.t()
+
+  @typedoc """
+  A pointer ID from the `Pointers` library that references an `Actor`.
+  """
+  @type pointer_id :: String.t()
+
+  @typedoc """
+  A pointer from the `Pointers` library that references an `Actor`.
+
+  Pointers consist of a table ID, referencing a database table,
+  and a pointer ID, referencing a row in that table.
+  Table and pointer IDs are both `Pointers.ULID` strings, which is UUID-like.
+  """
+  @type pointer :: String.t()
+
+  @typedoc """
+  An ActivityPub Actor.
+  """
+  @type t :: %Actor{
+          id: id() | nil,
+          data: map(),
+          local: boolean() | nil,
+          keys: binary() | nil,
+          ap_id: ap_id() | nil,
+          username: username() | nil,
+          deactivated: boolean() | nil,
+          pointer_id: pointer_id() | nil,
+          pointer: pointer() | nil,
+          updated_at: DateTime.t() | NaiveDateTime.t() | nil
+        }
 
   defstruct [
     :id,
@@ -54,6 +118,14 @@ defmodule ActivityPub.Actor do
     end
   end
 
+  @doc """
+  Fetches an actor given its AP ID / URI, or username@domain, or by a pointer id 
+
+  Remote actors are just checked if they exist in AP or adapter's database and are NOT fetched remotely if they don't.
+
+  Remote actors are also automatically updated every X hours (defaults to 24h).
+  """
+  @spec get(ap_id: ap_id()) :: {:ok, Actor.t()} | {:error, any()}
   def get_cached(id: id), do: do_get_cached(:id, id)
 
   # def get_cached(pointer: %{id: id} = pointer),
@@ -102,9 +174,7 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  @doc """
-  Fetches a local actor given its preferred username.
-  """
+
   defp get(username: "@" <> username), do: get(username: username)
 
   defp get(username: username) do
@@ -185,11 +255,11 @@ defmodule ActivityPub.Actor do
   end
 
   @doc """
-  Fetches an actor given its AP ID.
+  Fetches an actor given its AP ID / URI, or username@domain, or by a pointer id 
 
-  Remote actors are first checked if they exist in database and are fetched remotely if they don't.
+  Remote actors are first checked if they exist in in AP or adapter's database and ARE fetched remotely if they don't.
 
-  Remote actors are also automatically updated every 24 hours.
+  Remote actors are also automatically updated every X hours (defaults to 24h).
   """
   def get_cached_or_fetch(ap_id: ap_id) when is_binary(ap_id) do
     with {:ok, actor} <- get_cached(ap_id: ap_id) do

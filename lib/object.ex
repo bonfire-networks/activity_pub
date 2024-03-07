@@ -162,6 +162,10 @@ defmodule ActivityPub.Object do
     Queries.activity_by_object_ap_id(ap_id, verb)
     |> repo().one()
   end
+  def get_activity_for_object_ap_id(ap_id, _verb) do
+    error(ap_id, "object has no ID")
+    nil
+  end
 
   @doc false
   def insert(params, local?, pointer \\ nil, upsert? \\ false)
@@ -531,7 +535,7 @@ defmodule ActivityPub.Object do
   def actor_from_data(%{data: data}), do: actor_from_data(data)
 
   def actor_from_data(e) when is_binary(e) do
-    warn(e, "We got a string, just assume that's the actor...")
+    debug(e, "We got a string, just assume that's the actor...")
     e
   end
 

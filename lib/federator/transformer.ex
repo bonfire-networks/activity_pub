@@ -97,15 +97,17 @@ defmodule ActivityPub.Federator.Transformer do
       %{ap_id: ap_id} = object ->
         ap_id
 
+      nil ->
+        debug(object, "Normalization returned nil, just return the non-normalised object")
+        
       other ->
         if is_list(object) do
           # support for list of objects (eg. in flags)
           # TODO: should each object in the list be normalised?
           object
         else
-          error(other, "Unexpected normalised object")
+          warn(other, "Unexpected normalised object")
           debug(object, "Just return the non-normalised object")
-          object
         end
     end
   end
@@ -805,9 +807,9 @@ defmodule ActivityPub.Federator.Transformer do
         :skip
 
       %Object{pointer_id: nil} = activity ->
-        debug("a Create for this Object already exists, but not in the Adapter, try again")
+        debug(activity, "a Create for this Object already exists, but not in the Adapter, try again")
 
-        with {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) do
+        with {:ok, adapter_object} <- Adapter.maybe_handle_activity(Map.put(activity, :data, Map.merge(activity.data, %{"object"=> object}))) do
           {:ok, Map.put(activity, :pointer, adapter_object)}
         end
 

@@ -3,6 +3,7 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
   import Untangle
   alias ActivityPub.Federator
   alias ActivityPub.Federator.Fetcher
+  alias ActivityPub.Object
 
   @impl Oban.Worker
   def perform(%Oban.Job{
@@ -31,11 +32,12 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
   end
 
   defp maybe_process_unsigned(headers, params) do
-    signed? = is_binary(headers["signature"])
+    actor = Object.actor_from_data(params)
+    signed? = is_binary(headers["signature"]) and is_binary(actor)
 
     fetch_fresh_public_key? =
       if signed? do
-        if String.contains?(headers["signature"], params["actor"]) do
+        if String.contains?(headers["signature"], actor) do
           error(
             headers,
             "Unknown HTTP signature validation error, will attempt re-fetching public_key and failing that fetch the AP activity from source"
@@ -45,7 +47,7 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
         else
           error(
             headers,
-            "No match between actor (#{params["actor"]}) and the HTTP signature provided, will attempt re-fetching AP activity from source"
+            "No match between actor (#{actor}) and the HTTP signature provided, will attempt re-fetching AP activity from source"
           )
 
           false

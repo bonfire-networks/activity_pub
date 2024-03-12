@@ -1632,8 +1632,7 @@ defmodule ActivityPub.Fixtures do
   end
 
   def head(url, query, body, headers) do
-    {:error,
-     "Mock response not implemented for HEAD #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}"}
+    none(url, query, body, headers)
   end
 
   # POST Requests
@@ -1692,7 +1691,6 @@ defmodule ActivityPub.Fixtures do
   end
 
   def post(url, query, body, headers) do
-    {:error,
-     "Mock response not implemented for POST #{inspect(url)}, #{query}, #{inspect(body)}, #{inspect(headers)}"}
+    none(url, query, body, headers)
   end
 end

@@ -59,6 +59,7 @@ defmodule ActivityPub.Web.Router do
         get("/object/:uuid", ActivityPubController, :object)
 
         get("/actors/:username", ActivityPubController, :actor)
+        # options("/actors/:username", ActivityPubController, :actor) 
         # note: singular is not canonical
         get("/actor/:username", ActivityPubController, :actor)
 

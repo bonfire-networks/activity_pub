@@ -167,7 +167,10 @@ defmodule ActivityPub.Web.ActivityPubController do
        }}
     else
       _ ->
-        with {:ok, actor} <- Object.get_cached(username: username) do
+        Object.all(username: username, local: true)
+        |> debug()
+
+        with {:ok, actor} <- Object.get_cached(username: username, local: true) do
           # for Tombstone
           {:ok,
            %{

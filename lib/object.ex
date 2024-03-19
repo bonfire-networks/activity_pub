@@ -117,26 +117,16 @@ defmodule ActivityPub.Object do
   end
 
   defp get(ap_id: ap_id) when is_binary(ap_id) do
-    case repo().one(
-           from(object in Object,
-             # support for looking up by non-canonical URL
-             where:
-               fragment("(?)->>'id' = ?", object.data, ^ap_id) or
-                 fragment("(?)->>'url' = ?", object.data, ^ap_id)
-           )
-         ) do
+    case repo().one(query(ap_id: ap_id)) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
   end
 
+  defp get(ap_id: ap_id), do: get(ap_id)
+
   defp get(username: username) when is_binary(username) do
-    case repo().one(
-           from(object in Object,
-             # support for looking up by non-canonical URL
-             where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
-           )
-         ) do
+    case repo().one(query(username: username)) do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
@@ -144,7 +134,13 @@ defmodule ActivityPub.Object do
 
   defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
-  defp get(ap_id: ap_id), do: get(ap_id)
+
+  defp get(filters) when is_list(filters) do
+    case repo().one(query(filters)) do
+      %Object{} = object -> {:ok, object}
+      _ -> {:error, :not_found}
+    end
+  end
 
   defp get(nil) do
     raise "Cannot get an object without an ID"
@@ -153,6 +149,31 @@ defmodule ActivityPub.Object do
   defp get(opts) do
     error(opts, "Unexpected args")
     raise "Unexpected args when attempting to get an object"
+  end
+
+  def query(ap_id: ap_id) when is_binary(ap_id) do
+    from(object in Object,
+      # support for looking up by non-canonical URL
+      where:
+        fragment("(?)->>'id' = ?", object.data, ^ap_id) or
+          fragment("(?)->>'url' = ?", object.data, ^ap_id)
+    )
+  end
+
+  def query(username: username) when is_binary(username) do
+    from(object in Object,
+      # support for looking up by non-canonical URL
+      where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
+    )
+  end
+
+  def query(username: username, local: local?) when is_binary(username) do
+    from(object in Object,
+      # support for looking up by non-canonical URL
+      where:
+        object.local == ^local? and
+          fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
+    )
   end
 
   def get_activity_for_object_ap_id(ap_id, verb \\ "Create")
@@ -403,6 +424,10 @@ defmodule ActivityPub.Object do
   @doc false
   def all() do
     repo().many(from(object in Object))
+  end
+
+  def all(filters) do
+    repo().many(query(filters))
   end
 
   @doc """

@@ -804,4 +804,14 @@ defmodule ActivityPub.Actor do
       do: true
 
   def actor?(_), do: false
+
+  def also_known_as?(ap_id, %{"alsoKnownAs" => aliases} = _actor)
+      when is_binary(ap_id) and is_list(aliases) and aliases != [] do
+    (ap_id in aliases)
+    |> debug("alsoKnownAss")
+  end
+
+  def also_known_as?(ap_id, %{data: data}), do: also_known_as?(ap_id, data)
+  def also_known_as?(%{ap_id: ap_id}, data), do: also_known_as?(ap_id, data)
+  def also_known_as?(ap_id, _), do: nil
 end

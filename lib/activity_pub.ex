@@ -527,9 +527,9 @@ defmodule ActivityPub do
   @spec move(Actor.t(), Actor.t(), boolean()) :: {:ok, Object.t()} | {:error, any()}
   def move(
         %{ap_id: origin_ap_id, data: origin_data} = _origin,
-        %{} = target,
+        %{ap_id: _} = target,
         local \\ true,
-        not_in_also_known_as \\ false
+        recursing \\ false
       ) do
     params = %{
       "type" => "Move",
@@ -539,15 +539,14 @@ defmodule ActivityPub do
       "to" => Map.get(origin_data, "followers", [])
     }
 
-    with true <-
-           origin_ap_id in (Map.get(target.data, "alsoKnownAs") |> debug("alsoKnownAss") || []),
+    with true <- Actor.also_known_as?(origin_ap_id, target.data),
          {:ok, activity} <- Object.insert(params, local),
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) do
       {:ok, activity}
     else
       false ->
-        if not_in_also_known_as == false do
+        if recursing != true do
           debug("get a fresh actor in case they just added alsoKnownAs")
 
           with {:ok, refetched} <-

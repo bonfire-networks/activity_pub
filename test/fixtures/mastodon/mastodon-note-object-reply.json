@@ -15,7 +15,7 @@
          "toot" : "http://joinmastodon.org/ns#"
       }
    ],
-   "atomUri" : "https://mastodon.local/users/admin/statuses/99512778738411822",
+   "atomUri" : "https://mastodon.local/users/admin/statuses/8511",
    "attachment" : [
       {
          "mediaType" : "image/jpeg",
@@ -30,23 +30,10 @@
    ],
    "content" : "<p>yeah.</p>",
    "conversation" : "tag:mastodon.local,2018-02-17:objectId=59:objectType=Conversation",
-   "id" : "https://mastodon.local/users/admin/statuses/99512778738411822",
-   "inReplyTo" : null,
+   "id" : "https://mastodon.local/users/admin/statuses/8511",
+   "inReplyTo" : "https://mastodon.local/users/admin/statuses/99512778738411822",
    "inReplyToAtomUri" : null,
    "published" : "2018-02-17T17:46:20Z",
-   "replies": {
-      "id": "https://mastodon.local/users/admin/statuses/99512778738411822/replies",
-      "type": "Collection",
-      "first": {
-         "type": "CollectionPage",
-         "next": "https://mastodon.local/users/admin/statuses/99512778738411822/replies?min_id=99512778738411824&page=true",
-         "partOf": "https://mastodon.local/users/admin/statuses/99512778738411822/replies",
-         "items": [
-            "https://mastodon.local/users/admin/statuses/8511",
-            "https://mocked.local/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779"
-         ]
-      }
-   },
    "sensitive" : false,
    "summary" : null,
    "tag" : [],
@@ -54,5 +41,5 @@
       "https://www.w3.org/ns/activitystreams#Public"
    ],
    "type" : "Note",
-   "url" : "https://mastodon.local/@admin/99512778738411822"
+   "url" : "https://mastodon.local/@admin/8511"
 }

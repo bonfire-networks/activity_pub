@@ -284,7 +284,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_in_reply_to(%{"inReplyTo" => in_reply_to} = object, options)
       when not is_nil(in_reply_to) do
     with in_reply_to_id when is_binary(in_reply_to_id) <- Utils.single_ap_id(in_reply_to),
-         _ <- Fetcher.maybe_fetch(in_reply_to_id, options) do
+         _ <- Fetcher.maybe_fetch(in_reply_to_id, options) |> info("fetched reply_to?") do
       object
       |> Map.put("inReplyTo", in_reply_to_id)
       # |> Map.put("context", replied_object.data["context"] || object["conversation"]) # TODO as an update when we get the async inReplyTo?
@@ -343,7 +343,9 @@ defmodule ActivityPub.Federator.Transformer do
     context = object["context"] || object["conversation"] || object["inReplyTo"]
 
     with context when is_binary(context) <- Utils.single_ap_id(context),
-         _ <- Fetcher.maybe_fetch(context, options) do
+         _ <-
+           Fetcher.maybe_fetch(context, options)
+           |> info("fetched context?") do
       object
       |> Map.put("context", context)
     else
@@ -591,6 +593,8 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => replies} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
+    |> info("fetched replies?")
+
     # TODO: update the data with only IDs in case we have full objects?
     data
   end
@@ -598,6 +602,8 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"items" => replies}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
+    |> info("fetched replies?")
+
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
   end
@@ -605,6 +611,8 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"first" => replies}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
+    |> info("fetched replies?")
+
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
   end
@@ -612,6 +620,8 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
+    |> info("fetched replies?")
+
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
   end
@@ -634,7 +644,7 @@ defmodule ActivityPub.Federator.Transformer do
       )
       |> debug("opts")
     )
-    |> debug()
+    |> info("fetched collection?")
 
     data
   end

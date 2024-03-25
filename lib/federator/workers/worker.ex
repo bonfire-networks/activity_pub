@@ -13,12 +13,11 @@ defmodule ActivityPub.Federator.Worker do
   defmacro __using__(opts) do
     caller_module = __CALLER__.module
     queue = Keyword.fetch!(opts, :queue)
+    opts = Keyword.put_new(opts, :max_attempts, 3)
 
     quote do
       # Note: `max_attempts` is intended to be overridden in `new/2` call
-      use Oban.Worker,
-        queue: unquote(queue),
-        max_attempts: 3
+      use Oban.Worker, unquote(opts)
 
       def enqueueable(op, params, worker_args \\ []) do
         params = Map.merge(%{"op" => op, "repo" => ActivityPub.Utils.repo()}, params)

@@ -43,8 +43,8 @@
                 "next": "https://mastodon.local/users/admin/statuses/99512778738411822/replies?min_id=99512778738411824&page=true",
                 "partOf": "https://mastodon.local/users/admin/statuses/99512778738411822/replies",
                 "items": [
-                    "https://mastodon.local/users/admin/statuses/99512778738411823",
-                    "https://mastodon.local/users/admin/statuses/99512778738411824"
+                    "https://mastodon.local/users/admin/statuses/8511",
+                    "https://mocked.local/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779"
                 ]
             }
         },

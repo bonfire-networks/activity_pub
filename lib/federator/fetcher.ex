@@ -75,6 +75,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end)
   end
 
+  @doc "Fetch a list of objects within recursion limits. Used for reply_to/context, and replies or similar collections."
   def maybe_fetch(entries, opts \\ [])
   def maybe_fetch([], _opts), do: nil
 
@@ -93,6 +94,8 @@ defmodule ActivityPub.Federator.Fetcher do
             entry_depth = depth + index
 
             if allowed_recursion?(entry_depth, max_items) do
+              info(id, "fetch recursed (async)")
+
               enqueue_fetch(
                 id,
                 Enum.into(opts[:worker_attrs] || %{}, %{
@@ -103,13 +106,13 @@ defmodule ActivityPub.Federator.Fetcher do
             end
           end
 
-          nil
-
         true ->
           for {id, index} <- Enum.with_index(entries) do
             entry_depth = depth + index
 
             if allowed_recursion?(entry_depth, max_items) do
+              info(id, "fetch recursed (inline)")
+
               fetch_object_from_id(id,
                 depth: entry_depth
               )
@@ -712,6 +715,7 @@ defmodule ActivityPub.Federator.Fetcher do
   def allowed_recursion?(distance, max_recursion \\ nil) do
     max_distance = max_recursion || max_recursion()
 
+    debug(distance, "distance")
     debug(max_distance, "max_distance")
 
     if is_number(distance) and is_number(max_distance) and max_distance >= 0 do

@@ -350,6 +350,14 @@ defmodule ActivityPub.Fixtures do
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
+      "https://mastodon.local/users/admin/statuses/8511" =>
+        fn "https://mastodon.local/users/admin/statuses/8511", _, _, _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/mastodon/mastodon-note-object-reply.json"),
+            headers: ActivityPub.Utils.activitypub_object_headers()
+          }
+        end,
       "https://mocked.local/users/karen" => fn "https://mocked.local/users/karen", _, _, _ ->
         %Tesla.Env{status: 200, body: file("fixtures/pleroma_user_actor.json")}
       end,

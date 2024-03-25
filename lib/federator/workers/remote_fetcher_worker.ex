@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
-  use ActivityPub.Federator.Worker, queue: "remote_fetcher"
+  use ActivityPub.Federator.Worker,
+    queue: "remote_fetcher",
+    unique: [fields: [:args], keys: [:op, :id]]
+
   alias ActivityPub.Federator.Fetcher
 
   @impl Oban.Worker

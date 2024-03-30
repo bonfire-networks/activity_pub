@@ -31,7 +31,8 @@
             "https://testing.local/users/karen"
         ],
         "contentMap": {
-            "en": "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> testing</p>"
+            "en": "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> testing</p>",
+            "es": "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> probando</p>"
         },
         "conversation": "tag:mastodon.local,2018-02-12:objectId=20:objectType=Conversation",
         "id": "https://mastodon.local/users/admin/statuses/99512778738411822",

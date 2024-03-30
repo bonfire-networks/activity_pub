@@ -198,14 +198,27 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
       assert "moo" == Enum.at(object.data["tag"], 2)
     end
 
-    test "it works for incoming notices with contentMap" do
+    test "it works for incoming notices with contentMap with multiple languages" do
+      data = file("fixtures/mastodon/mastodon-post-activity-contentmaps.json") |> Jason.decode!()
+
+      {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(data)
+      object = Object.normalize(data["object"], fetch: false)
+
+      assert object.data["content"] =~
+               "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> testing</p>"
+
+      assert object.data["content"] =~
+               "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> probando</p>"
+    end
+
+    test "it works for incoming notices with contentMap with single language" do
       data = file("fixtures/mastodon/mastodon-post-activity-contentmap.json") |> Jason.decode!()
 
       {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(data)
       object = Object.normalize(data["object"], fetch: false)
 
       assert object.data["content"] ==
-               "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span></p>"
+               "<p><span class=\"h-card\"><a href=\"https://testing.local/users/karen\" class=\"u-url mention\">@<span>karen</span></a></span> testing</p>"
     end
 
     test "it works for incoming notices with to/cc not being an array (kroeg)" do

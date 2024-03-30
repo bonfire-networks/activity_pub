@@ -495,16 +495,30 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_tag(object), do: object
 
-  # content map usually only has one language so this will do for now.
   def fix_content_map(%{"contentMap" => content_map} = object) when is_map(content_map) do
-    content_groups = Map.to_list(content_map)
-
-    if Enum.empty?(content_groups) do
-      object
+    if Enum.count(content_map) == 1 do
+      # content usually has the same data as single language so this should do for now
+      Map.put_new_lazy(
+        object,
+        "content",
+        fn -> List.first(Map.values(content_map)) end
+      )
     else
-      {_, content} = Enum.at(content_groups, 0)
+      Map.put(
+        object,
+        "content",
+        Enum.map(content_map, fn {locale, content} ->
+          lang =
+            with {:ok, lang_localized} <- Cldr.LocaleDisplay.display_name(locale, locale: locale) do
+              String.capitalize(lang_localized)
+            else
+              _ -> String.upcase(locale)
+            end
 
-      Map.put(object, "content", content)
+          "<div lang='#{locale}'><em data-role='lang'>#{lang}</em>:\n#{content}</div>"
+        end)
+        |> Enum.join("\n")
+      )
     end
   end
 

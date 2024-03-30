@@ -27,6 +27,15 @@ defmodule ActivityPub.Fixtures do
     Application.put_env(:tesla, :adapter, previous_adapter)
   end
 
+  def insert_file(file) do
+    previous_adapter = mock_prepare()
+
+    file(file)
+    |> maybe_insert()
+
+    Application.put_env(:tesla, :adapter, previous_adapter)
+  end
+
   defp mock_prepare do
     previous_adapter = Application.get_env(:tesla, :adapter)
 
@@ -58,7 +67,7 @@ defmodule ActivityPub.Fixtures do
       error(e, "a fixture could not be read")
   end
 
-  defp maybe_insert(%{body: data}) when is_binary(data) do
+  defp maybe_insert(data) when is_binary(data) do
     data
     |> Jason.decode()
     ~> ActivityPub.Federator.Transformer.handle_incoming()
@@ -69,6 +78,8 @@ defmodule ActivityPub.Fixtures do
     e ->
       error(e, "a fixture could not be inserted")
   end
+
+  defp maybe_insert(%{body: data}), do: maybe_insert(data)
 
   defp maybe_insert(skip) do
     debug(skip, "skipping")

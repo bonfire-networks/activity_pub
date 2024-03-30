@@ -31,7 +31,7 @@ defmodule ActivityPub.Fixtures do
     previous_adapter = mock_prepare()
 
     file(file)
-    |> maybe_insert()
+    |> insert_json()
 
     Application.put_env(:tesla, :adapter, previous_adapter)
   end
@@ -61,13 +61,13 @@ defmodule ActivityPub.Fixtures do
       _ when is_function(fun, 1) -> fun.(url)
       _ when is_function(fun, 4) -> fun.(url, nil, nil, nil)
     end
-    |> maybe_insert()
+    |> insert_json()
   rescue
     e ->
       error(e, "a fixture could not be read")
   end
 
-  defp maybe_insert(data) when is_binary(data) do
+  def insert_json(data) when is_binary(data) do
     data
     |> Jason.decode()
     ~> ActivityPub.Federator.Transformer.handle_incoming()
@@ -79,9 +79,9 @@ defmodule ActivityPub.Fixtures do
       error(e, "a fixture could not be inserted")
   end
 
-  defp maybe_insert(%{body: data}), do: maybe_insert(data)
+  def insert_json(%{body: data}), do: insert_json(data)
 
-  defp maybe_insert(skip) do
+  def insert_json(skip) do
     debug(skip, "skipping")
   end
 

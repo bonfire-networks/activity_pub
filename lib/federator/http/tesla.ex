@@ -52,6 +52,10 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
       {:ok, _} ->
         false
 
+      {:error, "non-existing domain"} ->
+        warn("Tesla.Middleware.Retry will NOT retry due to non-existing domain")
+        false
+
       {:error, e} ->
         warn(e, "Tesla.Middleware.Retry will retry after connection error")
         true

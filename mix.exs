@@ -67,8 +67,7 @@ defmodule ActivityPub.MixProject do
       {:tesla, "~> 1.2"},
       # {:tesla_extra, "~> 0.2"},
       {:http_signatures,
-       git: "https://github.com/bonfire-networks/http_signatures",
-       branch: "master"},
+       git: "https://github.com/bonfire-networks/http_signatures"},
       {:remote_ip, "~> 1.1"},
       {:hammer_plug, "~> 3.0"},
       {:timex, "~> 3.5"},
@@ -80,11 +79,11 @@ defmodule ActivityPub.MixProject do
       {
         :needle_ulid,
         "~> 0.3"
-        #git: "https://github.com/bonfire-networks/needle_ulid", branch: "main"
+        #git: "https://github.com/bonfire-networks/needle_ulid",
       },
       # {:needle,
       #   #"~> 0.5"
-      #   git: "https://github.com/bonfire-networks/needle", branch: "main",
+      #   git: "https://github.com/bonfire-networks/needle", 
       #   optional: true
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},

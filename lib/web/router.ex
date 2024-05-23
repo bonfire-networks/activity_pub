@@ -88,7 +88,8 @@ defmodule ActivityPub.Web.Router do
         # URLs for interop with Mastodon clients / AP testing tools
         post("/users/:username", IncomingActivityPubController, :inbox)
         post("/users/:username/inbox", IncomingActivityPubController, :inbox)
-        # return error saying only POST supported - TODO: implement this for AP C2S API
+
+        # return error saying not supported
         post("/users/:username/outbox", IncomingActivityPubController, :outbox_info)
       end
 
@@ -97,6 +98,8 @@ defmodule ActivityPub.Web.Router do
         pipe_through(:signed_activity_pub_incoming)
 
         post("/actors/:username/inbox", IncomingActivityPubController, :inbox)
+        # TODO: implement this for AP C2S API
+        post("/actors/:username/outbox", IncomingActivityPubController, :outbox_info)
         post("/shared_inbox", IncomingActivityPubController, :inbox)
       end
 

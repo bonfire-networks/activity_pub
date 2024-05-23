@@ -7,6 +7,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   use ActivityPub.Web, :controller
 
   import Untangle
+  use Arrows
 
   alias ActivityPub.Config
   # alias ActivityPub.Actor
@@ -51,10 +52,12 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   def outbox_info(conn, params) do
     if Config.federating?() do
-      Utils.error_json(conn, "this API path only accepts GET requests", 403)
+      "this API path only accepts GET requests"
     else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
+      "this instance is not currently federating"
     end
+    |> debug()
+    |> Utils.error_json(conn, ..., 403)
   end
 
   defp apply_process(conn, %{"type" => "Delete"} = params, fun) do

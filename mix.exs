@@ -87,7 +87,7 @@ defmodule ActivityPub.MixProject do
       #   optional: true
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
-      {:arrows, "~> 0.1"},
+      {:arrows, "~> 0.2"},
       {:untangle, "~> 0.3"}
     ]
   end

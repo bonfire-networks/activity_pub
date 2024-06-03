@@ -402,6 +402,16 @@ defmodule ActivityPub.Fixtures do
       "https://home.local/1" => fn "https://home.local/1", _, _, _ ->
         %Tesla.Env{status: 200, body: file("fixtures/mooglenet_person_actor.json")}
       end,
+      "https://mocked.local/.well-known/webfinger?resource=acct%3Akaren%40mocked.local" =>
+        fn "https://mocked.local/.well-known/webfinger?resource=acct%3Akaren%40mocked.local",
+           _,
+           _,
+           _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/pleroma_webfinger.json")
+          }
+        end,
       "https://mocked.local/.well-known/webfinger?resource=acct:karen@mocked.local" =>
         fn "https://mocked.local/.well-known/webfinger?resource=acct:karen@mocked.local",
            _,

@@ -162,11 +162,17 @@ defmodule ActivityPub.Federator.APPublisher do
     else
       {_post_result, %{status: code} = response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
-        error(response, "could not push activity to #{inspect(inbox)} (got HTTP #{code})")
+        error(response, "could not push activity to #{inbox}, got HTTP #{code}")
+
+      {_post_result, response} when is_binary(response) or is_atom(response) ->
+        unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
+        error("could not push activity to #{inbox}, got: #{response}")
 
       {_post_result, response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
-        error(response, "could not push activity to #{inspect(inbox)}")
+        error(response, "could not push activity to #{inbox}, got")
+        #  so we can see the result in Sentry
+        {:error, "could not push activity to #{inbox}, got: #{inspect(response)}"}
     end
   end
 

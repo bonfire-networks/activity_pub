@@ -547,7 +547,7 @@ defmodule ActivityPub.Utils do
   end
 
   def maybe_to_string({key, val}) do
-    maybe_to_string(key) <> ":" <> maybe_to_string(val)
+    maybe_to_string(key) <> ": " <> maybe_to_string(val)
   end
 
   def maybe_to_string(other) do

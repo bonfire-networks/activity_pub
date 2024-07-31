@@ -1,7 +1,45 @@
 defmodule ActivityPub.MRF.SimplePolicy do
   import Untangle
   alias ActivityPub.MRF
-  @moduledoc "Filter activities depending on their origin instance"
+
+  @moduledoc """
+  Filter activities depending on their origin instance or other criteria.
+
+  `SimplePolicy` is capable of handling most common admin tasks.
+
+  To use `SimplePolicy`, you must enable it. Do so by adding the following to your `:instance` config object, so that it looks like this:
+
+  ```
+  config :bonfire, :instance,
+    [...]
+    rewrite_policy: ActivityPub.MRF.SimplePolicy
+  ```
+
+  Once `SimplePolicy` is enabled, you can configure various groups in the `:mrf_simple` config object. These groups are:
+
+  - `media_removal`: Servers in this group will have media stripped from incoming messages.
+  - `media_nsfw`: Servers in this group will have the #nsfw tag and sensitive setting injected into incoming messages which contain media.
+  - `reject`: Servers in this group will have their messages rejected.
+  - `report_removal`: Servers in this group will have their reports (flags) rejected.
+
+  Servers should be configured as lists.
+
+  ### Example
+
+  This example will enable `SimplePolicy`, block media from `illegalporn.biz`, mark media as NSFW from `porn.biz` and `porn.business`, reject messages from `spam.com` and block reports (flags) from `troll.mob`:
+
+  ```
+  config :activity_pub, :instance,
+    rewrite_policy: [ActivityPub.MRF.SimplePolicy]
+
+  config :activity_pub, :mrf_simple,
+    media_removal: ["illegalporn.biz"],
+    media_nsfw: ["porn.biz", "porn.business"],
+    reject: ["spam.com"],
+    report_removal: ["troll.mob"]
+
+  ```
+  """
   @behaviour MRF
   require ActivityPub.Config
 

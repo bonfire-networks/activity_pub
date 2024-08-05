@@ -698,19 +698,36 @@ defmodule ActivityPub.Actor do
       e ->
         debug(e, "no such actor in AP db, create a tombstone instead")
 
-        %{
-          id: Ecto.UUID.generate(),
-          pointer_id: actor.pointer_id,
-          data: tombstone,
-          public: true,
-          local: actor.local,
-          is_object: true
-        }
-        |> debug()
-        |> Object.changeset()
-        |> debug()
-        |> repo().insert()
+        insert_actor_tombstone(actor, tombstone)
     end
+  end
+
+  defp insert_actor_tombstone(%Actor{} = actor, tombstone) do
+    %{
+      id: Ecto.UUID.generate(),
+      pointer_id: actor.pointer_id,
+      data: tombstone,
+      public: true,
+      local: actor.local,
+      is_object: true
+    }
+    # |> debug()
+    |> Object.changeset()
+    # |> debug()
+    |> repo().insert()
+  rescue
+    e in Ecto.ConstraintError ->
+      error(e, "seems pointer may no longer exist, try without")
+
+      %{
+        id: Ecto.UUID.generate(),
+        data: tombstone,
+        public: true,
+        local: actor.local,
+        is_object: true
+      }
+      |> Object.changeset()
+      |> repo().insert()
   end
 
   defp update_actor_data(actor, data, fetch_remote? \\ true)

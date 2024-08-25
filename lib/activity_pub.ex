@@ -87,6 +87,7 @@ defmodule ActivityPub do
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
       {:error, error} when is_binary(error) -> error(error)
+      :ignore -> :ignore
       other -> error(other, "Error with the Create Activity")
     end
   end

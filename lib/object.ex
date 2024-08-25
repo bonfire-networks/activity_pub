@@ -247,7 +247,8 @@ defmodule ActivityPub.Object do
         {:reject, e}
 
       :ignore ->
-        warn(params, "Do not federate due to local boundaries and filters")
+        info(params, "Do not federate due to local boundaries and filters")
+        # {:ignore, "Do not federate due to local boundaries and filters"}
         :ignore
 
       error ->

@@ -17,7 +17,7 @@ services:
         source: .
         target: /opt/app
   db:
-    image: postgis/postgis:12-3.0-alpine
+    image: postgis/postgis:16-3.4-alpine
     # ports:
     #   - "5432:5432"
     environment:

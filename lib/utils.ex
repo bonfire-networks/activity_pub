@@ -161,11 +161,15 @@ defmodule ActivityPub.Utils do
 
   def is_ulid?(_), do: false
 
-  def ulid(%{pointer_id: id}) when is_binary(id), do: ulid(id)
-  def ulid(%{id: id}) when is_binary(id), do: ulid(id)
+  def is_uid?(input) do
+    is_ulid?(input) or is_uuid?(input)
+  end
 
-  def ulid(input) do
-    if is_ulid?(input) do
+  def uid(%{pointer_id: id}) when is_binary(id), do: uid(id)
+  def uid(%{id: id}) when is_binary(id), do: uid(id)
+
+  def uid(input) do
+    if is_uid?(input) do
       input
     else
       warn(input, "Expected a ULID ID (or an object with one), but got")

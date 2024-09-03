@@ -55,7 +55,7 @@ defmodule ActivityPub.Object do
     do: get_cached(ap_id: ap_id)
 
   def get_cached(id) when is_binary(id) do
-    if Utils.is_ulid?(id) do
+    if Utils.is_uid?(id) do
       get_cached(pointer: id)
     else
       if String.starts_with?(id, "http") do
@@ -87,7 +87,7 @@ defmodule ActivityPub.Object do
   def get_uncached(opts), do: get(opts)
 
   defp get(id) when is_binary(id) do
-    if Utils.is_ulid?(id) do
+    if Utils.is_uid?(id) do
       get(pointer: id)
     else
       get(uuid: id)
@@ -211,7 +211,7 @@ defmodule ActivityPub.Object do
                 data: activity,
                 local: local?,
                 public: Utils.public?(activity),
-                pointer_id: Utils.ulid(pointer)
+                pointer_id: Utils.uid(pointer)
               })
             else
               # activity containing only an ID as object
@@ -771,7 +771,7 @@ defmodule ActivityPub.Object do
   def object_url(%{pointer: id}) when is_binary(id), do: object_url(id)
 
   def object_url(id) when is_binary(id) do
-    if Utils.is_uuid?(id) or Utils.is_ulid?(id) do
+    if Utils.is_uid?(id) do
       Utils.ap_base_url() <> "/objects/" <> id
     else
       Utils.ap_base_url() <> "/actors/" <> id

@@ -648,7 +648,7 @@ defmodule ActivityPub.Actor do
 
     ret
 
-    # if Utils.is_ulid?(id) do
+    # if Utils.is_uid?(id) do
     #   with {:ok, object} <- Object.get_cached(pointer: id) do
     #     Object.hard_delete(object)
     #   else

@@ -11,7 +11,6 @@ defmodule ActivityPub.Object do
   alias ActivityPub.Object
   alias ActivityPub.MRF
   alias ActivityPub.Queries
-  alias Needle.ULID
   import ActivityPub.Utils
   alias ActivityPub.Utils
 
@@ -28,7 +27,7 @@ defmodule ActivityPub.Object do
     field(:is_object, :boolean, default: false)
 
     # TODO: get the table to reference from config? and maybe the type as well
-    belongs_to(:pointer, Needle.Pointer, type: ULID)
+    belongs_to(:pointer, Needle.Pointer, type: Needle.UID)
 
     # Attention: these is are fake relations, don't try to join them blindly and expect it to work!
     # The foreign keys are embedded in a jsonb field.

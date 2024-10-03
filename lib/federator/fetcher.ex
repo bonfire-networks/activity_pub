@@ -151,7 +151,7 @@ defmodule ActivityPub.Federator.Fetcher do
     # raise "STOOOP"
     with true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
-         {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("QUQUQUQUQU"),
+         {:ok, data} <- fetch_remote_object_from_id(id, opts),
          {:ok, object} <- cached_or_handle_incoming(data, opts) do
       {:ok, object}
     else
@@ -218,9 +218,9 @@ defmodule ActivityPub.Federator.Fetcher do
   defp handle_fetched(%{data: data}, opts), do: handle_fetched(data, opts)
 
   defp handle_fetched(data, opts) do
-    debug(opts)
+    debug(opts, "data")
 
-    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug() do
+    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
       skip_fetch_collection? = !opts[:fetch_collection]
       skip_fetch_collection_entries? = !opts[:fetch_collection_entries]
@@ -365,7 +365,7 @@ defmodule ActivityPub.Federator.Fetcher do
              {options[:skip_contain_origin_check] ||
                 Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
         if !options[:return_tombstones] and Object.is_deleted?(data) do
-          debug("object was marked as deleted/suspended, return as not found")
+          debug(options, "object was marked as deleted/suspended, return as not found")
           cache_fetch_error(id)
           {:error, :not_found}
         else

@@ -121,7 +121,7 @@ defmodule ActivityPub.Federator.APPublisher do
     with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
       params
       |> Map.delete(:actor_id)
-      |> Map.put(:actor, actor)
+      |> Map.put(:actor, Actor.format_remote_actor(actor))
       |> publish_one()
     else
       e ->
@@ -133,7 +133,7 @@ defmodule ActivityPub.Federator.APPublisher do
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
     date = Utils.format_date()
 
-    error(params, "not adding a signature, because we don't have an Actor")
+    error(params, "not adding a signature, because we don't have an actor or inbox")
 
     do_publish_one(params, date, digest)
   end

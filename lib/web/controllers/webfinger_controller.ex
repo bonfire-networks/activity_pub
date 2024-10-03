@@ -2,6 +2,7 @@
 
 defmodule ActivityPub.Web.WebFingerController do
   use ActivityPub.Web, :controller
+  import Untangle
 
   alias ActivityPub.Federator.WebFinger
 
@@ -20,10 +21,13 @@ defmodule ActivityPub.Web.WebFingerController do
     with {:ok, response} <- WebFinger.output(resource) do
       json(conn, response)
     else
-      _e ->
+      e ->
+        msg = "Could not find user"
+        error(e, msg)
+
         conn
         |> put_status(404)
-        |> json("Could not find user")
+        |> json(msg)
     end
   end
 end

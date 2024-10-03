@@ -158,6 +158,10 @@ defmodule ActivityPub.Federator.Transformer do
     recipient_is_from_instance?(bto, host)
   end
 
+  defp recipient_is_from_instance?(%{data: %{"id" => bto}}, host) when is_binary(bto) do
+    recipient_is_from_instance?(bto, host)
+  end
+
   defp check_remote_object_deleted(ap_id) do
     debug(ap_id, "Checking delete permission for")
 
@@ -1088,12 +1092,12 @@ defmodule ActivityPub.Federator.Transformer do
           e ->
             error(e, "Could not find actor to delete")
             # so oban doesn't try again
-            :ok
+            {:ok, nil}
         end
 
       {:error, :not_found} ->
         error(object_id, "Object is not cached locally, skip deletion")
-        :ok
+        {:ok, nil}
 
       {:error, :not_deleted} ->
         error("Could not verify incoming deletion")

@@ -109,31 +109,28 @@ defmodule ActivityPub.Safety.Keys do
   @doc """
   Checks if an actor struct has a non-nil keys field and generates a PEM if it doesn't.
   """
+  def ensure_keys_present(%{keys: keys} = object) when is_binary(keys) do
+    {:ok, object}
+  end
+
+  def ensure_keys_present(%{local: false} = object) do
+    {:ok, object}
+  end
+
   def ensure_keys_present(%Actor{data: %{"type" => type}} = actor) when type != "Tombstone" do
-    cond do
-      actor.local == false ->
-        debug("actor is remote")
-        {:ok, actor}
+    warn(actor, "actor has no keys and is local, generate new ones")
 
-      is_binary(actor.keys) ->
-        debug("actor has keys ")
-        {:ok, actor}
-
-      true ->
-        warn(actor, "actor has no keys and is local, generate new ones")
-
-        with {:ok, pem} <- generate_rsa_pem(),
-             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-             {:ok, actor} <- Actor.set_cache(actor) do
-          {:ok, actor}
-        else
-          e -> error(e, "Could not generate or save keys")
-        end
+    with {:ok, pem} <- generate_rsa_pem(),
+         {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
+         {:ok, actor} <- Actor.set_cache(actor) do
+      {:ok, actor}
+    else
+      e -> error(e, "Could not generate or save keys")
     end
   end
 
   def ensure_keys_present(object) do
-    warn(object, "not an actor, no keys are not applicable")
+    warn(object, "not an actor, so keys are not applicable")
     {:ok, object}
   end
 
@@ -151,6 +148,7 @@ defmodule ActivityPub.Safety.Keys do
            private_key do
       {:ok, private_key, {:RSAPublicKey, modulus, exponent}}
     else
+      {:RSAPublicKey, modulus, exponent} -> {:ok, nil, {:RSAPublicKey, modulus, exponent}}
       error -> error(error)
     end
   end
@@ -210,9 +208,9 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def sign(actor, headers) do
+  def sign(%{keys: _} = actor, headers) do
     with {:ok, actor} <- Keys.ensure_keys_present(actor),
-         {:ok, private_key, _} <- Keys.keypair_from_pem(actor.keys),
+         {:ok, private_key, _} when not is_nil(private_key) <- Keys.keypair_from_pem(actor.keys),
          signed when is_binary(signed) <-
            HTTPSignatures.sign(private_key, actor.data["id"] <> "#main-key", headers) do
       {:ok, signed}

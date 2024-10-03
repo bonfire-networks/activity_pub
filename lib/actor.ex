@@ -830,5 +830,15 @@ defmodule ActivityPub.Actor do
 
   def also_known_as?(ap_id, %{data: data}), do: also_known_as?(ap_id, data)
   def also_known_as?(%{ap_id: ap_id}, data), do: also_known_as?(ap_id, data)
-  def also_known_as?(ap_id, _), do: nil
+
+  def also_known_as?(ap_id, actor) do
+    warn(actor, "Could not match #{ap_id} in any alsoKnownAs for this actor")
+    false
+  end
+end
+
+defimpl Jason.Encoder, for: ActivityPub.Actor do
+  def encode(%{data: %{} = data}, opts) do
+    Jason.Encode.map(data, opts)
+  end
 end

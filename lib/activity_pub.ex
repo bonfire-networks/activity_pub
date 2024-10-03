@@ -429,7 +429,7 @@ defmodule ActivityPub do
 
   def delete(
         %{data: %{"id" => id, "type" => type}} = delete_actor,
-        local,
+        is_local?,
         opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
@@ -441,8 +441,8 @@ defmodule ActivityPub do
 
     with {:ok, _} <-
            delete_actor
-           |> debug()
-           |> Actor.delete(local)
+           |> debug("actor")
+           |> Actor.delete(is_local?)
            |> debug("deleeeted"),
          params <-
            %{
@@ -452,8 +452,8 @@ defmodule ActivityPub do
              "to" => to,
              "bcc" => opts[:bcc]
            }
-           |> debug("params"),
-         {:ok, activity} <- Object.insert(params, local),
+           |> debug("delete params"),
+         {:ok, activity} <- Object.insert(params, is_local?),
          :ok <- maybe_federate(activity, opts),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -463,20 +463,20 @@ defmodule ActivityPub do
 
   def delete(
         %{data: %{"id" => _id, "formerType" => type}} = delete_actor,
-        local,
+        is_local?,
         opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
     delete(
       Map.update(delete_actor, :data, %{}, fn data -> Map.merge(data, %{"type" => type}) end),
-      local,
+      is_local?,
       opts
     )
   end
 
   def delete(
         %Object{data: %{"id" => id, "actor" => actor}} = object,
-        local,
+        is_local?,
         opts
       ) do
     to =
@@ -490,7 +490,7 @@ defmodule ActivityPub do
            "to" => to,
            "bcc" => opts[:bcc]
          },
-         {:ok, activity} <- Object.insert(data, local),
+         {:ok, activity} <- Object.insert(data, is_local?),
          :ok <- maybe_federate(activity, opts),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -550,7 +550,7 @@ defmodule ActivityPub do
     else
       false ->
         if recursing != true do
-          debug("get a fresh actor in case they just added alsoKnownAs")
+          debug("fetch a fresh actor in case they just added alsoKnownAs")
 
           with {:ok, refetched} <-
                  ActivityPub.Federator.Fetcher.fetch_fresh_object_from_id(target.ap_id) do

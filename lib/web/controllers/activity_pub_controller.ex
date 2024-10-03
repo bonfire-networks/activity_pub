@@ -80,7 +80,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   defp maybe_return_json(conn, meta, json, opts) do
     debug(json)
 
-    if opts[:exporting] == true or federate_actor?(Map.get(json, "actor"), conn) do
+    if opts[:exporting] == true or json["type"] in ["Delete", "Tombstone"] or
+         federate_actor?(Map.get(json, "actor"), conn) do
       Utils.return_json(conn, meta, json)
     else
       Utils.error_json(conn, "this actor is not currently federating", 403)
@@ -88,7 +89,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp object_json(json: id) do
-    if Utils.is_uid?(id) do
+    #  TODO: support prefixed UUIDs?
+    if Utils.is_ulid?(id) do
       # querying by pointer - handle local objects
       #  true <- object.id != id, # huh?
       #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?

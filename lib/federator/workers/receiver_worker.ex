@@ -69,8 +69,14 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
         warn("HTTP Signature was invalid even after refetch")
       end
 
+      is_deleted? =
+        debug(
+          params["type"] in ["Delete", "Tombstone"] or params["object"]["type"] == "Tombstone",
+          "is_deleted?"
+        )
+
       with id when is_binary(id) <- params["id"],
-           {:ok, object} <- Fetcher.fetch_fresh_object_from_id(id) do
+           {:ok, object} <- Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
         debug(object, "Unsigned activity workaround worked :)")
 
         {:ok, object}

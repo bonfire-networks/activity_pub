@@ -86,7 +86,8 @@ defmodule ActivityPub.Object do
   def get_uncached(opts), do: get(opts)
 
   defp get(id) when is_binary(id) do
-    if Utils.is_uid?(id) do
+    # TODO: support prefixed UUIDs?
+    if Utils.is_ulid?(id) do
       get(pointer: id)
     else
       get(uuid: id)
@@ -109,9 +110,14 @@ defmodule ActivityPub.Object do
   end
 
   defp get(pointer: id) when is_binary(id) do
-    case repo().get_by(Object, pointer_id: id) do
-      %Object{} = object -> {:ok, object}
-      _ -> {:error, :not_found}
+    # TODO: support prefixed UUIDs?
+    if Utils.is_ulid?(id) do
+      case repo().get_by(Object, pointer_id: id) do
+        %Object{} = object -> {:ok, object}
+        _ -> {:error, :not_found}
+      end
+    else
+      error(id, "Expected a valid UID")
     end
   end
 

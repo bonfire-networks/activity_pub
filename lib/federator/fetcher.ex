@@ -353,7 +353,8 @@ defmodule ActivityPub.Federator.Fetcher do
            not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :local_actor},
          headers <-
            [{"Accept", "application/activity+json"}]
-           |> Keys.maybe_add_fetch_signature_headers(uri),
+           |> Keys.maybe_add_fetch_signature_headers(uri)
+           |> debug("headders"),
          {:ok, %{body: body, status: code, headers: headers}} when code in 200..299 <-
            HTTP.get(
              id,

@@ -108,6 +108,15 @@ defmodule ActivityPub.Web.RedirectController do
           |> redirect(to: url)
       end
     else
+      %{"id" => url} ->
+        error(
+          url,
+          "Remote didn't provide a `subscribe_address` in WebFinger, redirecting to profile instead"
+        )
+
+        conn
+        |> redirect(external: url)
+
       other ->
         error(other)
 

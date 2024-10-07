@@ -117,7 +117,8 @@ defmodule ActivityPub.Object do
         _ -> {:error, :not_found}
       end
     else
-      error(id, "Expected a valid UID")
+      warn(id, "Expected a valid UID pointable, trying as UUID object ID instead")
+      get(uuid: id)
     end
   end
 

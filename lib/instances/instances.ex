@@ -3,6 +3,9 @@ defmodule ActivityPub.Instances do
 
   @adapter ActivityPub.Instances.Instance
 
+  alias ActivityPub.Federator.HTTP
+  alias ActivityPub.Config
+
   defdelegate filter_reachable(urls_or_hosts), to: @adapter
   defdelegate reachable?(url_or_host), to: @adapter
   defdelegate set_reachable(url_or_host), to: @adapter
@@ -47,4 +50,44 @@ defmodule ActivityPub.Instances do
   end
 
   def host(_), do: nil
+
+  def scrape_nodeinfo(%URI{} = instance_uri) do
+    # with true <- Config.get([:instances_nodeinfo, :enabled]),
+    with {_, true} <- {:reachable, reachable?(instance_uri.host)},
+         {:ok, %Tesla.Env{status: 200, body: body}} <-
+           Tesla.get(
+             "https://#{instance_uri.host}/.well-known/nodeinfo",
+             headers: [{"Accept", "application/json"}]
+           ),
+         {:ok, json} <- Jason.decode(body),
+         {:ok, %{"links" => links}} <- {:ok, json},
+         {:ok, %{"href" => href}} <-
+           {:ok,
+            Enum.find(links, &(&1["rel"] == "http://nodeinfo.diaspora.software/ns/schema/2.0"))},
+         {:ok, %Tesla.Env{body: data}} <-
+           HTTP.get(href, [{"accept", "application/json"}], []),
+         {:length, true} <- {:length, String.length(data) < 50_000},
+         {:ok, nodeinfo} <- Jason.decode(data) do
+      nodeinfo
+    else
+      {:reachable, false} ->
+        Logger.debug(
+          "Instance.scrape_nodeinfo(\"#{to_string(instance_uri)}\") ignored unreachable host"
+        )
+
+        nil
+
+      {:length, false} ->
+        Logger.debug(
+          "Instance.scrape_nodeinfo(\"#{to_string(instance_uri)}\") ignored too long body"
+        )
+
+        nil
+
+      _ ->
+        nil
+    end
+  end
+
+  def scrape_nodeinfo(instance_uri), do: URI.parse(instance_uri) |> scrape_nodeinfo()
 end

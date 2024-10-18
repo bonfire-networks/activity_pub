@@ -1,4 +1,4 @@
-import ActivityPub.Test.Helpers
+# import ActivityPub.Test.Helpers
 import ActivityPub.Utils
 
 {:ok, _} = Application.ensure_all_started(:ex_machina)

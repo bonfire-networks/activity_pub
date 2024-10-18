@@ -10,7 +10,7 @@ defmodule ActivityPub.Safety.Keys do
   alias ActivityPub.Actor
   alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
-  # alias ActivityPub.Safety.Signatures
+  # alias ActivityPub.Safety.HTTP.Signatures
   # alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.Adapter
 
@@ -122,7 +122,7 @@ defmodule ActivityPub.Safety.Keys do
 
     with {:ok, pem} <- generate_rsa_pem(),
          {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-         {:ok, actor} <- Actor.set_cache(actor) do
+         {:ok, actor} <- Actor.set_cache(actor) |> debug("donz") do
       {:ok, actor}
     else
       e -> error(e, "Could not generate or save keys")

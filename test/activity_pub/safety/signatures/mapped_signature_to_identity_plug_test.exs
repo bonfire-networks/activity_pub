@@ -6,7 +6,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
   use ActivityPub.Web.ConnCase, async: false
   alias ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug
   alias ActivityPub.Config
-  alias ActivityPub.Safety.Signatures
+  alias ActivityPub.Safety.HTTP.Signatures
 
   import Tesla.Mock
   import Plug.Conn

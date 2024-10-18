@@ -1,4 +1,4 @@
-defmodule ActivityPub.Safety.Signatures do
+defmodule ActivityPub.Safety.HTTP.Signatures do
   @moduledoc """
   Implementation for behaviour from `HTTPSignatures` library
   """

@@ -24,14 +24,30 @@ defmodule ActivityPub.Application do
                 interval: 1000
               )
 
-  @limit Cachex.Spec.limit(
-           #  max number of entries
-           size: 2_500,
-           # the policy to use for eviction
-           policy: Cachex.Policy.LRW,
-           # what % to reclaim when limit is reached
-           reclaim: 0.1
-         )
+  @hooks [
+    # hook(module: Cachex.Stats),
+    Cachex.Spec.hook(
+      module: Cachex.Limit.Scheduled,
+      args: {
+        # setting cache max size
+        2_500,
+        # options for `Cachex.prune/3`
+        [],
+        # options for `Cachex.Limit.Scheduled`
+        []
+      }
+    )
+  ]
+
+  # NOTE: limit is deprecated in 4.0, replaced by hooks ^
+  # @limit Cachex.Spec.limit(
+  #          #  max number of entries
+  #          size: 2_500,
+  #          # the policy to use for eviction
+  #          policy: Cachex.Policy.LRW,
+  #          # what % to reclaim when limit is reached
+  #          reclaim: 0.1
+  #        )
 
   if Mix.env() == :test and Application.compile_env(:activity_pub, :disable_test_apps) != true do
     def start(_type, _args) do
@@ -90,7 +106,8 @@ defmodule ActivityPub.Application do
                :ap_actor_cache,
                [
                  expiration: @expiration,
-                 limit: @limit
+                 hooks: @hooks
+                 #  limit: @limit
                ]
              ]}
         },
@@ -102,7 +119,8 @@ defmodule ActivityPub.Application do
                :ap_object_cache,
                [
                  expiration: @expiration,
-                 limit: @limit
+                 hooks: @hooks
+                 #  limit: @limit
                ]
              ]}
         }

@@ -433,9 +433,11 @@ defmodule ActivityPub do
         opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
+    subject = opts[:subject]
+
     to = [
       delete_actor.data["followers"],
-      Map.get(opts[:subject] || %{}, :data, %{})["followers"],
+      if(is_map(subject), do: Map.get(subject, :data, %{})["followers"], else: nil),
       ActivityPub.Config.public_uri()
     ]
 
@@ -447,7 +449,7 @@ defmodule ActivityPub do
          params <-
            %{
              "type" => "Delete",
-             "actor" => opts[:subject] || id,
+             "actor" => subject || id,
              "object" => id,
              "to" => to,
              "bcc" => opts[:bcc]

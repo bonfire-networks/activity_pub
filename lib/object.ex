@@ -387,9 +387,12 @@ defmodule ActivityPub.Object do
   end
 
   def do_update_existing(%ActivityPub.Object{} = object, attrs) do
+    debug(attrs)
+
     object
     |> debug("update")
     |> change(attrs)
+    |> debug("cs")
     |> update_and_set_cache()
   end
 

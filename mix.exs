@@ -52,16 +52,16 @@ defmodule ActivityPub.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.6.6"},
+      {:phoenix, "~> 1.6.6", optional: true},
+      {:plug_cowboy, "~> 2.0", optional: true},
+      {:phoenix_ecto, "~> 4.4", optional: true},
+      {:phoenix_live_dashboard, "~> 0.8.0", optional: true},
       {:phoenix_html_helpers, "~> 1.0"},
-      {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.8"},
       {:postgrex, ">= 0.0.0"},
-      {:phoenix_live_dashboard, "~> 0.8.0"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.0"},
-      {:plug_cowboy, "~> 2.0"},
       {:mime, "~> 2.0.3"},
       {:oban, "~> 2.17"},
       # {:hackney, "~> 1.16"},

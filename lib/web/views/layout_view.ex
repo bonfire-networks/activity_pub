@@ -3,7 +3,7 @@ defmodule ActivityPub.Web.LayoutView do
 
   def render("app.html", assigns) do
     ~H"""
-    <%= @inner_content %>
+    {@inner_content}
     """
   end
 end

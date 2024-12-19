@@ -94,7 +94,7 @@ defmodule ActivityPub.Federator.Transformer do
       %Object{} = object ->
         prepare_outgoing_object(object)
 
-      %{ap_id: ap_id} = object ->
+      %{ap_id: ap_id} = _object ->
         ap_id
 
       nil ->
@@ -947,7 +947,12 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.like(%{actor: actor, object: object, activity_id: data["id"], local: false}) do
+           ActivityPub.like(%{
+             actor: actor,
+             object: object,
+             activity_id: data["id"],
+             local: false
+           }) do
       {:ok, activity}
     else
       e -> error(e)

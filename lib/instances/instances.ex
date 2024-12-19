@@ -1,10 +1,11 @@
 defmodule ActivityPub.Instances do
   @moduledoc "Instances context."
+  import Untangle
 
   @adapter ActivityPub.Instances.Instance
 
   alias ActivityPub.Federator.HTTP
-  alias ActivityPub.Config
+  # alias ActivityPub.Config
 
   defdelegate filter_reachable(urls_or_hosts), to: @adapter
   defdelegate reachable?(url_or_host), to: @adapter
@@ -71,15 +72,17 @@ defmodule ActivityPub.Instances do
       nodeinfo
     else
       {:reachable, false} ->
-        Logger.debug(
-          "Instance.scrape_nodeinfo(\"#{to_string(instance_uri)}\") ignored unreachable host"
+        info(
+          instance_uri,
+          "ignored unreachable host"
         )
 
         nil
 
       {:length, false} ->
-        Logger.debug(
-          "Instance.scrape_nodeinfo(\"#{to_string(instance_uri)}\") ignored too long body"
+        info(
+          instance_uri,
+          "ignored too long body"
         )
 
         nil

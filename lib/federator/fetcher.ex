@@ -320,12 +320,12 @@ defmodule ActivityPub.Federator.Fetcher do
     |> debug()
   end
 
-  def fetch_replies(%{"id" => _} = data, opts) do
+  def fetch_replies(%{"id" => _} = _data, _opts) do
     error("Could not find replies in ActivityPub data")
   end
 
   def fetch_replies(other, opts) do
-    with {:ok, %{data: %{"replies" => replies} = data}} <- Object.get_cached(other) |> debug() do
+    with {:ok, %{data: %{"replies" => replies} = _data}} <- Object.get_cached(other) |> debug() do
       fetch_replies(%{"replies" => replies}, opts)
     else
       e ->
@@ -380,7 +380,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp handle_fetch_error(returned, id, options, status \\ nil, headers \\ nil) do
+  defp handle_fetch_error(returned, id, options, _status \\ nil, headers \\ nil) do
     case returned do
       {:ok, %{status: 401} = ret} ->
         debug(id, "Received a 401 - authentication required response")
@@ -630,7 +630,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp fetch_page(page_id, items \\ [], _opts \\ []) do
+  defp fetch_page(page_id, items \\ [], opts \\ []) do
     max = Config.get([:activity_pub, :max_collection_objects], 10)
 
     if Enum.count(items) >= max do
@@ -646,7 +646,7 @@ defmodule ActivityPub.Federator.Fetcher do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do
-          maybe_next_page(page, items ++ objects)
+          maybe_next_page(page, items ++ objects, opts)
         else
           items
         end
@@ -670,14 +670,14 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp objects_from_collection(page, opts \\ [])
 
-  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, _opts)
+  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
        when is_list(items) and items != [] and
               type in ["OrderedCollection", "OrderedCollectionPage"],
-       do: maybe_next_page(page, items)
+       do: maybe_next_page(page, items, opts)
 
-  defp objects_from_collection(%{"type" => type, "items" => items} = page, _opts)
+  defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
        when is_list(items) and items != [] and type in ["Collection", "CollectionPage"],
-       do: maybe_next_page(page, items)
+       do: maybe_next_page(page, items, opts)
 
   defp objects_from_collection(%{"type" => type, "first" => first}, opts)
        when is_binary(first) and type in ["Collection", "OrderedCollection"] do
@@ -694,6 +694,8 @@ defmodule ActivityPub.Federator.Fetcher do
     []
   end
 
+  defp maybe_next_page(page, items, opts \\ [])
+
   defp maybe_next_page(%{"next" => page_id}, items, opts) when is_binary(page_id) do
     depth = opts[:page_depth] || 0
     #  max pages to fetch
@@ -705,7 +707,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp maybe_next_page(_, items), do: items
+  defp maybe_next_page(_, items, _), do: items
 
   @doc """
   Returns `true` if the distance to target object does not exceed max configured value.

@@ -256,7 +256,7 @@ defmodule ActivityPub.Actor do
   end
 
   @doc """
-  Fetches an actor given its AP ID / URI, or username@domain, or by a pointer id 
+  Tries to get a local or cache actor, or fetches it given its AP ID / URI, or username@domain, or by a pointer id.
 
   Remote actors are first checked if they exist in in AP or adapter's database and ARE fetched remotely if they don't.
 
@@ -282,10 +282,6 @@ defmodule ActivityPub.Actor do
         # end
     end
   end
-
-  @doc """
-  Tries to get a local actor by username or tries to fetch it remotely if username is provided in `username@domain.tld` format.
-  """
 
   def get_cached_or_fetch(username: "@" <> username),
     do: get_cached_or_fetch(username: username)
@@ -630,10 +626,9 @@ defmodule ActivityPub.Actor do
   end
 
   def get_external_followers(actor) do
-    followers =
-      get_followers(actor)
-      # Filter locals
-      |> Enum.filter(fn x -> !x.local end)
+    get_followers(actor)
+    # Filter locals
+    |> Enum.filter(fn x -> !x.local end)
   end
 
   def delete(actor, is_local?)

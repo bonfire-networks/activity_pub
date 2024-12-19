@@ -1,5 +1,5 @@
 defmodule ActivityPub.MRF.SimplePolicy do
-  import Untangle
+  # import Untangle
   alias ActivityPub.MRF
 
   @moduledoc """

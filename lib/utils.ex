@@ -94,10 +94,6 @@ defmodule ActivityPub.Utils do
     public?(activity_data) || public?(object_data)
   end
 
-  def public?(_, _) do
-    false
-  end
-
   def public?(%{public: true}), do: true
   def public?(%{public: false}), do: false
   def public?(%{data: data}), do: public?(data)

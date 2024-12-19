@@ -12,15 +12,15 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   alias ActivityPub.Config
   alias ActivityPub.Actor
-  alias ActivityPub.Federator.Fetcher
+  # alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
   alias ActivityPub.Federator.Adapter
-  alias ActivityPub.Instances
-  alias ActivityPub.Safety.Containment
+  # alias ActivityPub.Instances
+  # alias ActivityPub.Safety.Containment
 
   alias ActivityPub.Web.ActorView
-  alias ActivityPub.Federator
+  # alias ActivityPub.Federator
   alias ActivityPub.Web.ObjectView
   # alias ActivityPub.Web.RedirectController
 
@@ -212,6 +212,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       |> render("outbox.json", %{actor: actor, page: page_number(params["page"])})
     else
       e ->
+        error(e, "Invalid actor")
         Utils.error_json(conn, "Invalid actor", 500)
     end
   end
@@ -227,7 +228,7 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def maybe_inbox(conn, %{"username" => username} = params) do
+  def maybe_inbox(conn, %{"username" => _username} = _params) do
     # if Config.env() != :prod and federate_actor?(username, conn) do
     #  # TODO?
     # else

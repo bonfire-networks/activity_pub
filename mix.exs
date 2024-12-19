@@ -69,6 +69,7 @@ defmodule ActivityPub.MixProject do
       # {:tesla_extra, "~> 0.2"},
       {:http_signatures,
        git: "https://github.com/bonfire-networks/http_signatures"},
+      {:mfm_parser, git: "https://akkoma.dev/AkkomaGang/mfm-parser.git"},
       {:remote_ip, "~> 1.1"},
       {:hammer_plug, "~> 3.0"},
       {:timex, "~> 3.5"},

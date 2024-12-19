@@ -711,19 +711,13 @@ defmodule ActivityPub.Object do
   def get_outbox_for_actor(%{"id" => ap_id}, page), do: get_outbox_for_actor(ap_id, page)
 
   def get_outbox_for_actor(ap_id, page) when is_binary(ap_id) do
-    offset = (page - 1) * 10
-
     from(object in Object,
       where:
         object.public == true and
-          object.is_object != true,
-      limit: 10,
-      offset: ^offset
+          object.is_object != true
     )
-    |> Queries.ordered()
     |> Queries.by_actor(ap_id)
-    |> Queries.with_preloaded_object()
-    |> repo().all()
+    |> do_list_page(page)
   end
 
   def get_outbox_for_instance(page \\ 1) do
@@ -733,21 +727,19 @@ defmodule ActivityPub.Object do
           object.public == true and
           object.is_object != true
     )
-    |> do_list_all(page)
+    |> do_list_page(page)
   end
 
   def get_inbox(all_or_instance_or_actor_url, page \\ 1)
 
   def get_inbox(:shared, page) do
-    offset = (page - 1) * 10
-
     from(object in Object,
       where:
         object.local == false and
           object.public == true and
           object.is_object != true
     )
-    |> do_list_all(page)
+    |> do_list_page(page)
   end
 
   def get_inbox(instance_or_actor_url, page) do
@@ -760,10 +752,10 @@ defmodule ActivityPub.Object do
           object.public == true and
           object.is_object != true
     )
-    |> do_list_all(page)
+    |> do_list_page(page)
   end
 
-  defp do_list_all(query, page) do
+  defp do_list_page(query, page) do
     offset = (page - 1) * 10
 
     query

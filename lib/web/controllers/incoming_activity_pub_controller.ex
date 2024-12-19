@@ -11,14 +11,13 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   alias ActivityPub.Config
   # alias ActivityPub.Actor
-  alias ActivityPub.Federator.Fetcher
+  # alias ActivityPub.Federator.Fetcher
   # alias ActivityPub.Object
   alias ActivityPub.Utils
   # alias ActivityPub.Federator.Adapter
   alias ActivityPub.Instances
   # alias ActivityPub.Safety.Containment
-
-  alias ActivityPub.Federator
+  # alias ActivityPub.Federator
 
   @limit_num Application.compile_env(:activity_pub, __MODULE__, 5000)
   @limit_ms Application.compile_env(:activity_pub, __MODULE__, 120_000)
@@ -50,7 +49,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     apply_process(conn, params, &maybe_process_unsigned/3)
   end
 
-  def outbox_info(conn, params) do
+  def outbox_info(conn, _params) do
     if Config.federating?() do
       "this API path only accepts GET requests"
     else

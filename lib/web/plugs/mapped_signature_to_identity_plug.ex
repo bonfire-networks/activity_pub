@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
-  alias ActivityPub.Helpers.AuthHelper
   alias ActivityPub.Safety.Keys
   alias Keys, as: Signature
   alias ActivityPub.Actor

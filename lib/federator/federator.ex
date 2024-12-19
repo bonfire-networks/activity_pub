@@ -5,9 +5,9 @@ defmodule ActivityPub.Federator do
   # alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Publisher
-  alias ActivityPub.Federator.Transformer
+  # alias ActivityPub.Federator.Transformer
   alias ActivityPub.Federator.Workers.PublisherWorker
-  alias ActivityPub.Federator.Workers.ReceiverWorker
+  # alias ActivityPub.Federator.Workers.ReceiverWorker
 
   import Untangle
 

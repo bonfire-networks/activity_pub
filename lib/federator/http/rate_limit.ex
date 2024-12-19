@@ -13,10 +13,12 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
   def call(env, next, opts) do
     # if Config.env() != :test do
 
-    # Keyword.fetch!(opts, :scale_ms)
-    scale_ms = Config.get([ActivityPub.Federator.HTTP.RateLimit, :scale_ms], 10000)
-    # Keyword.fetch!(opts, :limit)
-    limit = Config.get([ActivityPub.Federator.HTTP.RateLimit, :limit], 20)
+    scale_ms =
+      Keyword.get(opts, :scale_ms) ||
+        Config.get([ActivityPub.Federator.HTTP.RateLimit, :scale_ms], 10000)
+
+    limit =
+      Keyword.get(opts, :limit) || Config.get([ActivityPub.Federator.HTTP.RateLimit, :limit], 20)
 
     %{host: host} = URI.parse(env.url)
 

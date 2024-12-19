@@ -2,7 +2,7 @@ defmodule ActivityPub.Web.ErrorHelpers do
   @moduledoc """
   Conveniences for translating and building error messages.
   """
-  import Phoenix.HTML
+  # import Phoenix.HTML
   use PhoenixHTMLHelpers
 
   @doc """

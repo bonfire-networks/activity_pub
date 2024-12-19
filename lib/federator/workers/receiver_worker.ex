@@ -1,7 +1,7 @@
 defmodule ActivityPub.Federator.Workers.ReceiverWorker do
   use ActivityPub.Federator.Worker, queue: "federator_incoming"
   import Untangle
-  alias ActivityPub.Federator
+  # alias ActivityPub.Federator
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
 

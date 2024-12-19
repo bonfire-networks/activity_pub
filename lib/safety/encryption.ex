@@ -43,7 +43,7 @@ defmodule ActivityPub.Safety.Encryption do
     - {:ok, decrypted_data} on success
     - {:error, reason} on failure
   """
-  def decrypt(encrypted_data, %Actor{local: true, keys: keys} = actor) when not is_nil(keys) do
+  def decrypt(encrypted_data, %Actor{local: true, keys: keys} = _actor) when not is_nil(keys) do
     with {:ok, private_key, _public_key} <- Keys.keypair_from_pem(keys) do
       decrypt_with_private_key(encrypted_data, private_key)
     end

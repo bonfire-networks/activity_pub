@@ -5,6 +5,9 @@ defmodule ActivityPub.Fixtures do
   # alias ActivityPub.Utils
 
   @mod_path __DIR__
+
+  @sample_object "{\"actor\": \"https://mocked.local/users/karen\", \"id\": \"https://mocked.local/2\", \"to\": \"#{ActivityPub.Config.public_uri()}\"}"
+
   def file(path), do: File.read!(@mod_path <> "/../test/" <> path)
 
   def insert_all() do
@@ -16,7 +19,7 @@ defmodule ActivityPub.Fixtures do
 
     Application.put_env(:tesla, :adapter, previous_adapter)
 
-    IO.info("DONE WITH INSERTING FIXTURES")
+    IO.puts("DONE WITH INSERTING FIXTURES")
   end
 
   def insert(url) do
@@ -94,29 +97,19 @@ defmodule ActivityPub.Fixtures do
           status: 404
         }
       end,
-      "https://mocked.local/2" => fn "https://mocked.local/2" ->
-        %Tesla.Env{
-          status: 200,
-          headers: [{"content-type", "application/activity+json"}],
-          body: @sample_object
-        }
-      end,
+      # "https://mocked.local/2" => fn "https://mocked.local/2" ->
+      #   %Tesla.Env{
+      #     status: 200,
+      #     headers: [{"content-type", "application/activity+json"}],
+      #     body: @sample_object
+      #   }
+      # end,
       "https://mocked.local/2" => fn "https://mocked.local/2" ->
         %Tesla.Env{
           status: 200,
           headers: [
             {"content-type",
              "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""}
-          ],
-          body: @sample_object
-        }
-      end,
-      "https://mocked.local/2" => fn "https://mocked.local/2" ->
-        %Tesla.Env{
-          status: 200,
-          headers: [
-            {"content-type",
-             "application/ld+json; profile=\"http://www.w3.org/ns/activitystreams\""}
           ],
           body: @sample_object
         }
@@ -260,25 +253,6 @@ defmodule ActivityPub.Fixtures do
       "https://fedi.local/userisgone502" => fn "https://fedi.local/userisgone502" ->
         %Tesla.Env{status: 502}
       end,
-      "https://fedi.local/userisgone502" => fn "https://fedi.local/userisgone502" ->
-        %Tesla.Env{status: 502}
-      end,
-      "https://mocked.local/users/emelie/collections/featured" =>
-        fn "https://mocked.local/users/emelie/collections/featured" ->
-          %Tesla.Env{
-            status: 200,
-            headers: [{"content-type", "application/activity+json"}],
-            body:
-              Jason.encode!(%{
-                "id" => "https://mocked.local/users/emelie/collections/featured",
-                "type" => "OrderedCollection",
-                "actor" => "https://mocked.local/users/emelie",
-                "attributedTo" => "https://mocked.local/users/emelie",
-                "orderedItems" => [],
-                "totalItems" => 0
-              })
-          }
-        end,
       "https://mocked.local/users/emelie/collections/featured" =>
         fn "https://mocked.local/users/emelie/collections/featured" ->
           %Tesla.Env{
@@ -430,16 +404,6 @@ defmodule ActivityPub.Fixtures do
           %Tesla.Env{
             status: 200,
             body: file("fixtures/pleroma_webfinger.json")
-          }
-        end,
-      "https://mastodon.local/.well-known/webfinger?resource=acct:karen@mastodon.local" =>
-        fn "https://mastodon.local/.well-known/webfinger?resource=acct:karen@mastodon.local",
-           _,
-           _,
-           _ ->
-          %Tesla.Env{
-            status: 200,
-            body: file("fixtures/mastodon/mastodon_webfinger.json")
           }
         end,
       "https://mastodon.local/.well-known/webfinger?resource=acct:karen@mastodon.local" =>
@@ -1357,9 +1321,9 @@ defmodule ActivityPub.Fixtures do
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
-      "https://akkoma.local/activity.json" => fn "https://akkoma.local/activity.json", _, _, _ ->
-        %Tesla.Env{status: 404, body: ""}
-      end,
+      # "https://akkoma.local/activity.json" => fn "https://akkoma.local/activity.json", _, _, _ ->
+      #   %Tesla.Env{status: 404, body: ""}
+      # end,
       "https://akkoma.local/activity2.json" => fn "https://akkoma.local/activity2.json",
                                                   _,
                                                   _,
@@ -1370,12 +1334,12 @@ defmodule ActivityPub.Fixtures do
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
-      "https://akkoma.local/activity2.json" => fn "https://akkoma.local/activity2.json",
-                                                  _,
-                                                  _,
-                                                  _ ->
-        %Tesla.Env{status: 404, body: ""}
-      end,
+      # "https://akkoma.local/activity2.json" => fn "https://akkoma.local/activity2.json",
+      #                                             _,
+      #                                             _,
+      #                                             _ ->
+      #   %Tesla.Env{status: 404, body: ""}
+      # end,
       "https://akkoma.local/activity3.json" => fn "https://akkoma.local/activity3.json",
                                                   _,
                                                   _,
@@ -1386,12 +1350,12 @@ defmodule ActivityPub.Fixtures do
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
-      "https://akkoma.local/activity3.json" => fn "https://akkoma.local/activity3.json",
-                                                  _,
-                                                  _,
-                                                  _ ->
-        %Tesla.Env{status: 404, body: ""}
-      end,
+      # "https://akkoma.local/activity3.json" => fn "https://akkoma.local/activity3.json",
+      #                                             _,
+      #                                             _,
+      #                                             _ ->
+      #   %Tesla.Env{status: 404, body: ""}
+      # end,
       "https://mstdn.local/.well-known/webfinger?resource=acct:kpherox@mstdn.jp" =>
         fn "https://mstdn.local/.well-known/webfinger?resource=acct:kpherox@mstdn.jp", _, _, _ ->
           %Tesla.Env{
@@ -1626,15 +1590,15 @@ defmodule ActivityPub.Fixtures do
     end
   end
 
-  def maybe_get_local(url, query, body, headers) do
+  def maybe_get_local(url, _query, _body, _headers) do
     # there must be a better way to bypass mocks for local URLs?
     base_url = ActivityPub.Web.base_url()
 
     if String.starts_with?(url, base_url) do
       # TODO: use headers?
       with %{resp_body: resp_body, status: status} <-
-             ConnTest.build_conn()
-             |> ConnTest.get(String.trim(url, base_url)) do
+             Phoenix.ConnTest.build_conn()
+             |> Phoenix.ConnTest.get(String.trim(url, base_url)) do
         %Tesla.Env{status: status, body: resp_body}
       end
     end

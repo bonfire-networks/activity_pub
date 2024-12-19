@@ -110,7 +110,7 @@ defmodule ActivityPub.Federator.APPublisher do
       |> publish_one()
     else
       e ->
-        warn(params, "Could not find actor by username, try another way...")
+        warn(e, "Could not find actor by username `#{username}`, try another way...")
         publish_one(Map.drop(params, [:actor_username]))
     end
   end

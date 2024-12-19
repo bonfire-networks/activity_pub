@@ -8,20 +8,22 @@ defmodule ActivityPub do
   That includes a struct as the input for actor parameters.  Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_cached/1` for example) to retrieve those.
   """
   import Untangle
-  import ActivityPub.Utils
   require ActivityPub.Config
 
+  alias ActivityPub.Utils
   alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
-  alias ActivityPub.Utils
+  # alias ActivityPub.Utils
   alias ActivityPub.Object
-  alias ActivityPub.MRF
+  # alias ActivityPub.MRF
 
   @doc """
   Enqueues an activity for federation if it's local
   """
-  defp maybe_federate(%Object{local: true} = activity, opts \\ []) do
+  defp maybe_federate(object, opts \\ [])
+
+  defp maybe_federate(%Object{local: true} = activity, opts) do
     debug(opts, "oopts")
 
     if Config.federating?() do
@@ -248,7 +250,7 @@ defmodule ActivityPub do
   def unlike(
         %{
           actor: %{data: %{"id" => ap_id}} = actor,
-          object: %Object{data: %{"id" => object_id}} = object
+          object: %Object{data: %{"id" => object_id}} = _object
         } = params
       ) do
     with %Object{} = like_activity <- Object.get_existing_like(ap_id, object_id) |> info(),
@@ -547,7 +549,8 @@ defmodule ActivityPub do
     with true <- Actor.also_known_as?(origin_ap_id, target.data),
          {:ok, activity} <- Object.insert(params, local),
          :ok <- maybe_federate(activity),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) do
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     else
       false ->
@@ -707,7 +710,7 @@ defmodule ActivityPub do
       basic_follow_data(follower_id, followed_id)
       |> Map.put("state", "pending")
 
-    data = if activity_id, do: Map.put(data, "id", activity_id), else: data
+    if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 
   defp make_unfollow_data(

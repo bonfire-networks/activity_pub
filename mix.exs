@@ -52,14 +52,14 @@ defmodule ActivityPub.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.6.6", optional: true},
+      {:phoenix, "~> 1.7", optional: true},
       {:plug_cowboy, "~> 2.0", optional: true},
       {:phoenix_ecto, "~> 4.5", optional: true},
       {:phoenix_live_dashboard, "~> 0.8.0", optional: true},
       {:phoenix_html_helpers, "~> 1.0"},
       {:ecto_sql, "~> 3.8"},
       {:postgrex, ">= 0.0.0"},
-      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.0"},
       {:mime, "~> 2.0.3"},
@@ -69,7 +69,7 @@ defmodule ActivityPub.MixProject do
       # {:tesla_extra, "~> 0.2"},
       {:http_signatures,
        git: "https://github.com/bonfire-networks/http_signatures"},
-      {:mfm_parser, git: "https://akkoma.dev/AkkomaGang/mfm-parser.git"},
+      {:mfm_parser, git: "https://akkoma.dev/AkkomaGang/mfm-parser.git", optional: true},
       {:remote_ip, "~> 1.1"},
       {:hammer_plug, "~> 3.0"},
       {:timex, "~> 3.5"},

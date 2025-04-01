@@ -33,6 +33,8 @@ defmodule ActivityPub.DataCase do
       alias ActivityPub.Utils
       alias ActivityPub.Object
       alias ActivityPub.Test.HttpRequestMock
+
+      @moduletag :federation
     end
   end
 

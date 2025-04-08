@@ -5,21 +5,6 @@ defmodule ActivityPub.Federator.HTTP.Connection do
   Specifies connection options for HTTP requests
   """
 
-  @hackney_options [
-    connect_timeout: 10_000,
-    recv_timeout: 20_000,
-    follow_redirect: true,
-    pool: :federation,
-    ssl_options: [
-      # insecure: true
-      #  versions: [:'tlsv1.2'],
-      verify: :verify_peer,
-      cacertfile: :certifi.cacertfile(),
-      verify_fun: &:ssl_verify_hostname.verify_fun/3
-      # customize_hostname_check: [match_fun: :public_key.pkix_verify_hostname_match_fun(:https)] 
-    ]
-  ]
-
   def new(opts \\ []) do
     adapter = Application.get_env(:tesla, :adapter, {Tesla.Adapter.Finch, name: Bonfire.Finch})
     # IO.warn(Process.get(Tesla.Mock))
@@ -37,7 +22,20 @@ defmodule ActivityPub.Federator.HTTP.Connection do
     proxy_url = Application.get_env(:activity_pub, :http)[:proxy_url]
 
     {Tesla.Adapter.Hackney,
-     @hackney_options
+     [
+       connect_timeout: 10_000,
+       recv_timeout: 20_000,
+       follow_redirect: true,
+       pool: :federation,
+       ssl_options: [
+         # insecure: true
+         #  versions: [:'tlsv1.2'],
+         verify: :verify_peer,
+         cacertfile: :certifi.cacertfile(),
+         verify_fun: &:ssl_verify_hostname.verify_fun/3
+         # customize_hostname_check: [match_fun: :public_key.pkix_verify_hostname_match_fun(:https)] 
+       ]
+     ]
      |> Keyword.merge(adapter_options)
      |> Keyword.merge(opts)
      |> Keyword.merge(proxy: proxy_url)}

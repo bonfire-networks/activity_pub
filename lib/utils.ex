@@ -214,7 +214,7 @@ defmodule ActivityPub.Utils do
       # FIXME: temporary workaround for Ecto sandbox / ExUnit issues
       fallback.()
     else
-      ecto_repo_module = Process.get(:ecto_repo_module)
+      ecto_repo_module = ProcessTree.get(:ecto_repo_module)
 
       Cachex.fetch(
         cache,
@@ -312,7 +312,7 @@ defmodule ActivityPub.Utils do
   # FIXME: should we be caching the objects once, and just using the multiple keys to lookup a unique key?
   defp maybe_multi_cache(:ap_actor_cache, actor) do
     ActivityPub.Actor.set_cache(actor)
-    |> debug
+    # |> debug()
   end
 
   defp maybe_multi_cache(:ap_object_cache, object) do

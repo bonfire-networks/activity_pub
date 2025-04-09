@@ -434,21 +434,25 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_attachments(object), do: object
 
   def fix_url(%{"url" => url} = object) when is_map(url) do
-    Map.put(object, "url", url["href"])
+    if object == %{"url" => url}, do: Map.put(object, "url", url["href"]), else: object
   end
 
-  def fix_url(%{"url" => url} = object) when is_list(url) do
-    first_element = Enum.at(url, 0)
-
-    url_string =
-      cond do
-        is_bitstring(first_element) -> first_element
-        is_map(first_element) -> first_element["href"] || ""
-        true -> ""
-      end
-
-    Map.put(object, "url", url_string)
+  def fix_url(%{"url" => [url]} = object) do
+    fix_url(%{"url" => url})
   end
+
+  # def fix_url(%{"url" => url} = object) when is_list(url) do
+  #   first_element = Enum.at(url, 0)
+
+  #   url_string =
+  #     cond do
+  #       is_bitstring(first_element) -> first_element
+  #       is_map(first_element) -> first_element["href"] || ""
+  #       true -> ""
+  #     end
+
+  #   Map.put(object, "url", url_string)
+  # end
 
   def fix_url(object), do: object
 

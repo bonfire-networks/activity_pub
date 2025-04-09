@@ -182,10 +182,10 @@ defmodule ActivityPub.Factory do
     note = build(:note, attrs |> Enum.into(%{actor: actor}))
 
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
-         Code.ensure_loaded?(Bonfire.Social.Fake) do
+         Code.ensure_loaded?(Bonfire.Posts.Fake) do
       %{id: id} =
         post =
-        Bonfire.Social.Fake.fake_post!(
+        Bonfire.Posts.Fake.fake_post!(
           user_by_ap_id(actor),
           attrs[:boundary] || "public",
           attrs |> Enum.into(%{html_body: note.data["content"]}),

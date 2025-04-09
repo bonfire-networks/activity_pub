@@ -71,7 +71,8 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
 
       is_deleted? =
         debug(
-          params["type"] in ["Delete", "Tombstone"] or params["object"]["type"] == "Tombstone",
+          params["type"] in ["Delete", "Tombstone"] or
+            (is_map(params["object"]) and params["object"]["type"] == "Tombstone"),
           "is_deleted?"
         )
 

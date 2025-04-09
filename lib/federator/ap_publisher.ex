@@ -42,33 +42,40 @@ defmodule ActivityPub.Federator.APPublisher do
 
     num_recipients = length(recipients)
 
-    recipients
-    |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
-    # |> maybe_federate_to_search_index(activity)
-    |> Enum.uniq()
-    |> info("inboxes")
-    |> Instances.filter_reachable()
-    |> info("reacheable ones")
-    |> Enum.each(fn {inbox, unreachable_since} ->
-      json =
-        Transformer.preserve_privacy_of_outgoing(prepared_activity_data, URI.parse(inbox))
-        |> Jason.encode!()
+    case recipients
+         |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
+         # |> maybe_federate_to_search_index(activity)
+         |> Enum.uniq()
+         |> info("inboxes")
+         |> Instances.filter_reachable()
+         |> info("reacheable ones") do
+      recipients when is_map(recipients) and recipients != %{} ->
+        recipients
+        |> Enum.map(fn {inbox, unreachable_since} ->
+          json =
+            Transformer.preserve_privacy_of_outgoing(prepared_activity_data, URI.parse(inbox))
+            |> Jason.encode!()
 
-      params = %{
-        inbox: inbox,
-        json: json,
-        actor_username: Map.get(actor, :username),
-        actor_id: Map.get(actor, :id),
-        id: prepared_activity_data["id"],
-        unreachable_since: unreachable_since
-      }
+          params = %{
+            inbox: inbox,
+            json: json,
+            actor_username: Map.get(actor, :username),
+            actor_id: Map.get(actor, :id),
+            id: prepared_activity_data["id"],
+            unreachable_since: unreachable_since
+          }
 
-      if opts[:federate_inline] do
-        publish_one(params)
-      else
-        ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, params)
-      end
-    end)
+          if opts[:federate_inline] do
+            publish_one(params)
+          else
+            ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, params)
+          end
+        end)
+
+      _other ->
+        info(activity, "found nobody to federate this to")
+        []
+    end
   end
 
   @doc """
@@ -193,7 +200,7 @@ defmodule ActivityPub.Federator.APPublisher do
         end
       end
 
-    (remote_recipients(actor, activity) |> info("remote_recipients")) ++
+    remote_recipients(actor, activity) ++
       (followers || [])
   end
 
@@ -202,11 +209,15 @@ defmodule ActivityPub.Federator.APPublisher do
   defp remote_recipients(_actor, data) do
     ap_base_url = Utils.ap_base_url()
 
-    ([Map.get(data, "to", nil)] ++
-       [Map.get(data, "bto", nil)] ++
-       [Map.get(data, "cc", nil)] ++
-       [Map.get(data, "bcc", nil)] ++
-       [Map.get(data, "audience", nil)] ++ [Map.get(data, "context", nil)])
+    [
+      Map.get(data, "to", nil),
+      Map.get(data, "bto", nil),
+      Map.get(data, "cc", nil),
+      Map.get(data, "bcc", nil),
+      Map.get(data, "audience", nil),
+      Map.get(data, "context", nil)
+    ]
+    |> debug("recipients from data for #{data["object"]["content"] || data["id"]}")
     |> List.flatten()
     |> Enum.reject(&is_nil/1)
     |> List.delete(ActivityPub.Config.public_uri())
@@ -226,6 +237,7 @@ defmodule ActivityPub.Federator.APPublisher do
         warn(actor, "Not a valid actor")
         true
     end)
+    |> debug("remote_recipients")
   end
 
   @doc """

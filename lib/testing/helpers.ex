@@ -7,7 +7,8 @@ defmodule ActivityPub.Test.Helpers do
   import ActivityPub.Utils
 
   @mod_path __DIR__
-  def file(path), do: File.read!(@mod_path <> "/../" <> path)
+  def test_path, do: Path.expand("../../test/", @mod_path)
+  def file(path), do: File.read!(test_path() <> path)
 
   def endpoint,
     do:
@@ -17,8 +18,6 @@ defmodule ActivityPub.Test.Helpers do
           :endpoint_module,
           ActivityPub.Web.Endpoint
         )
-
-  def test_path, do: Path.expand("../", __DIR__)
 
   def ap_object_from_outgoing(%{federate_activity_pub: object}), do: object
   def ap_object_from_outgoing(%{activity: %{federate_activity_pub: object}}), do: object

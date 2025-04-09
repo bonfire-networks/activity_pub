@@ -1,10 +1,9 @@
 defmodule ActivityPub.Test.HttpRequestMock do
   import ActivityPub.Test.Helpers
-  # import Untangle
+  import Untangle
   alias ActivityPub.Fixtures
   import Fixtures
 
-  require Phoenix.ConnTest
   # alias Phoenix.ConnTest
 
   # alias ActivityPub.Utils
@@ -14,6 +13,10 @@ defmodule ActivityPub.Test.HttpRequestMock do
   @sample_object "{\"actor\": \"https://mocked.local/users/karen\", \"id\": \"https://mocked.local/2\", \"to\": \"#{ActivityPub.Config.public_uri()}\"}"
 
   def request(env) do
+    require Phoenix.ConnTest
+
+    debug(env, "Attempting mock request")
+
     case env do
       %{
         method: :get,

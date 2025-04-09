@@ -37,6 +37,11 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
     Tesla.run(env, next)
   end
 
+  defp handle_rate_limit_headers({:error, error}, next, _opts) do
+    debug(next)
+    error(error)
+  end
+
   defp handle_rate_limit_headers(env, _next, _opts) do
     debug(env)
     env

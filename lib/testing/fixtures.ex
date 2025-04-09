@@ -3,12 +3,12 @@ defmodule ActivityPub.Fixtures do
   use Arrows
 
   # alias ActivityPub.Utils
+  require Phoenix.ConnTest
 
   @mod_path __DIR__
+  def file(path), do: File.read!(@mod_path <> "/../../test/" <> path)
 
   @sample_object "{\"actor\": \"https://mocked.local/users/karen\", \"id\": \"https://mocked.local/2\", \"to\": \"#{ActivityPub.Config.public_uri()}\"}"
-
-  def file(path), do: File.read!(@mod_path <> "/../test/" <> path)
 
   def insert_all() do
     previous_adapter = mock_prepare()

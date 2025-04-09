@@ -28,10 +28,17 @@ defmodule ActivityPub do
 
     if Config.federating?() do
       with {:ok, job} <- ActivityPub.Federator.publish(activity, opts) do
-        info(
-          job,
-          "ActivityPub outgoing federation has been queued"
-        )
+        if job.state == "completed" do
+          info(
+            job,
+            "ActivityPub outgoing federation has been completed"
+          )
+        else
+          info(
+            job,
+            "ActivityPub outgoing federation has been queued"
+          )
+        end
 
         :ok
       end
@@ -64,21 +71,10 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
-  def create(%{to: to, actor: actor, object: object} = params) do
-    additional = params[:additional] || %{}
-
-    with nil <- Object.normalize(additional["id"], false),
+  def create(%{to: _, actor: _, object: _} = params) do
+    with nil <- Object.normalize(params[:additional]["id"], false),
          create_data <-
-           make_create_data(
-             %{
-               to: to,
-               actor: actor,
-               published: params[:published],
-               context: Map.get(params, :context),
-               object: object
-             },
-             additional
-           ),
+           make_create_data(params) |> debug(),
          {:ok, activity} <-
            Object.insert(create_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
@@ -766,18 +762,15 @@ defmodule ActivityPub do
   end
 
   #### Create-related helpers
-  defp make_create_data(params, additional) do
-    published = params.published || Utils.make_date()
-
-    %{
+  defp make_create_data(params) do
+    Enum.into(params[:additional] || %{}, %{
       "type" => "Create",
       "to" => params.to,
       "actor" => params.actor.data["id"],
       "object" => params.object,
-      "published" => published,
+      "published" => params[:published] || Utils.make_date(),
       "context" => params.context
-    }
-    |> Map.merge(additional)
+    })
   end
 
   #### Flag-related helpers

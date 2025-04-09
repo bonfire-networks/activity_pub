@@ -35,7 +35,8 @@ defmodule ActivityPub.Federator.APPublisherTest do
     activity = insert(:note_activity, %{note: note})
     {:ok, actor} = Actor.get_cached(ap_id: activity.data["actor"])
 
-    assert :ok == APPublisher.publish(actor, activity)
+    assert queued = APPublisher.publish(actor, activity)
+    assert queued != []
 
     queue = Oban.drain_queue(queue: :federator_outgoing)
     # (previous_queue[:success] || 0) + 1

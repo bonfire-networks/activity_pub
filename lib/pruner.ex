@@ -39,7 +39,7 @@ defmodule ActivityPub.Pruner do
       options[:remote_post_retention_days] ||
         Config.get([:instance, :remote_post_retention_days], @remote_post_retention_days)
 
-    time_deadline = NaiveDateTime.utc_now() |> NaiveDateTime.add(-(deadline * 86_400))
+    time_deadline = NaiveDateTime.utc_now(Calendar.ISO) |> NaiveDateTime.add(-(deadline * 86_400))
 
     log_message = "Pruning objects older than #{deadline} days"
 

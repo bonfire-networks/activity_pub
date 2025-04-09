@@ -31,7 +31,7 @@ defmodule ActivityPub.Web.ChannelCase do
       # The default endpoint for testing
       @endpoint endpoint()
 
-      @moduletag :federation
+      @moduletag :ap_lib
     end
   end
 

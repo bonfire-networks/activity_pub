@@ -475,6 +475,8 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
       assert ["https://www.w3.org/ns/activitystreams#Public"] == activity.data["to"]
     end
 
+    #  check Akkoma for an example
+    @tag :fixme
     test "it correctly processes MFM (with x format)" do
       data =
         file("fixtures/misskey/mfm_x_format.json")

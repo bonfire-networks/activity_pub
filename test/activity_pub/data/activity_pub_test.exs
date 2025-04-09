@@ -159,11 +159,45 @@ defmodule ActivityPubTest do
     end
   end
 
-  describe "like an object" do
+  describe "like a private object" do
     test "adds a like activity to the db", context do
       actor = local_actor()
       {:ok, note_actor} = Actor.get_cached(username: actor.username)
-      note_activity = insert(:note_activity, %{actor: note_actor})
+      note_activity = insert(:note_activity, %{actor: note_actor, to: []})
+      assert object = Object.normalize(note_activity)
+
+      actor = context[:actor1]
+
+      assert {:ok, like_activity} = ActivityPub.like(%{actor: actor, object: object})
+
+      assert like_activity.data["actor"] == actor.data["id"]
+      assert like_activity.data["type"] == "Like"
+      assert Object.get_ap_id(like_activity.data["object"]) =~ object.data["id"]
+
+      assert like_activity.data["to"] == [
+               note_activity.data["actor"]
+             ]
+
+      assert like_activity.data["context"] == object.data["context"]
+
+      # Just return the original activity if the user already liked it.
+      assert {:ok, same_like_activity} = ActivityPub.like(%{actor: actor, object: object})
+
+      assert like_activity.data == same_like_activity.data
+    end
+  end
+
+  describe "like a public object" do
+    test "adds a public like activity to the db", context do
+      actor = local_actor()
+      {:ok, note_actor} = Actor.get_cached(username: actor.username)
+
+      note_activity =
+        insert(:note_activity, %{
+          actor: note_actor,
+          to: ["https://www.w3.org/ns/activitystreams#Public"]
+        })
+
       assert object = Object.normalize(note_activity)
 
       actor = context[:actor1]
@@ -176,7 +210,8 @@ defmodule ActivityPubTest do
 
       assert like_activity.data["to"] == [
                actor.data["followers"],
-               note_activity.data["actor"]
+               note_activity.data["actor"],
+               "https://www.w3.org/ns/activitystreams#Public"
              ]
 
       assert like_activity.data["context"] == object.data["context"]
@@ -217,7 +252,8 @@ defmodule ActivityPubTest do
 
       assert announce_activity.data["to"] == [
                actor.data["followers"],
-               note_activity.data["actor"]
+               note_activity.data["actor"],
+               "https://www.w3.org/ns/activitystreams#Public"
              ]
 
       assert Object.get_ap_id(announce_activity.data["object"]) =~ object.data["id"]
@@ -238,7 +274,8 @@ defmodule ActivityPubTest do
 
       assert unannounce_activity.data["to"] == [
                actor.data["followers"],
-               announce_activity.data["actor"]
+               announce_activity.data["actor"],
+               "https://www.w3.org/ns/activitystreams#Public"
              ]
 
       assert unannounce_activity.data["type"] == "Undo"

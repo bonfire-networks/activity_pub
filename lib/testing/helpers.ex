@@ -8,7 +8,7 @@ defmodule ActivityPub.Test.Helpers do
 
   @mod_path __DIR__
   def test_path, do: Path.expand("../../test/", @mod_path)
-  def file(path), do: File.read!(test_path() <> path)
+  def file(path), do: File.read!(Path.join(test_path(), path))
 
   def endpoint,
     do:

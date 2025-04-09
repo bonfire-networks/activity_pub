@@ -87,7 +87,9 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
 
     {:ok, object} = Object.get_cached(ap_id: post.data["object"])
 
-    assert length(object.data["announcements"]) == 1
+    assert is_list(debug(object.data["announcements"])) and
+             length(object.data["announcements"]) == 1
+
     assert ap_id(user) in object.data["announcements"]
   end
 

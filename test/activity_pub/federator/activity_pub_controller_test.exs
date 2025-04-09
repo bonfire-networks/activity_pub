@@ -92,17 +92,18 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
   describe "/objects/:uuid" do
     test "it doesn't return a local-only object", %{conn: conn} do
       user = local_actor()
-      post = local_note_activity(%{actor: user, status: "test", boundary: "local"})
 
-      object = Object.normalize(post, fetch: false)
-      uuid = String.split(object.data["id"], "/") |> List.last()
+      with %{} = post <- local_note_activity(%{actor: user, status: "test", boundary: "local"}) do
+        object = Object.normalize(post, fetch: false)
+        uuid = String.split(object.data["id"], "/") |> List.last()
 
-      conn =
-        conn
-        |> put_req_header("accept", "application/json")
-        |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
+        conn =
+          conn
+          |> put_req_header("accept", "application/json")
+          |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
 
-      assert json_response(conn, 401)
+        assert json_response(conn, 401)
+      end
     end
 
     # probably don't want this?

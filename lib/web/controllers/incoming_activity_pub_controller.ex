@@ -94,7 +94,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       ActivityPub.Federator.Workers.ReceiverWorker.enqueue(
         "incoming_unverified_ap_doc",
         %{
-          "params" => params,
+          "params" => debug(params, "incoming_unverified_ap_doc params"),
           "headers" => Enum.into(conn.req_headers, %{})
         },
         worker_args

@@ -33,17 +33,17 @@
    "source" : null,
    "tag" : [
       {
-         "href" : "https://xyz.local/@/Trinity",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@Trinity",
          "type" : "Mention"
       },
       {
-         "href" : "https://xyz.local/@/kaniini/",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@kaniini",
          "type" : "Mention"
       },
       {
-         "href" : "https://xyz.local/@/Trinity",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@Trinity",
          "type" : "Mention"
       }

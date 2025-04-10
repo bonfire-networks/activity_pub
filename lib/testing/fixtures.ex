@@ -416,6 +416,16 @@ defmodule ActivityPub.Fixtures do
             body: file("fixtures/mastodon/mastodon_webfinger.json")
           }
         end,
+      "https://mastodon.local/.well-known/webfinger?resource=acct%3Akaren%40mastodon.local" =>
+        fn "https://mastodon.local/.well-known/webfinger?resource=acct%3Akaren%40mastodon.local",
+           _,
+           _,
+           _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/mastodon/mastodon_webfinger.json")
+          }
+        end,
       "https://osada.local/channel/mike" => fn "https://osada.local/channel/mike", _, _, _ ->
         %Tesla.Env{
           status: 200,

@@ -10,7 +10,8 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
   end
 
   def call(%{assigns: %{valid_signature: true}} = conn, _opts) do
-    # already validated somehow?
+    # used for tests
+    debug("already validated somehow")
     conn
   end
 

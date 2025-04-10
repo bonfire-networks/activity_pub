@@ -57,6 +57,10 @@ defmodule ActivityPub.Federator.Fetcher do
         warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
         {:error, :not_found}
 
+      {:reject, e} ->
+        error(:reject, e)
+        {:reject, e}
+
       _ ->
         fetch_fresh_object_from_id(id, opts)
     end
@@ -158,6 +162,10 @@ defmodule ActivityPub.Federator.Fetcher do
       true ->
         warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
         Adapter.get_actor_by_ap_id(id)
+
+      {:reject, e} ->
+        error(:reject, e)
+        {:reject, e}
 
       other ->
         error(other)
@@ -346,7 +354,9 @@ defmodule ActivityPub.Federator.Fetcher do
          true <-
            String.starts_with?(id, "http") || {:error, "Unsupported URL (should start with http)"},
          uri <- URI.parse(id),
-         true <- Instances.reachable?(uri) || {:error, "Instance was recently not reachable"},
+         true <-
+           options[:force_instance_reachable] || Instances.reachable?(uri) ||
+             {:error, "Instance was recently not reachable"},
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
          true <-

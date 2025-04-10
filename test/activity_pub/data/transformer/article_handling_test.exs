@@ -50,6 +50,6 @@ defmodule ActivityPub.Federator.Transformer.ArticleHandlingTest do
     {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(data)
     object = Object.normalize(data["object"], fetch: false)
 
-    assert object.data["url"] == "https://prismo.local/posts/83"
+    assert object.data["url"]["href"] == "https://prismo.local/posts/83"
   end
 end

@@ -131,7 +131,8 @@ defmodule ActivityPubTest do
         actor: actor,
         context: context,
         object: object,
-        to: to
+        to: to,
+        local: false
       }
 
       assert {:ok, activity} = ActivityPub.create(params)

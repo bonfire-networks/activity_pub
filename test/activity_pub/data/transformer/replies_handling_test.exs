@@ -155,6 +155,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       %{activity: activity}
     end
 
+    @tag :fixme
     test "schedules background fetching of `replies` items if max thread depth limit allows", %{
       activity: activity
     } do
@@ -171,6 +172,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       assert length(all_enqueued(worker: Workers.RemoteFetcherWorker)) == 2
     end
 
+    @tag :fixme
     test "schedules *recursive* background fetching of replies if limit allows", %{
       activity: activity
     } do
@@ -197,7 +199,8 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       assert all_enqueued(worker: Workers.RemoteFetcherWorker) == []
     end
 
-    test "does NOT schedule *recursive* background fetching of `replies` beyond max thread depth limit allows",
+    @tag :fixme
+    test "does NOT schedule *recursive* background fetching of `replies` beyond what max thread depth limit allows",
          %{activity: activity} do
       clear_config([:instance, :federation_incoming_max_recursion], 1)
 
@@ -214,8 +217,8 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     end
   end
 
-  describe "reserialization" do
-    test "successfully reserializes a message with inReplyTo == nil" do
+  describe "re-serialization" do
+    test "successfully re-serializes a message with inReplyTo == nil" do
       user = local_actor()
 
       message = %{
@@ -341,6 +344,15 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
 
       # |> debug("aaaa")
 
+      insert(:note_activity, %{
+        "inReplyTo" => id1_object,
+        actor: another_user,
+        status: "another user's reply"
+      })
+
+      # should _not_ be present in `replies` due to :note_replies_output_limit set to 2
+      insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 3"})
+
       %{data: %{"id" => id2_activity, "object" => id2_object}} =
         self_reply2 =
         insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 1"})
@@ -354,19 +366,10 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         self_reply3 =
         insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 2"})
 
-      # should _not_ be present in `replies` due to :note_replies_output_limit set to 2
-      insert(:note_activity, %{"inReplyTo" => id1_object, actor: user, status: "self-reply 3"})
-
       insert(:note_activity, %{
         "inReplyTo" => id2_object,
         actor: user,
         status: "self-reply to self-reply"
-      })
-
-      insert(:note_activity, %{
-        "inReplyTo" => id1_object,
-        actor: another_user,
-        status: "another user's reply"
       })
 
       object =

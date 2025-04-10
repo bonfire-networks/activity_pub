@@ -11,34 +11,16 @@ defmodule ActivityPub.Federator.WebFinger do
 
   import Untangle
 
-  def base_url(account) do
-    host =
-      case String.split(account, "@") do
-        [_name, domain] ->
-          domain
-
-        ["", _name, domain] ->
-          domain
-
-        _e ->
-          uri = URI.parse(account)
-          if uri.port not in [80, 443], do: "#{uri.host}:#{uri.port}", else: uri.host
-      end
-
-    if String.starts_with?(host, "localhost"),
-      do: "http://#{host}",
-      else: "https://#{host}"
-  end
-
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.
   """
   def finger(account) do
     account = String.trim_leading(account, "@")
 
-    with response <-
+    with {:ok, base_url} <- remote_base_url(account),
+         response <-
            HTTP.get(
-             "#{base_url(account)}/.well-known/webfinger?#{URI.encode_query(%{"resource" => "acct:#{account}"})}",
+             "#{base_url}/.well-known/webfinger?#{URI.encode_query(%{"resource" => "acct:#{account}"})}",
              [{"Accept", "application/jrd+json"}]
            ),
          {:ok, %{status: status, body: body}} when status in 200..299 <-
@@ -46,6 +28,9 @@ defmodule ActivityPub.Federator.WebFinger do
          {:ok, doc} <- Jason.decode(body) do
       webfinger_from_json(doc)
     else
+      {:error, {:local_user, name}} ->
+        output(name || account)
+
       {:error, {:options, :incompatible, [verify: :verify_peer, cacerts: :undefined]}} ->
         error("No SSL certificates available")
 
@@ -63,12 +48,19 @@ defmodule ActivityPub.Federator.WebFinger do
   """
   def output("acct:" <> resource), do: output(resource)
 
-  def output(resource) do
-    host = URI.parse(ActivityPub.Federator.Adapter.base_url()).host
+  def output("http" <> _ = url) do
+    with {:ok, actor} <- Actor.get_cached(ap_id: url) do
+      {:ok, represent_user(actor)}
+    else
+      _ ->
+        {:error, "Could not find such a user"}
+    end
+  end
 
+  def output(resource) do
     with %{"username" => username} <-
            Regex.named_captures(
-             ~r/(?<username>[a-z0-9A-Z_\.-]+)@#{host}/,
+             ~r/(?<username>[a-z0-9A-Z_\.-]+)@#{local_hostname()}/,
              resource
            ) ||
              Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
@@ -88,6 +80,42 @@ defmodule ActivityPub.Federator.WebFinger do
         "href" => actor.data["id"]
       }
     ] ++ Publisher.gather_webfinger_links(actor)
+  end
+
+  def local_hostname,
+    do: ActivityPub.Federator.Adapter.base_url() |> hostname_with_optional_port() |> debug()
+
+  defp hostname_with_optional_port(%{} = uri) do
+    if uri.port not in [80, 443], do: "#{uri.host}:#{uri.port}", else: uri.host
+  end
+
+  defp hostname_with_optional_port(url), do: URI.parse(url) |> hostname_with_optional_port()
+
+  defp remote_base_url(account) do
+    {name, domain} =
+      case String.split(account, "@") do
+        [name, domain] ->
+          {name, domain}
+
+        ["", name, domain] ->
+          {name, domain}
+
+        _e ->
+          #  TODO: can we parse the name?
+          {nil, hostname_with_optional_port(account)}
+      end
+      |> debug()
+
+    if local_hostname() == domain do
+      {:error, {:local_user, name}}
+    else
+      # TODO: don't assume
+      {:ok,
+       if(String.starts_with?(domain, "localhost"),
+         do: "http://#{domain}",
+         else: "https://#{domain}"
+       )}
+    end
   end
 
   @doc """

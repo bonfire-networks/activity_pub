@@ -14,7 +14,7 @@ defmodule ActivityPub.Web.ObjectView do
     ~> Transformer.preserve_privacy_of_outgoing()
   end
 
-  def render("outbox.json", %{actor: actor, page: page}) do
+  def render("outbox.json", %{actor: actor, page: page}) when is_integer(page) do
     outbox = Object.get_outbox_for_actor(actor, page)
 
     total = length(outbox)

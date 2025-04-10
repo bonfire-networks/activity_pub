@@ -573,14 +573,17 @@ defmodule ActivityPub.Actor do
   def set_cache({:ok, actor}), do: set_cache(actor)
 
   def set_cache(%Actor{} = actor) do
-    # TODO: store in cache only once, and only IDs for the others
+    # TODO: optimise memory use by storing in cache only once, and only IDs for the others
     for key <-
-          [
-            "id:#{actor.id}",
-            "ap_id:#{actor.ap_id}",
-            "pointer:#{actor.pointer_id}",
-            "username:#{actor.username}"
-          ]
+          ([
+             "id:#{actor.id}",
+             "ap_id:#{actor.ap_id}",
+             "username:#{actor.username}"
+           ] ++
+             (case actor.pointer_id do
+                nil -> []
+                _ -> ["pointer:#{actor.pointer_id}"]
+              end))
           |> debug() do
       Cachex.put(:ap_actor_cache, key, actor)
     end
@@ -609,20 +612,22 @@ defmodule ActivityPub.Actor do
   def get_followings(actor) do
     followings =
       Adapter.get_following_local_ids(actor)
-      |> debug()
+      |> debug("following_local_ids")
       |> Enum.reject(&is_nil/1)
       |> Enum.map(&get_cached!(pointer: &1))
       |> Enum.reject(&is_nil/1)
+      |> debug("got_followings")
 
     {:ok, followings}
   end
 
   def get_followers(actor) do
     Adapter.get_follower_local_ids(actor)
-    |> debug("followers")
+    |> debug("follower_local_ids")
+    |> Enum.reject(&is_nil/1)
     |> Enum.map(&get_cached!(pointer: &1))
-    # Filter nils
-    |> Enum.filter(fn x -> x end)
+    |> Enum.reject(&is_nil/1)
+    |> debug("got_followers")
   end
 
   def get_external_followers(actor) do

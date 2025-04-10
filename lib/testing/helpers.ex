@@ -144,6 +144,7 @@ defmodule ActivityPub.Test.Helpers do
   def reject_or_no_recipients?(activity) do
     case activity do
       {:reject, _} -> true
+      {:error, {:reject, _}} -> true
       {:ok, %{to: []}} -> true
       {:ok, %{"to" => []}} -> true
       _ -> false

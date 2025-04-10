@@ -1,6 +1,7 @@
 defmodule ActivityPub.Factory do
   import ActivityPub.Test.Helpers
   import ActivityPub.Utils
+  alias ActivityPub.Actor
   import Untangle
   alias ActivityPub.Federator.Adapter
   @repo repo()
@@ -256,7 +257,8 @@ defmodule ActivityPub.Factory do
       attrs
       |> Enum.into(%{
         boundary: "mentions",
-        to_circles: user_by_ap_id(to).id,
+        # status: attrs[:status] || "@#{Actor.format_username(to)} status with mention", 
+        to_circles: [user_by_ap_id(to)],
         actor: attrs[:actor] || local_actor()
       })
     )

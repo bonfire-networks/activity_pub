@@ -253,7 +253,7 @@ defmodule ActivityPub.Utils do
            case get_fun.([{key, identifier}]) do
              {:ok, object} ->
                debug("#{cache_bucket}: got and now caching (#{key}: #{identifier})")
-               debug(object)
+               debug(object, "got from cache")
 
                if key != :json, do: maybe_multi_cache(cache_bucket, object)
 

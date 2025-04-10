@@ -253,5 +253,5 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   defp page_number("true"), do: 1
   defp page_number(page) when is_binary(page), do: Integer.parse(page) |> elem(0)
-  defp page_number(_), do: 1
+  defp page_number(_), do: nil
 end

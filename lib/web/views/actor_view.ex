@@ -32,16 +32,19 @@ defmodule ActivityPub.Web.ActorView do
     |> debug
   end
 
-  def render("following.json", %{actor: actor, page: page}) do
+  def render("following.json", %{actor: actor, page: page}) when is_integer(page) do
+    #  TODO: avoid querying full list
     {:ok, followers} = Actor.get_followings(actor)
 
     total = length(followers)
 
     collection(followers, "#{actor.ap_id}/following", page, total)
     |> Map.merge(Utils.make_json_ld_header(:actor))
+    |> debug("json")
   end
 
   def render("following.json", %{actor: actor}) do
+    #  TODO: avoid querying full list
     {:ok, followers} = Actor.get_followings(actor)
 
     total = length(followers)
@@ -53,9 +56,11 @@ defmodule ActivityPub.Web.ActorView do
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header(:actor))
+    |> debug("json")
   end
 
-  def render("followers.json", %{actor: actor, page: page}) do
+  def render("followers.json", %{actor: actor, page: page}) when is_integer(page) do
+    #  TODO: avoid querying full list
     followers = Actor.get_followers(actor)
 
     total = length(followers)
@@ -65,6 +70,7 @@ defmodule ActivityPub.Web.ActorView do
   end
 
   def render("followers.json", %{actor: actor}) do
+    #  TODO: avoid querying full list 
     followers = Actor.get_followers(actor)
 
     total = length(followers)

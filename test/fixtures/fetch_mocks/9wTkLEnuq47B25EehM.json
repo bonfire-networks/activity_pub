@@ -12,7 +12,7 @@
    "cc" : [
       "https://sakamoto.local/users/eal/followers"
    ],
-   "content" : "<span class=\"h-card\"><a data-user=\"9uw2wH0iTYAMV7XnLU\" class=\"u-url mention\" href=\"https://busshi.local/@tuxcrafting\" rel=\"ugc\">@<span>tuxcrafting</span></a></span> <span class=\"h-card\"><a data-user=\"9r5l8j8x23NI9KUFu4\" class=\"u-url mention\" href=\"https://stereophonic.space/users/fixpoint\" rel=\"ugc\">@<span>fixpoint</span></a></span> <span class=\"h-card\"><a data-user=\"9orDK545JwjY4Lxjge\" class=\"u-url mention\" href=\"https://blob.cat/users/blobyoumu\" rel=\"ugc\">@<span>blobyoumu</span></a></span> <span class=\"h-card\"><a data-user=\"68184\" class=\"u-url mention\" href=\"https://cawfee.club/users/grips\" rel=\"ugc\">@<span>grips</span></a></span> <span class=\"h-card\"><a data-user=\"9sAmMgHVKjTXKpgx84\" class=\"u-url mention\" href=\"https://jaeger.website/users/igel\" rel=\"ugc\">@<span>igel</span></a></span> What&#39;s bad about nukes?",
+   "content" : "<span class=\"h-card\"><a data-user=\"9uw2wH0iTYAMV7XnLU\" class=\"u-url mention\" href=\"https://busshi.local/@tuxcrafting\" rel=\"ugc\">@<span>tuxcrafting</span></a></span> <span class=\"h-card\"><a data-user=\"9r5l8j8x23NI9KUFu4\" class=\"u-url mention\" href=\"https://mocked.local/users/karen\" rel=\"ugc\">@<span>fixpoint</span></a></span> <span class=\"h-card\"><a data-user=\"9orDK545JwjY4Lxjge\" class=\"u-url mention\" href=\"https://mocked.local/users/karen\" rel=\"ugc\">@<span>blobyoumu</span></a></span> <span class=\"h-card\"><a data-user=\"68184\" class=\"u-url mention\" href=\"https://mocked.local/users/karen\" rel=\"ugc\">@<span>grips</span></a></span> <span class=\"h-card\"><a data-user=\"9sAmMgHVKjTXKpgx84\" class=\"u-url mention\" href=\"https://mocked.local/users/karen\" rel=\"ugc\">@<span>igel</span></a></span> What&#39;s bad about nukes?",
    "context" : "https://cawfee.club/contexts/ad6c73d8-efc2-4e74-84ea-2dacf1a27a5e",
    "conversation" : "https://cawfee.club/contexts/ad6c73d8-efc2-4e74-84ea-2dacf1a27a5e",
    "id" : "https://sakamoto.local/objects/f20f2497-66d9-4a52-a2e1-1be2a39c32c1",
@@ -22,7 +22,7 @@
    "summary" : "",
    "tag" : [
       {
-         "href" : "https://blob.cat/users/blobyoumu",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@blobyoumu@blob.cat",
          "type" : "Mention"
       },
@@ -32,17 +32,17 @@
          "type" : "Mention"
       },
       {
-         "href" : "https://cawfee.club/users/grips",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@grips@cawfee.club",
          "type" : "Mention"
       },
       {
-         "href" : "https://jaeger.website/users/igel",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@igel@jaeger.website",
          "type" : "Mention"
       },
       {
-         "href" : "https://stereophonic.space/users/fixpoint",
+         "href" : "https://mocked.local/users/karen",
          "name" : "@fixpoint@stereophonic.space",
          "type" : "Mention"
       }
@@ -50,10 +50,10 @@
    "to" : [
       "https://busshi.local/users/tuxcrafting",
       "https://www.w3.org/ns/activitystreams#Public",
-      "https://blob.cat/users/blobyoumu",
-      "https://stereophonic.space/users/fixpoint",
-      "https://cawfee.club/users/grips",
-      "https://jaeger.website/users/igel"
+      "https://mocked.local/users/karen",
+      "https://mocked.local/users/karen",
+      "https://mocked.local/users/karen",
+      "https://mocked.local/users/karen"
    ],
    "type" : "Note"
 }

@@ -13,23 +13,21 @@ defmodule ActivityPub.Federator.WebFingerTest do
   end
 
   describe "incoming webfinger request" do
-    @tag :fixme
     test "works for fqns" do
       actor = local_actor()
 
-      host = Application.get_env(:activity_pub, :instance)[:hostname]
+      host = WebFinger.local_hostname()
 
       {:ok, result} = WebFinger.finger("#{actor.username}@#{host}")
 
       assert is_map(result)
     end
 
-    @tag :fixme
     test "works for ap_ids" do
       actor = local_actor()
-      {:ok, ap_actor} = Actor.get_cached(username: actor.username)
+      # {:ok, ap_actor} = Actor.get_cached(username: actor.username)
 
-      {:ok, result} = WebFinger.finger(ap_actor.data["id"])
+      {:ok, result} = WebFinger.finger(actor.data["id"])
       assert is_map(result)
     end
   end

@@ -737,7 +737,8 @@ defmodule ActivityPub.Federator.Transformer do
   # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them
   # with nil ID.
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, _opts) do
-    with context <- data["context"],
+    with objects = List.wrap(objects),
+         context <- data["context"],
          content <- data["content"] || "",
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
 
@@ -753,17 +754,17 @@ defmodule ActivityPub.Federator.Transformer do
 
          # Remove the reported user from the object list.
          statuses <-
-           Enum.filter(objects, fn ap_id -> ap_id != account.data["id"] end) do
+           if(account, do: Enum.filter(objects, fn ap_id -> ap_id != account.data["id"] end)) do
       params = %{
         activity_id: data["id"],
         actor: actor,
         context: context,
         account: account,
-        statuses: statuses,
+        statuses: statuses || objects,
         content: content,
         local: false,
         additional: %{
-          "cc" => [account.data["id"]]
+          "cc" => if(account, do: [account.data["id"]]) || []
         }
       }
 
@@ -994,25 +995,30 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(
         %{
           "type" => "Update",
-          "object" => %{"type" => type, "id" => update_actor_id} = object,
+          "object" => %{"type" => type, "id" => update_actor_id} = _update_actor_data,
           "actor" => actor_id
         } = data,
         _opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) and actor_id == update_actor_id do
-    info("update an Actor")
+    # TODO: should a Person be able to update a Group or the like?
 
-    with {:ok, actor} <- Actor.update_actor(actor_id, object) do
+    debug(actor_id, "update an Actor")
+
+    #  NOTE: we avoid even passing the update_actor_data to avoid accepting invalid updates
+    with {:ok, actor} <- Actor.update_actor(actor_id, nil, true) do
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
-      ActivityPub.update(%{
-        id: data["id"],
-        local: false,
-        to: data["to"] || [],
-        cc: data["cc"] || [],
-        object: object,
-        actor: actor
-      })
+      # TODO: do we need to register an Update activity for this?
+      # ActivityPub.update(%{
+      #   id: data["id"],
+      #   local: false,
+      #   to: data["to"] || [],
+      #   cc: data["cc"] || [],
+      #   object: actor.data, # NOTE: we use the data from update_actor which was re-fetched from the source
+      #   actor: actor
+      # })
+      {:ok, actor}
     else
       e ->
         error(e, "could not update")
@@ -1259,7 +1265,7 @@ defmodule ActivityPub.Federator.Transformer do
       when ActivityPub.Config.is_in(type, :supported_actor_types) or type in ["Author"] do
     info(type, "Save actor or collection without an activity")
 
-    ActivityPub.Actor.maybe_create_actor_from_object(data)
+    ActivityPub.Actor.create_or_update_actor_from_object(data)
   end
 
   def handle_incoming(%{"type" => type} = data, _opts)

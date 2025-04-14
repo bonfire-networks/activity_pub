@@ -19,7 +19,7 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
 
   test "skip converting the content when it is nil" do
     data =
-      file("fixtures/tesla_mock/framatube.org-video.json")
+      file("fixtures/framatube.org-video.json")
       |> Jason.decode!()
       |> Kernel.put_in(["object", "content"], nil)
 
@@ -31,7 +31,7 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
   end
 
   test "it converts content of object to html" do
-    data = file("fixtures/tesla_mock/framatube.org-video.json") |> Jason.decode!()
+    data = file("fixtures/framatube.org-video.json") |> Jason.decode!()
 
     {:ok, %Activity{local: false} = activity} =
       Transformer.handle_incoming(data)
@@ -70,7 +70,7 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
              }
            ]
 
-    data = file("fixtures/tesla_mock/framatube.org-video.json") |> Jason.decode!()
+    data = file("fixtures/framatube.org-video.json") |> Jason.decode!()
 
     {:ok, %Activity{local: false} = activity} = Transformer.handle_incoming(data)
 

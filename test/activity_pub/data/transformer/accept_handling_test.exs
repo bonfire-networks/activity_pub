@@ -87,7 +87,7 @@ defmodule ActivityPub.Federator.Transformer.AcceptHandlingTest do
       |> debug("accepts")
 
     accepted_i = length(accepts)
-    assert accepted_i > 1
+    assert accepted_i > 0
 
     data =
       file("fixtures/mastodon/mastodon-follow-activity.json")

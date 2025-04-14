@@ -260,7 +260,7 @@ defmodule ActivityPub.Utils do
                {:commit, object}
 
              {:error, :not_found} ->
-               warn("nothing found for #{key} - #{identifier} - cache :not_found ")
+               warn(identifier, "not found with #{inspect(get_fun)} for #{key}")
                {:commit, :not_found}
 
              e ->
@@ -545,11 +545,14 @@ defmodule ActivityPub.Utils do
     to_string(other)
   end
 
+  @doc "Format according to RFC 1123, which is the standard for HTTP dates. Example: `Mon, 15 Apr 2025 14:30:15 GMT`"
   def format_date(date \\ NaiveDateTime.utc_now(Calendar.ISO))
 
   def format_date(%NaiveDateTime{} = date) do
-    # TODO: use built-in elixir function or CLDR instead?
-    # Timex.format!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT")
-    Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
+    # 
+    Calendar.strftime(date, "%a, %d %b %Y %H:%M:%S GMT")
+
+    # WIP ^ using built-in elixir functions instead of Timex
+    # Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
   end
 end

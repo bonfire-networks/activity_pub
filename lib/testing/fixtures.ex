@@ -118,7 +118,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog" ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/wedistribute-user.json"),
+            body: file("fixtures/wedistribute-user.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -126,7 +126,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://wedistribute.local/wp-json/pterotype/v1/object/85809" ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/wedistribute-create-article.json"),
+            body: file("fixtures/wedistribute-create-article.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -134,28 +134,28 @@ defmodule ActivityPub.Fixtures do
         %Tesla.Env{
           status: 200,
           headers: [{"content-type", "application/activity+json"}],
-          body: file("fixtures/tesla_mock/lemmy-page.json")
+          body: file("fixtures/lemmy-page.json")
         }
       end,
       "https://lemmy.local/u/nutomic" => fn "https://lemmy.local/u/nutomic" ->
         %Tesla.Env{
           status: 200,
           headers: [{"content-type", "application/activity+json"}],
-          body: file("fixtures/tesla_mock/lemmy-user.json")
+          body: file("fixtures/lemmy-user.json")
         }
       end,
       "https://mobilizon.local/events/252d5816-00a3-4a89-a66f-15bf65c33e39" =>
         fn "https://mobilizon.local/events/252d5816-00a3-4a89-a66f-15bf65c33e39" ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/mobilizon.org-event.json"),
+            body: file("fixtures/mobilizon.org-event.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
       "https://mobilizon.local/@tcit" => fn "https://mobilizon.local/@tcit" ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/mobilizon.org-user.json"),
+          body: file("fixtures/mobilizon.org-user.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -163,7 +163,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://funkwhale.local/federation/actors/compositions" ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/funkwhale_channel.json"),
+            body: file("fixtures/funkwhale_channel.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -171,21 +171,21 @@ defmodule ActivityPub.Fixtures do
         fn "https://xyz.local/~/PlumeDevelopment/this-month-in-plume-june-2018/" ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/baptiste.gelex.xyz-article.json"),
+            body: file("fixtures/baptiste.gelex.xyz-article.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
       "https://xyz.local/@/BaptisteGelez" => fn "https://xyz.local/@/BaptisteGelez" ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/baptiste.gelex.xyz-user.json"),
+          body: file("fixtures/baptiste.gelex.xyz-user.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://prismo.local/@mxb" => fn "https://prismo.local/@mxb" ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https___prismo.news__mxb.json"),
+          body: file("fixtures/https___prismo.news__mxb.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -429,7 +429,7 @@ defmodule ActivityPub.Fixtures do
       "https://osada.local/channel/mike" => fn "https://osada.local/channel/mike", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https___osada.macgirvin.com_channel_mike.json"),
+          body: file("fixtures/https___osada.macgirvin.com_channel_mike.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -439,7 +439,7 @@ defmodule ActivityPub.Fixtures do
                                                   _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/moonman@shitposter.club.json"),
+          body: file("fixtures/moonman@shitposter.club.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -447,7 +447,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://mocked.local/users/emelie/statuses/101849165031453009", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/status.emelie.json"),
+            body: file("fixtures/status.emelie.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -461,7 +461,7 @@ defmodule ActivityPub.Fixtures do
       "https://mocked.local/users/emelie" => fn "https://mocked.local/users/emelie", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/emelie.json"),
+          body: file("fixtures/emelie.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -474,7 +474,7 @@ defmodule ActivityPub.Fixtures do
       "https://masto.local/users/rinpatch" => fn "https://masto.local/users/rinpatch", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/rinpatch.json"),
+          body: file("fixtures/rinpatch.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -489,11 +489,11 @@ defmodule ActivityPub.Fixtures do
       #       headers: [{"content-type", "application/activity+json"}]
       #     }
       #   end,
-      "https://patch.local/objects/tesla_mock/poll_attachment" =>
-        fn "https://patch.local/objects/tesla_mock/poll_attachment", _, _, _ ->
+      "https://patch.local/objects/poll_attachment" =>
+        fn "https://patch.local/objects/poll_attachment", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/poll_attachment.json"),
+            body: file("fixtures/poll_attachment.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -504,7 +504,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/webfinger_emelie.json"),
+            body: file("fixtures/webfinger_emelie.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -515,7 +515,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/mike@osada.macgirvin.com.json"),
+            body: file("fixtures/mike@osada.macgirvin.com.json"),
             headers: [{"content-type", "application/jrd+json"}]
           }
         end,
@@ -526,7 +526,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___social.heldscal.la_user_29191.xml")
+            body: file("fixtures/https___social.heldscal.la_user_29191.xml")
           }
         end,
       "https://pawoo.local/.well-known/webfinger?resource=acct:https://pawoo.local/users/pekorino" =>
@@ -536,7 +536,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___pawoo.net_users_pekorino.xml")
+            body: file("fixtures/https___pawoo.net_users_pekorino.xml")
           }
         end,
       "https://stopwatchingus.local/.well-known/webfinger?resource=acct:https://stopwatchingus.local/user/18330" =>
@@ -546,7 +546,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/atarifrosch_webfinger.xml")
+            body: file("fixtures/atarifrosch_webfinger.xml")
           }
         end,
       "https://social.local/.well-known/webfinger?resource=nonexistant@social.heldscal.la" =>
@@ -556,14 +556,14 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/nonexistant@social.heldscal.la.xml")
+            body: file("fixtures/nonexistant@social.heldscal.la.xml")
           }
         end,
       "https://me.local/xrd/?uri=acct:lain@squeet.me" =>
         fn "https://me.local/xrd/?uri=acct:lain@squeet.me", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/lain_squeet.me_webfinger.xml"),
+            body: file("fixtures/lain_squeet.me_webfinger.xml"),
             headers: [{"content-type", "application/xrd+xml"}]
           }
         end,
@@ -571,14 +571,14 @@ defmodule ActivityPub.Fixtures do
         fn "https://interlinked.local/users/luciferMysticus", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/lucifermysticus.json"),
+            body: file("fixtures/lucifermysticus.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
       "https://prismo.local/@mxb" => fn "https://prismo.local/@mxb", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https___prismo.news__mxb.json"),
+          body: file("fixtures/https___prismo.news__mxb.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -588,21 +588,21 @@ defmodule ActivityPub.Fixtures do
                                                      _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/kaniini@hubzilla.example.org.json"),
+          body: file("fixtures/kaniini@hubzilla.example.org.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://niu.local/users/rye" => fn "https://niu.local/users/rye", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/rye.json"),
+          body: file("fixtures/rye.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://n1u.moe/users/rye" => fn "https://n1u.moe/users/rye", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/rye.json"),
+          body: file("fixtures/rye.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -610,21 +610,20 @@ defmodule ActivityPub.Fixtures do
         fn "https://mastodon.local/users/admin/statuses/100787282858396771", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body:
-              file("fixtures/tesla_mock/http___mastodon.example.org_users_admin_status_1234.json")
+            body: file("fixtures/http___mastodon.example.org_users_admin_status_1234.json")
           }
         end,
       "https://puckipedia.local/" => fn "https://puckipedia.local/", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/puckipedia.com.json"),
+          body: file("fixtures/puckipedia.com.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://group.local/accounts/7even" => fn "https://group.local/accounts/7even", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/7even.json"),
+          body: file("fixtures/7even.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -640,7 +639,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/peertube.moe-vid.json"),
+            body: file("fixtures/peertube.moe-vid.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -648,7 +647,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://framatube.local/accounts/framasoft", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___framatube.org_accounts_framasoft.json"),
+            body: file("fixtures/https___framatube.org_accounts_framasoft.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -656,7 +655,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://framatube.local/videos/watch/6050732a-8a7a-43d4-a6cd-809525a1d206", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/framatube.org-video.json"),
+            body: file("fixtures/framatube.org-video.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -664,7 +663,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://peertube.local/accounts/craigmaloney", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/craigmaloney.json"),
+            body: file("fixtures/craigmaloney.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -672,7 +671,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://peertube.local/videos/watch/278d2b7c-0f38-4aaa-afe6-9ecc0c4a34fe", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/peertube-social.json"),
+            body: file("fixtures/peertube-social.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -680,21 +679,21 @@ defmodule ActivityPub.Fixtures do
         fn "https://mobilizon.local/events/252d5816-00a3-4a89-a66f-15bf65c33e39", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/mobilizon.org-event.json"),
+            body: file("fixtures/mobilizon.org-event.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
       "https://mobilizon.local/@tcit" => fn "https://mobilizon.local/@tcit", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/mobilizon.org-user.json"),
+          body: file("fixtures/mobilizon.org-user.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://xyz.local/@/BaptisteGelez" => fn "https://xyz.local/@/BaptisteGelez", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/baptiste.gelex.xyz-user.json"),
+          body: file("fixtures/baptiste.gelex.xyz-user.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -702,7 +701,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://xyz.local/~/PlumeDevelopment/this-month-in-plume-june-2018/", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/baptiste.gelex.xyz-article.json"),
+            body: file("fixtures/baptiste.gelex.xyz-article.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -710,7 +709,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://wedistribute.local/wp-json/pterotype/v1/object/85810", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/wedistribute-article.json"),
+            body: file("fixtures/wedistribute-article.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -718,7 +717,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://wedistribute.local/wp-json/pterotype/v1/actor/-blog", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/wedistribute-user.json"),
+            body: file("fixtures/wedistribute-user.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -732,7 +731,7 @@ defmodule ActivityPub.Fixtures do
       "https://mastodon.local/users/relay" => fn "https://mastodon.local/users/relay", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/relay@mastdon.example.org.json"),
+          body: file("fixtures/relay@mastdon.example.org.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -748,7 +747,7 @@ defmodule ActivityPub.Fixtures do
       #       "https://mastodon.local/users/admin" => fn "https://mastodon.local/users/admin", _, _, _ ->
       #   %Tesla.Env{
       #     status: 200,
-      #     body: file("fixtures/tesla_mock/admin@mastdon.example.org.json"),
+      #     body: file("fixtures/admin@mastdon.example.org.json"),
       #     headers: ActivityPub.Utils.activitypub_object_headers()
       #   }
       # end,
@@ -769,11 +768,11 @@ defmodule ActivityPub.Fixtures do
                                                        _,
                                                        _,
                                                        _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/sdf.org_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/sdf.org_host_meta")}
       end,
       "https://masto.local/.well-known/host-meta" =>
         fn "https://masto.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/sdf.org_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/sdf.org_host_meta")}
         end,
       "https://masto.local/.well-known/webfinger?resource=https://masto.local/users/snowdusk" =>
         fn "https://masto.local/.well-known/webfinger?resource=https://masto.local/users/snowdusk",
@@ -782,45 +781,45 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/snowdusk@sdf.org_host_meta.json")
+            body: file("fixtures/snowdusk@sdf.org_host_meta.json")
           }
         end,
       "http://mstdn.local/.well-known/host-meta" => fn "http://mstdn.local/.well-known/host-meta",
                                                        _,
                                                        _,
                                                        _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/mstdn.jp_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/mstdn.jp_host_meta")}
       end,
       "https://mstdn.local/.well-known/host-meta" =>
         fn "https://mstdn.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/mstdn.jp_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/mstdn.jp_host_meta")}
         end,
       "https://mstdn.local/.well-known/webfinger?resource=kpherox@mstdn.jp" =>
         fn "https://mstdn.local/.well-known/webfinger?resource=kpherox@mstdn.jp", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/kpherox@mstdn.jp.xml")
+            body: file("fixtures/kpherox@mstdn.jp.xml")
           }
         end,
       "http://mamot.local/.well-known/host-meta" => fn "http://mamot.local/.well-known/host-meta",
                                                        _,
                                                        _,
                                                        _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/mamot.fr_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/mamot.fr_host_meta")}
       end,
       "https://mamot.local/.well-known/host-meta" =>
         fn "https://mamot.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/mamot.fr_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/mamot.fr_host_meta")}
         end,
       "http://pawoo.local/.well-known/host-meta" => fn "http://pawoo.local/.well-known/host-meta",
                                                        _,
                                                        _,
                                                        _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/pawoo.net_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/pawoo.net_host_meta")}
       end,
       "https://pawoo.local/.well-known/host-meta" =>
         fn "https://pawoo.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/pawoo.net_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/pawoo.net_host_meta")}
         end,
       "https://pawoo.local/.well-known/webfinger?resource=https://pawoo.local/users/pekorino" =>
         fn "https://pawoo.local/.well-known/webfinger?resource=https://pawoo.local/users/pekorino",
@@ -829,33 +828,33 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/pekorino@pawoo.net_host_meta.json"),
+            body: file("fixtures/pekorino@pawoo.net_host_meta.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
       "http://akkoma.local/.well-known/host-meta" =>
         fn "http://akkoma.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/soykaf.com_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/soykaf.com_host_meta")}
         end,
       "https://akkoma.local/.well-known/host-meta" =>
         fn "https://akkoma.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/soykaf.com_host_meta")
+            body: file("fixtures/soykaf.com_host_meta")
           }
         end,
       "http://stopwatchingus.local/.well-known/host-meta" =>
         fn "http://stopwatchingus.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/stopwatchingus-heidelberg.de_host_meta")
+            body: file("fixtures/stopwatchingus-heidelberg.de_host_meta")
           }
         end,
       "https://stopwatchingus.local/.well-known/host-meta" =>
         fn "https://stopwatchingus.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/stopwatchingus-heidelberg.de_host_meta")
+            body: file("fixtures/stopwatchingus-heidelberg.de_host_meta")
           }
         end,
       "https://mastodon.local/@admin/99541947525187368" =>
@@ -869,7 +868,7 @@ defmodule ActivityPub.Fixtures do
                                                    _,
                                                    _,
                                                    _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/7369654.html")}
+        %Tesla.Env{status: 200, body: file("fixtures/7369654.html")}
       end,
       "https://mstdn.local/users/mayuutann" => fn "https://mstdn.local/users/mayuutann",
                                                   _,
@@ -877,7 +876,7 @@ defmodule ActivityPub.Fixtures do
                                                   _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/mayumayu.json"),
+          body: file("fixtures/mayumayu.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -885,7 +884,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://mstdn.local/users/mayuutann/statuses/99568293732299394", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/mayumayupost.json"),
+            body: file("fixtures/mayumayupost.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -896,7 +895,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___pleroma.soykaf.com_users_lain.xml")
+            body: file("fixtures/https___pleroma.soykaf.com_users_lain.xml")
           }
         end,
       "https://akkoma.local/.well-known/webfinger?resource=https://akkoma.local/users/lain" =>
@@ -906,7 +905,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___pleroma.soykaf.com_users_lain.xml")
+            body: file("fixtures/https___pleroma.soykaf.com_users_lain.xml")
           }
         end,
       "https://sposter.local/.well-known/webfinger?resource=https://sposter.local/user/1" =>
@@ -916,7 +915,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___shitposter.club_user_1.xml")
+            body: file("fixtures/https___shitposter.club_user_1.xml")
           }
         end,
       "https://akkoma.local/objects/b319022a-4946-44c5-9de9-34801f95507b" =>
@@ -930,27 +929,27 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/spc_5381_xrd.xml")
+            body: file("fixtures/spc_5381_xrd.xml")
           }
         end,
       "http://sposter.local/.well-known/host-meta" =>
         fn "http://sposter.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/shitposter.club_host_meta")
+            body: file("fixtures/shitposter.club_host_meta")
           }
         end,
       "https://sposter.local/notice/4027863" => fn "https://sposter.local/notice/4027863",
                                                    _,
                                                    _,
                                                    _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/7369654.html")}
+        %Tesla.Env{status: 200, body: file("fixtures/7369654.html")}
       end,
       "http://sakamoto.local/.well-known/host-meta" =>
         fn "http://sakamoto.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/social.sakamoto.gq_host_meta")
+            body: file("fixtures/social.sakamoto.gq_host_meta")
           }
         end,
       "https://sakamoto.local/.well-known/webfinger?resource=https://sakamoto.local/users/eal" =>
@@ -960,12 +959,12 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/eal_sakamoto.xml")
+            body: file("fixtures/eal_sakamoto.xml")
           }
         end,
       "http://mocked.local/.well-known/host-meta" =>
         fn "http://mocked.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/mastodon.social_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/mastodon.social_host_meta")}
         end,
       "https://mocked.local/.well-known/webfinger?resource=https://mocked.local/users/lambadalambda" =>
         fn "https://mocked.local/.well-known/webfinger?resource=https://mocked.local/users/lambadalambda",
@@ -974,7 +973,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___mastodon.social_users_lambadalambda.xml")
+            body: file("fixtures/https___mastodon.social_users_lambadalambda.xml")
           }
         end,
       "https://mocked.local/.well-known/webfinger?resource=acct:not_found@mocked.local" =>
@@ -988,7 +987,7 @@ defmodule ActivityPub.Fixtures do
                                                     _,
                                                     _,
                                                     _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/gs.example.org_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/gs.example.org_host_meta")}
       end,
       "http://gs.local/.well-known/webfinger?resource=http://gs.local:4040/index.php/user/1" =>
         fn "http://gs.local/.well-known/webfinger?resource=http://gs.local:4040/index.php/user/1",
@@ -997,7 +996,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/http___gs.example.org_4040_index.php_user_1.xml")
+            body: file("fixtures/http___gs.example.org_4040_index.php_user_1.xml")
           }
         end,
       "http://gs.local:4040/index.php/user/1" => fn "http://gs.local:4040/index.php/user/1",
@@ -1010,13 +1009,13 @@ defmodule ActivityPub.Fixtures do
                                                      _,
                                                      _,
                                                      _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/squeet.me_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/squeet.me_host_meta")}
       end,
       "https://me.local/xrd?uri=lain@squeet.me" => fn "https://me.local/xrd?uri=lain@squeet.me",
                                                       _,
                                                       _,
                                                       _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/lain_squeet.me_webfinger.xml")}
+        %Tesla.Env{status: 200, body: file("fixtures/lain_squeet.me_webfinger.xml")}
       end,
       "https://social.local/.well-known/webfinger?resource=acct:shp@social.heldscal.la" =>
         fn "https://social.local/.well-known/webfinger?resource=acct:shp@social.heldscal.la",
@@ -1025,7 +1024,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/shp@social.heldscal.la.xml"),
+            body: file("fixtures/shp@social.heldscal.la.xml"),
             headers: [{"content-type", "application/xrd+xml"}]
           }
         end,
@@ -1040,7 +1039,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://framatube.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/framatube.org_host_meta")
+            body: file("fixtures/framatube.org_host_meta")
           }
         end,
       "https://framatube.local/main/xrd?uri=acct:framasoft@framatube.org" =>
@@ -1048,21 +1047,21 @@ defmodule ActivityPub.Fixtures do
           %Tesla.Env{
             status: 200,
             headers: [{"content-type", "application/jrd+json"}],
-            body: file("fixtures/tesla_mock/framasoft@framatube.org.json")
+            body: file("fixtures/framasoft@framatube.org.json")
           }
         end,
       "http://gnusocial.local/.well-known/host-meta" =>
         fn "http://gnusocial.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/gnusocial.de_host_meta")
+            body: file("fixtures/gnusocial.de_host_meta")
           }
         end,
       "http://gnusocial.local/main/xrd?uri=winterdienst@gnusocial.local" =>
         fn "http://gnusocial.local/main/xrd?uri=winterdienst@gnusocial.local", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/winterdienst_webfinger.json"),
+            body: file("fixtures/winterdienst_webfinger.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -1070,26 +1069,26 @@ defmodule ActivityPub.Fixtures do
         fn "https://status.alpicola.com/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/status.alpicola.com_host_meta")
+            body: file("fixtures/status.alpicola.com_host_meta")
           }
         end,
       "https://macgirvin.local/.well-known/host-meta" =>
         fn "https://macgirvin.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/macgirvin.com_host_meta")
+            body: file("fixtures/macgirvin.com_host_meta")
           }
         end,
       "https://gerzilla.de/.well-known/host-meta" =>
         fn "https://gerzilla.de/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/gerzilla.de_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/gerzilla.de_host_meta")}
         end,
       "https://gerzilla.de/xrd/?uri=acct:kaniini@gerzilla.de" =>
         fn "https://gerzilla.de/xrd/?uri=acct:kaniini@gerzilla.de", _, _, _ ->
           %Tesla.Env{
             status: 200,
             headers: [{"content-type", "application/jrd+json"}],
-            body: file("fixtures/tesla_mock/kaniini@gerzilla.de.json")
+            body: file("fixtures/kaniini@gerzilla.de.json")
           }
         end,
       "https://social.local/.well-known/webfinger?resource=https://social.local/user/23211" =>
@@ -1099,18 +1098,18 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___social.heldscal.la_user_23211.xml")
+            body: file("fixtures/https___social.heldscal.la_user_23211.xml")
           }
         end,
       "http://social.local/.well-known/host-meta" =>
         fn "http://social.local/.well-known/host-meta", _, _, _ ->
-          %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/social.heldscal.la_host_meta")}
+          %Tesla.Env{status: 200, body: file("fixtures/social.heldscal.la_host_meta")}
         end,
       "https://social.local/.well-known/host-meta" =>
         fn "https://social.local/.well-known/host-meta", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/social.heldscal.la_host_meta")
+            body: file("fixtures/social.heldscal.la_host_meta")
           }
         end,
       "https://mocked.local/users/lambadalambda" => fn "https://mocked.local/users/lambadalambda",
@@ -1137,7 +1136,7 @@ defmodule ActivityPub.Fixtures do
       "https://apfed.local/channel/indio" => fn "https://apfed.local/channel/indio", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/osada-user-indio.json"),
+          body: file("fixtures/osada-user-indio.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1151,7 +1150,7 @@ defmodule ActivityPub.Fixtures do
       #   %Tesla.Env{status: 200, body: file("fixtures/rich_media/ogp.html")}
       # end,
       "http://localhost:4001/" => fn "http://localhost:4001/", _, _, _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/7369654.html")}
+        %Tesla.Env{status: 200, body: file("fixtures/7369654.html")}
       end,
       # "http://localhost:4001/users/masto_closed/followers" =>
       #   fn "http://localhost:4001/users/masto_closed/followers", _, _, _ ->
@@ -1290,26 +1289,26 @@ defmodule ActivityPub.Fixtures do
                                                      _,
                                                      _,
                                                      _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/lm.kazv.moe_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/lm.kazv.moe_host_meta")}
       end,
       "https://moe.local/.well-known/host-meta" => fn "https://moe.local/.well-known/host-meta",
                                                       _,
                                                       _,
                                                       _ ->
-        %Tesla.Env{status: 200, body: file("fixtures/tesla_mock/lm.kazv.moe_host_meta")}
+        %Tesla.Env{status: 200, body: file("fixtures/lm.kazv.moe_host_meta")}
       end,
       "https://moe.local/.well-known/webfinger?resource=acct:mewmew@lm.kazv.moe" =>
         fn "https://moe.local/.well-known/webfinger?resource=acct:mewmew@lm.kazv.moe", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/https___lm.kazv.moe_users_mewmew.xml"),
+            body: file("fixtures/https___lm.kazv.moe_users_mewmew.xml"),
             headers: [{"content-type", "application/xrd+xml"}]
           }
         end,
       "https://moe.local/users/mewmew" => fn "https://moe.local/users/mewmew", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/mewmew@lm.kazv.moe.json"),
+          body: file("fixtures/mewmew@lm.kazv.moe.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1327,7 +1326,7 @@ defmodule ActivityPub.Fixtures do
       "https://akkoma.local/activity.json" => fn "https://akkoma.local/activity.json", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https__info.pleroma.site_activity.json"),
+          body: file("fixtures/https__info.pleroma.site_activity.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1340,7 +1339,7 @@ defmodule ActivityPub.Fixtures do
                                                   _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https__info.pleroma.site_activity2.json"),
+          body: file("fixtures/https__info.pleroma.site_activity2.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1356,7 +1355,7 @@ defmodule ActivityPub.Fixtures do
                                                   _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https__info.pleroma.site_activity3.json"),
+          body: file("fixtures/https__info.pleroma.site_activity3.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1370,7 +1369,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://mstdn.local/.well-known/webfinger?resource=acct:kpherox@mstdn.jp", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/kpherox@mstdn.jp.xml"),
+            body: file("fixtures/kpherox@mstdn.jp.xml"),
             headers: [{"content-type", "application/xrd+xml"}]
           }
         end,
@@ -1418,7 +1417,7 @@ defmodule ActivityPub.Fixtures do
                                                   _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/misskey_poll_no_end_date.json"),
+          body: file("fixtures/misskey_poll_no_end_date.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1432,14 +1431,14 @@ defmodule ActivityPub.Fixtures do
                                                   _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/sjw.json"),
+          body: file("fixtures/sjw.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://patch.local/users/rin" => fn "https://patch.local/users/rin", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/rin.json"),
+          body: file("fixtures/rin.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1450,7 +1449,7 @@ defmodule ActivityPub.Fixtures do
            _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/funkwhale_audio.json"),
+            body: file("fixtures/funkwhale_audio.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -1458,7 +1457,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://funkwhale.local/federation/actors/compositions", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/funkwhale_channel.json"),
+            body: file("fixtures/funkwhale_channel.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
@@ -1476,35 +1475,35 @@ defmodule ActivityPub.Fixtures do
       "https://osada.local/" => fn "https://osada.local/", _, "", _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/https___osada.macgirvin.com.html")
+          body: file("fixtures/https___osada.macgirvin.com.html")
         }
       end,
       "https://patch.local/objects/a399c28e-c821-4820-bc3e-4afeb044c16f" =>
         fn "https://patch.local/objects/a399c28e-c821-4820-bc3e-4afeb044c16f", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/emoji-in-summary.json"),
+            body: file("fixtures/emoji-in-summary.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,
       "https://mk.local/users/8ozbzjs3o8" => fn "https://mk.local/users/8ozbzjs3o8", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/mametsuko@mk.absturztau.be.json"),
+          body: file("fixtures/mametsuko@mk.absturztau.be.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://moe.local/users/helene" => fn "https://moe.local/users/helene", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/helene@p.helene.moe.json"),
+          body: file("fixtures/helene@p.helene.moe.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
       "https://mk.local/notes/93e7nm8wqg" => fn "https://mk.local/notes/93e7nm8wqg", _, _, _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/tesla_mock/mk.absturztau.be-93e7nm8wqg.json"),
+          body: file("fixtures/mk.absturztau.be-93e7nm8wqg.json"),
           headers: ActivityPub.Utils.activitypub_object_headers()
         }
       end,
@@ -1512,7 +1511,7 @@ defmodule ActivityPub.Fixtures do
         fn "https://moe.local/objects/fd5910ac-d9dc-412e-8d1d-914b203296c4", _, _, _ ->
           %Tesla.Env{
             status: 200,
-            body: file("fixtures/tesla_mock/p.helene.moe-AM7S6vZQmL6pI9TgPY.json"),
+            body: file("fixtures/p.helene.moe-AM7S6vZQmL6pI9TgPY.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
         end,

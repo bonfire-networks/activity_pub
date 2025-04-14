@@ -484,10 +484,14 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
 
       assert {:ok, activity} = Transformer.handle_incoming(data)
 
-      assert debug(activity.object).data["content"] =~
-               "animation: 1s linear 0s infinite normal both running mfm-rubberBand"
+      assert content = debug(activity.object).data["content"]
 
-      # refute debug(activity)
+      assert content =~ "@oops_not_a_mention"
+
+      assert content =~
+               "<span class=\"mfm-jelly\">mfm goes here</span>"
+
+      assert content =~ "some text<br>newline"
     end
   end
 

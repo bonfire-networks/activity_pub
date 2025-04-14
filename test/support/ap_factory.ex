@@ -207,17 +207,14 @@ defmodule ActivityPub.Factory do
   end
 
   def local_note_activity(attrs \\ %{}) do
-    actor = attrs[:actor] || local_actor()
     note = attrs[:note] || local_note(attrs)
-    activity = build(:note_activity, attrs |> Enum.into(%{actor: actor, note: note}))
 
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Social.Fake) do
-      # {:ok, ap_activity} = ActivityPub.Object.get_cached(pointer: id)
-
-      activity
+      ActivityPub.Object.get_activity_for_object_ap_id(note.data["id"])
     else
-      # TODO?
+      actor = attrs[:actor] || local_actor()
+      activity = build(:note_activity, attrs |> Enum.into(%{actor: actor, note: note}))
       insert(activity)
     end
   end

@@ -79,26 +79,37 @@ defmodule ActivityPub.Federator.FetcherTest do
       {:ok, fingered} = WebFinger.finger("karen@mastodon.local")
       {:ok, object1} = Fetcher.fetch_object_from_id(fingered["id"])
 
-      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
+      {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 
-      {:ok, object3} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
+      # why is fetch_object_from_id returning an Object instead of an Actor
+      # IO.inspect(MapDiff.diff(object1, object2), label: "Diff", pretty: true)
 
       assert object1.data == object2.data
-      assert object2 == object3
+      assert object1.id == object2.id
+      assert object1.__struct__ == object2.__struct__
+
+      {:ok, object3} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
+
+      assert object2.data == object3.data
+      assert object2.id == object3.id
+      assert object2.__struct__ == object3.__struct__
     end
 
-    # why is fetch_object_from_id returning an Object instead of an Actor
-    @tag :fixme
     test "fetches a same mastodon actor by AP ID and friendly URL and webfinger" do
       {:ok, object1} = Fetcher.fetch_object_from_id("https://mastodon.local/users/admin")
 
       {:ok, object2} = Fetcher.fetch_object_from_id("https://mastodon.local/@karen")
 
+      assert object1.data == object2.data
+      assert object1.id == object2.id
+      assert object1.__struct__ == object2.__struct__
+
       {:ok, fingered} = WebFinger.finger("karen@mastodon.local")
       {:ok, object3} = Fetcher.fetch_object_from_id(fingered["id"])
 
-      assert object1.data == object2.data
-      assert object2 == object3
+      assert object2.data == object3.data
+      assert object2.id == object3.id
+      assert object2.__struct__ == object3.__struct__
     end
 
     # test "rejects private posts" do # why?
@@ -298,9 +309,9 @@ defmodule ActivityPub.Federator.FetcherTest do
       assert object
     end
 
-    # results in  ** (DBConnection.ConnectionError) transaction rolling back when inserting User
     @tag :fixme
-    test "it can fetch peertube videos" do
+    # results in  ** (DBConnection.ConnectionError) transaction rolling back when inserting User
+    test "it can fetch peertube videos, incl. a Group actor" do
       {:ok, object} =
         Fetcher.fetch_object_from_id(
           "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
@@ -344,7 +355,7 @@ defmodule ActivityPub.Federator.FetcherTest do
 
     test "it can fetch pleroma polls with attachments" do
       {:ok, object} =
-        Fetcher.fetch_object_from_id("https://patch.local/objects/tesla_mock/poll_attachment")
+        Fetcher.fetch_object_from_id("https://patch.local/objects/poll_attachment")
 
       assert object
     end

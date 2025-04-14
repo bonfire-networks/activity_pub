@@ -231,8 +231,8 @@ defmodule ActivityPub.Pruner do
       cutoff_days ||
         Config.get([:instance, :remote_misc_retention_days], @remote_misc_retention_days)
 
-    DateTime.utc_now() |> Timex.shift(days: -cutoff)
-    # TODO: use `NaiveDateTime.diff` ?
+    # Note: Replaced Timex.shift with DateTime.add
+    DateTime.utc_now() |> DateTime.add(-cutoff, :day)
   end
 
   defmodule PruneDatabaseWorker do

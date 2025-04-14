@@ -23,7 +23,7 @@
   "outbox": "https://mastodon.local/users/admin/outbox",
   "preferredUsername": "karen",
   "name": null,
-  "summary": "\u003cp\u003e\u003c/p\u003e",
+  "summary": "short bio",
   "url": "https://mastodon.local/@admin",
   "manuallyApprovesFollowers": false,
   "publicKey": {

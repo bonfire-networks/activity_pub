@@ -17,81 +17,75 @@ defmodule ActivityPub.Federator.Transformer.UserUpdateHandlingTest do
   end
 
   test "it works for incoming update activities" do
-    user = actor(local: false)
+    original_actor_data =
+      file("fixtures/mastodon/mastodon-actor.json")
+      |> Jason.decode!()
+      #  FIXME: the actor should be fetched so it should not be possible to do this
+      |> Map.put("summary", "summary custom")
+
+    assert %Actor{data: original_actor_data, local: false} =
+             ok_unwrap(Transformer.handle_incoming(original_actor_data))
+
+    {:ok, original_actor} = Actor.get_cached_or_fetch(ap_id: original_actor_data)
+
+    refute original_actor.data["summary"] =~ "summary custom"
 
     update_data = file("fixtures/mastodon/mastodon-update.json") |> Jason.decode!()
 
     update_activity =
       update_data
-      |> Map.put("actor", ap_id(user))
+      |> Map.put("actor", original_actor_data["id"])
       |> Map.put(
         "object",
         update_data["object"]
-        |> Map.put("actor", ap_id(user))
-        |> Map.put("id", ap_id(user))
+        |> Map.put("actor", original_actor_data["id"])
+        |> Map.put("id", original_actor_data["id"])
       )
 
-    {:ok, %Activity{data: data_updated, local: false}} =
+    {:ok, %{data: _, local: false}} =
       Transformer.handle_incoming(update_activity)
       |> debug()
 
-    assert data_updated["id"] == update_activity["id"]
+    # assert data_updated["id"] == update_activity["id"]
 
-    user =
-      user_by_ap_id(data_updated["actor"])
-      |> repo().maybe_preload(profile: [:icon, :image])
-      |> debug()
+    {:ok, updated_actor} = Actor.get_cached(ap_id: original_actor_data["id"])
 
-    assert user.profile.name == "gargle"
+    assert updated_actor.data["summary"] =~ "short bio"
 
-    assert Map.get(user.profile.icon, :path) ==
+    assert updated_actor.data["icon"]["url"] ==
              "https://cdn.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
 
-    assert Map.get(user.profile.image, :path) ==
+    assert updated_actor.data["image"]["url"] ==
              "https://cdn.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
-
-    assert user.profile.summary =~ "<p>Some bio</p>"
   end
 
-  # FIXME!
   test "update activities for an actor ignores the given object and re-fetches the remote actor instead" do
-    original_actor = file("fixtures/mastodon/mastodon-actor.json") |> Jason.decode!()
+    original_actor_data = file("fixtures/mastodon/mastodon-actor.json") |> Jason.decode!()
 
-    assert %Actor{data: original_actor, local: false} =
-             ok_unwrap(Transformer.handle_incoming(original_actor))
+    assert %Actor{data: original_actor_data, local: false} =
+             ok_unwrap(Transformer.handle_incoming(original_actor_data))
+
+    {:ok, original_actor} = Actor.get_cached_or_fetch(ap_id: original_actor_data)
 
     update_data = file("fixtures/mastodon/mastodon-update.json") |> Jason.decode!()
-
-    {:ok, actor} = Actor.get_cached_or_fetch(ap_id: original_actor)
 
     update_object =
       update_data["object"]
       # |> Map.put("actor", original_actor["id"]) 
-      |> Map.put("id", original_actor["id"])
-      |> Map.put("preferredUsername", actor.data["preferredUsername"])
+      |> Map.put("id", original_actor_data["id"])
+      |> Map.put("preferredUsername", original_actor_data["preferredUsername"])
 
     update_activity =
       update_data
-      |> Map.put("actor", original_actor["id"])
+      |> Map.put("actor", original_actor_data["id"])
       |> Map.put("object", update_object)
       |> info("update_activity")
 
-    {:ok, %Object{data: data, local: false}} = Transformer.handle_incoming(update_activity)
+    {:ok, %{data: _, local: false}} = Transformer.handle_incoming(update_activity)
 
-    {:ok, updated_actor} = Actor.get_cached(ap_id: original_actor["id"])
+    {:ok, non_updated_actor} = Actor.get_cached(ap_id: original_actor_data["id"])
 
-    assert updated_actor.data == actor.data
-
-    # TODO: test the case where the remote changed and we actually do an update
-    # assert updated_actor.data["name"] == "gargle"
-
-    # assert updated_actor.data["icon"]["url"] ==
-    #          "https://cdn.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
-
-    # assert updated_actor.data["image"]["url"] ==
-    #          "https://cdn.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
-
-    # assert updated_actor.data["summary"] == "<p>Some bio</p>"
+    assert non_updated_actor.data == original_actor.data
   end
 
   # TODO

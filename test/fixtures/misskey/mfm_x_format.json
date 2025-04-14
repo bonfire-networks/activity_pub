@@ -5,7 +5,7 @@
   "summary": null,
   "content": "this does not get replaced",
   "source": {
-    "content": "@akkoma_user @remote_user @full_tag_remote_user@misskey.local.live @oops_not_a_mention linkifylink #dancedance $[jelly mfm goes here] \n\n## aaa",
+    "content": "@akkoma_user @remote_user @full_tag_remote_user@misskey.local.live @oops_not_a_mention linkifylink #dancedance $[jelly mfm goes here] \n\n## aaa\n\nsome text\nnewline",
     "mediaType": "text/x.misskeymarkdown"
   },
   "published": "2022-07-10T15:37:36.368Z",

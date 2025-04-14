@@ -14,7 +14,6 @@ defmodule ActivityPub.Actor do
   alias ActivityPub.Config
   require Config
 
-  # alias Timex.NaiveDateTime # now provided by stdlib
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.Fetcher
@@ -375,7 +374,7 @@ defmodule ActivityPub.Actor do
     with federating? when federating? != false <- Config.federating?(),
          {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
            WebFinger.finger(username) do
-      fetch_by_ap_id(ap_id, opts)
+      Fetcher.fetch_object_from_id(ap_id, opts)
     else
       {:error, e} when is_binary(e) ->
         e
@@ -417,15 +416,22 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def update_actor(actor_id, %{"id" => _} = data) do
+  def update_actor(actor_id, data, fetch_remote? \\ false) do
     # TODO: make better
-    debug(actor_id, "Updating actor")
     # dump(ActivityPub.Object.all())
 
-    with {:ok, object} <- update_actor_data(actor_id, data),
-         _done <- Adapter.update_remote_actor(object),
+    with {:ok, object} <- update_actor_data(actor_id, data, fetch_remote?),
+         Adapter.update_remote_actor(object),
          {:ok, actor} <- get(ap_id: actor_id) do
       set_cache(actor)
+    else
+      {:no_update, object} ->
+        debug("there was no update, so we skip updating the adapter or cache")
+        {:ok, object}
+        {:ok, object}
+
+      other ->
+        other
     end
   end
 
@@ -503,17 +509,14 @@ defmodule ActivityPub.Actor do
     actor
   end
 
-  defp fetch_by_ap_id(ap_id, opts \\ []) when is_binary(ap_id) do
-    Fetcher.fetch_object_from_id(ap_id, opts)
-  end
-
-  def maybe_create_actor_from_object(actor) do
-    case do_maybe_create_actor_from_object(actor) do
+  def create_or_update_actor_from_object(actor) do
+    case do_maybe_create_or_update_actor_from_object(actor) do
       {:ok, %Actor{} = actor} ->
+        debug("created or updated")
         {:ok, actor}
 
       {:ok, %{} = object} ->
-        info(object, "Not an actor?")
+        warn(object, "Not an actor?")
         {:ok, object}
 
       e ->
@@ -521,16 +524,22 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp do_maybe_create_actor_from_object(%{"type" => type} = data)
+  defp do_maybe_create_or_update_actor_from_object(%{"type" => type} = data)
        when ActivityPub.Config.is_in(type, :supported_actor_types) do
-    case maybe_create_ap_object_for_actor(data) do
-      {:ok, %Object{} = object} -> maybe_create_actor_from_object(object)
-      other -> other |> debug("did not get an object")
+    case create_or_update_ap_object_for_actor(data) do
+      {:ok, %Object{} = object} ->
+        debug("created object, now try actor")
+        do_maybe_create_or_update_actor_from_object(object)
+
+      other ->
+        other |> debug("did not get an object")
     end
   end
 
-  defp do_maybe_create_actor_from_object(%{data: %{"type" => type}} = actor)
+  defp do_maybe_create_or_update_actor_from_object(%{data: %{"type" => type}} = actor)
        when ActivityPub.Config.is_in(type, :supported_actor_types) do
+    debug("create actor")
+
     with actor <- format_remote_actor(actor),
          {:ok, actor} <- set_cache(actor),
          {:ok, adapter_actor} <- Adapter.maybe_create_remote_actor(actor),
@@ -539,34 +548,44 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  # defp do_maybe_create_actor_from_object(ap_id) when is_binary(ap_id) do
+  # defp do_maybe_create_or_update_actor_from_object(ap_id) when is_binary(ap_id) do
   #   with {:ok, object} <- Fetcher.fetch_fresh_object_from_id(ap_id) |> info() do
-  #     do_maybe_create_actor_from_object(object)
+  #     do_maybe_create_or_update_actor_from_object(object)
   #   end
   # end
-  defp do_maybe_create_actor_from_object({:ok, object}),
-    do: do_maybe_create_actor_from_object(object)
+  defp do_maybe_create_or_update_actor_from_object({:ok, object}),
+    do: do_maybe_create_or_update_actor_from_object(object)
 
-  defp do_maybe_create_actor_from_object(object), do: object
+  defp do_maybe_create_or_update_actor_from_object(object),
+    do: error(object, "Actor to update not recognised")
 
-  defp maybe_create_ap_object_for_actor(%{"type" => _type} = data) do
+  defp create_or_update_ap_object_for_actor(%{"type" => _type} = data) do
+    debug("check if actor already exists")
+
     with {:error, :not_found} <- Object.get_cached(data),
          {:ok, object} <- Object.prepare_data(data),
          {:ok, object} <- Object.do_insert(object) do
       {:ok, object}
     else
-      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
-        case Actor.get_non_cached(data) do
-          {:ok, %{ap_id: actor}} ->
-            warn(data, "Actor already exists, update it instead")
-            Actor.update_actor(actor, data)
+      {:ok, data} ->
+        do_update_object_actor(data)
 
-          _ ->
-            error(data, "Not an actor?")
-        end
+      {:error, %Ecto.Changeset{errors: [_data____id: {"has already been taken", _}]}} ->
+        do_update_object_actor(data)
 
       other ->
-        other
+        error(other, "Unexpected")
+    end
+  end
+
+  defp do_update_object_actor(data) do
+    case Actor.get_non_cached(data) do
+      {:ok, %{ap_id: actor}} ->
+        warn(data, "Actor already exists, update it instead")
+        Actor.update_actor(actor, data)
+
+      _ ->
+        error(data, "Not an actor?")
     end
   end
 
@@ -697,6 +716,9 @@ defmodule ActivityPub.Actor do
       {:ok, del} ->
         {:ok, del}
 
+      {:no_update, del} ->
+        error("Could not update the actor")
+
       e ->
         debug(e, "no such actor in AP db, create a tombstone instead")
 
@@ -746,21 +768,41 @@ defmodule ActivityPub.Actor do
     update_actor_data(ap_id, data, fetch_remote?)
   end
 
-  defp update_actor_data(ap_id, data, fetch_remote?) when is_binary(ap_id) do
-    with {:ok, object} <- Object.get_uncached(ap_id: ap_id) do
-      update_actor_data(object, data, fetch_remote?)
+  defp update_actor_data(ap_id, update_data, fetch_remote?) when is_binary(ap_id) do
+    with {:ok, %{data: existing_data} = object} when existing_data != update_data <-
+           Object.get_uncached(ap_id: ap_id),
+         {:ok, %{data: updated_data} = object} when updated_data != existing_data <-
+           maybe_update_actor_data(ap_id, object, update_data, fetch_remote?) do
+      debug("updated")
       {:ok, object}
     else
-      e ->
-        warn(e)
+      {:ok, object} ->
+        {:no_update, object}
 
-        if fetch_remote?,
-          do: fetch_by_ap_id(ap_id),
-          else: error(ap_id, "Cannot update non-existing actor")
+      e ->
+        error(e, "Cannot update a locally-unknown actor")
     end
   end
 
-  defp update_actor_data(%Object{} = object, data, _fetch_remote?) do
+  defp update_actor_data(%Object{} = object, %{} = data, false) do
+    do_update_actor_data(object, data)
+  end
+
+  defp update_actor_data(object, _data, _) do
+    error(object, "Could not find the actor to update")
+  end
+
+  defp maybe_update_actor_data(ap_id, object, data, fetch_remote?) do
+    if fetch_remote? do
+      debug("re-fetch remote actor before updating for safety")
+      Fetcher.fetch_fresh_object_from_id(ap_id, [])
+    else
+      debug("insert")
+      do_update_actor_data(object, data)
+    end
+  end
+
+  defp do_update_actor_data(%Object{} = object, data) do
     object
     |> Ecto.Changeset.change(%{
       data: data,
@@ -778,7 +820,7 @@ defmodule ActivityPub.Actor do
       actor.data
       |> Map.put("deactivated", true)
 
-    update_actor_data(actor, new_data)
+    update_actor_data(actor, new_data, false)
     # Return Actor
     set_cache(get(ap_id: actor.ap_id))
   end
@@ -788,7 +830,7 @@ defmodule ActivityPub.Actor do
       actor.data
       |> Map.put("deactivated", false)
 
-    update_actor_data(actor, new_data)
+    update_actor_data(actor, new_data, false)
     # Return Actor
     set_cache(get(ap_id: actor.ap_id))
   end

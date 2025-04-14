@@ -17,7 +17,7 @@ defmodule ActivityPub.Federator.Transformer.AudioHandlingTest do
   end
 
   test "Funkwhale Audio object" do
-    data = file("fixtures/tesla_mock/funkwhale_create_audio.json") |> Jason.decode!()
+    data = file("fixtures/funkwhale_create_audio.json") |> Jason.decode!()
 
     {:ok, %Activity{local: false} = activity} = Transformer.handle_incoming(data)
 

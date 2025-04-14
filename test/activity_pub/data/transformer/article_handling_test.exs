@@ -18,7 +18,7 @@ defmodule ActivityPub.Federator.Transformer.ArticleHandlingTest do
   end
 
   test "Pterotype (Wordpress Plugin) Article" do
-    data = file("fixtures/tesla_mock/wedistribute-create-article.json") |> Jason.decode!()
+    data = file("fixtures/wedistribute-create-article.json") |> Jason.decode!()
 
     {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(data)
 

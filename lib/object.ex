@@ -123,7 +123,7 @@ defmodule ActivityPub.Object do
   end
 
   defp get(ap_id: ap_id) when is_binary(ap_id) do
-    case repo().one(query(ap_id: ap_id)) do
+    case repo().one(query(ap_id: ap_id) |> debug()) |> debug() do
       %Object{} = object -> {:ok, object}
       _ -> {:error, :not_found}
     end
@@ -492,6 +492,9 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(_, fetch_remote? \\ true, pointer \\ nil)
+
+  def normalize(object, opts, pointer) when is_list(opts),
+    do: normalize(object, opts[:fetch] || opts[:fetch_remote?], pointer || opts[:pointer])
 
   def normalize({:ok, object}, fetch_remote?, pointer),
     do: normalize(object, fetch_remote?, pointer)

@@ -49,7 +49,7 @@ defmodule ActivityPub.Federator.Fetcher do
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
   def fetch_object_from_id(id, opts \\ []) do
-    case cached_or_handle_incoming(id, opts) |> debug("cohi") do
+    case cached_or_handle_incoming(id, opts) |> debug("cohi for #{inspect(id)}") do
       {:ok, object} ->
         {:ok, object}
 
@@ -198,7 +198,13 @@ defmodule ActivityPub.Federator.Fetcher do
         handle_fetched(data, opts)
         |> debug("handled")
 
+      {:ok, %Object{data: %{"type" => type}} = object}
+      when ActivityPub.Config.is_in(type, :supported_actor_types) ->
+        debug("Object is an actor, so should be formatted")
+        {:ok, Actor.format_remote_actor(object)}
+
       {:ok, _} ->
+        debug("object is ready as-is")
         input
 
       {:error, :not_found} when is_map(id_or_data) ->
@@ -226,7 +232,7 @@ defmodule ActivityPub.Federator.Fetcher do
   defp handle_fetched(%{data: data}, opts), do: handle_fetched(data, opts)
 
   defp handle_fetched(data, opts) do
-    debug(opts, "data")
+    debug(data, "data")
 
     with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
@@ -364,7 +370,7 @@ defmodule ActivityPub.Federator.Fetcher do
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(uri)
-           |> debug("headders"),
+           |> debug("with signature headers"),
          {:ok, %{body: body, status: code, headers: headers}} when code in 200..299 <-
            HTTP.get(
              id,

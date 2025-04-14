@@ -217,7 +217,7 @@ defmodule ActivityPub.Federator.APPublisher do
       Map.get(data, "audience", nil),
       Map.get(data, "context", nil)
     ]
-    |> debug("recipients from data for #{data["object"]["content"] || data["id"]}")
+    |> debug("recipients from data")
     |> List.flatten()
     |> Enum.reject(&is_nil/1)
     |> List.delete(ActivityPub.Config.public_uri())

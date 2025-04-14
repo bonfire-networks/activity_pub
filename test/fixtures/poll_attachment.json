@@ -24,7 +24,7 @@
   "content": "<span class=\"h-card\"><a class=\"u-url mention\" data-user=\"9vwjTNzEWEM1TfkBGq\" href=\"https://masto.local/users/rinpatch\" rel=\"ugc\">@<span>rinpatch</span></a></span>",
   "closed": "2019-09-19T00:32:36.785333",
   "content": "can you vote on this poll?",
-  "id": "https://patch.local/objects/tesla_mock/poll_attachment",
+  "id": "https://patch.local/objects/poll_attachment",
   "oneOf": [
     {
       "name": "a",

@@ -1,6 +1,7 @@
 defmodule ActivityPub.Instances.Instance do
   @moduledoc "Instance."
 
+  alias ActivityPub.Config
   alias ActivityPub.Instances
   alias ActivityPub.Instances.Instance
   import ActivityPub.Utils
@@ -77,11 +78,17 @@ defmodule ActivityPub.Instances.Instance do
       )
   end
 
-  def set_reachable(%{"id" => id}), do: set_reachable(id)
+  def set_reachable(uri_or_host, opts \\ [])
 
-  def set_reachable(uri_or_host) do
+  def set_reachable(%{"id" => id}, opts), do: set_reachable(id, opts)
+
+  def set_reachable(uri_or_host, opts) do
     with host when is_binary(host) <- host(uri_or_host) || {:error, "no host"} do
-      Task.start(fn -> do_set_reachable(host) end)
+      if Keyword.get_lazy(opts, :async, fn -> Config.env() != :test end) do
+        Task.start(fn -> do_set_reachable(host) end)
+      else
+        do_set_reachable(host)
+      end
     end
   end
 
@@ -91,6 +98,7 @@ defmodule ActivityPub.Instances.Instance do
       |> changeset(%{unreachable_since: nil})
       |> repo().update()
     end
+    |> debug("set_reachable?")
   end
 
   def set_unreachable(uri_or_host, unreachable_since \\ nil)

@@ -2,6 +2,7 @@ defmodule ActivityPub.Factory do
   import ActivityPub.Test.Helpers
   import ActivityPub.Utils
   alias ActivityPub.Actor
+  alias ActivityPub.Object
   import Untangle
   alias ActivityPub.Federator.Adapter
   @repo repo()
@@ -207,15 +208,15 @@ defmodule ActivityPub.Factory do
   end
 
   def local_note_activity(attrs \\ %{}) do
-    note = attrs[:note] || local_note(attrs)
-
-    if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
-         Code.ensure_loaded?(Bonfire.Social.Fake) do
-      ActivityPub.Object.get_activity_for_object_ap_id(note.data["id"])
-    else
-      actor = attrs[:actor] || local_actor()
-      activity = build(:note_activity, attrs |> Enum.into(%{actor: actor, note: note}))
-      insert(activity)
+    with %Object{} = note <- attrs[:note] || local_note(attrs) do
+      if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
+           Code.ensure_loaded?(Bonfire.Social.Fake) do
+        ActivityPub.Object.get_activity_for_object_ap_id(note.data["id"])
+      else
+        actor = attrs[:actor] || local_actor()
+        activity = build(:note_activity, attrs |> Enum.into(%{actor: actor, note: note}))
+        insert(activity)
+      end
     end
   end
 

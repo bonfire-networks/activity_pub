@@ -80,7 +80,6 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       )
       |> debug("handling enqueued or processed")
 
-      # TODO: async
       Instances.set_reachable(params["actor"])
 
       json(conn, "ok")

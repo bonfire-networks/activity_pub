@@ -85,9 +85,10 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def maybe_fetch(entries, opts) when is_list(entries) do
     depth = (opts[:depth] || 0) + 1
-    max_items = Config.get([:instance, :federation_incoming_max_items]) || 5
 
     if allowed_recursion?(depth) do
+      max_items = Config.get([:instance, :federation_incoming_max_items]) || 5
+
       case opts[:mode] do
         false ->
           debug("skip because of mode: false")
@@ -104,6 +105,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 id,
                 Enum.into(opts[:worker_attrs] || %{}, %{
                   "depth" => entry_depth,
+                  "max_depth" => max_items,
                   "fetch_collection_entries" => opts[:fetch_collection_entries]
                 })
               )
@@ -166,6 +168,9 @@ defmodule ActivityPub.Federator.Fetcher do
       {:reject, e} ->
         error(:reject, e)
         {:reject, e}
+
+      {:error, e} ->
+        {:error, e}
 
       other ->
         error(other)
@@ -356,7 +361,8 @@ defmodule ActivityPub.Federator.Fetcher do
 
     with true <- Config.federating?() != false || {:error, "Federation is disabled"},
          true <-
-           allowed_recursion?(options[:depth]) || {:error, "Stopping to avoid too much recursion"},
+           allowed_recursion?(options[:depth], options[:max_depth]) ||
+             {:error, "Stopping to avoid too much recursion"},
          true <-
            String.starts_with?(id, "http") || {:error, "Unsupported URL (should start with http)"},
          uri <- URI.parse(id),

@@ -130,6 +130,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp maybe_object_json(%Object{}) do
+    # TODO: support authenticated fetching for non-public objects
     warn(
       "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
     )

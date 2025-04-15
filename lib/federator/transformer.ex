@@ -346,15 +346,22 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_context(object, options) do
     context = object["context"] || object["conversation"] || object["inReplyTo"]
 
-    with context when is_binary(context) <- Utils.single_ap_id(context),
-         _ <-
-           Fetcher.maybe_fetch(context, options)
-           |> info("fetched context?") do
-      object
-      |> Map.put("context", context)
-    else
-      e ->
-        warn(e, "Couldn't find context @ #{inspect(context)}")
+    case Utils.single_ap_id(context) do
+      context = "tag:" <> _ ->
+        # TODO: how to handle Mastodon's thread IDs?
+        object
+        |> Map.put("context", context)
+
+      context when is_binary(context) ->
+        # fetching async
+        Fetcher.maybe_fetch(context, options)
+        |> debug("fetched context?")
+
+        object
+        |> Map.put("context", context)
+
+      _ ->
+        warn(context, "Couldn't find context, use self")
 
         object
         |> Map.put("context", object["id"])

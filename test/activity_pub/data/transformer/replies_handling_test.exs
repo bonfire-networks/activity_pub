@@ -199,21 +199,65 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       assert all_enqueued(worker: Workers.RemoteFetcherWorker) == []
     end
 
-    @tag :fixme
-    test "does NOT schedule *recursive* background fetching of `replies` beyond what max thread depth limit allows",
+    test "does NOT schedule *recursive* background fetching of `replies` beyond what the max items limit allows",
          %{activity: activity} do
-      clear_config([:instance, :federation_incoming_max_recursion], 1)
+      limit = 1
+      # clear_config([:instance, :federation_incoming_max_recursion], limit)
+      clear_config([:instance, :federation_incoming_max_items], limit)
+
+      already_enqueued =
+        length(all_enqueued(worker: Workers.RemoteFetcherWorker))
+        |> debug("already_enqueued")
 
       {:ok, %Activity{data: data}} = Transformer.handle_incoming(activity)
       object = Object.normalize(data["object"])
 
-      for {id, i} <- Enum.with_index(object.data["replies"]) do
-        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => i + 1, "repo" => repo()}
-        assert_enqueued(worker: Workers.RemoteFetcherWorker, args: job_args)
-        perform_job(Workers.RemoteFetcherWorker, job_args)
-      end
+      replies = object.data["replies"]
+      replies_length = length(replies)
 
-      assert length(all_enqueued(worker: Workers.RemoteFetcherWorker)) == 2
+      all_enqueued =
+        all_enqueued(worker: Workers.RemoteFetcherWorker)
+        |> debug("all_enqueued")
+
+      assert length(all_enqueued) == already_enqueued + limit
+    end
+
+    test "does NOT execute scheduled *recursive* background fetching of `replies` beyond what the max recursion limit allows",
+         %{activity: activity} do
+      clear_config([:instance, :federation_incoming_max_recursion], 0)
+      clear_config([:instance, :federation_incoming_max_items], 0)
+
+      already_enqueued =
+        length(all_enqueued(worker: Workers.RemoteFetcherWorker))
+        |> debug("already_enqueued")
+
+      {:ok, %Activity{data: data}} = Transformer.handle_incoming(activity)
+      object = Object.normalize(data["object"])
+
+      replies = object.data["replies"]
+      replies_length = length(replies)
+
+      limit = 1
+      clear_config([:instance, :federation_incoming_max_recursion], limit)
+
+      for {id, i} <- Enum.with_index(replies) do
+        # check enqueued jobs
+        job_args = %{"op" => "fetch_remote", "id" => id, "depth" => i + 1, "repo" => repo()}
+
+        ActivityPub.Federator.Fetcher.enqueue_fetch(
+          id,
+          job_args
+        )
+
+        if i == 0 do
+          assert {:ok, _} =
+                   perform_job(Workers.RemoteFetcherWorker, job_args) |> debug("performed #{i}")
+        else
+          assert {:error, _} =
+                   perform_job(Workers.RemoteFetcherWorker, job_args)
+                   |> debug("not performed #{i}")
+        end
+      end
     end
   end
 

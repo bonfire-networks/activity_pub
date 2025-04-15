@@ -13,6 +13,7 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
   def perform(%Job{args: %{"op" => "fetch_remote", "id" => id} = args}) do
     Fetcher.fetch_object_from_id(id,
       depth: args["depth"],
+      max_depth: args["max_depth"],
       fetch_collection_entries: ActivityPub.Utils.maybe_to_atom(args["fetch_collection_entries"])
     )
   end

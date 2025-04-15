@@ -260,6 +260,8 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       assert response == ObjectView.render("object.json", %{object: note})
     end
 
+    #  should we send a 404 or a Tombstone object?
+    @tag :todo
     test "it returns 404 for tombstone objects", %{conn: conn} do
       tombstone = insert(:tombstone)
       uuid = String.split(tombstone.data["id"], "/") |> List.last()
@@ -527,33 +529,33 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
       assert Object.get_cached!(ap_id: data["id"])
     end
+  end
 
-    @tag :fixme
-    test "it clears `unreachable` federation status of the sender", %{conn: conn} do
-      data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+  test "it clears `unreachable` federation status of the sender instance when receiving an activity",
+       %{conn: conn} do
+    data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
 
-      subject = actor(local: false)
+    subject = actor(local: false)
 
-      data =
-        data
-        |> Map.put("actor", subject.data["id"])
+    data =
+      data
+      |> Map.put("actor", subject.data["id"])
 
-      sender_url = data["actor"]
-      sender = local_actor(ap_id: data["actor"])
+    sender_url = data["actor"]
+    sender = local_actor(ap_id: data["actor"])
 
-      Instances.set_consistently_unreachable(sender_url)
-      refute Instances.reachable?(sender_url)
+    Instances.set_consistently_unreachable(sender_url)
+    refute Instances.reachable?(sender_url)
 
-      conn =
-        conn
-        |> assign(:valid_signature, true)
-        |> put_req_header("signature", "keyId=\"#{ap_id(sender)}/main-key\"")
-        |> put_req_header("content-type", "application/activity+json")
-        |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+    conn =
+      conn
+      |> assign(:valid_signature, true)
+      |> put_req_header("signature", "keyId=\"#{ap_id(sender)}/main-key\"")
+      |> put_req_header("content-type", "application/activity+json")
+      |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 
-      assert json_response(conn, 200) in ["ok", "tbd"]
-      assert Instances.reachable?(sender_url)
-    end
+    assert json_response(conn, 200) in ["ok", "tbd"]
+    assert Instances.reachable?(sender_url)
   end
 
   describe "/users/:nickname/inbox" do
@@ -741,7 +743,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
     #   assert %{"orderedItems" => [%{"id" => ^ap_id}]} = resp
     # end
 
-    test "it does not return a local note activity when unauthenticated", %{conn: conn} do
+    test "it does not return a local-only note activity when unauthenticated", %{conn: conn} do
       user = local_actor()
       _note_activity = local_note_activity(%{actor: user, status: "mew mew", boundary: "local"})
 

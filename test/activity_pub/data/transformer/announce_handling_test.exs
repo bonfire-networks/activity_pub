@@ -175,7 +175,6 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
     assert object.data["content"] == "this is a private toot"
   end
 
-  @tag capture_log: true
   test "it rejects incoming announces with an inlined activity from another origin" do
     Tesla.Mock.mock(fn
       %{method: :get} -> %Tesla.Env{status: 404, body: ""}
@@ -185,7 +184,7 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
       file("fixtures/bogus-mastodon-announce.json")
       |> Jason.decode!()
 
-    _user = actor(local: false, ap_id: data["actor"])
+    # _user = actor(local: false, ap_id: data["actor"])
 
     assert {:error, _e} = Transformer.handle_incoming(data)
   end

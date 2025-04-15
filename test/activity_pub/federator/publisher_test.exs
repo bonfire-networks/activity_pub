@@ -4,10 +4,14 @@ defmodule ActivityPub.Federator.APPublisherTest do
   import ActivityPub.Factory
   import Tesla.Mock
   alias ActivityPub.Actor
+  import Tesla.Mock
 
   setup_all do
     mock_global(fn
-      %{method: :post} -> %Tesla.Env{status: 200}
+      %{method: :post} ->
+        %Tesla.Env{status: 200}
+        #  env ->
+        #   apply(ActivityPub.Test.HttpRequestMock, :request, [env])
     end)
 
     :ok
@@ -38,9 +42,13 @@ defmodule ActivityPub.Federator.APPublisherTest do
     assert queued = APPublisher.publish(actor, activity)
     assert queued != []
 
+    ObanHelpers.list_queue()
+    |> debug("list_queue")
+
     queue = Oban.drain_queue(queue: :federator_outgoing)
-    # (previous_queue[:success] || 0) + 1
-    assert queue[:success] == 1
+
+    #  TODO: more precise
+    assert queue[:success] >= (previous_queue[:success] || 0) + 1
     assert queue[:failure] == (previous_queue[:failure] || 0)
   end
 

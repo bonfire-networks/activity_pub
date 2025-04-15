@@ -1,10 +1,11 @@
 defmodule ActivityPub.ActorTest do
   use ActivityPub.DataCase, async: false
-  import Tesla.Mock
 
   alias ActivityPub.Actor
 
   import ActivityPub.Factory
+
+  import Tesla.Mock
 
   setup_all do
     mock_global(fn

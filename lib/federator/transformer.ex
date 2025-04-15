@@ -1120,7 +1120,8 @@ defmodule ActivityPub.Federator.Transformer do
          verified_object <- Object.normalize(verified_data || object, false) |> debug("normied"),
          {:actor, false} <-
            {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
-         {:ok, activity} <- ActivityPub.delete(object || object_id, false) |> debug("deleted!!") do
+         {:ok, activity} <-
+           ActivityPub.delete(verified_object || object_id, false) |> debug("deleted!!") do
       {:ok, activity}
     else
       {:actor, true} ->

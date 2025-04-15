@@ -380,7 +380,7 @@ defmodule ActivityPub.Federator.Fetcher do
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(uri)
-           |> debug("with signature headers"),
+           |> debug("ready to fetch #{inspect(id)} with signature headers"),
          {:ok, %{body: body, status: code, headers: headers}} when code in 200..299 <-
            HTTP.get(
              id,

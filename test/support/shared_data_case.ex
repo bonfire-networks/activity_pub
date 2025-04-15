@@ -15,7 +15,10 @@ defmodule ActivityPub.SharedDataCase do
     Ecto.Adapters.SQL.Sandbox.mode(repo(), :auto)
 
     actor1 = insert(:actor)
+    # |> cached_or_handle()
+
     actor2 = insert(:actor)
+    # |> cached_or_handle()
 
     u1 = "https://mastodon.local/pub/actors/#{actor1.data["preferredUsername"]}/inbox" |> info()
     u2 = "https://mastodon.local/pub/actors/#{actor2.data["preferredUsername"]}/inbox"
@@ -37,8 +40,6 @@ defmodule ActivityPub.SharedDataCase do
       :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo())
       Ecto.Adapters.SQL.Sandbox.mode(repo(), :auto)
 
-      # we also need to re-fetch the %Tenant struct since Ecto otherwise
-      # complains it's "stale"
       Object.delete(actor1)
       Object.delete(actor2)
       :ok

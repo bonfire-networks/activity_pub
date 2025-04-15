@@ -10,12 +10,14 @@ defmodule ActivityPub.Factory do
 
   def actor(attrs \\ %{}) do
     actor = insert(:actor, attrs)
-    actor_cached(actor)
+    cached_or_handle(actor)
   end
 
-  def actor_cached(actor) do
-    {:ok, actor} = ActivityPub.Federator.Fetcher.cached_or_handle_incoming(actor)
-    actor
+  def cached_or_handle(object) do
+    {:ok, object} =
+      ActivityPub.Federator.Fetcher.cached_or_handle_incoming(object, already_fetched: true)
+
+    object
   end
 
   def local_actor(attrs \\ %{}) do

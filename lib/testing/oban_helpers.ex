@@ -13,10 +13,14 @@ defmodule ActivityPub.Tests.ObanHelpers do
     repo().delete_all(Oban.Job)
   end
 
-  def perform_all do
+  def list_queue do
     Oban.Job
     |> Ecto.Query.where(state: "available")
     |> repo().all()
+  end
+
+  def perform_all do
+    list_queue()
     |> perform()
   end
 

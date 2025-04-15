@@ -20,7 +20,7 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
   end
 
   defp handle_rate_limit_headers(%{status: 429, headers: headers} = env, next, _opts) do
-    debug(env)
+    debug(env, "handle HTTP 429: Too Many Requests")
 
     retry_after =
       case Enum.find_value(headers, fn {k, _} -> k == "retry-after" end) do

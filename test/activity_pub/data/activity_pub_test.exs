@@ -33,7 +33,7 @@ defmodule ActivityPubTest do
     end
 
     test "it doesn't insert an object with the same ID twice", context do
-      actor = actor_cached(context[:actor1])
+      actor = cached_or_handle(context[:actor1])
       context = "blabla"
       object = %{"id" => "some_id", "content" => "content", "type" => "Note"}
       to = ["https://testing.local/users/karen"]
@@ -116,7 +116,10 @@ defmodule ActivityPubTest do
 
   describe "deletion" do
     test "it creates a delete activity and deletes the original object", context do
-      actor = context[:actor1]
+      actor =
+        context[:actor1]
+        |> cached_or_handle()
+
       context = "blabla"
 
       object = %{

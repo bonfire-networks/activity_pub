@@ -36,12 +36,12 @@ defmodule ActivityPub.Federator.Transformer.UserDeleteHandlingTest do
   end
 
   test "delete user works for incoming user deletes where the remote actor 404s" do
-    %{data: %{"id" => ap_id}} =
+    actor =
+      %{data: %{"id" => ap_id}} =
       insert(:actor, %{
         data: %{"id" => "https://mastodon.local/users/deleted"}
       })
-
-    assert Object.get_cached!(ap_id: ap_id)
+      |> cached_or_handle()
 
     data =
       file("fixtures/mastodon/mastodon-delete-user.json")
@@ -54,17 +54,20 @@ defmodule ActivityPub.Federator.Transformer.UserDeleteHandlingTest do
   end
 
   test "delete user works for incoming user deletes where the remote actor has a Tombstone" do
-    %{data: %{"id" => ap_id}} =
+    actor =
+      %{data: %{"id" => ap_id}} =
       insert(:actor, %{
         data: %{"id" => "https://mastodon.local/users/tombstoned"}
       })
 
-    assert Object.get_cached!(ap_id: ap_id)
+    actor =
+      cached_or_handle(actor)
+      |> debug("cached_or_handled")
 
     data =
       file("fixtures/mastodon/mastodon-delete-user.json")
       |> Jason.decode!()
-      |> Map.put("object", "https://mastodon.local/users/tombstoned")
+      |> Map.put("object", ap_id)
 
     {:ok, _} = Transformer.handle_incoming(data)
     ObanHelpers.perform_all()
@@ -73,17 +76,20 @@ defmodule ActivityPub.Federator.Transformer.UserDeleteHandlingTest do
   end
 
   test "delete user fails when actor still exists on origin instance" do
-    %{data: %{"id" => ap_id}} =
+    actor =
+      %{data: %{"id" => ap_id}} =
       insert(:actor, %{
         data: %{"id" => "https://mastodon.local/users/admin"}
       })
 
-    assert Object.get_cached!(ap_id: ap_id)
+    actor =
+      cached_or_handle(actor)
+      |> debug("cached_or_handled")
 
     data =
       file("fixtures/mastodon/mastodon-delete-user.json")
       |> Jason.decode!()
-      |> Map.put("object", "https://mastodon.local/users/admin")
+      |> Map.put("object", ap_id)
 
     assert {:error, _} = Transformer.handle_incoming(data)
     ObanHelpers.perform_all()

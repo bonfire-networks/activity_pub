@@ -25,6 +25,10 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
 
     activity = insert(:note_activity, %{note: note})
 
+    _ =
+      cached_or_handle(activity)
+      |> debug("cached_or_handled")
+
     data =
       file("fixtures/mastodon/mastodon-delete.json")
       |> Jason.decode!()
@@ -50,7 +54,9 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     activity = insert(:note_activity)
 
     # process with adapter
-    {:ok, stored_activity} = ActivityPub.Federator.Fetcher.cached_or_handle_incoming(activity)
+    _ =
+      cached_or_handle(activity)
+      |> debug("cached_or_handled")
 
     {:ok, object} =
       Object.normalize(activity.data["object"], fetch: false)
@@ -82,6 +88,9 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
 
     note = insert(:note, data: note_data)
     activity = insert(:note_activity, %{note: note})
+
+    #     _ = cached_or_handle(activity)
+    # |> debug("cached_or_handled")
 
     data =
       file("fixtures/mastodon/mastodon-delete.json")

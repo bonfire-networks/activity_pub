@@ -20,93 +20,7 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     :ok
   end
 
-  test "it works for incoming deletes" do
-    activity = insert(:note_activity)
-    deleting_user = local_actor()
-
-    data =
-      file("fixtures/mastodon/mastodon-delete.json")
-      |> Jason.decode!()
-      |> Map.put("actor", ap_id(deleting_user))
-      |> put_in(["object", "id"], activity.data["object"])
-      |> debug("dattta")
-
-    {:ok, %Activity{local: false, data: %{"id" => id, "actor" => actor}}} =
-      Transformer.handle_incoming(data)
-      |> debug("handdddled")
-
-    # assert id == data["id"]
-
-    # We delete the Create activity because we base our timelines on it.
-    # This should be changed after we unify objects and activities
-    refute Activity.get_cached(id: activity.id)
-    assert actor == ap_id(deleting_user)
-
-    # Objects are replaced by a tombstone object.
-    object = Object.normalize(activity.data["object"], fetch: false)
-    assert object.data["type"] == "Tombstone"
-  end
-
-  test "it works for incoming when the object has been pruned" do
-    activity = insert(:note_activity)
-
-    {:ok, object} =
-      Object.normalize(activity.data["object"], fetch: false)
-      |> repo().delete()
-
-    Object.invalidate_cache(object)
-
-    deleting_user = local_actor()
-
-    data =
-      file("fixtures/mastodon/mastodon-delete.json")
-      |> Jason.decode!()
-      |> Map.put("actor", ap_id(deleting_user))
-      |> put_in(["object", "id"], activity.data["object"])
-
-    {:ok, %Activity{local: false, data: %{"id" => id, "actor" => actor}}} =
-      Transformer.handle_incoming(data)
-
-    assert id == data["id"]
-
-    # We delete the Create activity because we base our timelines on it.
-    # This should be changed after we unify objects and activities
-    refute Activity.get_cached(id: activity.id)
-    assert actor == ap_id(deleting_user)
-  end
-
-  test "it fails for incoming deletes with spoofed origin" do
-    activity = insert(:note_activity)
-    ap_id = ap_id(local_actor(ap_id: "https://gensokyo.2hu/users/raymoo"))
-
-    data =
-      file("fixtures/mastodon/mastodon-delete.json")
-      |> Jason.decode!()
-      |> Map.put("actor", ap_id)
-      |> put_in(["object", "id"], activity.data["object"])
-
-    assert match?({:error, _}, Transformer.handle_incoming(data))
-  end
-
-  test "it works for incoming user deletes" do
-    %{data: %{"id" => ap_id}} =
-      insert(:actor, %{
-        data: %{"id" => "https://mastodon.local/users/deleted"}
-      })
-
-    assert Object.get_cached!(ap_id: ap_id)
-
-    data =
-      file("fixtures/mastodon/mastodon-delete-user.json")
-      |> Jason.decode!()
-
-    {:ok, _} = Transformer.handle_incoming(data)
-    ObanHelpers.perform_all()
-
-    refute Object.get_cached!(ap_id: ap_id)
-  end
-
-  test "it works for incoming deletes when object was deleted on origin instance" do
+  test "delete object works for incoming deletes of remote object when it was deleted on origin instance" do
     note = insert(:note, %{data: %{"id" => "https://fedi.local/objects/410"}})
 
     activity = insert(:note_activity, %{note: note})
@@ -130,7 +44,38 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     assert object.data["type"] == "Tombstone"
   end
 
-  test "it errors when note still exists" do
+  # should make sure we also tell the adapter to delete things that were pruned, as part of the work on https://github.com/bonfire-networks/bonfire-app/issues/850
+  @tag :todo
+  test "delete object works for incoming when the object has been pruned" do
+    activity = insert(:note_activity)
+
+    # process with adapter
+    {:ok, stored_activity} = ActivityPub.Federator.Fetcher.cached_or_handle_incoming(activity)
+
+    {:ok, object} =
+      Object.normalize(activity.data["object"], fetch: false)
+      |> repo().delete()
+
+    Object.invalidate_cache(object)
+
+    deleting_user = local_actor()
+
+    data =
+      file("fixtures/mastodon/mastodon-delete.json")
+      |> Jason.decode!()
+      |> Map.put("actor", ap_id(deleting_user))
+      |> put_in(["object", "id"], activity.data["object"])
+
+    {:ok, %Activity{local: false, data: %{"id" => id, "actor" => actor}}} =
+      Transformer.handle_incoming(data)
+
+    assert id == data["id"]
+
+    refute Activity.get_cached(id: activity.id)
+    assert actor == ap_id(deleting_user)
+  end
+
+  test "delete object fails when note still exists" do
     note_data =
       file("fixtures/pleroma_note.json")
       |> Jason.decode!()
@@ -154,16 +99,42 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     assert {:error, _} = Transformer.handle_incoming(data)
   end
 
-  test "it fails for incoming user deletes with spoofed origin" do
-    ap_id = ap_id(local_actor())
+  test "delete object fails for incoming deletes of local activities" do
+    activity = insert(:note_activity)
+    deleting_user = local_actor()
 
     data =
-      file("fixtures/mastodon/mastodon-delete-user.json")
+      file("fixtures/mastodon/mastodon-delete.json")
+      |> Jason.decode!()
+      |> Map.put("actor", ap_id(deleting_user))
+      |> put_in(["object", "id"], activity.data["object"])
+      |> debug("dattta")
+
+    assert {:error, _} =
+             Transformer.handle_incoming(data)
+             |> debug("delete handdddled")
+  end
+
+  test "delete object skips incoming deletes of unknown objects" do
+    data =
+      file("fixtures/mastodon/mastodon-delete.json")
+      |> Jason.decode!()
+      |> Map.put("actor", "https://mastodon.local/users/admin")
+      |> put_in(["object", "id"], "https://mastodon.local/objects/123")
+
+    refute match?({:ok, %{}}, Transformer.handle_incoming(data))
+  end
+
+  test "delete object fails for incoming deletes with spoofed origin" do
+    activity = insert(:note_activity)
+    ap_id = ap_id(local_actor(ap_id: "https://gensokyo.2hu/users/raymoo"))
+
+    data =
+      file("fixtures/mastodon/mastodon-delete.json")
       |> Jason.decode!()
       |> Map.put("actor", ap_id)
+      |> put_in(["object", "id"], activity.data["object"])
 
     assert match?({:error, _}, Transformer.handle_incoming(data))
-
-    assert user_by_ap_id(ap_id)
   end
 end

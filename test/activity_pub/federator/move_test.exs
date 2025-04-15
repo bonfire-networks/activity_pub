@@ -20,7 +20,7 @@ defmodule ActivityPub.MoveTest do
 
     assert user.data |> Map.get("alsoKnownAs", []) == []
 
-    {:ok, updated} =
+    update_data =
       "fixtures/mastodon/mastodon-update.json"
       |> file()
       |> Jason.decode!()
@@ -34,10 +34,28 @@ defmodule ActivityPub.MoveTest do
           "http://exampleorg.local/users/bar"
         ])
       end)
-      |> Transformer.handle_incoming()
-      |> debug("uppdated")
 
-    # TODO
+    {:ok, updated} =
+      Transformer.handle_incoming(update_data)
+      |> debug("not actually updated because the server actor wasn't updated")
+
+    # now actually update the actor on the server
+    mock(fn
+      %{method: :get, url: ^actor} ->
+        %Tesla.Env{
+          status: 200,
+          body: Jason.encode!(update_data["object"]),
+          headers: [{"content-type", "application/activity+json"}]
+        }
+
+      env ->
+        HttpRequestMock.request(env)
+    end)
+
+    {:ok, updated} =
+      Transformer.handle_incoming(update_data)
+      |> debug("actually updated")
+
     assert Actor.get_cached!(ap_id: actor).data |> Map.get("alsoKnownAs", []) == [
              "https://mastodon.local/users/foo",
              "http://exampleorg.local/users/bar"

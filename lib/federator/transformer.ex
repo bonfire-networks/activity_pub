@@ -168,6 +168,7 @@ defmodule ActivityPub.Federator.Transformer do
     case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true)
          |> debug("fetched") do
       {:error, :not_found} ->
+        # ok it seems gone from there
         {:ok, nil}
 
       {:ok, %{} = data} ->
@@ -177,7 +178,13 @@ defmodule ActivityPub.Federator.Transformer do
           {:error, :not_deleted}
         end
 
-      _ ->
+      {:error, :nxdomain} ->
+        warn(ap_id, "could not reach the instance to verify deletion")
+        # TODO: keep in Oban queue to retry a few times?
+        {:error, :not_deleted}
+
+      e ->
+        error(e)
         {:error, :not_deleted}
     end
   end
@@ -1005,15 +1012,16 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => %{"type" => type, "id" => update_actor_id} = _update_actor_data,
           "actor" => actor_id
         } = data,
-        _opts
+        opts
       )
       when ActivityPub.Config.is_in(type, :supported_actor_types) and actor_id == update_actor_id do
     # TODO: should a Person be able to update a Group or the like?
 
     debug(actor_id, "update an Actor")
+    debug(opts, "opts")
 
     #  NOTE: we avoid even passing the update_actor_data to avoid accepting invalid updates
-    with {:ok, actor} <- Actor.update_actor(actor_id, nil, true) do
+    with {:ok, actor} <- Actor.update_actor(actor_id, nil, opts[:already_fetched] != true) do
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
       # TODO: do we need to register an Update activity for this?
@@ -1118,11 +1126,15 @@ defmodule ActivityPub.Federator.Transformer do
         end
 
       {:error, :not_found} ->
+        # TODO: optimise / short circuit incoming Delete activities for unknown remote objects/actors, see https://github.com/bonfire-networks/bonfire-app/issues/850
         error(object_id, "Object is not cached locally, skip deletion")
         {:ok, nil}
 
       {:error, :not_deleted} ->
         error("Could not verify incoming deletion")
+
+      {:error, e} ->
+        error(e)
 
       e ->
         error(e, "Could not handle incoming deletion")
@@ -1268,11 +1280,11 @@ defmodule ActivityPub.Federator.Transformer do
     maybe_handle_other_activity(data)
   end
 
-  def handle_incoming(%{"type" => type} = data, _opts)
+  def handle_incoming(%{"type" => type} = data, opts)
       when ActivityPub.Config.is_in(type, :supported_actor_types) or type in ["Author"] do
     info(type, "Save actor or collection without an activity")
 
-    ActivityPub.Actor.create_or_update_actor_from_object(data)
+    ActivityPub.Actor.create_or_update_actor_from_object(data, opts)
   end
 
   def handle_incoming(%{"type" => type} = data, _opts)

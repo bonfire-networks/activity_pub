@@ -73,7 +73,8 @@ defmodule ActivityPub.Test.Helpers do
     |> Utils.ok_unwrap()
   end
 
-  def user_by_ap_id(%{pointer: %{} = user}), do: user
+  def user_by_ap_id(%{pointer: %{id: _} = user}), do: user
+  def user_by_ap_id(%{pointer_id: id}), do: user_by_ap_id(id)
   def user_by_ap_id(%{"id" => id}), do: user_by_ap_id(id)
   def user_by_ap_id(user), do: user
 

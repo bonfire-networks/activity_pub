@@ -14,7 +14,7 @@ defmodule ActivityPub.Factory do
   end
 
   def actor_cached(actor) do
-    {:ok, actor} = ActivityPub.Actor.get_cached(ap_id: actor.data["id"])
+    {:ok, actor} = ActivityPub.Federator.Fetcher.cached_or_handle_incoming(actor)
     actor
   end
 
@@ -76,7 +76,7 @@ defmodule ActivityPub.Factory do
 
   def add_alias(actor, to_alias) do
     {:ok, _actor} =
-      Adapter.update_remote_actor(actor.pointer, %{
+      Adapter.update_remote_actor(actor, %{
         data:
           Map.put(
             actor.data,

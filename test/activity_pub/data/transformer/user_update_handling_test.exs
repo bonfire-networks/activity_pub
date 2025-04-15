@@ -17,46 +17,88 @@ defmodule ActivityPub.Federator.Transformer.UserUpdateHandlingTest do
   end
 
   test "it works for incoming update activities" do
-    original_actor_data =
+    input_actor_data =
       file("fixtures/mastodon/mastodon-actor.json")
       |> Jason.decode!()
-      #  FIXME: the actor should be fetched so it should not be possible to do this
-      |> Map.put("summary", "summary custom")
+      |> Map.put("summary", "Custom bio not coming from the server")
 
-    assert %Actor{data: original_actor_data, local: false} =
-             ok_unwrap(Transformer.handle_incoming(original_actor_data))
+    assert %Actor{data: created_actor_data, local: false} =
+             ok_unwrap(Transformer.handle_incoming(input_actor_data))
 
-    {:ok, original_actor} = Actor.get_cached_or_fetch(ap_id: original_actor_data)
+    {:ok, original_actor} = Actor.get_cached_or_fetch(ap_id: created_actor_data)
 
-    refute original_actor.data["summary"] =~ "summary custom"
+    # the actor has been fetched from source, and the custom data handle_incoming was ignored for safety
+    refute original_actor.data["summary"] =~ "Custom bio not coming from the server"
+    #  original from the server is kept
+    assert original_actor.data["summary"] =~ "short bio"
+    assert original_actor.data == created_actor_data
+    refute original_actor.data == input_actor_data
 
     update_data = file("fixtures/mastodon/mastodon-update.json") |> Jason.decode!()
 
+    update_actor_data =
+      update_data["object"]
+      |> Map.put("actor", created_actor_data["id"])
+      |> Map.put("id", created_actor_data["id"])
+
     update_activity =
       update_data
-      |> Map.put("actor", original_actor_data["id"])
+      |> Map.put("actor", created_actor_data["id"])
       |> Map.put(
         "object",
-        update_data["object"]
-        |> Map.put("actor", original_actor_data["id"])
-        |> Map.put("id", original_actor_data["id"])
+        update_actor_data
       )
 
     {:ok, %{data: _, local: false}} =
       Transformer.handle_incoming(update_activity)
-      |> debug()
+      |> debug("handled_update")
 
     # assert data_updated["id"] == update_activity["id"]
 
-    {:ok, updated_actor} = Actor.get_cached(ap_id: original_actor_data["id"])
+    {:ok, updated_actor} = Actor.get_cached(ap_id: created_actor_data["id"])
 
+    # the actor has been fetched from source, and the custom data from the Update activity was ignored for safety
+    refute original_actor.data["summary"] =~ "Some updated bio"
     assert updated_actor.data["summary"] =~ "short bio"
+    assert original_actor.data == updated_actor.data
+    refute updated_actor.data == update_actor_data
 
-    assert updated_actor.data["icon"]["url"] ==
-             "https://cdn.mastodon.local/accounts/avatars/000/033/323/original/fd7f8ae0b3ffedc9.jpeg"
+    # Now modify the mock to return different data for the actor
+    modified_actor_data =
+      file("fixtures/mastodon/mastodon-actor.json")
+      |> Jason.decode!()
+      |> Map.put("summary", "This is the a bio actually updated on the server")
 
-    assert updated_actor.data["image"]["url"] ==
-             "https://cdn.mastodon.local/accounts/headers/000/033/323/original/850b3448fa5fd477.png"
+    actor_url = created_actor_data["id"]
+
+    mock(fn
+      %{method: :get, url: ^actor_url} ->
+        %Tesla.Env{
+          status: 200,
+          body: Jason.encode!(modified_actor_data),
+          headers: [{"content-type", "application/activity+json"}]
+        }
+
+      env ->
+        HttpRequestMock.request(env)
+    end)
+
+    # Run the update activity again
+    {:ok, %{data: _, local: false}} =
+      Transformer.handle_incoming(update_activity)
+      |> debug("handled_update_again")
+
+    # Now the actor should be updated with the new data from the mock
+    {:ok, newly_updated_actor} = Actor.get_cached(ap_id: created_actor_data["id"])
+
+    # Verify the actor now contains the new data
+    refute original_actor.data["summary"] =~ "Some updated bio"
+
+    assert newly_updated_actor.data["summary"] =~
+             "This is the a bio actually updated on the server"
+
+    refute newly_updated_actor.data == update_actor_data
+    refute newly_updated_actor.data == original_actor.data
   end
 
   test "update activities for an actor ignores the given object and re-fetches the remote actor instead" do

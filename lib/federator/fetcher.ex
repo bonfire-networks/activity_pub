@@ -158,7 +158,8 @@ defmodule ActivityPub.Federator.Fetcher do
     with true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
          {:ok, data} <- fetch_remote_object_from_id(id, opts),
-         {:ok, object} <- cached_or_handle_incoming(data, opts) do
+         {:ok, object} <-
+           cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true)) do
       {:ok, object}
     else
       true ->
@@ -177,13 +178,15 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp cached_or_handle_incoming(%{"type" => type} = id_or_data, opts)
-       when ActivityPub.Config.is_in(type, :supported_actor_types) do
+  def cached_or_handle_incoming(id_or_data, opts \\ [])
+
+  def cached_or_handle_incoming(%{"type" => type} = id_or_data, opts)
+      when ActivityPub.Config.is_in(type, :supported_actor_types) do
     debug("create/update an Actor")
     handle_fetched(id_or_data, opts)
   end
 
-  defp cached_or_handle_incoming(id_or_data, opts) do
+  def cached_or_handle_incoming(id_or_data, opts) do
     Object.get_cached(ap_id: id_or_data)
     |> debug("gcc")
     |> maybe_handle_incoming(id_or_data, opts)
@@ -238,6 +241,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp handle_fetched(data, opts) do
     debug(data, "data")
+    debug(opts, "opts")
 
     with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
@@ -372,7 +376,7 @@ defmodule ActivityPub.Federator.Fetcher do
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
          true <-
-           not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :local_actor},
+           not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :is_local},
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(uri)
@@ -460,7 +464,7 @@ defmodule ActivityPub.Federator.Fetcher do
         cache_fetch_error(id)
         {:error, :not_found}
 
-      {:error, %Jason.DecodeError{data: data}} ->
+      {:error, %Jason.DecodeError{data: data} = json_error} ->
         with true <- is_list(headers),
              linked_object_id when is_binary(linked_object_id) <-
                Enum.find_value(headers, fn
@@ -486,7 +490,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 if options[:return_html] do
                   {:html, data}
                 else
-                  error(data, "Invalid ActivityPub JSON")
+                  error(json_error, "Invalid ActivityPub JSON")
                 end
             end
         end
@@ -496,9 +500,21 @@ defmodule ActivityPub.Federator.Fetcher do
         Instances.set_unreachable(id)
         error("Could not connect to ActivityPub remote")
 
-      {:error, :local_actor} ->
+      {:error, :is_local} ->
         warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
-        Adapter.get_actor_by_ap_id(id)
+
+        with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
+          {:ok, actor}
+        else
+          {:error, :not_found} ->
+            {:error, :is_local}
+
+          e ->
+            error(
+              e,
+              "the caller attempted to fetch a local object (which doesn't seem to be a local actor)"
+            )
+        end
 
       {{:error, e}, data} ->
         # cache_fetch_error(id)

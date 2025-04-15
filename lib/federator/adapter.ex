@@ -95,17 +95,17 @@ defmodule ActivityPub.Federator.Adapter do
   @doc """
   Get the host application IDs for all `Actor`s following the given `Actor`.
   """
-  @callback get_follower_local_ids(Actor.t()) :: [Actor.id()]
-  def get_follower_local_ids(actor) do
-    adapter().get_follower_local_ids(actor)
+  @callback get_follower_local_ids(Actor.t(), boolean()) :: [Actor.id()]
+  def get_follower_local_ids(actor, purpose_or_current_actor \\ nil) do
+    adapter().get_follower_local_ids(actor, purpose_or_current_actor)
   end
 
   @doc """
   Get the host application IDs for all `Actor`s that the given `Actor` is following.
   """
-  @callback get_following_local_ids(Actor.t()) :: [Actor.id()]
-  def get_following_local_ids(actor) do
-    adapter().get_following_local_ids(actor)
+  @callback get_following_local_ids(Actor.t(), boolean()) :: [Actor.id()]
+  def get_following_local_ids(actor, purpose_or_current_actor \\ nil) do
+    adapter().get_following_local_ids(actor, purpose_or_current_actor)
   end
 
   @doc """

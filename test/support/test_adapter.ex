@@ -55,7 +55,7 @@ defmodule ActivityPub.TestAdapter do
     :ok
   end
 
-  def get_follower_local_ids(actor) do
+  def get_follower_local_ids(actor, _purpose_or_current_actor \\ nil) do
     actor = ActivityPub.LocalActor.get(pointer: actor.pointer_id)
     actor.followers
   end

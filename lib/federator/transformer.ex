@@ -162,11 +162,20 @@ defmodule ActivityPub.Federator.Transformer do
     recipient_is_from_instance?(bto, host)
   end
 
-  defp check_remote_object_deleted(ap_id) do
+  defp check_remote_object_deleted(data, true) do
+    if Object.is_deleted?(data) do
+      {:ok, data}
+    else
+      {:error, :not_deleted}
+    end
+  end
+
+  defp check_remote_object_deleted(object, _) do
+    ap_id = Object.get_ap_id(object)
     debug(ap_id, "Checking delete permission for")
 
-    case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true)
-         |> debug("fetched") do
+    case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true, only_fetch: true)
+         |> debug("remote fetched") do
       {:error, :not_found} ->
         # ok it seems gone from there
         {:ok, nil}
@@ -1022,6 +1031,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     #  NOTE: we avoid even passing the update_actor_data to avoid accepting invalid updates
     with {:ok, actor} <- Actor.update_actor(actor_id, nil, opts[:already_fetched] != true) do
+      # Skip all of that because it's handled elsewhere after fetching
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
       # TODO: do we need to register an Update activity for this?
@@ -1097,20 +1107,25 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => object
           # "actor" => _actor
         } = _data,
-        _opts
+        opts
       ) do
     info("Handle incoming deletion")
 
     object_id = Object.get_ap_id(object)
 
-    with {:ok, _cached_object} <- Object.get_cached(ap_id: object_id),
-         {:ok, data} <- check_remote_object_deleted(object_id),
-         object <- Object.normalize(debug(data || object), false) |> debug("normied"),
-         {:actor, false} <- {:actor, Actor.actor?(object) || Actor.actor?(data)},
-         {:ok, activity} <- ActivityPub.delete(object || object_id, false) do
+    with {:ok, cached_object} <- Object.get_cached(ap_id: object_id) |> debug("re-fetched"),
+         #  {:actor, false} <- {:actor, Actor.actor?(cached_object) || Actor.actor?(object)},
+         {:ok, verified_data} <-
+           check_remote_object_deleted(object, opts[:already_fetched]) |> debug("re-fetched"),
+         verified_object <- Object.normalize(verified_data || object, false) |> debug("normied"),
+         {:actor, false} <-
+           {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
+         {:ok, activity} <- ActivityPub.delete(object || object_id, false) |> debug("deleted!!") do
       {:ok, activity}
     else
       {:actor, true} ->
+        debug("it's an actor!")
+
         case Actor.get_cached(ap_id: object_id) do
           # FIXME: This is supposed to prevent unauthorized deletes
           # but we currently use delete activities where the activity
@@ -1127,7 +1142,7 @@ defmodule ActivityPub.Federator.Transformer do
 
       {:error, :not_found} ->
         # TODO: optimise / short circuit incoming Delete activities for unknown remote objects/actors, see https://github.com/bonfire-networks/bonfire-app/issues/850
-        error(object_id, "Object is not cached locally, skip deletion")
+        error(object_id, "Object is not cached locally, so deletion was skipped")
         {:ok, nil}
 
       {:error, :not_deleted} ->

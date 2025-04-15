@@ -276,7 +276,7 @@ defmodule ActivityPub.Actor do
         #     debug(ap_id, "not an known local or remote actor, try fetching")
 
         Fetcher.fetch_fresh_object_from_id(ap_id)
-        |> debug("fetched")
+        |> debug("fresh actor fetched")
 
         # end
     end
@@ -629,9 +629,9 @@ defmodule ActivityPub.Actor do
     Object.invalidate_cache(actor)
   end
 
-  def get_followings(actor) do
+  def get_followings(actor, purpose_or_current_actor \\ nil) do
     followings =
-      Adapter.get_following_local_ids(actor)
+      Adapter.get_following_local_ids(actor, purpose_or_current_actor)
       |> debug("following_local_ids")
       |> Enum.reject(&is_nil/1)
       |> Enum.map(&get_cached!(pointer: &1))
@@ -641,8 +641,8 @@ defmodule ActivityPub.Actor do
     {:ok, followings}
   end
 
-  def get_followers(actor) do
-    Adapter.get_follower_local_ids(actor)
+  def get_followers(actor, purpose_or_current_actor \\ nil) do
+    Adapter.get_follower_local_ids(actor, purpose_or_current_actor)
     |> debug("follower_local_ids")
     |> Enum.reject(&is_nil/1)
     |> Enum.map(&get_cached!(pointer: &1))
@@ -650,8 +650,8 @@ defmodule ActivityPub.Actor do
     |> debug("got_followers")
   end
 
-  def get_external_followers(actor) do
-    get_followers(actor)
+  def get_external_followers(actor, purpose_or_current_actor \\ nil) do
+    get_followers(actor, purpose_or_current_actor)
     # Filter locals
     |> Enum.filter(fn x -> !x.local end)
   end

@@ -37,6 +37,7 @@ defmodule ActivityPub.Web.ConnCase do
       alias ActivityPub.Utils
       alias ActivityPub.Object
       alias ActivityPub.Test.HttpRequestMock
+      alias ActivityPub.Tests.ObanHelpers
 
       @moduletag :ap_lib
     end

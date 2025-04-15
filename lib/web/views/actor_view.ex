@@ -34,6 +34,7 @@ defmodule ActivityPub.Web.ActorView do
 
   def render("following.json", %{actor: actor, page: page}) when is_integer(page) do
     #  TODO: avoid querying full list
+    #  TODO: load based on current_actor so we can show non-public ones
     {:ok, followers} = Actor.get_followings(actor)
 
     total = length(followers)
@@ -45,6 +46,7 @@ defmodule ActivityPub.Web.ActorView do
 
   def render("following.json", %{actor: actor}) do
     #  TODO: avoid querying full list
+    #  TODO: load based on current_actor so we can show non-public ones
     {:ok, followers} = Actor.get_followings(actor)
 
     total = length(followers)
@@ -61,6 +63,7 @@ defmodule ActivityPub.Web.ActorView do
 
   def render("followers.json", %{actor: actor, page: page}) when is_integer(page) do
     #  TODO: avoid querying full list
+    #  TODO: load based on current_actor so we can show non-public ones
     followers = Actor.get_followers(actor)
 
     total = length(followers)
@@ -71,6 +74,7 @@ defmodule ActivityPub.Web.ActorView do
 
   def render("followers.json", %{actor: actor}) do
     #  TODO: avoid querying full list 
+    #  TODO: load based on current_actor so we can show non-public ones
     followers = Actor.get_followers(actor)
 
     total = length(followers)

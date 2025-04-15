@@ -491,7 +491,7 @@ defmodule ActivityPub do
            "bcc" => opts[:bcc]
          },
          {:ok, activity} <- Object.insert(data, is_local?),
-         :ok <- maybe_federate(activity, opts),
+         :ok <- maybe_federate(activity, opts) |> debug("maybe_federated"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}

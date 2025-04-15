@@ -164,8 +164,6 @@ defmodule ActivityPub.Federator.APPublisher do
          do: Instances.set_reachable(inbox)
 
       debug(result, "remote responded with #{code}")
-
-      result
     else
       {_post_result, %{status: code} = response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
@@ -187,7 +185,7 @@ defmodule ActivityPub.Federator.APPublisher do
     # if is_public? || 
     followers =
       if is_public? || actor.data["followers"] in tos do
-        Actor.get_external_followers(actor)
+        Actor.get_external_followers(actor, :publish)
         |> debug("external_followers")
       else
         # optionally send it to a subset of followers

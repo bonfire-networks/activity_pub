@@ -192,11 +192,11 @@ defmodule ActivityPub.Federator.Fetcher do
     |> maybe_handle_incoming(id_or_data, opts)
   end
 
-  defp maybe_handle_incoming(input, id_or_data, opts) do
-    case input do
+  defp maybe_handle_incoming(cached, id_or_data, opts) do
+    case cached do
       # {:ok, %{local: true}} ->
       #   debug("local object so don't treat as incoming")
-      #   {:ok, input}
+      #   {:ok, cached}
 
       {:ok, %{pointer_id: nil, data: data} = _object} ->
         warn(
@@ -213,7 +213,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
       {:ok, _} ->
         debug("object is ready as-is")
-        input
+        cached
 
       {:error, :not_found} when is_map(id_or_data) ->
         case id_or_data do
@@ -222,7 +222,7 @@ defmodule ActivityPub.Federator.Fetcher do
             {:ok, id_or_data}
 
           _ ->
-            debug("seems like a new object")
+            debug(id_or_data, "seems like a new-to-us remote object")
 
             handle_fetched(id_or_data, opts)
             |> debug("handled")

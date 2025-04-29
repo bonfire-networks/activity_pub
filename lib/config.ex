@@ -95,6 +95,12 @@ defmodule ActivityPub.Config do
       "false" ->
         false
 
+      "manual" ->
+        nil
+
+      :manual ->
+        nil
+
       val ->
         val
     end

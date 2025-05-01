@@ -223,10 +223,17 @@ defmodule ActivityPub.Actor do
   defp get(ap_id: "Public"), do: {:error, :not_an_actor}
 
   defp get(ap_id: id) when not is_nil(id) do
-    with {:ok, actor} <- ActivityPub.Object.get_cached(ap_id: id) do
+    with {:ok, %{data: %{"type" => type}} = actor}
+         when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
+           ActivityPub.Object.get_cached(ap_id: id) do
       {:ok, format_remote_actor(actor)}
     else
-      _ ->
+      other ->
+        warn(
+          other,
+          "Could not find a valid actor Object, will check with the Adapter in case it's an uncached local actor"
+        )
+
         with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
           {:ok, actor}
         else

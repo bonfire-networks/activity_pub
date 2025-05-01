@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.APPublisher do
+  alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.HTTP
@@ -38,7 +39,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
     recipients =
       recipients(actor, prepared_activity_data, tos, is_public?)
-      |> info("initial recipients")
+      |> info("initial recipients for #{type}")
 
     num_recipients = length(recipients)
 
@@ -181,30 +182,80 @@ defmodule ActivityPub.Federator.APPublisher do
     end
   end
 
-  defp recipients(actor, activity, tos, is_public?) do
-    # if is_public? || 
-    followers =
-      if is_public? || actor.data["followers"] in tos do
-        Actor.get_external_followers(actor, :publish)
-        |> debug("external_followers")
-      else
-        # optionally send it to a subset of followers
-        with {:ok, followers} <- Adapter.external_followers_for_activity(actor, activity) do
-          followers
-        else
-          e ->
-            error(e)
-            nil
-        end
-      end
+  defp recipients(actor, %{data: activity_data}, tos, is_public?),
+    do: recipients(actor, activity_data, tos, is_public?)
 
-    remote_recipients(actor, activity) ++
-      (followers || [])
+  defp recipients(actor, activity_data, tos, is_public?) do
+    addressed_recipients(activity_data) ++
+      (if activity_data["type"] == "Flag" do
+         # When handling Flag activities, we need special recipient handling
+         flag_recipients(activity_data["object"])
+       else
+         if is_public? || actor.data["followers"] in tos do
+           Actor.get_external_followers(actor, :publish)
+           |> debug("external_followers")
+         else
+           # optionally send it to a subset of followers
+           with {:ok, followers} <- Adapter.external_followers_for_activity(actor, activity_data) do
+             followers
+           else
+             e ->
+               error(e)
+               nil
+           end
+         end
+       end || [])
   end
 
-  defp remote_recipients(actor, %{data: data}), do: remote_recipients(actor, data)
+  defp flag_recipients(objects) when is_list(objects) do
+    Enum.flat_map(objects, fn object_id -> flag_recipients(object_id) end)
+  end
 
-  defp remote_recipients(_actor, data) do
+  defp flag_recipients(object_id) when is_binary(object_id) do
+    # When handling Flag activities, we need special recipient handling
+    case ActivityPub.Object.get_cached(ap_id: object_id) do
+      {:ok, %{data: object_data}} ->
+        # Check if the object is an actor
+        if Map.has_key?(object_data, "type") &&
+             object_data["type"] in Config.supported_actor_types() do
+          # Use the actor's shared outbox recipients
+          if inbox = (object_data["endpoints"] || %{})["sharedInbox"] do
+            [inbox]
+          else
+            warn("actor has not sharedInbox endpoint")
+            nil
+          end
+        else
+          # Look up the object's attributedTo and use that actor's shared outbox
+          actor = Map.get(object_data, "attributedTo") || Map.get(object_data, "actor")
+
+          if is_binary(actor) do
+            case Actor.get_cached(ap_id: actor) do
+              {:ok, %{data: %{"endpoints" => %{"sharedInbox" => inbox}}}} ->
+                [inbox]
+
+              e ->
+                warn(e, "could not find attributed actor or sharedInbox for flag")
+                nil
+            end
+          else
+            warn(actor, "flag target has no attributedTo")
+            nil
+          end
+        end
+
+      e ->
+        warn(e, "could not find object for flag")
+        nil
+    end || []
+  end
+
+  defp flag_recipients(objects) do
+    error(objects, "could not recognise object for flag")
+    []
+  end
+
+  defp addressed_recipients(data) do
     ap_base_url = Utils.ap_base_url()
 
     [
@@ -235,7 +286,7 @@ defmodule ActivityPub.Federator.APPublisher do
         warn(actor, "Not a valid actor")
         true
     end)
-    |> debug("remote_recipients")
+    |> debug()
   end
 
   @doc """
@@ -265,13 +316,13 @@ defmodule ActivityPub.Federator.APPublisher do
      [ap-sharedinbox]: https://www.w3.org/TR/activitypub/#shared-inbox-delivery
   """
   def determine_inbox(
-        %{data: %{"inbox" => inbox} = actor_data} = _user,
+        %{data: actor_data} = _user,
         is_public,
         type,
         num_recipients
       ) do
     cond do
-      type == "Delete" ->
+      type in ["Flag", "Delete"] ->
         maybe_use_sharedinbox(actor_data)
 
       is_public == true ->
@@ -281,13 +332,21 @@ defmodule ActivityPub.Federator.APPublisher do
         # FIXME: shouldn't this depend on recipients on a given instance?
         maybe_use_sharedinbox(actor_data)
 
-      true ->
+      inbox = actor_data["inbox"] ->
         inbox
+
+      true ->
+        warn(actor_data, "No inbox")
+        nil
     end
   end
 
-  def determine_inbox(_, user, _, _) do
-    warn(user, "No inbox")
+  def determine_inbox(inbox, _, _, _) when is_binary(inbox) do
+    inbox
+  end
+
+  def determine_inbox(user, _, _, _) do
+    warn(user, "Invalid actor")
     nil
   end
 

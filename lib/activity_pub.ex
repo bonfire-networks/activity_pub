@@ -769,7 +769,7 @@ defmodule ActivityPub do
       "actor" => params.actor.data["id"],
       "object" => params.object,
       "published" => params[:published] || Utils.make_date(),
-      "context" => params.context
+      "context" => params[:context]
     })
   end
 

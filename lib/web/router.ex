@@ -44,15 +44,17 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
-        pipe_through(:signed_activity_pub_fetch)
 
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
         get("/actors/:username/outbox", ActivityPubController, :outbox)
         # maybe return inbox, or error saying only POST supported
         get("/actors/:username/inbox", ActivityPubController, :maybe_inbox)
+      end
 
+      scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json_or_html)
+        pipe_through(:signed_activity_pub_fetch)
 
         get("/objects/:uuid", ActivityPubController, :object)
         # note: singular is not canonical
@@ -70,10 +72,8 @@ defmodule ActivityPub.Web.Router do
       end
 
       scope "/", ActivityPub.Web do
-        pipe_through(:activity_json)
-        pipe_through(:signed_activity_pub_fetch)
-
         pipe_through(:activity_json_or_html)
+        pipe_through(:signed_activity_pub_fetch)
 
         # URLs for interop with Mastodon clients / AP testing tools
         # get("/api/v1/timelines/public", ActivityPubController, :outbox) # maybe return the public outbox 

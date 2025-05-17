@@ -388,9 +388,10 @@ defmodule ActivityPub.Federator.Fetcher do
            ),
          _ <- Instances.set_reachable(uri) do
       with {:ok, data} <- Jason.decode(body),
-           {:ok, _} <-
+           {true, _} <-
              {options[:skip_contain_origin_check] ||
-                Containment.contain_origin(Utils.ap_id(data) || id, data), data} do
+                Containment.contain_origin(Utils.ap_id(data) || id, data) ||
+                {:error, "Containment error"}, data} do
         if !options[:return_tombstones] and Object.is_deleted?(data) do
           debug(options, "object was marked as deleted/suspended, return as not found")
           cache_fetch_error(id)
@@ -587,7 +588,7 @@ defmodule ActivityPub.Federator.Fetcher do
         )
 
         with {:ok, page} <-
-               get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: :ok)
+               get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: true)
                |> debug("collection fetched") do
           {:ok, handle_collection(page, opts)}
         else
@@ -680,7 +681,7 @@ defmodule ActivityPub.Federator.Fetcher do
       items
     else
       with {:ok, page} <-
-             get_cached_object_or_fetch_ap_id(page_id, skip_contain_origin_check: :ok) do
+             get_cached_object_or_fetch_ap_id(page_id, skip_contain_origin_check: true) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do

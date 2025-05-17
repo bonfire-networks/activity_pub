@@ -1542,7 +1542,13 @@ defmodule ActivityPub.Fixtures do
             status: 200,
             body: file("fixtures/peertube/video.json")
           }
-        end
+        end,
+      "https://places.pub/relation/27005" => fn "https://places.pub/relation/27005", _, _, _ ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/places.pub.json")
+        }
+      end
     }
 
   def request(env) do

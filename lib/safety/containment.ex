@@ -24,12 +24,15 @@ defmodule ActivityPub.Safety.Containment do
     nil
   end
 
-  defp compare_uris(%URI{host: host} = _id_uri, %URI{host: host} = _other_uri), do: :ok
+  defp compare_uris(%URI{host: host} = _id_uri, %URI{host: host} = _other_uri), do: true
 
   defp compare_uris(id_uri, other_uri) do
-    debug(id_uri)
-    debug(other_uri)
-    {:error, "The object doesn't seem to come from the same instance as the actor"}
+    error(
+      other_uri,
+      "The object doesn't seem to come from the same instance as the actor: #{inspect(id_uri)}"
+    )
+
+    false
   end
 
   @doc """
@@ -38,8 +41,12 @@ defmodule ActivityPub.Safety.Containment do
 
   def contain_origin(_id, %{"type" => type} = _params)
       when ActivityPub.Config.is_in(type, :supported_actor_types) or
-             ActivityPub.Config.is_in(type, :collection_types) or type in ["Author", "Tombstone"],
-      do: :ok
+             ActivityPub.Config.is_in(type, :collection_types) or
+             type in ["Author", "Tombstone", "Place"],
+      do: true
+
+  def contain_origin(id, %{"type" => types} = params) when is_list(types),
+    do: Enum.any?(types, &contain_origin(id, Map.put(params, "type", &1)))
 
   def contain_origin(id, %{"actor" => _actor} = params) when is_binary(id) do
     id_uri = URI.parse(id)
@@ -62,8 +69,8 @@ defmodule ActivityPub.Safety.Containment do
     do: contain_origin(id, Map.put(params, "actor", List.first(authors)))
 
   def contain_origin(id, data) do
-    debug(data, id)
-    {:error, "Missing an actor or attributedTo"}
+    error(data, "Missing an actor or attributedTo for #{inspect(id)}")
+    false
   end
 
   # defp contain_origin(%{"id" => id} = data) do
@@ -82,40 +89,41 @@ defmodule ActivityPub.Safety.Containment do
   #   end
   # end
 
-  def contain_origin_from_id(id, %{"id" => other_id} = _params) when is_binary(other_id) do
-    id_uri = URI.parse(id)
-    other_uri = URI.parse(other_id)
+  # def contain_origin_from_id(id, %{"id" => other_id} = _params) when is_binary(other_id) do
+  #   id_uri = URI.parse(id)
+  #   other_uri = URI.parse(other_id)
 
-    compare_uris(id_uri, other_uri)
-  end
+  #   compare_uris(id_uri, other_uri)
+  # end
 
-  # Mastodon pin activities don't have an id, so we check the object field, which will be pinned.
-  def contain_origin_from_id(id, %{"object" => object}) when is_binary(object) do
-    id_uri = URI.parse(id)
-    object_uri = URI.parse(object)
+  # # Mastodon pin activities don't have an id, so we check the object field, which will be pinned.
+  # def contain_origin_from_id(id, %{"object" => object}) when is_binary(object) do
+  #   id_uri = URI.parse(id)
+  #   object_uri = URI.parse(object)
 
-    compare_uris(id_uri, object_uri)
-  end
+  #   compare_uris(id_uri, object_uri)
+  # end
 
-  def contain_origin_from_id(_id, _data), do: :error
+  # def contain_origin_from_id(_id, _data), do: false
 
-  def contain_child(%{"object" => %{"id" => id, "attributedTo" => _} = object}),
-    do: contain_origin(id, object)
+  # def contain_child(%{"object" => %{"id" => id, "attributedTo" => _} = object}),
+  #   do: contain_origin(id, object)
 
-  def contain_child(_), do: :ok
+  # def contain_child(_), do: true
 
-  def contain_uri(_id, data) when data == %{} or is_nil(data), do: :ok
+  # def contain_uri(_id, data) when data == %{} or is_nil(data), do: true
 
-  def contain_uri(id, %{"id" => json_id} = _data) do
-    id_uri = URI.parse(id)
-    json_id_uri = URI.parse(json_id)
+  # def contain_uri(id, %{"id" => json_id} = _data) do
+  #   id_uri = URI.parse(id)
+  #   json_id_uri = URI.parse(json_id)
 
-    if id_uri.host == json_id_uri.host do
-      :ok
-    else
-      {:error, "URI containment error"}
-    end
-  end
+  #   if id_uri.host == json_id_uri.host do
+  #     true
+  #   else
+  #     error(json_id, "URI containment error: #{inspect id}")
+  #     false
+  #   end
+  # end
 
   @spec visible_for_user?(Object.t() | nil, User.t() | nil) :: boolean()
   def visible_for_user?(%Object{data: %{"type" => "Tombstone"}}, _), do: true

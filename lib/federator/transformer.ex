@@ -597,11 +597,16 @@ defmodule ActivityPub.Federator.Transformer do
   defp fix_mfm_content(data), do: data
 
   def format_input(text, "text/x.misskeymarkdown", _options \\ []) do
-    # TODO: only run if optional mfm_parser lib and Earmark are available
-    text
-    |> Earmark.as_html!(breaks: true, compact_output: true)
-    |> MfmParser.Parser.parse()
-    |> MfmParser.Encoder.to_html()
+    if Code.ensure_loaded?(MfmParser.Parser) and
+         Code.ensure_loaded?(Earmark) do
+      text
+      |> Earmark.as_html!(breaks: true, compact_output: true)
+      |> MfmParser.Parser.parse()
+      |> MfmParser.Encoder.to_html()
+    else
+      warn("MFM parser or Earmark not available, returning original text")
+      text
+    end
   end
 
   def take_emoji_tags(%{emoji: emoji}) do

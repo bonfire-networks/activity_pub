@@ -476,22 +476,24 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
     end
 
     #  check Akkoma for an example
-    @tag :fixme
     test "it correctly processes MFM (with x format)" do
-      data =
-        file("fixtures/misskey/mfm_x_format.json")
-        |> Poison.decode!()
+      if Code.ensure_loaded?(MfmParser.Parser) and
+           Code.ensure_loaded?(Earmark) do
+        data =
+          file("fixtures/misskey/mfm_x_format.json")
+          |> Poison.decode!()
 
-      assert {:ok, activity} = Transformer.handle_incoming(data)
+        assert {:ok, activity} = Transformer.handle_incoming(data)
 
-      assert content = debug(activity.object).data["content"]
+        assert content = debug(activity.object).data["content"]
 
-      assert content =~ "@oops_not_a_mention"
+        assert content =~ "@oops_not_a_mention"
 
-      assert content =~
-               "<span class=\"mfm-jelly\">mfm goes here</span>"
+        assert content =~
+                 "<span class=\"mfm-jelly\">mfm goes here</span>"
 
-      assert content =~ "some text<br>newline"
+        assert content =~ "some text<br>newline"
+      end
     end
   end
 

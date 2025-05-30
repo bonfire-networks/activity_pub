@@ -309,7 +309,6 @@ defmodule ActivityPub.Federator.FetcherTest do
       assert object
     end
 
-    @tag :fixme
     # results in  ** (DBConnection.ConnectionError) transaction rolling back when inserting User
     test "it can fetch peertube videos, incl. a Group actor" do
       {:ok, object} =

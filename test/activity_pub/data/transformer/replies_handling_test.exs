@@ -155,7 +155,6 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       %{activity: activity}
     end
 
-    @tag :fixme
     test "schedules background fetching of `replies` items if max thread depth limit allows", %{
       activity: activity
     } do
@@ -172,7 +171,6 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
       assert length(all_enqueued(worker: Workers.RemoteFetcherWorker)) == 2
     end
 
-    @tag :fixme
     test "schedules *recursive* background fetching of replies if limit allows", %{
       activity: activity
     } do

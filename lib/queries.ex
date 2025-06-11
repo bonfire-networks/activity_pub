@@ -99,7 +99,7 @@ defmodule ActivityPub.Queries do
     where(
       query,
       [a],
-      fragment("(?)->>'type' = ?", a.data, ^types)
+      fragment("(?)->>'type' = ANY(?)", a.data, ^types)
     )
   end
 

@@ -53,7 +53,18 @@ defmodule ActivityPub.Config do
           "TentativeAccept",
           "Travel",
           "View",
-          "EmojiReact"
+          "EmojiReact",
+          "IntransitiveActivity"
+        ]
+
+  def supported_intransitive_types,
+    do:
+      get([:instance, :supported_intransitive_types]) ||
+        [
+          "IntransitiveActivity",
+          "Arrive",
+          "Travel",
+          "Question"
         ]
 
   # def supported_object_types, do: get([:instance, :supported_object_types]) || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything

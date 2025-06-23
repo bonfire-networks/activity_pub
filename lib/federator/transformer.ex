@@ -1347,17 +1347,14 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def maybe_handle_other_activity(data) do
-    {:ok, activity} = Object.insert(data, false)
-
-    if Keyword.get(
-         Application.get_env(:activity_pub, :instance),
-         :handle_unknown_activities
-       ) do
-      with {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
-           activity <- Map.put(activity, :pointer, adapter_object) do
-        {:ok, activity}
-      end
-    else
+    with {:ok, activity} <- Object.insert(data, false),
+         true <-
+           Keyword.get(
+             Application.get_env(:activity_pub, :instance),
+             :handle_unknown_activities
+           ) || {:ok, activity},
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
   end

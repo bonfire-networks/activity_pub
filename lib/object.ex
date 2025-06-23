@@ -210,30 +210,34 @@ defmodule ActivityPub.Object do
            do_insert_object(params, local?, pointer, upsert?),
          # then insert the activity (containing only an ID as object)
          {:ok, activity} <-
-           (if is_nil(object) do
-              do_insert(%{
-                # activities without an object
-                id: activity_id,
-                data: activity,
-                local: local?,
-                public: Utils.public?(activity),
-                pointer_id: Utils.uid(pointer)
-              })
+           (if not is_nil(activity) do
+              if is_nil(object) do
+                # insert activity even without an object
+                do_insert(%{
+                  id: activity_id,
+                  data: activity,
+                  local: local?,
+                  public: Utils.public?(activity),
+                  pointer_id: Utils.uid(pointer)
+                })
+              else
+                # insert activity (with the object ID as object)
+                do_insert(%{
+                  id: activity_id,
+                  data: activity,
+                  local: local?,
+                  public: Utils.public?(activity, object)
+                })
+              end
             else
-              # activity containing only an ID as object
-              do_insert(%{
-                id: activity_id,
-                data: activity,
-                local: local?,
-                public: Utils.public?(activity, object)
-              })
+              {:ok, nil}
             end) do
       # Splice in the child object if we have one.
       activity =
-        if not is_nil(object) do
+        if not is_nil(activity) and not is_nil(object) do
           Map.put(activity, :object, object)
         else
-          activity
+          activity || object
         end
 
       info(activity, "inserted activity in #{repo()}")
@@ -278,24 +282,59 @@ defmodule ActivityPub.Object do
          pointer,
          upsert?
        )
-       when is_map(object_data) and
-              ActivityPub.Config.is_in(type, :supported_actor_types) == false and
+       when ActivityPub.Config.is_in(type, :supported_actor_types) == false and
               ActivityPub.Config.is_in(type, :supported_activity_types) == false do
-    # we're taking a shortcut by assuming that anything that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
-    # check that it doesn't already exist
+    # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
+
+    with {:ok, object} <-
+           actually_do_insert_object(activity, object_data, local, pointer, upsert?) do
+      # return an activity that contains the ID as object rather than the actual object
+      {:ok, Map.put(activity, "object", object.data["id"]), object}
+    end
+  end
+
+  defp do_insert_object(
+         %{"type" => type} = intransitive_object,
+         local,
+         pointer,
+         upsert?
+       )
+       when ActivityPub.Config.is_in(type, :supported_intransitive_types) == true do
+    # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
+
+    with {:ok, object} <-
+           actually_do_insert_object(nil, intransitive_object, local, pointer, upsert?) do
+      # return an activity that contains the ID as object rather than the actual object
+      {:ok, nil, object}
+    end
+  end
+
+  # there's no object
+  defp do_insert_object(activity, _local, _pointer, _), do: {:ok, activity, nil}
+
+  defp actually_do_insert_object(
+         activity,
+         object_data,
+         local,
+         pointer,
+         upsert?
+       ) do
+    # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
     debug(object_data, "object to '#{if upsert?, do: "update", else: "insert"}'")
 
     with maybe_existing_object <-
-           normalize(object_data, false, pointer) |> info("maybe_existing_object"),
+           normalize(object_data, false, pointer) |> debug("maybe_existing_object"),
+         # first check if it already exists
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> info("maybe_upserted") do
       # return an activity that contains the ID as object rather than the actual object
-      {:ok, Map.put(activity, "object", object_params.data["id"]), object}
+      {:ok, object}
     end
   end
 
-  defp do_insert_object(activity, _local, _pointer, _), do: {:ok, activity, nil}
+  # there's no object
+  defp actually_do_insert_object(activity, _local, _pointer, _), do: {:ok, activity, nil}
 
   def do_insert(attrs) do
     attrs

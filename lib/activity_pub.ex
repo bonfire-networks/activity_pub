@@ -475,7 +475,7 @@ defmodule ActivityPub do
   end
 
   def delete(
-        %Object{data: %{"id" => id, "actor" => actor}} = object,
+        %{data: %{"id" => id, "attributedTo" => actor}} = object,
         is_local?,
         opts
       ) do
@@ -496,6 +496,18 @@ defmodule ActivityPub do
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
+  end
+
+  def delete(
+        %{data: %{"id" => id, "actor" => actor} = data} = object,
+        is_local?,
+        opts
+      ) do
+    delete(
+      %{object | data: data |> Map.put("attributedTo", actor)},
+      is_local?,
+      opts
+    )
   end
 
   # Not sure about the types here

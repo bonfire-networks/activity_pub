@@ -29,10 +29,9 @@ defmodule ActivityPub.Federator.APPublisherTest do
         actor: note_actor,
         data: %{
           "to" => [
-            recipient_actor.ap_id,
             "https://www.w3.org/ns/activitystreams#Public"
           ],
-          "cc" => note_actor.data["followers"]
+          "cc" => [recipient_actor.ap_id, note_actor.data["followers"]]
         }
       })
 

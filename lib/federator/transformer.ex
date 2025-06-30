@@ -112,54 +112,63 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def preserve_privacy_of_outgoing(other, target_instance_uri \\ nil)
+  def preserve_privacy_of_outgoing(other, target_instance_host \\ nil, target_actor_id \\ nil)
 
-  def preserve_privacy_of_outgoing(%{"object" => object} = data, %{host: host}) do
+  def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_id)
+      when is_binary(host) or is_binary(target_actor_id) do
     data
-    |> Map.put("object", preserve_privacy_of_outgoing(object, %{host: host}))
-    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host))
-    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host))
+    |> Map.put("object", preserve_privacy_of_outgoing(object, host, target_actor_id))
+    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
+    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
+    |> Adapter.transform_outgoing(host, target_actor_id)
   end
 
-  def preserve_privacy_of_outgoing(%{} = data, %{host: host}) do
+  def preserve_privacy_of_outgoing(%{} = data, host, target_actor_id)
+      when is_binary(host) or is_binary(target_actor_id) do
     data
-    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host))
-    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host))
+    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
+    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
+    |> Adapter.transform_outgoing(host, target_actor_id)
   end
 
-  def preserve_privacy_of_outgoing(%{"object" => object} = data, _) do
+  def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_id) do
     data
-    |> Map.put("object", preserve_privacy_of_outgoing(object, nil))
-    |> Map.delete("bto")
-    |> Map.delete("bcc")
+    |> Map.put("object", preserve_privacy_of_outgoing(object, nil, nil))
+    |> Map.drop(["bto", "bcc"])
+    |> Adapter.transform_outgoing(host, target_actor_id)
   end
 
-  def preserve_privacy_of_outgoing(%{} = data, _) do
+  def preserve_privacy_of_outgoing(%{} = data, host, target_actor_id) do
     data
-    |> Map.delete("bto")
-    |> Map.delete("bcc")
+    |> Map.drop(["bto", "bcc"])
+    |> Adapter.transform_outgoing(host, target_actor_id)
   end
 
-  def preserve_privacy_of_outgoing(other, _), do: other
+  def preserve_privacy_of_outgoing(other, _, _), do: other
 
-  defp filter_recipients_visibility_by_instance(bto, host) when is_list(bto) do
-    Enum.filter(bto, &recipient_is_from_instance?(&1, host))
+  defp filter_recipients_visibility_by_instance(bto, host, target_actor_id) when is_list(bto) do
+    Enum.filter(bto, &recipient_is_from_instance?(&1, host, target_actor_id))
   end
 
-  defp filter_recipients_visibility_by_instance(bto, host) do
-    if recipient_is_from_instance?(bto, host), do: host, else: []
+  defp filter_recipients_visibility_by_instance(bto, host, target_actor_id) do
+    if recipient_is_from_instance?(bto, host, target_actor_id), do: bto, else: []
   end
 
-  defp recipient_is_from_instance?(bto, host) when is_binary(bto) do
-    URI.parse(bto).host == host
+  defp recipient_is_from_instance?(bto, host, target_actor_id) when is_binary(bto) do
+    bto == target_actor_id or URI.parse(bto || "").host == host
   end
 
-  defp recipient_is_from_instance?(%{"id" => bto}, host) when is_binary(bto) do
-    recipient_is_from_instance?(bto, host)
+  defp recipient_is_from_instance?(%{"id" => bto}, host, target_actor_id) when is_binary(bto) do
+    recipient_is_from_instance?(bto, host, target_actor_id)
   end
 
-  defp recipient_is_from_instance?(%{data: %{"id" => bto}}, host) when is_binary(bto) do
-    recipient_is_from_instance?(bto, host)
+  defp recipient_is_from_instance?(%{data: %{"id" => bto}}, host, target_actor_id)
+       when is_binary(bto) do
+    recipient_is_from_instance?(bto, host, target_actor_id)
+  end
+
+  defp recipient_is_from_instance?(_, _, _) do
+    false
   end
 
   defp check_remote_object_deleted(data, true) do

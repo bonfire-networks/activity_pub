@@ -299,6 +299,9 @@ defmodule ActivityPub.Factory do
           "type" => "Create",
           "actor" => actor,
           "to" => note.data["to"],
+          "cc" => note.data["cc"],
+          "bto" => note.data["bto"],
+          "bcc" => note.data["bcc"],
           "object" => note.data["id"],
           "published" => DateTime.utc_now() |> DateTime.to_iso8601(),
           "context" => note.data["context"]

@@ -31,11 +31,21 @@ defmodule ActivityPub.Instances.Instance do
 
   def filter_reachable([]), do: %{}
 
-  def filter_reachable(urls_or_hosts) when is_list(urls_or_hosts) do
+  def filter_reachable(urls) when is_list(urls) do
+    urls
+    |> Map.new(fn url -> {url, nil} end)
+    |> filter_reachable()
+  end
+
+  def filter_reachable(url_map) when is_map(url_map) do
+    urls =
+      Map.keys(url_map)
+      |> Enum.reject(&is_nil/1)
+
     hosts =
-      urls_or_hosts
-      |> Enum.map(&(&1 && host(&1)))
-      |> Enum.filter(&(to_string(&1) != ""))
+      urls
+      |> Enum.map(&host/1)
+      |> Enum.filter(&(&1 && &1 != ""))
 
     unreachable_since_by_host =
       repo().all(
@@ -44,24 +54,30 @@ defmodule ActivityPub.Instances.Instance do
           select: {i.host, i.unreachable_since}
         )
       )
-      |> Map.new(& &1)
+      |> Map.new()
 
-    reachability_datetime_threshold = Instances.reachability_datetime_threshold()
+    threshold = Instances.reachability_datetime_threshold()
 
-    for entry <- Enum.filter(urls_or_hosts, &is_binary/1) do
-      host = host(entry)
-      unreachable_since = unreachable_since_by_host[host]
+    urls
+    |> Enum.reduce(%{}, fn url, acc ->
+      h = host(url)
+      usince = unreachable_since_by_host[h]
 
-      if !unreachable_since ||
-           NaiveDateTime.compare(
-             unreachable_since,
-             reachability_datetime_threshold
-           ) == :gt do
-        {entry, unreachable_since}
+      if !usince || NaiveDateTime.compare(usince, threshold) == :gt do
+        previous_val = url_map[url]
+
+        val =
+          if is_map(previous_val) do
+            Map.put(previous_val, :unreachable_since, usince)
+          else
+            usince
+          end
+
+        Map.put(acc, url, val)
+      else
+        acc
       end
-    end
-    |> Enum.filter(& &1)
-    |> Map.new(& &1)
+    end)
   end
 
   def reachable?(uri_or_host) do

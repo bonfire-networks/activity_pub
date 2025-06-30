@@ -19,7 +19,8 @@ defmodule ActivityPub.Federator.APPublisher do
   def publish(actor, activity, opts \\ []) do
     {:ok, prepared_activity_data} =
       Transformer.prepare_outgoing(activity.data)
-      |> info("data ready to publish as JSON")
+
+    # |> debug("data ready to publish as JSON")
 
     # |> info("JSON ready to publish")
 
@@ -46,15 +47,21 @@ defmodule ActivityPub.Federator.APPublisher do
     case recipients
          |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
          # |> maybe_federate_to_search_index(activity)
-         |> Enum.uniq()
-         |> info("inboxes")
+         |> Enum.uniq_by(fn {x, _} -> x end)
+         |> Map.new()
+         #  |> debug("inboxes")
          |> Instances.filter_reachable()
-         |> info("reacheable ones") do
+         |> debug("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
         recipients
-        |> Enum.map(fn {inbox, unreachable_since} ->
+        |> Enum.map(fn {inbox, meta} ->
           json =
-            Transformer.preserve_privacy_of_outgoing(prepared_activity_data, URI.parse(inbox))
+            Transformer.preserve_privacy_of_outgoing(
+              prepared_activity_data,
+              URI.parse(inbox).host,
+              meta[:id]
+            )
+            # |> debug("safe json")
             |> Jason.encode!()
 
           params = %{
@@ -63,7 +70,7 @@ defmodule ActivityPub.Federator.APPublisher do
             actor_username: Map.get(actor, :username),
             actor_id: Map.get(actor, :id),
             id: prepared_activity_data["id"],
-            unreachable_since: unreachable_since
+            unreachable_since: meta[:unreachable_since]
           }
 
           if opts[:federate_inline] do
@@ -323,21 +330,37 @@ defmodule ActivityPub.Federator.APPublisher do
       ) do
     cond do
       type in ["Flag", "Delete"] ->
-        maybe_use_sharedinbox(actor_data)
+        {maybe_use_sharedinbox(actor_data),
+         %{
+           id: actor_data["id"]
+         }}
 
       is_public == true ->
-        maybe_use_sharedinbox(actor_data)
+        {maybe_use_sharedinbox(actor_data),
+         %{
+           id: actor_data["id"]
+         }}
 
       num_recipients > 1 ->
         # FIXME: shouldn't this depend on recipients on a given instance?
-        maybe_use_sharedinbox(actor_data)
+        {maybe_use_sharedinbox(actor_data),
+         %{
+           id: actor_data["id"]
+         }}
 
       inbox = actor_data["inbox"] ->
-        inbox
+        {inbox,
+         %{
+           id: actor_data["id"]
+         }}
 
       true ->
         warn(actor_data, "No inbox")
-        nil
+
+        {nil,
+         %{
+           id: actor_data["id"]
+         }}
     end
   end
 

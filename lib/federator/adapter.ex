@@ -188,5 +188,13 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().federate_actor?(actor, direction, by_actor)
   end
 
+  def transform_outgoing(data, target_host \\ nil, target_actor_id \\ nil) do
+    if function_exported?(adapter(), :transform_outgoing, 3) do
+      adapter().transform_outgoing(data, target_host, target_actor_id)
+    else
+      data
+    end
+  end
+
   @optional_callbacks external_followers_for_activity: 2
 end

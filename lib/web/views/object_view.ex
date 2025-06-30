@@ -11,7 +11,7 @@ defmodule ActivityPub.Web.ObjectView do
     object
     # |> debug 
     |> Transformer.prepare_outgoing()
-    ~> Transformer.preserve_privacy_of_outgoing()
+    ~> Transformer.preserve_privacy_of_outgoing(nil, :public)
   end
 
   def render("outbox.json", %{actor: actor, page: page}) when is_integer(page) do

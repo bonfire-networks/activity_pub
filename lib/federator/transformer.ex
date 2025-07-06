@@ -514,23 +514,24 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_emoji(object), do: object
 
-  def fix_tag(%{"tag" => tag} = object) when is_list(tag) do
-    tags =
-      tag
-      |> Enum.map(fn
-        %{"type" => "Hashtag", "name" => "#" <> name} -> name
-        %{"type" => "Hashtag", "name" => name} -> name
-        _ -> nil
-      end)
-      |> Enum.reject(&is_nil/1)
+  def fix_tag(%{"tag" => tags} = object) when is_list(tags) do
+    # tags =
+    #   tag
+    #   |> Enum.map(fn
+    #     %{"type" => "Hashtag", "name" => "#" <> name} -> name
+    #     %{"type" => "Hashtag", "name" => _} = tag -> tag
+    #     _other -> nil
+    #   end)
+    #   |> Enum.reject(&is_nil/1)
 
-    Map.put(object, "tag", tag ++ tags)
+    # Map.put(object, "tag", tags)
+    object
   end
 
   def fix_tag(%{"tag" => %{} = tag} = object) do
     object
     |> Map.put("tag", [tag])
-    |> fix_tag
+    |> fix_tag()
   end
 
   def fix_tag(object), do: object

@@ -938,14 +938,14 @@ defmodule ActivityPub.Object do
     tags
     |> Enum.filter(fn
       %{"type" => "Hashtag"} = data -> Map.has_key?(data, "name")
-      plain_text when is_bitstring(plain_text) -> true
+      plain_text when is_binary(plain_text) -> true
       _ -> false
     end)
     |> Enum.map(fn
       %{"name" => "#" <> hashtag} -> hashtag
       %{"name" => hashtag} -> hashtag
       "#" <> hashtag -> hashtag
-      hashtag when is_bitstring(hashtag) -> hashtag
+      hashtag when is_binary(hashtag) -> hashtag
     end)
     |> Enum.uniq()
     # Note: "" elements (plain text) might occur in `data.tag` for incoming objects

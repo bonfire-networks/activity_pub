@@ -699,12 +699,12 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp items_in_page(%{"type" => type, "orderedItems" => items})
-       when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
+  defp items_in_page(%{"orderedItems" => items})
+       when is_list(items),
        do: items
 
-  defp items_in_page(%{"type" => type, "items" => items})
-       when is_list(items) and type in ["Collection", "CollectionPage"],
+  defp items_in_page(%{"items" => items})
+       when is_list(items),
        do: items
 
   defp objects_from_collection(page, opts \\ [])

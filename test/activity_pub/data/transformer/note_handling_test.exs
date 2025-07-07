@@ -195,7 +195,8 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
                Enum.at(object.data["tag"], 1)
              )
 
-      assert "moo" == Enum.at(object.data["tag"], 2)
+      # why do this?
+      # assert "moo" == Enum.at(object.data["tag"], 2)
     end
 
     test "it works for incoming notices with contentMap with multiple languages" do

@@ -22,7 +22,8 @@ defmodule ActivityPub.Federator.Transformer.PlaceHandlingTest do
 
     {:ok, %Activity{data: data, local: false}} =
       Transformer.handle_incoming(data)
-      |> IO.inspect()
+
+    # |> debug()
 
     object = Object.normalize(data["object"], fetch: false)
 

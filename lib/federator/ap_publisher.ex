@@ -45,7 +45,7 @@ defmodule ActivityPub.Federator.APPublisher do
     num_recipients = length(recipients)
 
     case recipients
-         |> Enum.map(&determine_inbox(&1, is_public?, type, num_recipients))
+         |> determine_inboxes(is_public?, type, num_recipients)
          # |> maybe_federate_to_search_index(activity)
          |> Enum.uniq_by(fn {x, _} -> x end)
          |> Map.new()
@@ -322,7 +322,18 @@ defmodule ActivityPub.Federator.APPublisher do
 
      [ap-sharedinbox]: https://www.w3.org/TR/activitypub/#shared-inbox-delivery
   """
-  def determine_inbox(
+  def determine_inboxes(
+        inboxes,
+        is_public?,
+        type,
+        num_recipients
+      )
+      when is_list(inboxes) do
+    inboxes
+    |> Enum.flat_map(&determine_inboxes(&1, is_public?, type, num_recipients))
+  end
+
+  def determine_inboxes(
         %{data: actor_data} = _user,
         is_public,
         type,
@@ -357,20 +368,18 @@ defmodule ActivityPub.Federator.APPublisher do
       true ->
         warn(actor_data, "No inbox")
 
-        {nil,
-         %{
-           id: actor_data["id"]
-         }}
+        []
     end
+    |> List.wrap()
   end
 
-  def determine_inbox(inbox, _, _, _) when is_binary(inbox) do
-    inbox
+  def determine_inboxes(inbox, _, _, _) when is_binary(inbox) do
+    [{inbox, %{}}]
   end
 
-  def determine_inbox(user, _, _, _) do
+  def determine_inboxes(user, _, _, _) do
     warn(user, "Invalid actor")
-    nil
+    []
   end
 
   defp maybe_use_sharedinbox(actor_data),

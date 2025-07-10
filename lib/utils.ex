@@ -25,8 +25,6 @@ defmodule ActivityPub.Utils do
   def ok_unwrap(:error, fallback), do: fallback
   def ok_unwrap(val, fallback), do: val || fallback
 
-  def as_local_public, do: ActivityPub.Web.base_url() <> "/#Public"
-
   def make_date do
     DateTime.utc_now() |> DateTime.to_iso8601()
   end
@@ -120,22 +118,35 @@ defmodule ActivityPub.Utils do
   end
 
   def has_as_public?(tos) do
-    tos = List.flatten(tos)
-
-    label_in_collection?(ActivityPub.Config.public_uri(), tos) or
-      label_in_collection?("as:Public", tos) or
-      label_in_collection?("Public", tos) or
-      label_in_collection?(as_local_public(), tos)
+    any_in_collections?(Config.public_uris(), tos)
   end
 
-  @spec label_in_collection?(String.t(), map()) :: boolean()
-  def label_in_collection?(label, collection),
-    do: Enum.any?(collection, &do_label_in_collection?(label, &1))
+  @doc """
+  Checks if any of the given labels exist in any of the given collections.
+  Supports both single values and lists for labels and collections.
+  """
+  @spec any_in_collections?(any(), any()) :: boolean()
+  def any_in_collections?(labels, collection) when is_list(labels) do
+    List.flatten(labels)
+    |> Enum.any?(&any_in_collections?(&1, collection))
+  end
 
-  @spec do_label_in_collection?(any(), any()) :: boolean()
-  defp do_label_in_collection?(ap_id, coll) when is_binary(coll), do: ap_id == coll
-  defp do_label_in_collection?(ap_id, coll) when is_list(coll), do: ap_id in coll
-  defp do_label_in_collection?(_, _), do: false
+  def any_in_collections?(label, collections) when is_list(collections) do
+    List.flatten(collections)
+    |> Enum.any?(&any_in_collections?(label, &1))
+  end
+
+  # Base cases for direct comparison
+  def any_in_collections?(item, item), do: true
+  def any_in_collections?(id, %{"id" => id}), do: true
+  def any_in_collections?(%{"id" => id}, id), do: true
+  def any_in_collections?(%{"id" => id}, %{"id" => id}), do: true
+
+  def any_in_collections?(item, collection) do
+    # flood(item, "Item not matched")
+    # err(collection, "Collection not matched")
+    false
+  end
 
   @doc "Takes a string and returns true if it is a valid UUID (Universally Unique Identifier)"
   def is_uuid?(str) do

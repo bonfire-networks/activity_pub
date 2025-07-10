@@ -219,32 +219,34 @@ defmodule ActivityPub.Actor do
   end
 
   defp get(ap_id: "https://www.w3.org/ns/activitystreams#Public"), do: {:error, :not_an_actor}
-  defp get(ap_id: "as:Public"), do: {:error, :not_an_actor}
-  defp get(ap_id: "Public"), do: {:error, :not_an_actor}
 
   defp get(ap_id: id) when not is_nil(id) do
-    with {:ok, %{data: %{"type" => type}} = actor}
-         when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
-           ActivityPub.Object.get_cached(ap_id: id) do
-      {:ok, format_remote_actor(actor)}
+    if ActivityPub.Utils.has_as_public?(id) do
+      {:error, :not_an_actor}
     else
-      other ->
-        warn(
-          other,
-          "Could not find a valid actor Object, will check with the Adapter in case it's an uncached local actor"
-        )
+      with {:ok, %{data: %{"type" => type}} = actor}
+           when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
+             ActivityPub.Object.get_cached(ap_id: id) do
+        {:ok, format_remote_actor(actor)}
+      else
+        other ->
+          warn(
+            other,
+            "Could not find a valid actor Object, will check with the Adapter in case it's an uncached local actor"
+          )
 
-        with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
-          {:ok, actor}
-        else
-          {:error, :not_found} ->
-            warn(id, "Adapter did not return an actor, must not be local")
-            {:error, :not_found}
+          with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
+            {:ok, actor}
+          else
+            {:error, :not_found} ->
+              warn(id, "Adapter did not return an actor, must not be local")
+              {:error, :not_found}
 
-          e ->
-            error(e, "Adapter did not return an actor")
-            {:error, :not_found}
-        end
+            e ->
+              error(e, "Adapter did not return an actor")
+              {:error, :not_found}
+          end
+      end
     end
   end
 

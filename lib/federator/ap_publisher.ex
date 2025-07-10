@@ -35,7 +35,7 @@ defmodule ActivityPub.Federator.APPublisher do
     to = activity.data["to"] || []
     cc = activity.data["cc"] || []
     tos = to ++ cc
-    is_public? = ActivityPub.Config.public_uri() in tos
+    is_public? = Utils.has_as_public?(tos)
     type = activity.data["type"]
 
     recipients =
@@ -264,6 +264,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp addressed_recipients(data) do
     ap_base_url = Utils.ap_base_url()
+    public_uris = ActivityPub.Config.public_uris()
 
     [
       Map.get(data, "to", nil),
@@ -275,8 +276,7 @@ defmodule ActivityPub.Federator.APPublisher do
     ]
     |> debug("recipients from data")
     |> List.flatten()
-    |> Enum.reject(&is_nil/1)
-    |> List.delete(ActivityPub.Config.public_uri())
+    |> Enum.reject(&(is_nil(&1) or Utils.has_as_public?(&1)))
     |> Enum.map(&(Actor.get_cached!(ap_id: &1) || &1))
     |> Enum.reject(fn
       %{local: true} ->

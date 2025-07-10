@@ -8,7 +8,16 @@ defmodule ActivityPub.Config do
   @public_uri "https://www.w3.org/ns/activitystreams#Public"
 
   def public_uri, do: @public_uri
-  def public_uris, do: [public_uri()]
+
+  def public_uris,
+    do: [
+      public_uri(),
+      "as:Public",
+      "Public",
+      as_local_public()
+    ]
+
+  def as_local_public, do: ActivityPub.Web.base_url() <> "/#Public"
 
   def supported_actor_types,
     do:

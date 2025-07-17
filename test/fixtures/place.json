@@ -10,7 +10,7 @@
         "Place",
         "geojson:Feature"
     ],
-    "id": "https://places.pub/relation/27005",
+    "id": "https://mocked.local/relation/27005",
     "to": [
         "as:Public"
     ],

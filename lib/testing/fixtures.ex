@@ -1543,10 +1543,13 @@ defmodule ActivityPub.Fixtures do
             body: file("fixtures/peertube/video.json")
           }
         end,
-      "https://places.pub/relation/27005" => fn "https://places.pub/relation/27005", _, _, _ ->
+      "https://mocked.local/relation/27005" => fn "https://mocked.local/relation/27005",
+                                                  _,
+                                                  _,
+                                                  _ ->
         %Tesla.Env{
           status: 200,
-          body: file("fixtures/places.pub.json")
+          body: file("fixtures/place.json")
         }
       end
     }

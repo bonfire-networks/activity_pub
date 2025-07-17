@@ -76,7 +76,56 @@ defmodule ActivityPub.Config do
           "Question"
         ]
 
-  # def supported_object_types, do: get([:instance, :supported_object_types]) || ["Article", "Note", "Video", "Page", "Question", "Answer", "Document", "ChatMessage"] # Note: unused since we want to support anything
+  def known_object_fetchable_types,
+    do:
+      get([:instance, :known_object_fetchable_types]) ||
+        [
+          # standard AS objects:
+          "Article",
+          # "Audio",
+          "Document",
+          "Event",
+          # "Image",
+          "Note",
+          "Page",
+          "Place",
+          "Profile",
+          # "Relationship",
+          "Tombstone"
+          # "Video",
+          # "Link",
+          # "Mention",
+        ]
+
+  # ^ Note: should avoid using this since we want to support any object types, including ones not in ActivityStreams
+
+  def known_object_extra_types,
+    do:
+      get([:instance, :known_object_extra_types]) ||
+        [
+          # standard AS objects:
+          # "Article",
+          "Audio",
+          # "Document",
+          # "Event",
+          # "Image",
+          # "Note",
+          # "Page",
+          # "Place",
+          # "Profile",
+          "Relationship",
+          # "Tombstone",
+          "Video",
+          "Link",
+          "Mention",
+          # extras:
+          "ChatMessage",
+          "Location",
+          "geojson:Feature"
+        ]
+
+  # ^ Note: should avoid using 
+
   def collection_types,
     do:
       get([:instance, :supported_collection_types]) ||
@@ -92,6 +141,26 @@ defmodule ActivityPub.Config do
   @doc "For matching against the above list in guards TODO: use runtime config"
   defmacro is_in(type, fun) do
     quote do: unquote(type) in unquote(apply(ActivityPub.Config, fun, []))
+  end
+
+  @doc "For matching a type or list of types against configured types"
+  def type_in?(type, fun) when is_binary(type) do
+    type in apply(ActivityPub.Config, fun, [])
+  end
+
+  def type_in?(types, fun) when is_list(types) do
+    config_types = apply(ActivityPub.Config, fun, [])
+    Enum.any?(types, fn type -> type in config_types end)
+  end
+
+  @doc """
+  Checks if the given type (or any of list of types) is known, i.e. supported by the instance. Does not include collections.
+  """
+  def known_fetchable_type?(types) do
+    config_types =
+      supported_actor_types() ++ supported_activity_types() ++ known_object_fetchable_types()
+
+    Enum.any?(List.wrap(types), fn type -> type in config_types end)
   end
 
   # defdelegate repo, to: ActivityPub.Utils

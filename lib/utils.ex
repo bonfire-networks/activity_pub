@@ -143,7 +143,7 @@ defmodule ActivityPub.Utils do
   def any_in_collections?(%{"id" => id}, %{"id" => id}), do: true
 
   def any_in_collections?(item, collection) do
-    # flood(item, "Item not matched")
+    # debug(item, "Item not matched")
     # err(collection, "Collection not matched")
     false
   end

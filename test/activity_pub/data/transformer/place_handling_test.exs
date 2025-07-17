@@ -18,7 +18,7 @@ defmodule ActivityPub.Federator.Transformer.PlaceHandlingTest do
   end
 
   test "can add a Place" do
-    data = file("fixtures/places.pub.json") |> Jason.decode!()
+    data = file("fixtures/place.json") |> Jason.decode!()
 
     {:ok, %Activity{data: data, local: false}} =
       Transformer.handle_incoming(data)
@@ -30,7 +30,7 @@ defmodule ActivityPub.Federator.Transformer.PlaceHandlingTest do
     assert object.data["name"] ==
              "CERN - Site de Meyrin"
 
-    assert object.data["id"] == "https://places.pub/relation/27005"
+    assert object.data["id"] == "https://mocked.local/relation/27005"
 
     assert object.data["latitude"] == 46.23343
   end

@@ -273,10 +273,16 @@ defmodule ActivityPub.Federator.Fetcher do
           {:ok, object}
 
         # return the object rather than a Create activity (do we want this?)
-        %{object: %{id: _} = object, pointer: pointer} = _activity ->
+        %{
+          data: %{"type" => "Create"},
+          object: %{id: _} = object,
+          pointer_id: created_pointer_id,
+          pointer: created_pointer
+        } = _activity ->
           {:ok,
            object
-           |> Utils.maybe_put(:pointer, pointer)}
+           |> Utils.maybe_put(:pointer_id, created_pointer_id || Utils.uid(created_pointer))
+           |> Utils.maybe_put(:pointer, created_pointer)}
 
         _ ->
           {:ok, object}

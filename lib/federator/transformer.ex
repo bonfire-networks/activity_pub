@@ -229,9 +229,17 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_content_map()
     |> fix_addressing()
     |> fix_summary()
+
+    # |> fetch_and_create_nested_ap_objects(options)
+    # |> add_emoji_tags()
   end
 
   def fix_object(object, _options), do: object
+
+  def fix_other_object(object, _options) do
+    object
+    # |> fetch_and_create_nested_ap_objects(options)
+  end
 
   def fix_summary(%{"summary" => nil} = object) do
     Map.put(object, "summary", "")
@@ -1304,11 +1312,15 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # Handle other activity types (and their object)
-  def handle_incoming(%{"type" => type} = data, _opts)
-      when ActivityPub.Config.is_in(type, :supported_activity_types) do
-    info(type, "ActivityPub - some other Activity type - store it and pass to adapter...")
+  def handle_incoming(%{"type" => type} = data, opts)
+      when ActivityPub.Config.is_in(type, :supported_activity_types) or
+             ActivityPub.Config.is_in(type, :supported_intransitive_types) do
+    info(
+      type,
+      "ActivityPub - some other Activity or Intransitive type - store it and pass to adapter..."
+    )
 
-    maybe_handle_other_activity(data)
+    maybe_handle_other_activity(data, opts)
   end
 
   def handle_incoming(%{"type" => type} = data, opts)
@@ -1327,13 +1339,13 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  def handle_incoming(%{"type" => type, "object" => _} = data, _opts) do
+  def handle_incoming(%{"type" => type, "object" => _} = data, opts) do
     info(type, "Save a seemingly unknown activity type")
-    maybe_handle_other_activity(data)
+    maybe_handle_other_activity(data, opts)
   end
 
   def handle_incoming(%{"id" => id} = data, opts) do
-    info("Wrapping standalone non-actor object in a Create activity?")
+    info("Wrapping standalone non-actor and non-activity object in a Create activity?")
     # debug(data)
 
     handle_incoming(
@@ -1356,8 +1368,11 @@ defmodule ActivityPub.Federator.Transformer do
     Fetcher.fetch_object_from_id(fingered["id"], opts)
   end
 
-  def maybe_handle_other_activity(data) do
-    with {:ok, activity} <- Object.insert(data, false),
+  def maybe_handle_other_activity(data, opts) do
+    # Process nested objects for all activity types
+    with {:ok, activity} <-
+           fix_other_object(data, opts)
+           |> Object.insert(false),
          true <-
            Keyword.get(
              Application.get_env(:activity_pub, :instance),

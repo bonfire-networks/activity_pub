@@ -97,6 +97,12 @@ defmodule ActivityPub.Fixtures do
           status: 404
         }
       end,
+      "https://docs.bonfirenetworks.org/VERSION" => fn "https://docs.bonfirenetworks.org/VERSION" ->
+        %Tesla.Env{
+          status: 200,
+          body: "1.0.0-test"
+        }
+      end,
       # "https://mocked.local/2" => fn "https://mocked.local/2" ->
       #   %Tesla.Env{
       #     status: 200,

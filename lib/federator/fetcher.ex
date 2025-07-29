@@ -49,7 +49,7 @@ defmodule ActivityPub.Federator.Fetcher do
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
   def fetch_object_from_id(id, opts \\ []) do
-    case cached_or_handle_incoming(id, opts) |> debug("cohi for #{inspect(id)}") do
+    case cached_or_handle_incoming(id, opts) do
       {:ok, object} ->
         {:ok, object}
 
@@ -188,7 +188,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def cached_or_handle_incoming(id_or_data, opts) do
     Object.get_cached(ap_id: id_or_data)
-    |> debug("gcc")
+    |> debug("got from cache")
     |> maybe_handle_incoming(id_or_data, opts)
   end
 
@@ -204,15 +204,27 @@ defmodule ActivityPub.Federator.Fetcher do
         )
 
         handle_fetched(data, opts)
-        |> debug("handled")
+        |> debug("re-handled")
 
       {:ok, %Object{data: %{"type" => type}} = object}
       when ActivityPub.Config.is_in(type, :supported_actor_types) ->
         debug("Object is an actor, so should be formatted")
         {:ok, Actor.format_remote_actor(object)}
 
+      {:ok, %Object{data: %{"replies" => _replies} = data}} ->
+        if opts[:fetch_collection_entries] || opts[:fetch_collection] do
+          debug("object is ready as-is, let's maybe fetch replies though...")
+
+          fetch_replies(data, opts)
+        else
+          debug("object is ready as-is, and not fetching replies")
+        end
+
+        cached
+
       {:ok, _} ->
         debug("object is ready as-is")
+
         cached
 
       {:error, :not_found} when is_map(id_or_data) ->
@@ -245,7 +257,8 @@ defmodule ActivityPub.Federator.Fetcher do
 
     with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
-      skip_fetch_collection? = !opts[:fetch_collection]
+      fetch_collection_mode = opts[:fetch_collection]
+      skip_fetch_collection? = !fetch_collection_mode
       skip_fetch_collection_entries? = !opts[:fetch_collection_entries]
 
       case object do
@@ -256,7 +269,7 @@ defmodule ActivityPub.Federator.Fetcher do
             "An actor was fetched, fetch outbox collection (and maybe queue a fetch of entries as well)"
           )
 
-          fetch_collection(outbox, mode: opts[:fetch_collection])
+          maybe_fetch_collection(outbox, mode: fetch_collection_mode)
 
           {:ok, object}
 
@@ -345,7 +358,7 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def fetch_replies(%{"replies" => replies}, opts) do
-    Transformer.fix_replies(%{"replies" => replies |> debug()}, opts)
+    Transformer.fix_replies(%{"replies" => replies |> debug("fetching replies")}, opts)
     |> debug()
   end
 
@@ -582,25 +595,22 @@ defmodule ActivityPub.Federator.Fetcher do
   # discard for now, to avoid privacy leaks
   # defp check_if_public(_public), do: {:error, "Not public"}
 
+  def maybe_fetch_collection(ap_id, opts) do
+    fetch_collection(
+      ap_id,
+      opts
+      |> Keyword.put_new(:mode, false)
+    )
+  end
+
   @spec fetch_collection(String.t() | map()) :: {:ok, [Object.t()]} | {:error, any()}
   def fetch_collection(ap_id, opts \\ [])
 
   def fetch_collection(ap_id, opts) when is_binary(ap_id) do
     case opts[:mode] do
-      mode when mode in [:entries_async, true] ->
-        warn(
-          mode,
-          "fetching collection synchronously (blocking operation) and then queing entries to be fetched async"
-        )
-
-        with {:ok, page} <-
-               get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: true)
-               |> debug("collection fetched") do
-          {:ok, handle_collection(page, opts)}
-        else
-          e ->
-            error(e, "Could not fetch collection #{ap_id}")
-        end
+      false ->
+        debug("skip")
+        {:ok, []}
 
       :async ->
         debug("queue collection to be fetched async")
@@ -613,11 +623,20 @@ defmodule ActivityPub.Federator.Fetcher do
            # |> Keyword.put_new(:skip_cache, true)
          )}
 
-      #  FIXME
+      entries_async_mode ->
+        warn(
+          entries_async_mode,
+          "fetching collection synchronously (blocking operation) and then queuing entries to be fetched async"
+        )
 
-      _ ->
-        debug("skip")
-        {:ok, []}
+        with {:ok, page} <-
+               get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: true)
+               |> debug("collection fetched") do
+          {:ok, handle_collection(page, opts)}
+        else
+          e ->
+            error(e, "Could not fetch collection #{ap_id}")
+        end
     end
   end
 
@@ -732,6 +751,12 @@ defmodule ActivityPub.Federator.Fetcher do
   defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}}, opts)
        when is_binary(id) and type in ["Collection", "OrderedCollection"] do
     fetch_page(id, [], opts)
+  end
+
+  defp objects_from_collection(%{"type" => type, "next" => next}, opts)
+       when is_binary(next) and type in ["CollectionPage"] do
+    # needed for GtS
+    fetch_page(next, [], opts)
   end
 
   defp objects_from_collection(page, _opts) do

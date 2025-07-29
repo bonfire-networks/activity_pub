@@ -696,7 +696,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"first" => first}} = data, options) do
     # Note: seems like too much recursion was triggered with `entries_async`
-    # with {:ok, replies} <- Fetcher.fetch_collection(first, mode: :entries_async) do
+    # with {:ok, replies} <- Fetcher.maybe_fetch_collection(first, mode: :entries_async) do
     #   Map.put(data, "replies", replies)
     # else
     #   {:error, _} ->
@@ -704,7 +704,7 @@ defmodule ActivityPub.Federator.Transformer do
     # Map.put(data, "replies", [])
     # end
 
-    Fetcher.fetch_collection(
+    Fetcher.maybe_fetch_collection(
       first,
       Keyword.merge(
         [mode: options[:fetch_collection] || options[:fetch_collection_entries]],

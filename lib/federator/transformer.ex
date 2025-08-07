@@ -229,9 +229,9 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_content_map()
     |> fix_addressing()
     |> fix_summary()
+    |> add_emoji_tags()
 
     # |> fetch_and_create_nested_ap_objects(options)
-    # |> add_emoji_tags()
   end
 
   def fix_object(object, _options), do: object
@@ -639,11 +639,9 @@ defmodule ActivityPub.Federator.Transformer do
 
   # TODO: we should probably send mtime instead of unix epoch time for updated
   def add_emoji_tags(%{"emoji" => emoji} = object) do
-    tags = object["tag"] || []
-
-    out = Enum.map(emoji, &build_emoji_tag/1)
-
-    Map.put(object, "tag", tags ++ out)
+    Map.update(object, "tag", [], fn existing_value ->
+      existing_value ++ Enum.map(emoji, &build_emoji_tag/1)
+    end)
   end
 
   def add_emoji_tags(object), do: object

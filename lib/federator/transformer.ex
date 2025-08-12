@@ -17,12 +17,14 @@ defmodule ActivityPub.Federator.Transformer do
   # alias ActivityPub.Safety.Containment
 
   @doc """
-  Translates MN Entity to an AP compatible format
+  Translates an Entity to an AP compatible format
   """
-  def prepare_outgoing(%{"type" => "Create", "object" => %{"type" => "Group"}} = data) do
+  def prepare_outgoing(object, opts \\ [])
+
+  def prepare_outgoing(%{"type" => "Create", "object" => %{"type" => "Group"}} = data, opts) do
     data =
       data
-      |> Map.merge(Utils.make_json_ld_header(:actor))
+      |> maybe_add_json_ld_header(:actor, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -30,11 +32,11 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, data}
   end
 
-  def prepare_outgoing(%{"type" => "Create", "object" => object} = data) do
+  def prepare_outgoing(%{"type" => "Create", "object" => object} = data, opts) do
     data =
       data
       |> Map.put("object", prepare_outgoing_object(object))
-      |> Map.merge(Utils.make_json_ld_header(:object))
+      |> maybe_add_json_ld_header(:object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -42,11 +44,11 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, data}
   end
 
-  def prepare_outgoing(%{"object" => object} = data) do
+  def prepare_outgoing(%{"object" => object} = data, opts) do
     data =
       data
       |> Map.put("object", prepare_outgoing_object(object))
-      |> Map.merge(Utils.make_json_ld_header(:object))
+      |> maybe_add_json_ld_header(:object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -55,10 +57,10 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # hack for mastodon accept and reject type activity formats
-  def prepare_outgoing(%{"type" => _type} = data) do
+  def prepare_outgoing(%{"type" => _type} = data, opts) do
     data =
       data
-      |> Map.merge(Utils.make_json_ld_header(:object))
+      |> maybe_add_json_ld_header(:object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -66,14 +68,23 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, data}
   end
 
-  def prepare_outgoing(%Object{object: %Object{} = object} = activity) do
+  def prepare_outgoing(%Object{object: %Object{} = object} = activity, opts) do
     activity.data
     |> Map.put("object", prepare_outgoing_object(object))
-    |> prepare_outgoing()
+    |> prepare_outgoing(opts)
   end
 
-  def prepare_outgoing(%Object{} = activity) do
-    prepare_outgoing(activity.data)
+  def prepare_outgoing(%Object{} = activity, opts) do
+    prepare_outgoing(activity.data, opts)
+  end
+
+  defp maybe_add_json_ld_header(data, type, opts) do
+    if opts[:skip_json_context_header] do
+      data
+    else
+      data
+      |> Map.merge(Utils.make_json_ld_header(type))
+    end
   end
 
   defp prepare_outgoing_object(nil), do: nil

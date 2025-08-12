@@ -7,10 +7,10 @@ defmodule ActivityPub.Web.ObjectView do
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Object
 
-  def render("object.json", %{object: object}) do
+  def render("object.json", %{object: object} = assigns) do
     object
     # |> debug 
-    |> Transformer.prepare_outgoing()
+    |> Transformer.prepare_outgoing(assigns[:opts] || [])
     ~> Transformer.preserve_privacy_of_outgoing(nil, :public)
   end
 

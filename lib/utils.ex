@@ -44,19 +44,25 @@ defmodule ActivityPub.Utils do
   def make_json_ld_header(type \\ :object)
 
   def make_json_ld_header(type) do
+    %{
+      "@context" => make_json_ld_context_list(type)
+    }
+  end
+
+  def make_json_ld_context_list(type \\ :object)
+
+  def make_json_ld_context_list(type) do
     json_contexts = Application.get_env(:activity_pub, :json_contexts, [])
 
-    %{
-      "@context" => [
-        "https://www.w3.org/ns/activitystreams",
-        Enum.into(
-          stringify_keys(json_contexts[type]) || %{},
-          %{
-            "@language" => Adapter.get_locale()
-          }
-        )
-      ]
-    }
+    [
+      "https://www.w3.org/ns/activitystreams",
+      Enum.into(
+        stringify_keys(json_contexts[type]) || %{},
+        %{
+          "@language" => Adapter.get_locale()
+        }
+      )
+    ]
   end
 
   @doc """
@@ -254,14 +260,20 @@ defmodule ActivityPub.Utils do
   #   end)
   # end
 
-  def get_with_cache(get_fun, cache_bucket, key, identifier) when is_function(get_fun) do
+  def get_with_cache(get_fun, cache_bucket, key, identifier, opts \\ [])
+      when is_function(get_fun) do
     cache_key = "#{key}:#{identifier}"
     mock_fun = Process.get(Tesla.Mock)
 
     case cachex_fetch(cache_bucket, cache_key, fn ->
            maybe_put_mock(mock_fun)
 
-           case get_fun.([{key, identifier}]) do
+           if is_function(get_fun, 2) do
+             get_fun.([{key, identifier}], opts)
+           else
+             get_fun.([{key, identifier}])
+           end
+           |> case do
              {:ok, object} ->
                debug("#{cache_bucket}: got and now caching (#{key}: #{identifier})")
                debug(object, "got from cache")
@@ -352,7 +364,8 @@ defmodule ActivityPub.Utils do
           "request from"
         )
 
-    with {:ok, %{json: json, meta: meta}} <- get_with_cache(get_fun, cache_bucket, :json, id) do
+    with {:ok, %{json: json, meta: meta}} <-
+           get_with_cache(get_fun, cache_bucket, :json, id, opts) do
       # TODO: cache the actual json so it doesn't have to go through Jason each time?
       # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
 
@@ -367,8 +380,8 @@ defmodule ActivityPub.Utils do
     end
   end
 
-  def json_with_cache(_, get_fun, cache_bucket, id, _ret_fn, _opts) do
-    with {:ok, %{json: json}} <- get_with_cache(get_fun, cache_bucket, :json, id) do
+  def json_with_cache(_, get_fun, cache_bucket, id, _ret_fn, opts) do
+    with {:ok, %{json: json}} <- get_with_cache(get_fun, cache_bucket, :json, id, opts) do
       # TODO: cache the actual json so it doesn't have to go through Jason each time?
       # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
       Jason.encode(json)
@@ -383,7 +396,7 @@ defmodule ActivityPub.Utils do
 
   def return_json(conn, meta, json, _opts \\ []) do
     conn
-    |> PlugHTTPValidator.set(meta |> debug)
+    |> PlugHTTPValidator.set(meta)
     #  4.2 hours - TODO: configurable
     |> Plug.Conn.put_resp_header("cache-control", "max-age=#{15120}")
     |> Plug.Conn.put_resp_content_type("application/activity+json")

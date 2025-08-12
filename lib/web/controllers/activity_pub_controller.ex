@@ -68,7 +68,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   def json_object_with_cache(conn_or_nil, id, opts) do
     Utils.json_with_cache(
       conn_or_nil,
-      &object_json/1,
+      &object_json/2,
       :ap_object_cache,
       id,
       &maybe_return_json/4,
@@ -78,7 +78,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp maybe_return_json(conn, meta, json, opts) do
-    debug(json)
+    # debug(json)
 
     if opts[:exporting] == true or json["type"] in ["Delete", "Tombstone"] or
          federate_actor?(Map.get(json, "actor"), conn) do
@@ -88,31 +88,34 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  defp object_json(json: id) do
+  defp object_json([json: id], opts) do
     #  TODO: support prefixed UUIDs?
     if Utils.is_ulid?(id) do
       # querying by pointer - handle local objects
       #  true <- object.id != id, # huh?
       #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
       # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") 
-      maybe_object_json(Object.get_cached!(pointer: id) || Adapter.maybe_publish_object(id, true))
+      maybe_object_json(
+        Object.get_cached!(pointer: id) || Adapter.maybe_publish_object(id, true),
+        opts
+      )
     else
       # query by UUID
 
-      maybe_object_json(Object.get_cached!(ap_id: ap_route_helper(id)))
+      maybe_object_json(Object.get_cached!(ap_id: ap_route_helper(id)), opts)
     end
   end
 
-  defp maybe_object_json(%{public: true} = object) do
+  defp maybe_object_json(%{public: true} = object, opts) do
     # debug(object)
     {:ok,
      %{
-       json: ObjectView.render("object.json", %{object: object}),
+       json: ObjectView.render("object.json", %{object: object, opts: opts}),
        meta: %{updated_at: object.updated_at}
      }}
   end
 
-  defp maybe_object_json(%{data: %{"type" => type}} = object)
+  defp maybe_object_json(%{data: %{"type" => type}} = object, opts)
        when type in ["Accept", "Undo", "Delete", "Tombstone"] do
     debug(
       "workaround for being able to delete, and accept follow and unfollow without HTTP Signatures"
@@ -120,16 +123,16 @@ defmodule ActivityPub.Web.ActivityPubController do
 
     {:ok,
      %{
-       json: ObjectView.render("object.json", %{object: object}),
+       json: ObjectView.render("object.json", %{object: object, opts: opts}),
        meta: %{updated_at: object.updated_at}
      }}
   end
 
-  defp maybe_object_json({:ok, object}) do
-    maybe_object_json(object)
+  defp maybe_object_json({:ok, object}, opts) do
+    maybe_object_json(object, opts)
   end
 
-  defp maybe_object_json(%Object{}) do
+  defp maybe_object_json(%Object{}, _opts) do
     # TODO: support authenticated fetching for non-public objects
     warn(
       "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
@@ -138,7 +141,7 @@ defmodule ActivityPub.Web.ActivityPubController do
     {:error, 401, "authentication required"}
   end
 
-  defp maybe_object_json(other) do
+  defp maybe_object_json(other, _opts) do
     debug(other, "Pointable not found")
     {:error, 404, "not found"}
   end

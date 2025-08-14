@@ -716,7 +716,7 @@ defmodule ActivityPub.Federator.Transformer do
     Fetcher.maybe_fetch_collection(
       first,
       Keyword.merge(
-        [mode: options[:fetch_collection] || options[:fetch_collection_entries]],
+        [mode: Keyword.get(options, :fetch_collection, options[:fetch_collection_entries])],
         options
       )
       |> debug("opts")

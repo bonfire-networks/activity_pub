@@ -37,6 +37,40 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  def get_cached_object_or_maybe_fetch_ap_id(id, opts \\ []) do
+    case Object.get_cached(ap_id: id) do
+      {:ok, object} ->
+        {:ok, object}
+
+      {:error, :remote_error} ->
+        warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
+        {:error, :not_found}
+
+      _ ->
+        case opts[:mode] do
+          false ->
+            debug("skip because of mode: false")
+            nil
+
+          mode when mode in [:async, nil] ->
+            enqueue_fetch(
+              id,
+              Enum.into(opts[:worker_attrs] || %{}, %{
+                "depth" => opts[:depth],
+                "fetch_collection_entries" => opts[:fetch_collection_entries]
+              })
+            )
+
+          true ->
+            fetch_remote_object_from_id(id, opts)
+
+          other ->
+            debug(other, "skip because of mode")
+            nil
+        end
+    end
+  end
+
   @doc """
   Checks if an object exists in the AP database and prepares it if not (local objects only).
   """
@@ -706,7 +740,7 @@ defmodule ActivityPub.Federator.Fetcher do
       items
     else
       with {:ok, page} <-
-             get_cached_object_or_fetch_ap_id(page_id, skip_contain_origin_check: true) do
+             get_cached_object_or_maybe_fetch_ap_id(page_id, skip_contain_origin_check: true) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do
@@ -731,6 +765,11 @@ defmodule ActivityPub.Federator.Fetcher do
   defp items_in_page(%{"items" => items})
        when is_list(items),
        do: items
+
+  defp items_in_page(other) do
+    warn(other, "unrecognised, maybe fetching async")
+    []
+  end
 
   defp objects_from_collection(page, opts \\ [])
 

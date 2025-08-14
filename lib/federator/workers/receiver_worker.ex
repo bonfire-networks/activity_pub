@@ -13,7 +13,9 @@ defmodule ActivityPub.Federator.Workers.ReceiverWorker do
     Logger.metadata(action: info(op))
 
     debug("Handling incoming AP activity")
+
     ActivityPub.Federator.Transformer.handle_incoming(params)
+    |> debug("result of handling incoming AP activity")
   end
 
   def perform(%Oban.Job{

@@ -125,7 +125,7 @@ defmodule ActivityPub.Safety.Keys do
          {:ok, actor} <- Actor.set_cache(actor) |> debug("donz") do
       {:ok, actor}
     else
-      e -> error(e, "Could not generate or save keys")
+      e -> err(e, "Could not generate or save keys")
     end
   end
 
@@ -209,7 +209,7 @@ defmodule ActivityPub.Safety.Keys do
   end
 
   def sign(%{keys: _} = actor, headers) do
-    with {:ok, actor} <- Keys.ensure_keys_present(actor),
+    with {:ok, actor} <- ensure_keys_present(actor),
          {:ok, private_key, _} when not is_nil(private_key) <- Keys.keypair_from_pem(actor.keys),
          signed when is_binary(signed) <-
            HTTPSignatures.sign(private_key, actor.data["id"] <> "#main-key", headers) do

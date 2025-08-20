@@ -392,8 +392,9 @@ defmodule ActivityPub.Actor do
         {:error, "Federation is disabled"}
 
       e ->
-        warn(e)
-        {:error, "No AP id in WebFinger"}
+        msg = "No AP id in WebFinger"
+        err(e, msg)
+        {:error, msg}
     end
   end
 

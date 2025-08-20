@@ -4,12 +4,12 @@ defmodule ActivityPub.Federator.WebFinger do
   @moduledoc """
   Serves and fetches data (mainly actor URI) necessary for federation when only the username and host is known.
   """
+  use Arrows
+  import Untangle
 
   alias ActivityPub.Actor
   alias ActivityPub.Federator.HTTP
   alias ActivityPub.Federator.Publisher
-
-  import Untangle
 
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.
@@ -30,6 +30,7 @@ defmodule ActivityPub.Federator.WebFinger do
     else
       {:error, {:local_user, name}} ->
         output(name || account)
+        ~> webfinger_from_json()
 
       {:error, {:options, :incompatible, [verify: :verify_peer, cacerts: :undefined]}} ->
         error("No SSL certificates available")

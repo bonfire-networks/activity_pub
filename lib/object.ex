@@ -41,7 +41,7 @@ defmodule ActivityPub.Object do
   def get_cached(id: id) when is_binary(id), do: do_get_cached(:id, id)
   # def get_cached(uuid: id) when is_binary(id), do: do_get_cached(:uuid, id)
   def get_cached(ap_id: id) when is_binary(id), do: do_get_cached(:ap_id, id)
-  def get_cached(pointer: id) when is_binary(id), do: do_get_cached(:pointer, id)
+  def get_cached(pointer: id) when is_binary(id), do: do_get_cached(:pointer, Utils.uid(id))
 
   def get_cached(_: %Object{} = o), do: o
 

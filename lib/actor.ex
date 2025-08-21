@@ -130,7 +130,7 @@ defmodule ActivityPub.Actor do
   # def get_cached(pointer: %{id: id} = pointer),
   #   do: get_cached(pointer: id) ~> Map.put(:pointer, pointer) |> ok()
 
-  def get_cached(pointer: id), do: do_get_cached(:pointer, id)
+  def get_cached(pointer: id), do: do_get_cached(:pointer, Utils.uid(id))
   def get_cached(username: username), do: do_get_cached(:username, username)
   def get_cached(ap_id: ap_id) when is_binary(ap_id), do: do_get_cached(:ap_id, ap_id)
 

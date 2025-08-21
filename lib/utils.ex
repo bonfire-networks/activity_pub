@@ -184,6 +184,15 @@ defmodule ActivityPub.Utils do
   def ap_id(%{ap_id: id}), do: id
   def ap_id(%{data: %{"id" => id}}), do: id
   def ap_id(%{"id" => id}), do: id
+  def ap_id(id) when is_binary(id), do: id
+
+  def some_identifier(%{id: id}) do
+    id
+  end
+
+  def some_identifier(object) do
+    uid(object) || ap_id(object)
+  end
 
   # def maybe_forward_activity(
   #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
@@ -262,67 +271,91 @@ defmodule ActivityPub.Utils do
 
   def get_with_cache(get_fun, cache_bucket, key, identifier, opts \\ [])
       when is_function(get_fun) do
-    cache_key = "#{key}:#{identifier}"
-    mock_fun = Process.get(Tesla.Mock)
+    if some_identifier = some_identifier(identifier) do
+      cache_key = "#{key}:#{some_identifier}"
+      mock_fun = Process.get(Tesla.Mock)
 
-    case cachex_fetch(cache_bucket, cache_key, fn ->
-           maybe_put_mock(mock_fun)
+      case cachex_fetch(cache_bucket, cache_key, fn ->
+             maybe_put_mock(mock_fun)
 
-           if is_function(get_fun, 2) do
-             get_fun.([{key, identifier}], opts)
-           else
-             get_fun.([{key, identifier}])
-           end
-           |> case do
-             {:ok, object} ->
-               debug("#{cache_bucket}: got and now caching (#{key}: #{identifier})")
-               debug(object, "got from cache")
+             if is_function(get_fun, 2) do
+               get_fun.([{key, identifier}], opts)
+             else
+               get_fun.([{key, identifier}])
+             end
+             |> case do
+               {:ok, object} ->
+                 debug("#{cache_bucket}: got and now caching (key: #{cache_key})")
+                 debug(object, "got from cache")
 
-               if key != :json, do: maybe_multi_cache(cache_bucket, object)
+                 if key != :json, do: maybe_multi_cache(cache_bucket, object)
 
-               {:commit, object}
+                 {:commit, object}
 
-             {:error, :not_found} ->
-               warn(identifier, "not found with #{inspect(get_fun)} for #{key}")
-               {:commit, :not_found}
+               {:error, :not_found} ->
+                 warn(identifier, "not found with #{inspect(get_fun)} for #{key}")
+                 {:commit, :not_found}
 
-             e ->
-               warn(e, "error attempting to get with #{key} - #{identifier} ")
-               {:ignore, e}
-           end
-         end) do
-      {:ok, :not_found} ->
-        debug(":not_found was cached for #{key}: #{identifier}")
-        {:error, :not_found}
+               e ->
+                 warn(e, "error attempting to get with #{cache_key} ")
+                 {:ignore, e}
+             end
+           end) do
+        {:ok, :not_found} ->
+          debug(":not_found was cached for #{cache_key}")
+          {:error, :not_found}
 
-      {:ok, object} ->
-        debug("found in cache for #{key}: #{identifier}")
-        {:ok, object}
+        {:ok, object} ->
+          debug("found in cache for #{cache_key}")
+          {:ok, object}
 
-      {:commit, :not_found} ->
-        {:error, :not_found}
+        {:commit, :not_found} ->
+          {:error, :not_found}
 
-      {:commit, object} ->
-        {:ok, object}
+        {:commit, object} ->
+          {:ok, object}
 
-      {:ignore, other} ->
-        other
+        {:ignore, other} ->
+          other
 
-      {:error, :no_cache} ->
-        maybe_put_mock(mock_fun)
+        {:error, :no_cache} ->
+          maybe_put_mock(mock_fun)
+
+          if is_function(get_fun, 2) do
+            get_fun.([{key, identifier}], opts)
+          else
+            get_fun.([{key, identifier}])
+          end
+
+        # {:error, "cannot find ownership process"<>_} -> get_fun.([{key, identifier}])
+        msg ->
+          error(msg)
+      end
+    else
+      if is_function(get_fun, 2) do
+        get_fun.([{key, identifier}], opts)
+      else
         get_fun.([{key, identifier}])
-
-      # {:error, "cannot find ownership process"<>_} -> get_fun.([{key, identifier}])
-      msg ->
-        error(msg)
+      end
     end
   rescue
-    _ ->
-      get_fun.([{key, identifier}])
+    e ->
+      err(e)
+
+      if is_function(get_fun, 2) do
+        get_fun.([{key, identifier}], opts)
+      else
+        get_fun.([{key, identifier}])
+      end
   catch
-    _ ->
+    e ->
+      error(e)
       # workaround :nodedown errors
-      get_fun.([{key, identifier}])
+      if is_function(get_fun, 2) do
+        get_fun.([{key, identifier}], opts)
+      else
+        get_fun.([{key, identifier}])
+      end
   end
 
   defp maybe_put_mock(mock_fun) do

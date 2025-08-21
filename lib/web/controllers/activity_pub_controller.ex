@@ -88,7 +88,7 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  defp object_json([json: id], opts) do
+  defp object_json([json: id], opts) when is_binary(id) do
     #  TODO: support prefixed UUIDs?
     if Utils.is_ulid?(id) do
       # querying by pointer - handle local objects
@@ -104,6 +104,13 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       maybe_object_json(Object.get_cached!(ap_id: ap_route_helper(id)), opts)
     end
+  end
+
+  defp object_json([json: %ActivityPub.Object{} = object], opts) do
+    maybe_object_json(
+      object,
+      opts
+    )
   end
 
   defp maybe_object_json(%{public: true} = object, opts) do

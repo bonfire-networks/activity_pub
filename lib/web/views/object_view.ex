@@ -75,7 +75,7 @@ defmodule ActivityPub.Web.ObjectView do
 
     items =
       collection
-      |> debug()
+      |> debug("items")
       |> Enum.map(fn object ->
         render("object.json", %{object: object})
       end)

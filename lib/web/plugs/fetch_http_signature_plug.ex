@@ -5,6 +5,11 @@ defmodule ActivityPub.Web.Plugs.FetchHTTPSignaturePlug do
     options
   end
 
+  def call(%{assigns: %{current_user: %{}}} = conn, _opts) do
+    # already authorized somehow?
+    conn
+  end
+
   def call(%{assigns: %{valid_signature: true}} = conn, _opts) do
     # already validated somehow?
     conn

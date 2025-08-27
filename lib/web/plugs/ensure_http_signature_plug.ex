@@ -15,6 +15,11 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
     options
   end
 
+  def call(%{assigns: %{current_user: %{}}} = conn, _opts) do
+    # already authorized somehow?
+    conn
+  end
+
   def call(%{assigns: %{valid_signature: true}} = conn, _), do: conn
 
   def call(%{assigns: %{valid_signature: nil}} = conn, _) do

@@ -44,6 +44,8 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
+        pipe_through(:load_authorization)
+        pipe_through(:signed_activity_pub_fetch)
 
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
@@ -54,6 +56,7 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json_or_html)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_fetch)
 
         get("/objects/:uuid", ActivityPubController, :object)
@@ -73,6 +76,7 @@ defmodule ActivityPub.Web.Router do
 
       scope "/", ActivityPub.Web do
         pipe_through(:activity_json_or_html)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_fetch)
 
         # URLs for interop with Mastodon clients / AP testing tools
@@ -83,6 +87,7 @@ defmodule ActivityPub.Web.Router do
       scope "/", ActivityPub.Web do
         pipe_through(:activity_json)
 
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_incoming)
 
         # URLs for interop with Mastodon clients / AP testing tools
@@ -95,6 +100,7 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_incoming)
 
         post("/actors/:username/inbox", IncomingActivityPubController, :inbox)

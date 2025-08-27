@@ -15,7 +15,23 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
   def init(options), do: options
 
-  def call(%{assigns: %{user: %Actor{}}} = conn, _opts), do: conn
+  def call(%{assigns: %{current_actor: %Actor{}}} = conn, _opts), do: conn
+
+  def call(%{assigns: %{current_user: %{id: pointer_id}}} = conn, _opts) do
+    # already authorized somehow? but we need an Actor rather than a user
+    with {:ok, %Actor{} = actor} <- Actor.get_cached(pointer: pointer_id) do
+      debug(actor, "found current_actor from current_user #{pointer_id}")
+
+      conn
+      |> assign(:current_actor, actor)
+    else
+      other ->
+        info(other, "Failed to find current Actor based on current_user")
+
+        conn
+        |> assign(:valid_signature, false)
+    end
+  end
 
   # if this has a POST payload make sure it is signed by the same actor that made it
   def call(%{assigns: %{valid_signature: true}, params: %{"actor" => actor}} = conn, _opts) do

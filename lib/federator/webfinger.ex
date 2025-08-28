@@ -73,14 +73,17 @@ defmodule ActivityPub.Federator.WebFinger do
     end
   end
 
-  defp gather_links(actor) do
+  defp gather_links(%{data: %{"id" => id}}), do: gather_links(id)
+  defp gather_links(%{"id" => id}), do: gather_links(id)
+
+  defp gather_links(id) do
     [
       %{
         "rel" => "http://webfinger.net/rel/profile-page",
         "type" => "text/html",
-        "href" => actor.data["id"]
+        "href" => id
       }
-    ] ++ Publisher.gather_webfinger_links(actor)
+    ] ++ Publisher.gather_webfinger_links(id)
   end
 
   def local_hostname,
@@ -123,10 +126,12 @@ defmodule ActivityPub.Federator.WebFinger do
   Formats gathered data into a JRD format.
   """
   def represent_user(actor) do
+    id = actor.data["id"]
+
     %{
       "subject" => "acct:#{Actor.format_username(actor.data)}",
-      "aliases" => [actor.data["id"]],
-      "links" => gather_links(actor)
+      "aliases" => [id],
+      "links" => gather_links(id)
     }
   end
 

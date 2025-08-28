@@ -62,7 +62,7 @@ defmodule ActivityPub.Federator.Publisher do
 
   @spec gather_webfinger_links(Map.t()) :: list()
   def gather_webfinger_links(user) do
-    Application.get_env(:activity_pub, :instance)[:federation_publisher_modules]
+    (Application.get_env(:activity_pub, :instance)[:federation_publisher_modules] || [])
     |> Enum.reduce([], fn module, links ->
       links ++ module.gather_webfinger_links(user)
     end)

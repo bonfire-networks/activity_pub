@@ -387,19 +387,22 @@ defmodule ActivityPub.Federator.APPublisher do
       (is_map(actor_data["endpoints"]) && Map.get(actor_data["endpoints"], "sharedInbox")) ||
         actor_data["inbox"]
 
-  def gather_webfinger_links(actor) do
+  def gather_webfinger_links(%{data: %{"id" => id}}), do: gather_webfinger_links(id)
+  def gather_webfinger_links(%{"id" => id}), do: gather_webfinger_links(id)
+
+  def gather_webfinger_links(id) do
     base_url = ActivityPub.Web.base_url()
 
     [
       %{
         "rel" => "self",
         "type" => "application/activity+json",
-        "href" => actor.data["id"]
+        "href" => id
       },
       %{
         "rel" => "self",
         "type" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
-        "href" => actor.data["id"]
+        "href" => id
       },
       %{
         "rel" => "http://ostatus.org/schema/1.0/subscribe",

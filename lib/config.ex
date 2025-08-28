@@ -169,7 +169,8 @@ defmodule ActivityPub.Config do
 
   def federating? do
     case (Application.get_env(:activity_pub, :instance) || [])
-         |> Keyword.get(:federating, :not_set) do
+         |> Map.new()
+         |> Map.get(:federating, :not_set) do
       :not_set ->
         # this should be handled in test.exs or dev.exs and only here as a fallback
         (System.get_env("FEDERATE") == "yes" or

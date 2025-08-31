@@ -233,12 +233,20 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def maybe_inbox(conn, %{"username" => _username} = _params) do
-    # if Config.env() != :prod and federate_actor?(username, conn) do
-    #  # TODO?
-    # else
-    Utils.error_json(conn, "this API path only accepts POST requests", 403)
-    # end
+  def maybe_inbox(conn, %{"username" => username} = params) do
+    # Check if this is a C2S request with Bearer token
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> _token] ->
+        # For C2S requests with Bearer token, render the shared inbox for now
+        # TODO: This is a minimal implementation - should check token validity and show user-specific inbox
+        conn
+        |> put_resp_content_type("application/activity+json")
+        |> put_view(ObjectView)
+        |> render("inbox.json", %{inbox: :shared_inbox, page: page_number(params["page"])})
+      _ ->
+        # This is a federation request - return error for GET
+        Utils.error_json(conn, "this API path only accepts POST requests", 403)
+    end
   end
 
   def maybe_inbox(conn, params) do

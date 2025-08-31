@@ -36,6 +36,11 @@ defmodule ActivityPub.Web.Router do
         plug(ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug)
       end
 
+      pipeline :activity_pub_c2s do
+        plug(:accepts, ["json", "activity+json", "ld+json"])
+        plug(ActivityPub.Web.Plugs.C2SAuth, scopes: ["write:statuses"])
+      end
+
       scope "/.well-known", ActivityPub.Web do
         pipe_through(:webfinger)
 
@@ -107,6 +112,13 @@ defmodule ActivityPub.Web.Router do
         # TODO: implement this for AP C2S API
         post("/actors/:username/outbox", IncomingActivityPubController, :outbox_info)
         post("/shared_inbox", IncomingActivityPubController, :shared_inbox)
+      end
+
+      # C2S (Client-to-Server) API routes with authentication
+      scope unquote(ap_base_path), ActivityPub.Web do
+        pipe_through(:activity_pub_c2s)
+
+        post("/actors/:username/outbox", C2SOutboxController, :create)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

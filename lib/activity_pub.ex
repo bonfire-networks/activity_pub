@@ -286,7 +286,8 @@ defmodule ActivityPub do
              object,
              Map.get(params, :activity_id),
              Map.get(params, :public, true),
-             Map.get(params, :summary, nil)
+             Map.get(params, :summary, nil),
+             Map.get(params, :published, nil)
            ),
          {:ok, activity} <-
            Object.insert(announce_data, Map.get(params, :local, true), Map.get(params, :pointer)),
@@ -645,7 +646,8 @@ defmodule ActivityPub do
          object,
          activity_id,
          public?,
-         summary \\ nil
+         summary \\ nil,
+         published \\ nil
        )
 
   defp make_announce_data(
@@ -653,7 +655,8 @@ defmodule ActivityPub do
          %Object{data: %{"id" => id}} = object,
          activity_id,
          false,
-         summary
+         summary,
+         published
        ) do
     data = %{
       "type" => "Announce",
@@ -662,7 +665,8 @@ defmodule ActivityPub do
       "to" => [actor.data["followers"]],
       "cc" => [],
       "context" => object.data["context"],
-      "summary" => summary
+      "summary" => summary,
+      "published" => published || Utils.make_date()
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
@@ -673,7 +677,8 @@ defmodule ActivityPub do
          %Object{data: %{"id" => id}} = object,
          activity_id,
          true,
-         summary
+         summary,
+         published
        ) do
     data = %{
       "type" => "Announce",
@@ -682,7 +687,8 @@ defmodule ActivityPub do
       "to" => [actor.data["followers"], object.data["actor"]],
       "cc" => [ActivityPub.Config.public_uri()],
       "context" => object.data["context"],
-      "summary" => summary
+      "summary" => summary,
+      "published" => published || Utils.make_date()
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data

@@ -505,7 +505,7 @@ defmodule ActivityPub.Object do
   defp lazy_put_activity_defaults(map, activity_id, pointer) do
     map =
       map
-      |> debug()
+      # |> debug()
       |> Map.put_new_lazy("id", fn -> map["url"] || object_url(activity_id) end)
       |> Map.put_new_lazy("published", &Utils.make_date/0)
 

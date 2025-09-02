@@ -56,6 +56,14 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
         warn("Tesla.Middleware.Retry will NOT retry due to non-existing domain")
         false
 
+      {:error, :nxdomain} ->
+        warn("Tesla.Middleware.Retry will NOT retry due to non-existing domain")
+        false
+
+      {:error, {:tls_alert, {:certificate_expired, _}}} ->
+        warn("Tesla.Middleware.Retry will NOT retry due to expired TLS certificate")
+        false
+
       {:error, e} ->
         warn(e, "Tesla.Middleware.Retry will retry after connection error")
         true

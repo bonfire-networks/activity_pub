@@ -853,7 +853,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     object =
       fix_object(object, opts)
-      |> info("normalized incoming object")
+      |> debug("normalized incoming object")
 
     actor_id =
       Object.actor_id_from_data(data)

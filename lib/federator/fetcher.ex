@@ -268,10 +268,10 @@ defmodule ActivityPub.Federator.Fetcher do
             {:ok, id_or_data}
 
           _ ->
-            debug(id_or_data, "seems like a new-to-us remote object")
+            flood(id_or_data, "seems like a new-to-us remote object")
 
             handle_fetched(id_or_data, opts)
-            |> debug("handled")
+            |> flood("handled")
         end
 
       {:error, :not_found} ->

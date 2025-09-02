@@ -74,7 +74,7 @@ defmodule ActivityPub do
   def create(%{to: _, actor: _, object: _} = params) do
     with nil <- Object.normalize(params[:additional]["id"], false),
          create_data <-
-           make_create_data(params) |> debug(),
+           make_create_data(params) |> debug("create_data"),
          {:ok, activity} <-
            Object.insert(create_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(activity),
@@ -781,12 +781,21 @@ defmodule ActivityPub do
 
   #### Create-related helpers
   defp make_create_data(params) do
+    published = params[:published] || Utils.make_date()
+
+    # Ensure the object also has the published date
+    object =
+      case params.object do
+        %{} = obj -> Map.put_new(obj, "published", published)
+        other -> other
+      end
+
     Enum.into(params[:additional] || %{}, %{
       "type" => "Create",
       "to" => params.to,
       "actor" => params.actor.data["id"],
-      "object" => params.object,
-      "published" => params[:published] || Utils.make_date(),
+      "object" => object,
+      "published" => published,
       "context" => params[:context]
     })
   end

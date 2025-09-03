@@ -57,7 +57,8 @@ defmodule ActivityPub.Federator.Fetcher do
               id,
               Enum.into(opts[:worker_attrs] || %{}, %{
                 "depth" => opts[:depth],
-                "fetch_collection_entries" => opts[:fetch_collection_entries]
+                "fetch_collection_entries" => opts[:fetch_collection_entries],
+                "user_id" => opts[:user_id]
               })
             )
 
@@ -140,7 +141,9 @@ defmodule ActivityPub.Federator.Fetcher do
                 Enum.into(opts[:worker_attrs] || %{}, %{
                   "depth" => entry_depth,
                   "max_depth" => max_items,
-                  "fetch_collection_entries" => opts[:fetch_collection_entries]
+                  "fetch_collection_entries" => opts[:fetch_collection_entries],
+                  #  just to keep track of who made the request
+                  "user_id" => opts[:user_id]
                 })
               )
             end
@@ -154,7 +157,8 @@ defmodule ActivityPub.Federator.Fetcher do
               info(id, "fetch recursed (inline)")
 
               fetch_object_from_id(id,
-                depth: entry_depth
+                depth: entry_depth,
+                user_id: opts[:user_id]
               )
             end
           end
@@ -373,15 +377,19 @@ defmodule ActivityPub.Federator.Fetcher do
     |> Transformer.fix_replies(opts)
     |> Transformer.fix_in_reply_to(opts)
     |> Transformer.fix_context(opts)
-    |> debug()
+
+    # |> debug()
   end
 
   def fetch_thread(other, opts) do
-    with {:ok, %{data: data}} <- Object.get_cached(other) |> debug() do
+    with {:ok, %{data: data}} <- Object.get_cached(other) |> flood("got_object") do
       fetch_thread(data, opts)
     else
+      {:error, :not_found} ->
+        err(other, "Could not find replies in ActivityPub data")
+
       e ->
-        error(e, "Could not find replies in ActivityPub data")
+        err(e, "Could not find replies in ActivityPub data")
     end
   end
 
@@ -393,19 +401,23 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_replies(%{"replies" => replies}, opts) do
     Transformer.fix_replies(%{"replies" => replies |> debug("fetching replies")}, opts)
-    |> debug()
+    # |> debug()
   end
 
-  def fetch_replies(%{"id" => _} = _data, _opts) do
-    error("Could not find replies in ActivityPub data")
+  def fetch_replies(%{"id" => _} = data, _opts) do
+    err(data, "Could not find replies in ActivityPub data")
   end
 
   def fetch_replies(other, opts) do
-    with {:ok, %{data: %{"replies" => replies} = _data}} <- Object.get_cached(other) |> debug() do
+    with {:ok, %{data: %{"replies" => replies} = _data}} <-
+           Object.get_cached(other) |> flood("got_object") do
       fetch_replies(%{"replies" => replies}, opts)
     else
+      {:error, :not_found} ->
+        err(other, "Could not find replies in ActivityPub data")
+
       e ->
-        error(e, "Could not find replies in ActivityPub data")
+        err(e, "Could not find replies in ActivityPub data")
     end
   end
 
@@ -740,7 +752,10 @@ defmodule ActivityPub.Federator.Fetcher do
       items
     else
       with {:ok, page} <-
-             get_cached_object_or_maybe_fetch_ap_id(page_id, skip_contain_origin_check: true) do
+             get_cached_object_or_maybe_fetch_ap_id(
+               page_id,
+               opts |> Keyword.put_new(:skip_contain_origin_check, true)
+             ) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do

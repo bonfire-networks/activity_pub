@@ -270,7 +270,9 @@ defmodule ActivityPub.Actor do
 
   Remote actors are also automatically updated every X hours (defaults to 24h).
   """
-  def get_cached_or_fetch(ap_id: ap_id) when is_binary(ap_id) do
+  def get_cached_or_fetch(filters, opts \\ [])
+
+  def get_cached_or_fetch([ap_id: ap_id], opts) when is_binary(ap_id) do
     with {:ok, actor} <- get_cached(ap_id: ap_id) do
       {:ok, actor}
     else
@@ -284,24 +286,24 @@ defmodule ActivityPub.Actor do
         #   other ->
         #     debug(ap_id, "not an known local or remote actor, try fetching")
 
-        Fetcher.fetch_fresh_object_from_id(ap_id)
+        Fetcher.fetch_fresh_object_from_id(ap_id, opts)
         |> debug("fresh actor fetched")
 
         # end
     end
   end
 
-  def get_cached_or_fetch(username: "@" <> username),
-    do: get_cached_or_fetch(username: username)
+  def get_cached_or_fetch([username: "@" <> username], opts),
+    do: get_cached_or_fetch([username: username], opts)
 
-  def get_cached_or_fetch(username: username) do
+  def get_cached_or_fetch([username: username], opts) do
     with {:ok, actor} <- get_cached(username: username) do
       {:ok, actor}
     else
       _e ->
         with [_nick, domain] <- String.split(username, "@"),
              false <- domain == URI.parse(Adapter.base_url()).host,
-             {:ok, actor} <- fetch_by_username(username) do
+             {:ok, actor} <- fetch_by_username(username, opts) do
           {:ok, actor}
         else
           %ActivityPub.Actor{} = actor -> {:ok, actor}
@@ -313,28 +315,29 @@ defmodule ActivityPub.Actor do
   end
 
   # fallbacks
-  def get_cached_or_fetch(username_or_uri) when is_binary(username_or_uri) do
+  def get_cached_or_fetch(username_or_uri, opts) when is_binary(username_or_uri) do
     if String.starts_with?(username_or_uri, "http"),
-      do: get_cached_or_fetch(ap_id: username_or_uri),
-      else: get_cached_or_fetch(username: username_or_uri)
+      do: get_cached_or_fetch([ap_id: username_or_uri], opts),
+      else: get_cached_or_fetch([username: username_or_uri], opts)
   end
 
-  def get_cached_or_fetch(username: other), do: get_cached_or_fetch(other)
-  def get_cached_or_fetch(ap_id: other), do: get_cached_or_fetch(other)
+  def get_cached_or_fetch([username: other], opts), do: get_cached_or_fetch(other, opts)
+  def get_cached_or_fetch([ap_id: other], opts), do: get_cached_or_fetch(other, opts)
 
-  def get_cached_or_fetch(%{data: %{"id" => ap_id}}) when is_binary(ap_id),
-    do: get_cached_or_fetch(ap_id: ap_id)
+  def get_cached_or_fetch(%{data: %{"id" => ap_id}}, opts) when is_binary(ap_id),
+    do: get_cached_or_fetch([ap_id: ap_id], opts)
 
-  def get_cached_or_fetch(%{"id" => ap_id}) when is_binary(ap_id),
-    do: get_cached_or_fetch(ap_id: ap_id)
+  def get_cached_or_fetch(%{"id" => ap_id}, opts) when is_binary(ap_id),
+    do: get_cached_or_fetch([ap_id: ap_id], opts)
 
-  def get_cached_or_fetch(%{data: %{"preferredUsername" => username}}) when is_binary(username),
-    do: get_cached_or_fetch(username: username)
+  def get_cached_or_fetch(%{data: %{"preferredUsername" => username}}, opts)
+      when is_binary(username),
+      do: get_cached_or_fetch([username: username], opts)
 
-  def get_cached_or_fetch(%{"preferredUsername" => username}) when is_binary(username),
-    do: get_cached_or_fetch(username: username)
+  def get_cached_or_fetch(%{"preferredUsername" => username}, opts) when is_binary(username),
+    do: get_cached_or_fetch([username: username], opts)
 
-  def get_cached_or_fetch(%Actor{data: _} = actor), do: {:ok, actor}
+  def get_cached_or_fetch(%Actor{data: _} = actor, _opts), do: {:ok, actor}
 
   # TODO?
   # def get_remote_actor(ap_id, maybe_create \\ true) do

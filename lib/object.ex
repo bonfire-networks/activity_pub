@@ -86,12 +86,7 @@ defmodule ActivityPub.Object do
   def get_uncached(opts), do: get(opts)
 
   defp get(id) when is_binary(id) do
-    # TODO: support prefixed UUIDs?
-    if Utils.is_ulid?(id) do
-      get(pointer: id)
-    else
-      get(uuid: id)
-    end
+    get(pointer: id)
   end
 
   defp get(id: id) when is_binary(id) and byte_size(id) == 26 do
@@ -117,7 +112,7 @@ defmodule ActivityPub.Object do
         _ -> {:error, :not_found}
       end
     else
-      warn(id, "Expected a valid UID pointable, trying as UUID object ID instead")
+      debug(id, "Expected a valid UID pointer ID, trying as UUID AP object ID instead")
       get(uuid: id)
     end
   end
@@ -141,6 +136,10 @@ defmodule ActivityPub.Object do
   defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
 
+  defp get(%{id: id}) when is_binary(id) do
+    get(pointer: id)
+  end
+
   defp get(filters) when is_list(filters) do
     case repo().one(query(filters)) do
       %Object{} = object -> {:ok, object}
@@ -149,12 +148,11 @@ defmodule ActivityPub.Object do
   end
 
   defp get(nil) do
-    raise "Cannot get an object without an ID"
+    raise "Cannot get an AP object without an ID"
   end
 
   defp get(opts) do
-    error(opts, "Unexpected args")
-    raise "Unexpected args when attempting to get an object"
+    err(opts, "Unexpected args when attempting to get an AP object")
   end
 
   def query(ap_id: ap_id) when is_binary(ap_id) do
@@ -955,11 +953,14 @@ defmodule ActivityPub.Object do
   def hashtags(%{data: data}), do: hashtags(data)
   def hashtags(_), do: []
 
-  def self_replies_ids(object, limit),
+  def replies_ids(object, limit, opts \\ []),
     do:
       object
-      |> Queries.self_replies()
+      |> Queries.replies(opts)
       |> select([o], fragment("?->>'id'", o.data))
       |> limit(^limit)
       |> repo().all()
+
+  def self_replies_ids(object, limit),
+    do: replies_ids(object, limit, self_only: true)
 end

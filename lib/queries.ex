@@ -172,26 +172,29 @@ defmodule ActivityPub.Queries do
     |> ordered()
   end
 
-  def replies(%{} = object, opts \\ []) do
+  def replies(object, opts \\ [])
+
+  def replies(%{data: data} = _object, opts) do
     # object = normalize(object, fetch: false)
 
+    replies(data, opts)
+  end
+
+  def replies(%{"id" => id} = object, opts) do
     query =
       Object
       |> where(
         [o],
-        fragment("(?)->>'inReplyTo' = ?", o.data, ^object.data["id"])
+        fragment("(?)->>'inReplyTo' = ?", o.data, ^id)
       )
       |> ordered()
 
     if opts[:self_only] do
-      by_actor(query, object.data["actor"])
+      by_actor(query, object["actor"])
     else
       query
     end
   end
-
-  def self_replies(object),
-    do: replies(object, self_only: true)
 
   def ordered(query) do
     query

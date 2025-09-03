@@ -123,6 +123,41 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # Helper function to invalidate cache of the object being replied to
+  def maybe_invalidate_reply_to_cache(%{"inReplyTo" => in_reply_to})
+      when is_binary(in_reply_to) do
+    case Object.get_cached(ap_id: in_reply_to) do
+      {:ok, %{data: data} = reply_to_object} ->
+        # Invalidate the old cache first?
+        Object.invalidate_cache(reply_to_object)
+
+        # Regenerate the object with updated replies collection
+        updated_data = prepare_outgoing_object(reply_to_object)
+
+        if data != updated_data do
+          flood(in_reply_to, "Replied-to object has changed, updating cache")
+
+          case Object.do_update_existing(reply_to_object, %{data: updated_data}) do
+            {:ok, updated_object} ->
+              flood(
+                updated_object,
+                "Successfully updated replied-to object with new replies collection"
+              )
+
+            error ->
+              err(error, "Failed to update replied-to object with new replies collection")
+          end
+        else
+          flood(updated_data, "Replied-to object unchanged")
+        end
+
+      _ ->
+        flood(in_reply_to, "Could not find replied-to object in cache")
+    end
+  end
+
+  def maybe_invalidate_reply_to_cache(_), do: :ok
+
   def preserve_privacy_of_outgoing(other, target_instance_host \\ nil, target_actor_id \\ nil)
 
   def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_id)
@@ -670,7 +705,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => replies} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> info("fetched replies?")
+    |> flood("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     data
@@ -679,7 +714,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"items" => replies}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> info("fetched replies?")
+    |> flood("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
@@ -688,7 +723,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"first" => replies}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> info("fetched replies?")
+    |> flood("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
@@ -697,7 +732,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> info("fetched replies?")
+    |> flood("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
@@ -719,9 +754,9 @@ defmodule ActivityPub.Federator.Transformer do
         [mode: Keyword.get(options, :fetch_collection, options[:fetch_collection_entries])],
         options
       )
-      |> debug("opts")
+      # |> debug("opts")
     )
-    |> info("fetched collection?")
+    |> flood("fetched replies collection?")
 
     data
   end
@@ -730,30 +765,34 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp replies_limit, do: Config.get([:activity_pub, :note_replies_output_limit], 10)
 
+  defp replies_self_only?, do: Config.get([:activity_pub, :note_replies_output_self_only], false)
+
   @doc """
-  Serialized Mastodon-compatible `replies` collection containing _self-replies_.
+  Serialized Mastodon-compatible `replies` collection.
   Based on Mastodon's ActivityPub::NoteSerializer#replies.
   """
-  def set_replies(%Object{} = object) do
-    replies_uris =
-      with limit when limit > 0 <- replies_limit() do
-        object
-        |> Object.self_replies_ids(limit)
-        |> debug("self_replies_ids")
-      else
-        _ -> []
-      end
+  def set_replies(%Object{data: obj_data} = _object) do
+    set_replies(obj_data)
 
-    set_replies(object.data, replies_uris)
+    # replies_uris =
+    #   with limit when limit > 0 <- replies_limit() do
+    #     object
+    #     |> Object.replies_ids(limit, self_only: replies_self_only?())
+    #     |> flood("replies_ids on object")
+    #   else
+    #     _ -> []
+    #   end
+
+    # set_replies(object.data, replies_uris)
   end
 
-  def set_replies(%{"id" => id} = obj_data) do
+  def set_replies(%{"id" => _id} = obj_data) do
     replies_uris =
-      with limit when limit > 0 <- replies_limit(),
-           %Object{} = object <- Object.get_cached(ap_id: id) do
-        object
-        |> Object.self_replies_ids(limit)
-        |> debug("self_replies_ids")
+      with limit when limit > 0 <- replies_limit() do
+        #  %Object{} = object <- Object.get_cached(ap_id: id) do
+        obj_data
+        |> Object.replies_ids(limit, self_only: replies_self_only?())
+        |> flood("replies_ids")
       else
         _ -> []
       end

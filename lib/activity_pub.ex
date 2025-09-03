@@ -14,6 +14,7 @@ defmodule ActivityPub do
   alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
+  alias ActivityPub.Federator.Transformer
   # alias ActivityPub.Utils
   alias ActivityPub.Object
   # alias ActivityPub.MRF
@@ -80,6 +81,9 @@ defmodule ActivityPub do
          :ok <- maybe_federate(activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
+      # Clear cache for the object we're replying to so its replies collection gets regenerated
+      Transformer.maybe_invalidate_reply_to_cache(create_data["object"])
+
       {:ok, activity}
     else
       {:ok, %Object{} = object} -> {:ok, object}

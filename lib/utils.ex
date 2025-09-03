@@ -340,7 +340,7 @@ defmodule ActivityPub.Utils do
     end
   rescue
     e ->
-      err(e)
+      error(e)
 
       if is_function(get_fun, 2) do
         get_fun.([{key, identifier}], opts)

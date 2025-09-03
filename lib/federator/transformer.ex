@@ -135,24 +135,24 @@ defmodule ActivityPub.Federator.Transformer do
         updated_data = prepare_outgoing_object(reply_to_object)
 
         if data != updated_data do
-          flood(in_reply_to, "Replied-to object has changed, updating cache")
+          debug(in_reply_to, "Replied-to object has changed, updating cache")
 
           case Object.do_update_existing(reply_to_object, %{data: updated_data}) do
             {:ok, updated_object} ->
-              flood(
+              debug(
                 updated_object,
                 "Successfully updated replied-to object with new replies collection"
               )
 
             error ->
-              err(error, "Failed to update replied-to object with new replies collection")
+              error(error, "Failed to update replied-to object with new replies collection")
           end
         else
-          flood(updated_data, "Replied-to object unchanged")
+          debug(updated_data, "Replied-to object unchanged")
         end
 
       _ ->
-        flood(in_reply_to, "Could not find replied-to object in cache")
+        debug(in_reply_to, "Could not find replied-to object in cache")
     end
   end
 
@@ -705,7 +705,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => replies} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> flood("fetched replies?")
+    |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     data
@@ -714,7 +714,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"items" => replies}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> flood("fetched replies?")
+    |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
@@ -723,7 +723,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"first" => replies}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> flood("fetched replies?")
+    |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
@@ -732,7 +732,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data, options)
       when is_list(replies) and replies != [] do
     Fetcher.maybe_fetch(replies, options)
-    |> flood("fetched replies?")
+    |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
     Map.put(data, "replies", replies)
@@ -756,7 +756,7 @@ defmodule ActivityPub.Federator.Transformer do
       )
       # |> debug("opts")
     )
-    |> flood("fetched replies collection?")
+    |> debug("fetched replies collection?")
 
     data
   end
@@ -778,7 +778,7 @@ defmodule ActivityPub.Federator.Transformer do
     #   with limit when limit > 0 <- replies_limit() do
     #     object
     #     |> Object.replies_ids(limit, self_only: replies_self_only?())
-    #     |> flood("replies_ids on object")
+    #     |> debug("replies_ids on object")
     #   else
     #     _ -> []
     #   end
@@ -792,7 +792,7 @@ defmodule ActivityPub.Federator.Transformer do
         #  %Object{} = object <- Object.get_cached(ap_id: id) do
         obj_data
         |> Object.replies_ids(limit, self_only: replies_self_only?())
-        |> flood("replies_ids")
+        |> debug("replies_ids")
       else
         _ -> []
       end

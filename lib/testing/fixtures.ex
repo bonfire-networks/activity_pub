@@ -1558,7 +1558,11 @@ defmodule ActivityPub.Fixtures do
           status: 200,
           body: file("fixtures/place.json")
         }
-      end
+      end,
+      "https://developer.mozilla.org/en-US/docs/Web/API/" =>
+        fn "https://developer.mozilla.org/en-US/docs/Web/API/", _, _, _ ->
+          %Tesla.Env{status: 200, body: "<title>Web API</title>"}
+        end
     }
 
   def request(env) do

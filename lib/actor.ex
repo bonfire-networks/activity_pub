@@ -396,7 +396,7 @@ defmodule ActivityPub.Actor do
 
       e ->
         msg = "No AP id in WebFinger"
-        err(e, msg)
+        error(e, msg)
         {:error, msg}
     end
   end

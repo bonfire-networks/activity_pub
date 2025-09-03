@@ -152,7 +152,7 @@ defmodule ActivityPub.Object do
   end
 
   defp get(opts) do
-    err(opts, "Unexpected args when attempting to get an AP object")
+    error(opts, "Unexpected args when attempting to get an AP object")
   end
 
   def query(ap_id: ap_id) when is_binary(ap_id) do

@@ -125,7 +125,7 @@ defmodule ActivityPub.Safety.Keys do
          {:ok, actor} <- Actor.set_cache(actor) |> debug("donz") do
       {:ok, actor}
     else
-      e -> err(e, "Could not generate or save keys")
+      e -> error(e, "Could not generate or save keys")
     end
   end
 

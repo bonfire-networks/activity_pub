@@ -272,10 +272,10 @@ defmodule ActivityPub.Federator.Fetcher do
             {:ok, id_or_data}
 
           _ ->
-            flood(id_or_data, "seems like a new-to-us remote object")
+            debug(id_or_data, "seems like a new-to-us remote object")
 
             handle_fetched(id_or_data, opts)
-            |> flood("handled")
+            |> debug("handled")
         end
 
       {:error, :not_found} ->
@@ -382,14 +382,14 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def fetch_thread(other, opts) do
-    with {:ok, %{data: data}} <- Object.get_cached(other) |> flood("got_object") do
+    with {:ok, %{data: data}} <- Object.get_cached(other) |> debug("got_object") do
       fetch_thread(data, opts)
     else
       {:error, :not_found} ->
-        err(other, "Could not find replies in ActivityPub data")
+        error(other, "Could not find replies in ActivityPub data")
 
       e ->
-        err(e, "Could not find replies in ActivityPub data")
+        error(e, "Could not find replies in ActivityPub data")
     end
   end
 
@@ -405,19 +405,19 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def fetch_replies(%{"id" => _} = data, _opts) do
-    err(data, "Could not find replies in ActivityPub data")
+    error(data, "Could not find replies in ActivityPub data")
   end
 
   def fetch_replies(other, opts) do
     with {:ok, %{data: %{"replies" => replies} = _data}} <-
-           Object.get_cached(other) |> flood("got_object") do
+           Object.get_cached(other) |> debug("got_object") do
       fetch_replies(%{"replies" => replies}, opts)
     else
       {:error, :not_found} ->
-        err(other, "Could not find replies in ActivityPub data")
+        error(other, "Could not find replies in ActivityPub data")
 
       e ->
-        err(e, "Could not find replies in ActivityPub data")
+        error(e, "Could not find replies in ActivityPub data")
     end
   end
 

@@ -180,6 +180,10 @@ defmodule ActivityPub.Object do
     )
   end
 
+  def query(opts) do
+    err(opts, "Unexpected args when attempting to query an AP object")
+  end
+
   def get_activity_for_object_ap_id(ap_id, verb \\ "Create")
 
   def get_activity_for_object_ap_id(%{"id" => ap_id}, verb) when is_binary(ap_id),
@@ -238,7 +242,7 @@ defmodule ActivityPub.Object do
           activity || object
         end
 
-      info(activity, "inserted activity in #{repo()}")
+      flood(activity, "inserted activity in #{repo()}")
 
       {:ok, activity}
     else
@@ -260,7 +264,9 @@ defmodule ActivityPub.Object do
         :ignore
 
       error ->
-        error(error, "Error while trying to save the object for federation")
+        flood(params, "Error while trying to insert these params")
+        flood(error, "Error while trying to save the object for federation")
+        {:error, "Error while trying to save the object for federation"}
     end
   end
 

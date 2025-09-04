@@ -256,7 +256,7 @@ defmodule ActivityPub.Federator.Transformer do
   # incoming activities
 
   @doc """
-  Modifies an incoming AP object (mastodon format) to our internal format.
+  Modifies an incoming AP object (in mastodon or other apps' flexible formats) to our internal simplified AP format.
   """
   def fix_object(object, options \\ [])
 
@@ -269,7 +269,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_context(options)
     |> fix_in_reply_to(options)
     |> fix_replies(options)
-    |> fix_quote_url(options)
+    |> fix_quote(options)
     |> fix_emoji()
     |> fix_tag()
     |> fix_content_map()
@@ -278,6 +278,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> add_emoji_tags()
 
     # |> fetch_and_create_nested_ap_objects(options)
+    |> flood("fixed object")
   end
 
   def fix_object(object, _options), do: object
@@ -381,46 +382,74 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_in_reply_to(object, _options), do: object
 
-  def fix_quote_url(object, options \\ [])
+  def fix_quote(object, options \\ [])
 
-  def fix_quote_url(%{"quoteUri" => quote_url} = object, options)
-      when not is_nil(quote_url) do
-    with quote_ap_id when is_binary(quote_ap_id) <- Utils.single_ap_id(quote_url),
-         _ <- Fetcher.maybe_fetch(quote_ap_id, options) do
-      object
-      |> Map.put("quoteUri", quote_ap_id)
-    else
-      e ->
-        warn(e, "Couldn't fetch quote@#{inspect(quote_url)}")
-        object
-    end
+  def fix_quote(%{"quote" => quote_url} = object, options) when is_binary(quote_url) do
+    object
+    |> Map.delete("quote")
+    |> add_quote_tag(quote_url, options)
   end
 
-  # Soapbox
-  def fix_quote_url(%{"quoteUrl" => quote_url} = object, options) do
+  def fix_quote(%{"quoteUrl" => quote_url} = object, options) when is_binary(quote_url) do
     object
-    |> Map.put("quoteUri", quote_url)
     |> Map.delete("quoteUrl")
-    |> fix_quote_url(options)
+    |> add_quote_tag(quote_url, options)
   end
 
-  # Old Fedibird (bug)
-  # https://github.com/fedibird/mastodon/issues/9
-  def fix_quote_url(%{"quoteURL" => quote_url} = object, options) do
+  def fix_quote(%{"quoteUri" => quote_url} = object, options) when is_binary(quote_url) do
     object
-    |> Map.put("quoteUri", quote_url)
+    |> Map.delete("quoteUri")
+    |> add_quote_tag(quote_url, options)
+  end
+
+  def fix_quote(%{"quoteURL" => quote_url} = object, options) when is_binary(quote_url) do
+    object
     |> Map.delete("quoteURL")
-    |> fix_quote_url(options)
+    |> add_quote_tag(quote_url, options)
   end
 
-  def fix_quote_url(%{"_misskey_quote" => quote_url} = object, options) do
+  def fix_quote(%{"_misskey_quote" => quote_url} = object, options) when is_binary(quote_url) do
     object
-    |> Map.put("quoteUri", quote_url)
     |> Map.delete("_misskey_quote")
-    |> fix_quote_url(options)
+    |> add_quote_tag(quote_url, options)
   end
 
-  def fix_quote_url(object, _), do: object
+  def fix_quote(object, _options), do: object
+
+  defp add_quote_tag(object, quote_url, options) when is_binary(quote_url) do
+    quote_tag = %{
+      "type" => "Link",
+      "mediaType" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
+      "rel" => "https://misskey-hub.net/ns#_misskey_quote",
+      "href" => quote_url
+    }
+
+    object
+    |> Map.update("tag", [quote_tag], fn existing_tags ->
+      # Remove any existing quote tags to avoid duplicates
+      existing_tags
+      |> Kernel.++([quote_tag])
+      |> Enum.uniq_by(fn
+        %{"type" => "Link", "rel" => rel, "href" => href}
+        when rel in [
+               "https://w3id.org/fep/044f#quote",
+               "https://misskey-hub.net/ns#_misskey_quote",
+               "quote",
+               "http://fedibird.com/ns#quoteUri"
+             ] ->
+          href
+
+        other ->
+          other
+      end)
+      |> flood("normalised tags with quote")
+    end)
+  end
+
+  defp add_quote_tag(object, quote_url, _options) do
+    err(quote_url, "Couldn't recognise quote URL")
+    object
+  end
 
   def fix_context(object, options) do
     context = object["context"] || object["conversation"] || object["inReplyTo"]
@@ -1149,6 +1178,34 @@ defmodule ActivityPub.Federator.Transformer do
 
   def handle_incoming(
         %{
+          "type" => "QuoteRequest",
+          "object" => object_id,
+          "actor" => _actor
+        } = data,
+        _opts
+      ) do
+    info("Handle incoming quote request")
+
+    with actor <- Object.actor_from_data(data),
+         {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
+         {:ok, instrument} <- object_normalize_and_maybe_fetch(data["instrument"]),
+         {:ok, activity} <-
+           ActivityPub.quote_request(%{
+             actor: actor,
+             object: object,
+             instrument: instrument,
+             activity_id: data["id"],
+             local: false
+           }) do
+      {:ok, activity}
+    else
+      e -> error(e)
+    end
+  end
+
+  def handle_incoming(
+        %{
           "type" => "Block",
           "object" => blocked,
           "actor" => blocker
@@ -1394,6 +1451,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def handle_incoming(%{"id" => id} = data, opts) do
     info("Wrapping standalone non-actor and non-activity object in a Create activity?")
+    # FIXME: do we actually want to do this?
     # debug(data)
 
     handle_incoming(
@@ -1403,7 +1461,7 @@ defmodule ActivityPub.Federator.Transformer do
         "cc" => data["cc"],
         "actor" => Object.actor_from_data(data),
         "object" => data,
-        "id" => "#{id}?virtual_create_activity"
+        "id" => "#{id}#virtual_create_activity"
       }
       |> debug("generated activity"),
       opts

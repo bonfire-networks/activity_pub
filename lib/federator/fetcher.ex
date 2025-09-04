@@ -472,7 +472,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp handle_fetch_error(returned, id, options, _status \\ nil, headers \\ nil) do
+  defp handle_fetch_error(returned, id, options, status \\ nil, headers \\ nil) do
     case returned do
       {:ok, %{status: 401} = ret} ->
         debug(id, "Received a 401 - authentication required response")
@@ -553,8 +553,8 @@ defmodule ActivityPub.Federator.Fetcher do
                 cache_fetch_error(id)
                 error(e, "Could not fallback to finding the object in (headers nor) HTML")
 
-                if options[:return_html] do
-                  {:html, data}
+                if options[:return_html_as_fallback] do
+                  {:ok, %{status: status || 200, body: data}}
                 else
                   error(json_error, "Invalid ActivityPub JSON")
                 end

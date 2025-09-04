@@ -40,7 +40,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
     recipients =
       recipients(actor, prepared_activity_data, tos, is_public?)
-      |> info("initial recipients for #{type}")
+      |> flood("initial recipients for #{type}")
 
     num_recipients = length(recipients)
 
@@ -51,7 +51,7 @@ defmodule ActivityPub.Federator.APPublisher do
          |> Map.new()
          #  |> debug("inboxes")
          |> Instances.filter_reachable()
-         |> debug("reacheable inboxes") do
+         |> flood("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
         recipients
         |> Enum.map(fn {inbox, meta} ->

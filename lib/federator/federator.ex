@@ -49,6 +49,8 @@ defmodule ActivityPub.Federator do
       end
     else
       e ->
+        flood(activity, "Activity with invalid actor")
+
         error(
           e,
           "Cannot publish because the actor #{inspect(actor_id)} is invalid"

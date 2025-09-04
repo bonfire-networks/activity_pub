@@ -25,7 +25,7 @@ defmodule ActivityPub do
   defp maybe_federate(object, opts \\ [])
 
   defp maybe_federate(%Object{local: true} = activity, opts) do
-    debug(opts, "oopts")
+    flood(opts, "maybe_federate oopts")
 
     if Config.federating?() do
       with {:ok, job} <- ActivityPub.Federator.publish(activity, opts) do
@@ -53,7 +53,7 @@ defmodule ActivityPub do
   end
 
   defp maybe_federate(object, _) do
-    warn(
+    flood(
       object,
       "Skip outgoing federation of non-local object"
     )
@@ -844,5 +844,73 @@ defmodule ActivityPub do
     if params[:activity_id], do: Map.put(data, "id", params[:activity_id]), else: data
 
     # |> debug()
+  end
+
+  @doc """
+  Generates and federates a QuoteRequest activity.
+  """
+  @spec quote_request(%{
+          :actor => Actor.t(),
+          :object => Actor.t() | Object.t(),
+          :instrument => map(),
+          optional(atom()) => any()
+        }) ::
+          {:ok, Object.t()} | {:error, any()}
+  def quote_request(%{actor: actor, object: object, instrument: instrument} = params) do
+    with quote_request_data <-
+           make_quote_request_data(actor, object, instrument, Map.get(params, :activity_id)),
+         {:ok, activity} <-
+           Object.insert(
+             quote_request_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             true
+           ),
+         :ok <- maybe_federate(activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
+    end
+  end
+
+  defp make_quote_request_data(
+         %{data: %{"id" => actor_id}} = _actor,
+         object,
+         instrument,
+         activity_id
+       ) do
+    object_id =
+      case object do
+        %{data: %{"id" => id}} -> id
+        %{"id" => id} -> id
+        %{ap_id: id} -> id
+        other when is_binary(other) -> other
+      end
+
+    object_actor =
+      case object do
+        %{data: %{"attributedTo" => id}} -> id
+        %{"attributedTo" => id} -> id
+        %{data: %{"actor" => id}} -> id
+        %{"actor" => id} -> id
+        _ -> nil
+      end
+
+    instrument_data =
+      case instrument do
+        %{data: data} -> data
+        # data when is_map(data) -> data
+        other -> other
+      end
+
+    data = %{
+      "type" => "QuoteRequest",
+      "actor" => actor_id,
+      "to" => [object_actor],
+      "object" => object_id,
+      "instrument" => instrument_data
+    }
+
+    if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 end

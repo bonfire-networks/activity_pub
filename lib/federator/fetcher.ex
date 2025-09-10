@@ -195,7 +195,7 @@ defmodule ActivityPub.Federator.Fetcher do
     # raise "STOOOP"
     with true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
-         {:ok, data} <- fetch_remote_object_from_id(id, opts),
+         {:ok, data} <- fetch_remote_object_from_id(id, opts) |> flood("fetched"),
          {:ok, object} <-
            cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true)) do
       {:ok, object}
@@ -224,10 +224,22 @@ defmodule ActivityPub.Federator.Fetcher do
     handle_fetched(id_or_data, opts)
   end
 
-  def cached_or_handle_incoming(id_or_data, opts) do
+  def cached_or_handle_incoming(id_or_data, opts)
+      when is_binary(id_or_data) or
+             (is_map(id_or_data) and
+                (is_map_key(id_or_data, :ap_id) or is_map_key(id_or_data, "id"))) do
     Object.get_cached(ap_id: id_or_data)
     |> debug("got from cache")
     |> maybe_handle_incoming(id_or_data, opts)
+  end
+
+  def cached_or_handle_incoming(%{status: _, body: _} = data, _opts) do
+    # returning the raw HTML
+    {:ok, data}
+  end
+
+  def cached_or_handle_incoming(id_or_data, _opts) do
+    error(id_or_data, "Unexpected data")
   end
 
   defp maybe_handle_incoming(cached, id_or_data, opts) do

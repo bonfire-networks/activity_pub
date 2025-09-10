@@ -195,7 +195,7 @@ defmodule ActivityPub.Federator.Fetcher do
     # raise "STOOOP"
     with true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),
-         {:ok, data} <- fetch_remote_object_from_id(id, opts) |> flood("fetched"),
+         {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <-
            cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true)) do
       {:ok, object}

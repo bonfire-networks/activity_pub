@@ -49,7 +49,7 @@ defmodule ActivityPub.Federator do
       end
     else
       e ->
-        flood(activity, "Activity with invalid actor")
+        debug(activity, "Activity with invalid actor")
 
         error(
           e,

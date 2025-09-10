@@ -242,7 +242,7 @@ defmodule ActivityPub.Object do
           activity || object
         end
 
-      flood(activity, "inserted activity in #{repo()}")
+      debug(activity, "inserted activity in #{repo()}")
 
       {:ok, activity}
     else
@@ -264,8 +264,8 @@ defmodule ActivityPub.Object do
         :ignore
 
       error ->
-        flood(params, "Error while trying to insert these params")
-        flood(error, "Error while trying to save the object for federation")
+        debug(params, "Error while trying to insert these params")
+        debug(error, "Error while trying to save the object for federation")
         {:error, "Error while trying to save the object for federation"}
     end
   end

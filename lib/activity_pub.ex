@@ -25,7 +25,7 @@ defmodule ActivityPub do
   defp maybe_federate(object, opts \\ [])
 
   defp maybe_federate(%Object{local: true} = activity, opts) do
-    flood(opts, "maybe_federate oopts")
+    debug(opts, "maybe_federate oopts")
 
     if Config.federating?() do
       with {:ok, job} <- ActivityPub.Federator.publish(activity, opts) do
@@ -53,7 +53,7 @@ defmodule ActivityPub do
   end
 
   defp maybe_federate(object, _) do
-    flood(
+    debug(
       object,
       "Skip outgoing federation of non-local object"
     )

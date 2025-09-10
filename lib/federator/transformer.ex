@@ -278,7 +278,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> add_emoji_tags()
 
     # |> fetch_and_create_nested_ap_objects(options)
-    |> flood("fixed object")
+    |> debug("fixed object")
   end
 
   def fix_object(object, _options), do: object
@@ -442,7 +442,7 @@ defmodule ActivityPub.Federator.Transformer do
         other ->
           other
       end)
-      |> flood("normalised tags with quote")
+      |> debug("normalised tags with quote")
     end)
   end
 

@@ -3,6 +3,7 @@ defmodule ActivityPub.Test.Helpers do
   alias ActivityPub.Utils
   alias ActivityPub.Object
   require Logger
+  use Arrows
   import Ecto.Query
   import ActivityPub.Utils
 
@@ -70,7 +71,7 @@ defmodule ActivityPub.Test.Helpers do
     else
       ActivityPub.LocalActor.get(ap_id: id)
     end
-    |> Utils.ok_unwrap()
+    |> from_ok()
   end
 
   def user_by_ap_id(%{pointer: %{id: _} = user}), do: user

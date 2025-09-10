@@ -23,7 +23,7 @@ defmodule ActivityPub.Federator.Transformer.UserUpdateHandlingTest do
       |> Map.put("summary", "Custom bio not coming from the server")
 
     assert %Actor{data: created_actor_data, local: false} =
-             ok_unwrap(Transformer.handle_incoming(input_actor_data))
+             from_ok(Transformer.handle_incoming(input_actor_data))
 
     {:ok, original_actor} = Actor.get_cached_or_fetch(ap_id: created_actor_data)
 
@@ -105,7 +105,7 @@ defmodule ActivityPub.Federator.Transformer.UserUpdateHandlingTest do
     original_actor_data = file("fixtures/mastodon/mastodon-actor.json") |> Jason.decode!()
 
     assert %Actor{data: original_actor_data, local: false} =
-             ok_unwrap(Transformer.handle_incoming(original_actor_data))
+             from_ok(Transformer.handle_incoming(original_actor_data))
 
     {:ok, original_actor} = Actor.get_cached_or_fetch(ap_id: original_actor_data)
 

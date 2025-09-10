@@ -27,14 +27,14 @@ defmodule ActivityPub.ActorTest do
   end
 
   test "fetch_by_username/1" do
-    actor = ok_unwrap(Actor.fetch_by_username("karen@mocked.local"))
+    actor = from_ok(Actor.fetch_by_username("karen@mocked.local"))
     assert %ActivityPub.Actor{} = actor
 
     assert actor.data["preferredUsername"] == "karen"
   end
 
   test "get_or_fetch_by_ap_id/1" do
-    actor = ok_unwrap(Actor.get_cached_or_fetch(ap_id: "https://mastodon.local/users/admin"))
+    actor = from_ok(Actor.get_cached_or_fetch(ap_id: "https://mastodon.local/users/admin"))
     assert %ActivityPub.Actor{} = actor
 
     assert actor.data["preferredUsername"] == "karen"

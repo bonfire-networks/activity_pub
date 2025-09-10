@@ -233,13 +233,18 @@ defmodule ActivityPub.Federator.Fetcher do
     |> maybe_handle_incoming(id_or_data, opts)
   end
 
+  def cached_or_handle_incoming(%ActivityPub.Object{} = object, opts) do
+    # TODO: clean up workaround
+    maybe_handle_incoming({:ok, object}, object, opts)
+  end
+
   def cached_or_handle_incoming(%{status: _, body: _} = data, _opts) do
     # returning the raw HTML
     {:ok, data}
   end
 
   def cached_or_handle_incoming(id_or_data, _opts) do
-    error(id_or_data, "Unexpected data")
+    err(id_or_data, "Unexpected AP data")
   end
 
   defp maybe_handle_incoming(cached, id_or_data, opts) do
@@ -777,6 +782,9 @@ defmodule ActivityPub.Federator.Fetcher do
         end
       else
         {:error, :not_found} ->
+          items
+
+        nil ->
           items
 
         {:error, error} ->

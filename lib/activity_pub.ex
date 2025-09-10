@@ -128,7 +128,8 @@ defmodule ActivityPub do
   #     ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(%{actor: actor, object: object} = params) do
     with %Object{} = follow_activity <-
-           Object.fetch_latest_follow(actor, object) || basic_follow_data(actor, object),
+           Object.fetch_latest_follow(actor, object) |> debug("latest") ||
+             basic_follow_data(actor, object),
          unfollow_data <-
            make_unfollow_data(
              actor,
@@ -137,9 +138,10 @@ defmodule ActivityPub do
              Map.get(params, :activity_id)
            ),
          {:ok, activity} <-
-           Object.insert(unfollow_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+           Object.insert(unfollow_data, Map.get(params, :local, true), Map.get(params, :pointer))
+           |> debug("insert"),
+         :ok <- maybe_federate(activity) |> debug("adapt"),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("incoming"),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end

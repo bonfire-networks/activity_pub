@@ -26,6 +26,7 @@ defmodule ActivityPub.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       # import ActivityPub.DataCase
+      use Arrows
       import Untangle
 
       @endpoint endpoint()

@@ -28,7 +28,7 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
     test "it works for incoming create activity" do
       data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
 
-      assert %Object{data: _, local: false} = ok_unwrap(Transformer.handle_incoming(data))
+      assert %Object{data: _, local: false} = from_ok(Transformer.handle_incoming(data))
     end
 
     test "it works for incoming notices with tag not being an array (kroeg)" do

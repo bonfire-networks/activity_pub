@@ -191,6 +191,8 @@ defmodule ActivityPub.Object do
 
   def get_activity_for_object_ap_id(ap_id, verb) when is_binary(ap_id) do
     Queries.activity_by_object_ap_id(ap_id, verb)
+    |> order_by(desc: :inserted_at)
+    |> limit(1)
     |> repo().one()
   end
 
@@ -263,9 +265,18 @@ defmodule ActivityPub.Object do
         # {:ignore, "Do not federate due to local boundaries and filters"}
         :ignore
 
+      {:error,
+       %Ecto.Changeset{
+         errors: [
+           _data____id: {_, [constraint: :unique, constraint_name: "ap_object__data____id_index"]}
+         ]
+       } = e} ->
+        flood(e, "Already exists, try fetching from cache")
+        Object.get_cached(ap_id: params["id"])
+
       error ->
-        debug(params, "Error while trying to insert these params")
-        debug(error, "Error while trying to save the object for federation")
+        flood(params, "Error while trying to insert these params")
+        err(error, "Error while trying to save the object for federation on repo #{repo()}")
         {:error, "Error while trying to save the object for federation"}
     end
   end
@@ -842,7 +853,7 @@ defmodule ActivityPub.Object do
     else
       # Can't find the activity. This might be a Mastodon 2.3 "Accept"
       nil ->
-        with %{} = activity <- fetch_latest_follow(follow_object["actor"], followed) do
+        with %{} = activity <- fetch_latest_activity(follow_object["actor"], followed, "Follow") do
           {:ok, activity}
         end
 
@@ -851,19 +862,28 @@ defmodule ActivityPub.Object do
     end
   end
 
-  def fetch_latest_follow(%{data: %{"id" => follower_id}}, followed_id),
-    do: fetch_latest_follow(follower_id, followed_id)
+  def fetch_latest_activity(actor, object, verb \\ "Follow")
 
-  def fetch_latest_follow(follower_id, %{
-        data: %{"id" => followed_id}
-      }),
-      do: fetch_latest_follow(follower_id, followed_id)
+  def fetch_latest_activity(%{data: %{"id" => actor}}, object, verb),
+    do: fetch_latest_activity(actor, object, verb)
 
-  def fetch_latest_follow(follower_id, followed_id) do
+  def fetch_latest_activity(
+        actor,
+        %{
+          data: %{"id" => object}
+        },
+        verb
+      ),
+      do: fetch_latest_activity(actor, object, verb)
+
+  def fetch_latest_activity(actor, object, verb)
+      when is_binary(actor) and is_binary(object) and is_binary(verb) do
     from(activity in Object)
-    |> Queries.last_follow(followed_id)
-    |> Queries.by_type("Follow")
-    |> Queries.by_actor(follower_id)
+    |> Queries.by_actor(actor)
+    |> Queries.by_object(object)
+    |> Queries.by_type(verb)
+    |> Queries.ordered()
+    |> limit(1)
     |> repo().one()
   end
 

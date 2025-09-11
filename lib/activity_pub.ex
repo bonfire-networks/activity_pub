@@ -128,7 +128,7 @@ defmodule ActivityPub do
   #     ) :: {:ok, Object.t()} | {:error, any()}
   def unfollow(%{actor: actor, object: object} = params) do
     with %Object{} = follow_activity <-
-           Object.fetch_latest_follow(actor, object) |> debug("latest") ||
+           Object.fetch_latest_activity(actor, object, "Follow") |> debug("latest") ||
              basic_follow_data(actor, object),
          unfollow_data <-
            make_unfollow_data(
@@ -197,13 +197,14 @@ defmodule ActivityPub do
            "object" => object
          },
          %Object{data: %{"type" => type}} = activity_to_reject <-
-           Object.get_cached!(ap_id: object),
+           Object.get_cached!(ap_id: object) |> flood("activity_to_reject"),
          {:ok, activity} <-
-           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("handled"),
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer))
+           |> flood("inserted rejection on repo #{Utils.repo()}"),
+         :ok <- maybe_federate(activity) |> flood("federated"),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> flood("handled"),
          {:ok, _rejected_activity} <-
-           Object.update_state(activity_to_reject, type, "reject") |> debug("rejected_activity"),
+           Object.update_state(activity_to_reject, type, "reject") |> flood("rejected_activity"),
          #  {:ok, activity} <- Object.get_cached(ap_id: activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -387,7 +388,7 @@ defmodule ActivityPub do
   #         local :: boolean
   #       ) :: {:ok, Object.t()} | {:error, any()}
   def block(%{actor: blocker, object: blocked} = params) do
-    follow_activity = Object.fetch_latest_follow(blocker, blocked)
+    follow_activity = Object.fetch_latest_activity(blocker, blocked, "Follow")
 
     if follow_activity,
       do: unfollow(%{actor: blocker, object: blocked, local: Map.get(params, :local, true)})
@@ -430,7 +431,15 @@ defmodule ActivityPub do
     end
   end
 
-  def delete(object, is_local?, opts \\ [])
+  def delete(object, is_local? \\ nil, opts \\ [])
+
+  def delete(%{local: is_local?} = object, nil, []) do
+    delete(object, is_local?, [])
+  end
+
+  def delete(%{local: is_local?} = object, opts, []) when is_list(opts) do
+    delete(object, is_local?, opts)
+  end
 
   def delete(
         %{data: %{"id" => id, "type" => type}} = delete_actor,

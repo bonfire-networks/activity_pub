@@ -157,7 +157,7 @@ defmodule ActivityPub.Queries do
     )
   end
 
-  def last_follow(query, followed_id) do
+  def by_object(query, object_id) do
     from(
       activity in query,
       where:
@@ -165,11 +165,9 @@ defmodule ActivityPub.Queries do
           "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
           activity.data,
           activity.data,
-          ^followed_id
-        ),
-      limit: 1
+          ^object_id
+        )
     )
-    |> ordered()
   end
 
   def replies(object, opts \\ [])

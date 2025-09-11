@@ -1015,9 +1015,10 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     debug("Handle incoming Accept")
 
-    with followed_actor <- Object.actor_from_data(data) |> debug(),
-         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug(),
-         {:ok, follow_activity} <- Object.get_follow_activity(follow_object, followed) |> debug() do
+    with followed_actor <- Object.actor_from_data(data) |> flood("followed_actor"),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> flood("followed"),
+         {:ok, follow_activity} <-
+           Object.get_follow_activity(follow_object, followed) |> flood("follow_activity") do
       ActivityPub.accept(%{
         activity_id: data["id"],
         to: follow_activity.data["to"],
@@ -1026,10 +1027,10 @@ defmodule ActivityPub.Federator.Transformer do
         object: follow_activity.data["id"],
         local: false
       })
-      |> debug()
+      |> flood("accept result")
     else
       e ->
-        error(e, "Could not handle incoming Accept")
+        err(e, "Could not handle incoming Accept")
     end
   end
 
@@ -1043,9 +1044,10 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     debug("Handle incoming Reject")
 
-    with followed_actor <- Object.actor_from_data(data) |> debug(),
-         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug(),
-         {:ok, follow_activity} <- Object.get_follow_activity(follow_object, followed) |> debug() do
+    with followed_actor <- Object.actor_from_data(data) |> flood("followed_actor"),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> flood("followed"),
+         {:ok, follow_activity} <-
+           Object.get_follow_activity(follow_object, followed) |> flood("follow_activity") do
       ActivityPub.reject(%{
         activity_id: data["id"],
         to: follow_activity.data["to"],
@@ -1054,7 +1056,7 @@ defmodule ActivityPub.Federator.Transformer do
         object: follow_activity.data["id"],
         local: false
       })
-      |> debug()
+      |> flood("reject result")
     else
       e ->
         error(e, "Could not handle incoming Reject")

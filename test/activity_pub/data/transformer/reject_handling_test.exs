@@ -99,7 +99,7 @@ defmodule ActivityPub.Federator.Transformer.RejectHandlingTest do
       {:ok, %Activity{data: _}} = Transformer.handle_incoming(reject_data)
 
       refute following?(follower, followed)
-      assert Object.fetch_latest_follow(follower, followed).data["state"] == "reject"
+      assert Object.fetch_latest_activity(follower, followed).data["state"] == "reject"
     end
 
     # test "it does not accept follows that are not in pending or accepted" do

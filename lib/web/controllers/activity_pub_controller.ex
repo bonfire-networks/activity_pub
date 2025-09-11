@@ -91,7 +91,8 @@ defmodule ActivityPub.Web.ActivityPubController do
   defp object_json([json: id], opts) when is_binary(id) do
     #  TODO: support prefixed UUIDs?
     if Utils.is_ulid?(id) do
-      # querying by pointer - handle local objects
+      debug(id, "querying by pointer - handle local objects")
+
       #  true <- object.id != id, # huh?
       #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
       # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") 
@@ -100,9 +101,13 @@ defmodule ActivityPub.Web.ActivityPubController do
         opts
       )
     else
-      # query by UUID
+      debug(id, "query by UUID")
 
-      maybe_object_json(Object.get_cached!(ap_id: ap_route_helper(id)), opts)
+      ap_id =
+        ap_route_helper(id)
+        |> debug("resolved AP id")
+
+      maybe_object_json(Object.get_cached!(ap_id: ap_id) |> debug("object from cache"), opts)
     end
   end
 

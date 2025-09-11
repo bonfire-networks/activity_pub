@@ -51,7 +51,7 @@ defmodule ActivityPub.Utils do
     [
       "https://www.w3.org/ns/activitystreams",
       Enum.into(
-        stringify_keys(json_contexts[type]) || %{},
+        stringify_keys(json_contexts[type] || json_contexts[:object]) || %{},
         %{
           "@language" => Adapter.get_locale()
         }
@@ -605,5 +605,10 @@ defmodule ActivityPub.Utils do
 
     # WIP ^ using built-in elixir functions instead of Timex
     # Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
+  end
+
+  def hash(seed, opts \\ []) do
+    :crypto.hash(opts[:algorithm] || :md5, seed)
+    |> Base.url_encode64(padding: opts[:padding] || false)
   end
 end

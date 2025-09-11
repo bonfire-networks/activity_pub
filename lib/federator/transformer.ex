@@ -36,7 +36,7 @@ defmodule ActivityPub.Federator.Transformer do
     data =
       data
       |> Map.put("object", prepare_outgoing_object(object))
-      |> maybe_add_json_ld_header(:object, opts)
+      |> maybe_add_json_ld_header(maybe_type(object) || :object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -48,7 +48,7 @@ defmodule ActivityPub.Federator.Transformer do
     data =
       data
       |> Map.put("object", prepare_outgoing_object(object))
-      |> maybe_add_json_ld_header(:object, opts)
+      |> maybe_add_json_ld_header(maybe_type(object) || :object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -57,10 +57,10 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # hack for mastodon accept and reject type activity formats
-  def prepare_outgoing(%{"type" => _type} = data, opts) do
+  def prepare_outgoing(%{"type" => type} = data, opts) do
     data =
       data
-      |> maybe_add_json_ld_header(:object, opts)
+      |> maybe_add_json_ld_header(type || :object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
@@ -77,6 +77,12 @@ defmodule ActivityPub.Federator.Transformer do
   def prepare_outgoing(%Object{} = activity, opts) do
     prepare_outgoing(activity.data, opts)
   end
+
+  defp maybe_type(%{"type" => type}) when is_binary(type) do
+    type
+  end
+
+  defp maybe_type(_), do: nil
 
   defp maybe_add_json_ld_header(data, type, opts) do
     if opts[:skip_json_context_header] do
@@ -217,7 +223,7 @@ defmodule ActivityPub.Federator.Transformer do
     false
   end
 
-  defp check_remote_object_deleted(data, true) do
+  defp check_remote_object_deleted(data, true = _already_fetched) do
     if Object.is_deleted?(data) do
       {:ok, data}
     else
@@ -229,18 +235,14 @@ defmodule ActivityPub.Federator.Transformer do
     ap_id = Object.get_ap_id(object)
     debug(ap_id, "Checking delete permission for")
 
-    case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true, only_fetch: true)
+    case Fetcher.fetch_remote_object_from_id(ap_id, return_tombstones: true)
          |> debug("remote fetched") do
       {:error, :not_found} ->
         # ok it seems gone from there
         {:ok, nil}
 
       {:ok, %{} = data} ->
-        if Object.is_deleted?(data) do
-          {:ok, data}
-        else
-          {:error, :not_deleted}
-        end
+        check_remote_object_deleted(data, true)
 
       {:error, :nxdomain} ->
         warn(ap_id, "could not reach the instance to verify deletion")
@@ -1015,19 +1017,20 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     debug("Handle incoming Accept")
 
-    with followed_actor <- Object.actor_from_data(data) |> flood("followed_actor"),
-         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> flood("followed"),
+    with followed_actor <- Object.actor_from_data(data) |> debug("followed_actor"),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug("followed"),
          {:ok, follow_activity} <-
-           Object.get_follow_activity(follow_object, followed) |> flood("follow_activity") do
+           Object.get_follow_activity(follow_object, followed) |> debug("follow_activity") do
       ActivityPub.accept(%{
         activity_id: data["id"],
         to: follow_activity.data["to"],
         type: type,
         actor: followed,
-        object: follow_activity.data["id"],
+        object: follow_activity,
+        result: debug(data["result"], "incoming accept result"),
         local: false
       })
-      |> flood("accept result")
+      |> debug("accept result")
     else
       e ->
         err(e, "Could not handle incoming Accept")
@@ -1044,10 +1047,10 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     debug("Handle incoming Reject")
 
-    with followed_actor <- Object.actor_from_data(data) |> flood("followed_actor"),
-         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> flood("followed"),
+    with followed_actor <- Object.actor_from_data(data) |> debug("followed_actor"),
+         {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug("followed"),
          {:ok, follow_activity} <-
-           Object.get_follow_activity(follow_object, followed) |> flood("follow_activity") do
+           Object.get_follow_activity(follow_object, followed) |> debug("follow_activity") do
       ActivityPub.reject(%{
         activity_id: data["id"],
         to: follow_activity.data["to"],
@@ -1056,7 +1059,7 @@ defmodule ActivityPub.Federator.Transformer do
         object: follow_activity.data["id"],
         local: false
       })
-      |> flood("reject result")
+      |> debug("reject result")
     else
       e ->
         error(e, "Could not handle incoming Reject")
@@ -1186,7 +1189,7 @@ defmodule ActivityPub.Federator.Transformer do
         } = data,
         _opts
       ) do
-    info("Handle incoming quote request")
+    debug("Handle incoming quote request")
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
@@ -1199,10 +1202,11 @@ defmodule ActivityPub.Federator.Transformer do
              instrument: instrument,
              activity_id: data["id"],
              local: false
-           }) do
+           })
+           |> debug("processed/saved incoming quote request") do
       {:ok, activity}
     else
-      e -> error(e)
+      e -> err(e, "invalid data for incoming quote request")
     end
   end
 

@@ -7,6 +7,7 @@ defmodule ActivityPub do
   In general, the functions in this module take object-like map.
   That includes a struct as the input for actor parameters.  Use the functions in the `ActivityPub.Actor` module (`ActivityPub.Actor.get_cached/1` for example) to retrieve those.
   """
+  use Arrows
   import Untangle
   require ActivityPub.Config
 
@@ -25,7 +26,7 @@ defmodule ActivityPub do
   defp maybe_federate(object, opts \\ [])
 
   defp maybe_federate(%Object{local: true} = activity, opts) do
-    debug(opts, "maybe_federate oopts")
+    # debug(opts, "maybe_federate oopts")
 
     if Config.federating?() do
       with {:ok, job} <- ActivityPub.Federator.publish(activity, opts) do
@@ -163,10 +164,14 @@ defmodule ActivityPub do
     end
   end
 
-  def accept_activity(%{to: to, actor: actor, object: activity_to_accept_id} = params) do
+  defp accept_activity(
+         %{
+           to: to,
+           actor: actor,
+           object: %Object{data: %{"type" => type} = activity_data} = activity_to_accept
+         } = params
+       ) do
     with actor_id <- actor.data["id"],
-         %Object{data: %{"type" => type}} = activity_to_accept <-
-           Object.get_cached!(ap_id: activity_to_accept_id),
          {:ok, accepted_activity} <- Object.update_state(activity_to_accept, type, "accept"),
          data <- %{
            "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
@@ -175,11 +180,37 @@ defmodule ActivityPub do
            "actor" => actor_id,
            "object" => accepted_activity.data
          },
+         # Check if this is a QuoteRequest and create QuoteAuthorization
+         data <-
+           if(type == "QuoteRequest",
+             do:
+               case params[:result] ||
+                      (params[:local] && quote_authorization(actor, activity_data)) do
+                 id when is_binary(id) ->
+                   Map.put(data, "result", id)
+                   |> debug("added provided quote auth from params or local")
+
+                 {:ok, %{data: %{"id" => id}}} ->
+                   Map.put(data, "result", id)
+                   |> debug("added found or created quote auth from params or local")
+
+                 e ->
+                   err(e, "Error finding or creating QuoteAuthorization")
+                   nil
+               end
+           ) || data,
          {:ok, accept_activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(accept_activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity) do
       {:ok, accept_activity, adapter_object, accepted_activity}
+    end
+  end
+
+  defp accept_activity(%{object: activity_to_accept} = params) do
+    with %Object{} = activity_to_accept <-
+           Object.get_cached!(ap_id: activity_to_accept) do
+      accept_activity(Map.put(params, :object, activity_to_accept))
     end
   end
 
@@ -197,14 +228,14 @@ defmodule ActivityPub do
            "object" => object
          },
          %Object{data: %{"type" => type}} = activity_to_reject <-
-           Object.get_cached!(ap_id: object) |> flood("activity_to_reject"),
+           Object.get_cached!(ap_id: object) |> debug("activity_to_reject"),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer))
-           |> flood("inserted rejection on repo #{Utils.repo()}"),
-         :ok <- maybe_federate(activity) |> flood("federated"),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> flood("handled"),
+           |> debug("inserted rejection on repo #{Utils.repo()}"),
+         :ok <- maybe_federate(activity) |> debug("federated"),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("handled"),
          {:ok, _rejected_activity} <-
-           Object.update_state(activity_to_reject, type, "reject") |> flood("rejected_activity"),
+           Object.update_state(activity_to_reject, type, "reject") |> debug("rejected_activity"),
          #  {:ok, activity} <- Object.get_cached(ap_id: activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -876,8 +907,9 @@ defmodule ActivityPub do
              Map.get(params, :local, true),
              Map.get(params, :pointer),
              true
-           ),
-         :ok <- maybe_federate(activity),
+           )
+           |> debug("inserted quote request"),
+         :ok <- maybe_federate(activity) |> debug("federated quote request"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -890,13 +922,7 @@ defmodule ActivityPub do
          instrument,
          activity_id
        ) do
-    object_id =
-      case object do
-        %{data: %{"id" => id}} -> id
-        %{"id" => id} -> id
-        %{ap_id: id} -> id
-        other when is_binary(other) -> other
-      end
+    object_id = extract_object_id(object)
 
     object_actor =
       case object do
@@ -923,5 +949,109 @@ defmodule ActivityPub do
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
+  end
+
+  def quote_authorization(
+        actor,
+        %{"type" => "QuoteRequest", "object" => quoted_object, "instrument" => instrument} =
+          _quote_request_activity_data
+      ) do
+    quote_authorization(actor, quoted_object, instrument)
+  end
+
+  def quote_authorization(_actor, _activity_data) do
+    error("Invalid activity data for quote authorization")
+  end
+
+  def quote_authorization(actor, quoted_object, quote_object) do
+    quote_post_ap_id = extract_object_id(quote_object)
+    quoted_object_id = extract_object_id(quoted_object)
+
+    if quote_post_ap_id && quoted_object_id do
+      activity_id =
+        "#{quoted_object_id}_authorization_#{Utils.hash(quote_post_ap_id)}"
+        |> debug("quote authorization activity_id")
+
+      # Check if authorization already exists
+      case Object.get_cached(ap_id: activity_id) do
+        {:ok, existing_auth} ->
+          debug(existing_auth, "Existing quote authorization found")
+          {:ok, existing_auth}
+
+        {:error, :not_found} ->
+          debug("Create new authorization")
+
+          authorize_quote(%{
+            actor: actor,
+            quote_post_ap_id: quote_post_ap_id,
+            quoted_object_ap_id: quoted_object_id,
+            activity_id: activity_id
+          })
+      end
+    else
+      err("Invalid object IDs for quote authorization")
+    end
+  end
+
+  @doc """
+  Generates a QuoteAuthorization stamp for an approved quote post.
+  """
+  @spec authorize_quote(%{
+          :actor => Actor.t(),
+          :quote_post_ap_id => binary(),
+          :quoted_object_ap_id => binary(),
+          optional(atom()) => any()
+        }) ::
+          {:ok, Object.t()} | {:error, any()}
+  def authorize_quote(
+        %{
+          actor: actor,
+          quote_post_ap_id: quote_post_ap_id,
+          quoted_object_ap_id: quoted_object_ap_id
+        } = params
+      ) do
+    with authorization_data <-
+           make_quote_authorization_data(
+             actor,
+             quote_post_ap_id,
+             quoted_object_ap_id,
+             Map.get(params, :activity_id)
+           )
+           |> debug("authorization_data"),
+         {:ok, authorization} <-
+           Object.insert(
+             authorization_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer)
+           )
+           |> debug("inserted quote authorization") do
+      {:ok, authorization}
+    end
+  end
+
+  defp make_quote_authorization_data(
+         %{data: %{"id" => actor_id}} = _actor,
+         quote_post_ap_id,
+         quoted_object_ap_id,
+         activity_id
+       ) do
+    data = %{
+      "type" => "QuoteAuthorization",
+      "attributedTo" => actor_id,
+      "interactingObject" => quote_post_ap_id,
+      "interactionTarget" => quoted_object_ap_id
+    }
+
+    if activity_id, do: Map.put(data, "id", activity_id), else: data
+  end
+
+  #  TODO: put somewhere better
+  defp extract_object_id(object) do
+    case object do
+      %{data: %{"id" => id}} -> id
+      %{"id" => id} -> id
+      %{ap_id: id} -> id
+      other when is_binary(other) -> other
+    end
   end
 end

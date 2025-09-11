@@ -582,6 +582,7 @@ defmodule ActivityPub.Federator.Fetcher do
         # cache_fetch_error(id)
         Instances.set_unreachable(id)
         error("Could not connect to ActivityPub remote")
+        {:error, :network_error}
 
       {:error, :is_local} ->
         warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
@@ -609,7 +610,8 @@ defmodule ActivityPub.Federator.Fetcher do
 
       {:ok, %{status: code} = ret} ->
         cache_fetch_error(id)
-        error(ret, maybe_error_body(ret) || "ActivityPub remote replied with HTTP #{code}")
+        error(ret, "ActivityPub remote replied with unexpected HTTP code")
+        {:error, maybe_error_body(ret) || :network_error}
 
       {:reject, e} ->
         {:reject, e}

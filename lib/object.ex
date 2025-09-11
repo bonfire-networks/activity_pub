@@ -271,11 +271,11 @@ defmodule ActivityPub.Object do
            _data____id: {_, [constraint: :unique, constraint_name: "ap_object__data____id_index"]}
          ]
        } = e} ->
-        flood(e, "Already exists, try fetching from cache")
+        debug(e, "Already exists, try fetching from cache")
         Object.get_cached(ap_id: params["id"])
 
       error ->
-        flood(params, "Error while trying to insert these params")
+        debug(params, "Error while trying to insert these params")
         err(error, "Error while trying to save the object for federation on repo #{repo()}")
         {:error, "Error while trying to save the object for federation"}
     end

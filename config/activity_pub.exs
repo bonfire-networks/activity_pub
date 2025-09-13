@@ -3,7 +3,8 @@ import Config
 config :activity_pub,
   sign_object_fetches: true,
   reject_unsigned: true,
-  env: config_env(),
+  env: config_env()
+
 #   adapter: MyApp.Adapter,
 #   repo: MyApp.Repo
 
@@ -15,7 +16,7 @@ config :activity_pub, :instance,
   federation_reachability_timeout_days: 7,
   # Max. depth of reply-to and reply activities fetching on incoming federation, to prevent out-of-memory situations while fetching very long threads.
   federation_incoming_max_recursion: 10,
-#   rewrite_policy: [MyApp.MRF],
+  #   rewrite_policy: [MyApp.MRF],
   handle_unknown_activities: true
 
 config :activity_pub, :boundaries,
@@ -54,11 +55,10 @@ config :activity_pub, ActivityPub.Web.Endpoint,
     layout: false
   ]
 
-
-config :activity_pub, 
+config :activity_pub,
   json_contexts: %{
     "Accept" => %{
-      "QuoteRequest"=> "https://w3id.org/fep/044f#QuoteRequest"
+      "QuoteRequest" => "https://w3id.org/fep/044f#QuoteRequest"
     },
     "QuoteRequest" => %{
       "QuoteRequest" => "https://w3id.org/fep/044f#QuoteRequest",
@@ -88,8 +88,8 @@ config :activity_pub,
       },
       "sensitive" => "as:sensitive",
       # TODO
-      "manuallyApprovesFollowers"=> "as:manuallyApprovesFollowers"
-  },
+      "manuallyApprovesFollowers" => "as:manuallyApprovesFollowers"
+    },
     object: %{
       "Hashtag" => "as:Hashtag",
       "sensitive" => "as:sensitive",
@@ -101,7 +101,7 @@ config :activity_pub,
         "@type" => "@id"
       },
       "_misskey_quote" => "https://misskey-hub.net/ns/#_misskey_quote",
-       "quoteAuthorization" => %{
+      "quoteAuthorization" => %{
         "@id" => "https://w3id.org/fep/044f#quoteAuthorization",
         "@type" => "@id"
       }

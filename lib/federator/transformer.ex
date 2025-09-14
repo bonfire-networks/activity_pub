@@ -1033,7 +1033,7 @@ defmodule ActivityPub.Federator.Transformer do
       |> debug("accept result")
     else
       e ->
-        err(e, "Could not handle incoming Accept")
+        error(e, "Could not handle incoming Accept")
     end
   end
 

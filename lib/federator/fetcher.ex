@@ -191,7 +191,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_fresh_object_from_id(%{"id" => id}, opts), do: fetch_fresh_object_from_id(id, opts)
 
-  def fetch_fresh_object_from_id(id, opts) do
+  def fetch_fresh_object_from_id(id, opts) when is_binary(id) do
     # raise "STOOOP"
     with true <- String.starts_with?(id, "http"),
          false <- String.starts_with?(id, ActivityPub.Web.base_url()),

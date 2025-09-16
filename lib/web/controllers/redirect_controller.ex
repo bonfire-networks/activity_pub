@@ -2,7 +2,7 @@ defmodule ActivityPub.Web.RedirectController do
   use ActivityPub.Web, :controller
   import Untangle
   alias ActivityPub.Federator.Adapter
-  # alias ActivityPub.Federator.WebFinger
+  alias ActivityPub.Utils
 
   @limit_num Application.compile_env(:activity_pub, __MODULE__, 200)
   @limit_ms Application.compile_env(:activity_pub, __MODULE__, 60_000)
@@ -17,41 +17,24 @@ defmodule ActivityPub.Web.RedirectController do
 
   def object(conn, %{"uuid" => uuid}) do
     object =
-      ActivityPub.Object.get_cached!(id: uuid) ||
-        ActivityPub.Object.get_cached!(pointer: uuid)
-        |> debug()
+      if Utils.is_ulid?(uuid) do
+        ActivityPub.Object.get_cached!(pointer: uuid) || uuid
+      else
+        ActivityPub.Object.get_cached!(id: uuid)
+      end
+      |> flood("object for redirect")
 
-    case Adapter.get_redirect_url(object || uuid) do
-      nil ->
-        conn
-        |> send_resp(404, "Object not found or not permitted")
-        |> halt
-
-      "http" <> _ = url ->
-        conn
-        |> redirect(external: url)
-
-      url ->
-        conn
-        |> redirect(to: url)
-    end
+    redirect_to_adapter(conn, object) ||
+      conn
+      |> send_resp(404, "Object not found")
+      |> halt()
   end
 
   def actor(conn, %{"username" => username}) do
-    case Adapter.get_redirect_url(username) do
-      nil ->
-        conn
-        |> send_resp(404, "Actor not found")
-        |> halt
-
-      "http" <> _ = url ->
-        conn
-        |> redirect(external: url)
-
-      url ->
-        conn
-        |> redirect(to: url)
-    end
+    redirect_to_adapter(conn, username) ||
+      conn
+      |> send_resp(404, "Actor not found")
+      |> halt()
   end
 
   # incoming remote interaction
@@ -138,5 +121,13 @@ defmodule ActivityPub.Web.RedirectController do
       "Sorry, your actor or remote interaction URL was not found"
     )
     |> halt
+  end
+
+  defp redirect_to_adapter(conn, object_username_or_id) do
+    case Adapter.get_redirect_url(object_username_or_id) |> flood("from adapter") do
+      "http" <> _ = url -> redirect(conn, external: url)
+      url when is_binary(url) -> redirect(conn, to: url)
+      _ -> nil
+    end
   end
 end

@@ -7,7 +7,6 @@ defmodule ActivityPub.Federator do
   alias ActivityPub.Federator.Publisher
   # alias ActivityPub.Federator.Transformer
   alias ActivityPub.Federator.Workers.PublisherWorker
-  # alias ActivityPub.Federator.Workers.ReceiverWorker
 
   import Untangle
 
@@ -17,7 +16,7 @@ defmodule ActivityPub.Federator do
     if opts[:federate_inline] do
       perform(:publish, activity, opts)
     else
-      publish(activity_id, opts[:worker_args])
+      publish(activity_id, opts)
     end
   end
 
@@ -25,12 +24,30 @@ defmodule ActivityPub.Federator do
     if opts[:federate_inline] do
       perform(:publish, activity, opts)
     else
-      PublisherWorker.enqueue("publish", %{"activity" => activity}, opts[:worker_args])
+      actor = opts[:actor] || %{}
+
+      PublisherWorker.enqueue(
+        "publish",
+        %{
+          "activity" => activity,
+          "user_id" => Map.get(actor, :pointer_id) || Map.get(actor, :id)
+        },
+        opts[:worker_args]
+      )
     end
   end
 
   def publish(activity_id, opts) when is_binary(activity_id) do
-    PublisherWorker.enqueue("publish", %{"activity_id" => activity_id}, opts[:worker_args])
+    actor = opts[:actor] || %{}
+
+    PublisherWorker.enqueue(
+      "publish",
+      %{
+        "activity_id" => activity_id,
+        "user_id" => Map.get(actor, :pointer_id) || Map.get(actor, :id)
+      },
+      opts[:worker_args]
+    )
   end
 
   def perform(task, activity_or_module, params_or_opts \\ [])

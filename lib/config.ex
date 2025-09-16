@@ -168,7 +168,7 @@ defmodule ActivityPub.Config do
   def env, do: Application.get_env(:activity_pub, :env) || @compile_env
 
   def federating? do
-    case (Application.get_env(:activity_pub, :instance) || [])
+    case (Application.get_env(:activity_pub, :instance) || %{})
          |> Map.new()
          |> Map.get(:federating, :not_set) do
       :not_set ->

@@ -106,7 +106,7 @@ defmodule ActivityPub.Web.Router do
         post("/actors/:username/inbox", IncomingActivityPubController, :inbox)
         # TODO: implement this for AP C2S API
         post("/actors/:username/outbox", IncomingActivityPubController, :outbox_info)
-        post("/shared_inbox", IncomingActivityPubController, :inbox)
+        post("/shared_inbox", IncomingActivityPubController, :shared_inbox)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

@@ -22,7 +22,6 @@ defmodule ActivityPub.Web.ActivityPubController do
   alias ActivityPub.Web.ActorView
   # alias ActivityPub.Federator
   alias ActivityPub.Web.ObjectView
-  # alias ActivityPub.Web.RedirectController
 
   @limit_num Application.compile_env(:activity_pub, __MODULE__, 3000)
   @limit_ms Application.compile_env(:activity_pub, __MODULE__, 120_000)
@@ -44,22 +43,13 @@ defmodule ActivityPub.Web.ActivityPubController do
   def object(conn, %{"uuid" => uuid}) do
     cond do
       get_format(conn) == "html" ->
-        redirect_to_url(conn, uuid)
+        ActivityPub.Web.RedirectController.object(conn, %{"uuid" => uuid})
 
       Config.federating?() != false ->
         json_object_with_cache(conn, uuid)
 
       true ->
-        # redirect_to_url(conn, uuid)
         Utils.error_json(conn, "this instance is not currently federating", 403)
-    end
-  end
-
-  defp redirect_to_url(conn, username_or_id) do
-    case Adapter.get_redirect_url(username_or_id) do
-      "http" <> _ = url -> redirect(conn, external: url)
-      url when is_binary(url) -> redirect(conn, to: url)
-      _ -> nil
     end
   end
 
@@ -161,13 +151,12 @@ defmodule ActivityPub.Web.ActivityPubController do
   def actor(conn, %{"username" => username}) do
     cond do
       get_format(conn) == "html" ->
-        redirect_to_url(conn, username)
+        ActivityPub.Web.RedirectController.actor(conn, %{"username" => username})
 
       federate_actor?(username, conn) ->
         actor_with_cache(conn, username)
 
       true ->
-        # redirect_to_url(conn, username)
         Utils.error_json(conn, "this instance is not currently federating", 403)
     end
   end

@@ -76,7 +76,7 @@ defmodule ActivityPub.Federator.APPublisher do
           if opts[:federate_inline] do
             publish_one(params)
           else
-            ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, params)
+            ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, actor, params)
           end
         end)
 

@@ -23,13 +23,15 @@ defmodule ActivityPub do
   @doc """
   Enqueues an activity for federation if it's local
   """
-  defp maybe_federate(object, opts \\ [])
+  defp maybe_federate(actor, object, opts \\ [])
 
-  defp maybe_federate(%Object{local: true} = activity, opts) do
+  defp maybe_federate(actor, %Object{local: true} = activity, opts) do
     # debug(opts, "maybe_federate oopts")
 
+    # TODO? do we need to check if actor has federation enabled here or do we rely on the adapter having already checked?
     if Config.federating?() do
-      with {:ok, job} <- ActivityPub.Federator.publish(activity, opts) do
+      with {:ok, job} <-
+             ActivityPub.Federator.publish(activity, opts |> Keyword.put(:actor, actor)) do
         if job.state == "completed" do
           info(
             job,
@@ -53,7 +55,7 @@ defmodule ActivityPub do
     end
   end
 
-  defp maybe_federate(object, _) do
+  defp maybe_federate(_actor, object, _) do
     debug(
       object,
       "Skip outgoing federation of non-local object"
@@ -73,13 +75,13 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
-  def create(%{to: _, actor: _, object: _} = params) do
+  def create(%{to: _, actor: actor, object: _} = params) do
     with nil <- Object.normalize(params[:additional]["id"], false),
          create_data <-
            make_create_data(params) |> debug("create_data"),
          {:ok, activity} <-
            Object.insert(create_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       # Clear cache for the object we're replying to so its replies collection gets regenerated
@@ -110,7 +112,7 @@ defmodule ActivityPub do
     with data <- make_follow_data(follower, followed, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(follower, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          {:ok, activity} <- Object.get_cached(ap_id: activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -141,7 +143,7 @@ defmodule ActivityPub do
          {:ok, activity} <-
            Object.insert(unfollow_data, Map.get(params, :local, true), Map.get(params, :pointer))
            |> debug("insert"),
-         :ok <- maybe_federate(activity) |> debug("adapt"),
+         :ok <- maybe_federate(actor, activity) |> debug("adapt"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("incoming"),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -201,7 +203,7 @@ defmodule ActivityPub do
            ) || data,
          {:ok, accept_activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(accept_activity),
+         :ok <- maybe_federate(actor, accept_activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity) do
       {:ok, accept_activity, adapter_object, accepted_activity}
     end
@@ -232,7 +234,7 @@ defmodule ActivityPub do
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer))
            |> debug("inserted rejection on repo #{Utils.repo()}"),
-         :ok <- maybe_federate(activity) |> debug("federated"),
+         :ok <- maybe_federate(actor, activity) |> debug("federated"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity) |> debug("handled"),
          {:ok, _rejected_activity} <-
            Object.update_state(activity_to_reject, type, "reject") |> debug("rejected_activity"),
@@ -262,7 +264,7 @@ defmodule ActivityPub do
          like_data <- make_like_data(actor, object, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(like_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -293,7 +295,7 @@ defmodule ActivityPub do
          {:ok, activity} <-
            Object.insert(unlike_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          {:ok, _activity} <- Object.hard_delete(like_activity),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -329,7 +331,7 @@ defmodule ActivityPub do
            ),
          {:ok, activity} <-
            Object.insert(announce_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -364,7 +366,7 @@ defmodule ActivityPub do
              Map.get(params, :local, true),
              Map.get(params, :pointer)
            ),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(actor, activity),
          {:ok, _activity} <- Object.hard_delete(announce_activity) |> info("deleted?"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -405,7 +407,7 @@ defmodule ActivityPub do
              Map.get(params, :pointer),
              :update
            ),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -427,7 +429,7 @@ defmodule ActivityPub do
     with block_data <- make_block_data(blocker, blocked, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(block_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(blocker, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -455,7 +457,7 @@ defmodule ActivityPub do
            ),
          {:ok, activity} <-
            Object.insert(unblock_data, Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(blocker, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -501,7 +503,7 @@ defmodule ActivityPub do
            }
            |> debug("delete params"),
          {:ok, activity} <- Object.insert(params, is_local?),
-         :ok <- maybe_federate(activity, opts),
+         :ok <- maybe_federate(delete_actor, activity, opts),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -538,7 +540,7 @@ defmodule ActivityPub do
            "bcc" => opts[:bcc]
          },
          {:ok, activity} <- Object.insert(data, is_local?),
-         :ok <- maybe_federate(activity, opts) |> debug("maybe_federated"),
+         :ok <- maybe_federate(actor, activity, opts) |> debug("maybe_federated"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -579,7 +581,7 @@ defmodule ActivityPub do
     with {:ok, activity} <-
            make_flag_data(params, [params[:account]] ++ (params[:statuses] || []), additional)
            |> Object.insert(Map.get(params, :local, true), Map.get(params, :pointer)),
-         :ok <- maybe_federate(activity),
+         :ok <- maybe_federate(params[:actor], activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -603,7 +605,8 @@ defmodule ActivityPub do
 
     with true <- Actor.also_known_as?(origin_ap_id, target.data),
          {:ok, activity} <- Object.insert(params, local),
-         :ok <- maybe_federate(activity),
+         # TODO: which one to use as actor
+         :ok <- maybe_federate(nil, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -915,7 +918,7 @@ defmodule ActivityPub do
              true
            )
            |> debug("inserted quote request"),
-         :ok <- maybe_federate(activity) |> debug("federated quote request"),
+         :ok <- maybe_federate(actor, activity) |> debug("federated quote request"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}

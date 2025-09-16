@@ -38,20 +38,38 @@ defmodule ActivityPub.Federator.APPublisher do
     is_public? = Utils.has_as_public?(tos)
     type = activity.data["type"]
 
-    recipients =
-      recipients(actor, prepared_activity_data, tos, is_public?)
-      |> debug("initial recipients for #{type}")
+    case recipients(actor, prepared_activity_data, tos, is_public?)
+         |> flood("initial recipients for #{type}")
+         |> Enum.group_by(fn
+           %{data: actor_data} ->
+             maybe_use_sharedinbox(actor_data)
 
-    num_recipients = length(recipients)
+           inbox when is_binary(inbox) ->
+             inbox
 
-    case recipients
-         |> determine_inboxes(is_public?, type, num_recipients)
-         # |> maybe_federate_to_search_index(activity)
-         |> Enum.uniq_by(fn {x, _} -> x end)
+           other ->
+             err(other, "dunno how to determine inbox for recipient")
+             nil
+         end)
+         |> flood("initial inboxes")
+         |> Enum.map(fn {inbox, recipients} ->
+           ids =
+             Enum.map(recipients, fn
+               %{data: %{"id" => id}} -> id
+               _ -> nil
+             end)
+
+           if type in ["Flag", "Delete"] or length(ids) > 1 do
+             {inbox, %{ids: ids}}
+           else
+             {List.first(recipients).data["inbox"], %{ids: ids}}
+           end
+         end)
+         |> flood("determined inboxes")
+         |> Enum.uniq_by(fn {inbox, _} -> inbox end)
          |> Map.new()
-         #  |> debug("inboxes")
          |> Instances.filter_reachable()
-         |> debug("reacheable inboxes") do
+         |> flood("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
         recipients
         |> Enum.map(fn {inbox, meta} ->
@@ -59,7 +77,7 @@ defmodule ActivityPub.Federator.APPublisher do
             Transformer.preserve_privacy_of_outgoing(
               prepared_activity_data,
               URI.parse(inbox).host,
-              meta[:id]
+              meta[:ids]
             )
             # |> debug("safe json")
             |> Jason.encode!()
@@ -313,73 +331,6 @@ defmodule ActivityPub.Federator.APPublisher do
     else
       recipients
     end
-  end
-
-  @doc """
-  Determine a user inbox to use based on heuristics.  These heuristics
-  are based on an approximation of the ``sharedInbox`` rules in the
-  [ActivityPub specification][ap-sharedinbox].
-
-     [ap-sharedinbox]: https://www.w3.org/TR/activitypub/#shared-inbox-delivery
-  """
-  def determine_inboxes(
-        inboxes,
-        is_public?,
-        type,
-        num_recipients
-      )
-      when is_list(inboxes) do
-    inboxes
-    |> Enum.flat_map(&determine_inboxes(&1, is_public?, type, num_recipients))
-  end
-
-  def determine_inboxes(
-        %{data: actor_data} = _user,
-        is_public,
-        type,
-        num_recipients
-      ) do
-    cond do
-      type in ["Flag", "Delete"] ->
-        {maybe_use_sharedinbox(actor_data),
-         %{
-           id: actor_data["id"]
-         }}
-
-      is_public == true ->
-        {maybe_use_sharedinbox(actor_data),
-         %{
-           id: actor_data["id"]
-         }}
-
-      num_recipients > 1 ->
-        # FIXME: shouldn't this depend on recipients on a given instance?
-        {maybe_use_sharedinbox(actor_data),
-         %{
-           id: actor_data["id"]
-         }}
-
-      inbox = actor_data["inbox"] ->
-        {inbox,
-         %{
-           id: actor_data["id"]
-         }}
-
-      true ->
-        warn(actor_data, "No inbox")
-
-        []
-    end
-    |> List.wrap()
-  end
-
-  def determine_inboxes(inbox, _, _, _) when is_binary(inbox) do
-    [{inbox, %{}}]
-  end
-
-  def determine_inboxes(user, _, _, _) do
-    warn(user, "Invalid actor")
-    []
   end
 
   defp maybe_use_sharedinbox(actor_data),

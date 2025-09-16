@@ -164,59 +164,75 @@ defmodule ActivityPub.Federator.Transformer do
 
   def maybe_invalidate_reply_to_cache(_), do: :ok
 
-  def preserve_privacy_of_outgoing(other, target_instance_host \\ nil, target_actor_id \\ nil)
+  def preserve_privacy_of_outgoing(other, target_instance_host \\ nil, target_actor_ids \\ [])
 
-  def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_id)
-      when is_binary(host) or is_binary(target_actor_id) do
+  def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_ids)
+      when is_binary(host) or (is_list(target_actor_ids) and target_actor_ids != []) do
     data
-    |> Map.put("object", preserve_privacy_of_outgoing(object, host, target_actor_id))
-    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
-    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
-    |> Adapter.transform_outgoing(host, target_actor_id)
+    |> Map.put("object", preserve_privacy_of_outgoing(object, host, target_actor_ids))
+    |> Map.update(
+      "bto",
+      [],
+      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
+    )
+    |> Map.update(
+      "bcc",
+      [],
+      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
+    )
+    |> Adapter.transform_outgoing(host, target_actor_ids)
   end
 
-  def preserve_privacy_of_outgoing(%{} = data, host, target_actor_id)
-      when is_binary(host) or is_binary(target_actor_id) do
+  def preserve_privacy_of_outgoing(%{} = data, host, target_actor_ids)
+      when is_binary(host) or (is_list(target_actor_ids) and target_actor_ids != []) do
     data
-    |> Map.update("bto", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
-    |> Map.update("bcc", [], &filter_recipients_visibility_by_instance(&1, host, target_actor_id))
-    |> Adapter.transform_outgoing(host, target_actor_id)
+    |> Map.update(
+      "bto",
+      [],
+      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
+    )
+    |> Map.update(
+      "bcc",
+      [],
+      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
+    )
+    |> Adapter.transform_outgoing(host, target_actor_ids)
   end
 
-  def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_id) do
+  def preserve_privacy_of_outgoing(%{"object" => object} = data, host, target_actor_ids) do
     data
-    |> Map.put("object", preserve_privacy_of_outgoing(object, nil, nil))
+    |> Map.put("object", preserve_privacy_of_outgoing(object, host, target_actor_ids))
     |> Map.drop(["bto", "bcc"])
-    |> Adapter.transform_outgoing(host, target_actor_id)
+    |> Adapter.transform_outgoing(host, target_actor_ids)
   end
 
-  def preserve_privacy_of_outgoing(%{} = data, host, target_actor_id) do
+  def preserve_privacy_of_outgoing(%{} = data, host, target_actor_ids) do
     data
     |> Map.drop(["bto", "bcc"])
-    |> Adapter.transform_outgoing(host, target_actor_id)
+    |> Adapter.transform_outgoing(host, target_actor_ids)
   end
 
   def preserve_privacy_of_outgoing(other, _, _), do: other
 
-  defp filter_recipients_visibility_by_instance(bto, host, target_actor_id) when is_list(bto) do
-    Enum.filter(bto, &recipient_is_from_instance?(&1, host, target_actor_id))
+  defp filter_recipients_visibility_by_instance(bto, host, target_actor_ids) when is_list(bto) do
+    Enum.filter(bto, &recipient_is_from_instance?(&1, host, target_actor_ids))
   end
 
-  defp filter_recipients_visibility_by_instance(bto, host, target_actor_id) do
-    if recipient_is_from_instance?(bto, host, target_actor_id), do: bto, else: []
+  defp filter_recipients_visibility_by_instance(bto, host, target_actor_ids) do
+    if recipient_is_from_instance?(bto, host, target_actor_ids), do: bto, else: []
   end
 
-  defp recipient_is_from_instance?(bto, host, target_actor_id) when is_binary(bto) do
-    bto == target_actor_id or URI.parse(bto || "").host == host
+  defp recipient_is_from_instance?(bto, host, target_actor_ids) when is_binary(bto) do
+    bto in (target_actor_ids || []) or URI.parse(bto || "").host == host
   end
 
-  defp recipient_is_from_instance?(%{"id" => bto}, host, target_actor_id) when is_binary(bto) do
-    recipient_is_from_instance?(bto, host, target_actor_id)
+  defp recipient_is_from_instance?(%{"id" => bto}, host, target_actor_ids) when is_binary(bto) do
+    recipient_is_from_instance?(bto, host, target_actor_ids)
   end
 
-  defp recipient_is_from_instance?(%{data: %{"id" => bto}}, host, target_actor_id)
+  defp recipient_is_from_instance?(%{data: %{"id" => bto}}, host, target_actor_ids)
        when is_binary(bto) do
-    recipient_is_from_instance?(bto, host, target_actor_id)
+    recipient_is_from_instance?(bto, host, target_actor_ids)
   end
 
   defp recipient_is_from_instance?(_, _, _) do

@@ -188,9 +188,9 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().federate_actor?(actor, direction, by_actor)
   end
 
-  def transform_outgoing(data, target_host \\ nil, target_actor_id \\ nil) do
+  def transform_outgoing(data, target_host \\ nil, target_actor_ids \\ nil) do
     if function_exported?(adapter(), :transform_outgoing, 3) do
-      adapter().transform_outgoing(data, target_host, target_actor_id)
+      adapter().transform_outgoing(data, target_host, target_actor_ids)
     else
       data
     end

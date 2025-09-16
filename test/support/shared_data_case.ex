@@ -20,14 +20,22 @@ defmodule ActivityPub.SharedDataCase do
     actor2 = insert(:actor)
     # |> cached_or_handle()
 
-    u1 = "https://mastodon.local/pub/actors/#{actor1.data["preferredUsername"]}/inbox" |> info()
-    u2 = "https://mastodon.local/pub/actors/#{actor2.data["preferredUsername"]}/inbox"
+    u1 = actor1.data["inbox"]
+    u2 = actor2.data["inbox"]
+    u1b = actor1.data["endpoints"]["sharedInbox"]
+    u2b = actor2.data["endpoints"]["sharedInbox"]
 
     mock(fn
       %{method: :post, url: ^u1} ->
         %Tesla.Env{status: 200}
 
       %{method: :post, url: ^u2} ->
+        %Tesla.Env{status: 200}
+
+      %{method: :post, url: ^u1b} ->
+        %Tesla.Env{status: 200}
+
+      %{method: :post, url: ^u2b} ->
         %Tesla.Env{status: 200}
 
       env ->

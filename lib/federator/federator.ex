@@ -2,7 +2,7 @@
 
 defmodule ActivityPub.Federator do
   alias ActivityPub.Actor
-  # alias ActivityPub.Utils
+  alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Publisher
   # alias ActivityPub.Federator.Transformer
@@ -24,28 +24,18 @@ defmodule ActivityPub.Federator do
     if opts[:federate_inline] do
       perform(:publish, activity, opts)
     else
-      actor = opts[:actor] || %{}
-
       PublisherWorker.enqueue(
         "publish",
-        %{
-          "activity" => activity,
-          "user_id" => Map.get(actor, :pointer_id) || Map.get(actor, :id)
-        },
+        build_actor_fields(%{"activity" => activity}, opts[:actor]),
         opts[:worker_args]
       )
     end
   end
 
   def publish(activity_id, opts) when is_binary(activity_id) do
-    actor = opts[:actor] || %{}
-
     PublisherWorker.enqueue(
       "publish",
-      %{
-        "activity_id" => activity_id,
-        "user_id" => Map.get(actor, :pointer_id) || Map.get(actor, :id)
-      },
+      build_actor_fields(%{"activity_id" => activity_id}, opts[:actor]),
       opts[:worker_args]
     )
   end
@@ -82,4 +72,15 @@ defmodule ActivityPub.Federator do
   def perform(type, _, _) do
     error(type, "Unknown federator task")
   end
+
+  defp build_actor_fields(map, nil), do: map
+  defp build_actor_fields(map, actor) when is_binary(actor), do: Map.put(map, "actor", actor)
+
+  defp build_actor_fields(map, %{} = actor) do
+    map
+    |> Utils.maybe_put("user_id", Map.get(actor, :pointer_id))
+    |> Utils.maybe_put("username", Map.get(actor, :username))
+  end
+
+  defp build_actor_fields(map, _), do: map
 end

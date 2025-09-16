@@ -18,22 +18,29 @@ defmodule ActivityPub.Federator.Transformer.LikeHandlingTest do
 
   test "it works for incoming likes" do
     actor = local_actor()
-    {:ok, note_actor} = Actor.get_cached(username: actor.username)
-    note_activity = insert(:note_activity, %{actor: note_actor})
-    delete_actor = insert(:actor)
+
+    {:ok, note_actor} =
+      Actor.get_cached(username: actor.username)
+      |> debug("note_actor")
+
+    note_activity =
+      insert(:note_activity, %{actor: note_actor})
+      |> debug("note_activity")
+
+    like_actor = insert(:actor)
 
     data =
       file("fixtures/mastodon/mastodon-like.json")
       |> Jason.decode!()
       |> Map.put("object", note_activity.data["object"])
-      |> Map.put("actor", delete_actor.data["id"])
+      |> Map.put("actor", like_actor.data["id"])
 
-    _actor = actor(ap_id: data["actor"], local: false)
+    # _actor = actor(ap_id: data["actor"], local: false)
 
     {:ok, %Object{data: data, local: false}} = Transformer.handle_incoming(data)
     refute Enum.empty?(note_activity.data["to"])
 
-    assert data["actor"] == delete_actor.data["id"]
+    assert data["actor"] == like_actor.data["id"]
     assert data["type"] == "Like"
     assert data["id"] == "https://mastodon.local/users/admin#likes/2"
     assert Object.get_ap_id(data["object"]) =~ note_activity.data["object"]

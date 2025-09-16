@@ -161,6 +161,7 @@ defmodule ActivityPub.Safety.Containment do
 
     y =
       [
+        object.data["attributedTo"],
         object.data["actor"],
         object.data["to"],
         object.data["cc"],

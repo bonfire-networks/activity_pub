@@ -378,7 +378,8 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     end
 
     test "sets `replies` collection with a limited number of self-replies" do
-      [user, another_user] = insert_list(2, :local_actor)
+      user = local_actor()
+      another_user = local_actor()
 
       activity =
         %{data: %{"id" => id1_activity, "object" => id1_object}} =

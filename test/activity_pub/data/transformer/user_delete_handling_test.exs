@@ -39,7 +39,7 @@ defmodule ActivityPub.Federator.Transformer.UserDeleteHandlingTest do
     actor =
       %{data: %{"id" => ap_id}} =
       insert(:actor, %{
-        data: %{"id" => "https://mastodon.local/users/deleted"}
+        ap_id: "https://mastodon.local/users/deleted"
       })
       |> cached_or_handle()
 
@@ -57,7 +57,7 @@ defmodule ActivityPub.Federator.Transformer.UserDeleteHandlingTest do
     actor =
       %{data: %{"id" => ap_id}} =
       insert(:actor, %{
-        data: %{"id" => "https://mastodon.local/users/tombstoned"}
+        ap_id: "https://mastodon.local/users/tombstoned"
       })
 
     actor =
@@ -79,7 +79,7 @@ defmodule ActivityPub.Federator.Transformer.UserDeleteHandlingTest do
     actor =
       %{data: %{"id" => ap_id}} =
       insert(:actor, %{
-        data: %{"id" => "https://mastodon.local/users/admin"}
+        ap_id: "https://mastodon.local/users/admin"
       })
 
     actor =

@@ -93,18 +93,18 @@ defmodule ActivityPub.Factory do
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
     id =
-      attrs[:data]["id"] ||
+      attrs[:ap_id] ||
         "https://mastodon.local" <> ap_base_path <> "/actors/#{username}"
 
     actor_object(id, username, attrs, false)
   end
 
   def local_actor_factory(attrs \\ %{}) do
-    username = sequence(:username, &"username#{&1}")
+    username = attrs[:username] || sequence(:username, &"username#{&1}")
     ap_base_path = System.get_env("AP_BASE_PATH", "/pub")
 
     id =
-      attrs[:data]["id"] ||
+      attrs[:ap_id] ||
         ActivityPub.Web.base_url() <> ap_base_path <> "/actors/#{username}"
 
     actor_object(id, username, attrs, true)
@@ -112,31 +112,27 @@ defmodule ActivityPub.Factory do
 
   defp actor_object(id, username, attrs, local?) do
     data = %{
+      "id" => id,
       "name" => sequence(:name, &"Test actor #{&1}"),
       "preferredUsername" => username,
-      "summary" => sequence(:bio, &"Tester Number#{&1}"),
-      "type" => "Person",
-      "alsoKnownAs" => attrs[:also_known_as] || []
+      "summary" => attrs[:bio] || sequence(:bio, &"Tester Number#{&1}"),
+      "type" => attrs[:type] || "Person",
+      "alsoKnownAs" => attrs[:also_known_as] || [],
+      "inbox" => "#{id}/inbox",
+      "outbox" => "#{id}/outbox",
+      "followers" => "#{id}/followers",
+      "following" => "#{id}/following"
     }
 
-    data =
-      Map.merge(data, %{
-        "id" => id,
-        "inbox" => "#{id}/inbox",
-        "outbox" => "#{id}/outbox",
-        "followers" => "#{id}/followers",
-        "following" => "#{id}/following"
-      })
-
     %ActivityPub.Object{
-      data: merge_attributes(data, Map.get(attrs, :data, %{})),
+      data: merge_attributes(Map.get(attrs, :data, %{}), data),
       local: attrs[:local] || local?,
       public: true
     }
   end
 
-  def community() do
-    actor = insert(:actor)
+  def community(attrs \\ %{}) do
+    actor = insert(:actor, attrs)
     {:ok, actor} = ActivityPub.Actor.get_cached(ap_id: actor.data["id"])
 
     community =
@@ -152,8 +148,8 @@ defmodule ActivityPub.Factory do
     community
   end
 
-  def collection() do
-    actor = insert(:actor)
+  def collection(attrs \\ %{}) do
+    actor = insert(:actor, attrs)
     {:ok, actor} = ActivityPub.Actor.get_cached(ap_id: actor.data["id"])
 
     community =
@@ -181,19 +177,49 @@ defmodule ActivityPub.Factory do
     collection
   end
 
+  def local_or_remote_note(attrs, actor) do
+    attrs =
+      attrs
+      #  |> Map.drop(["inReplyTo"])
+      |> Enum.into(%{actor: actor})
+
+    actor
+    |> debug("actor")
+
+    if actor.local do
+      local_note(attrs)
+      |> debug("local_note")
+    else
+      insert(
+        :note,
+        attrs
+      )
+      |> debug("remote_note")
+    end
+  end
+
   def local_note(attrs \\ %{}) do
     actor = attrs[:actor] || local_actor()
-    note = build(:note, attrs |> Enum.into(%{actor: actor}))
 
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter and
          Code.ensure_loaded?(Bonfire.Posts.Fake) do
-      with %{id: id} = post <-
+      text = attrs[:status] || sequence(:text, &"This is local note #{&1}")
+
+      with %{} = user <- user_by_ap_id(actor) |> debug("user_by_ap_id"),
+           %{id: id} = post <-
              Bonfire.Posts.Fake.fake_post!(
-               user_by_ap_id(actor),
-               attrs[:boundary] || "public",
-               attrs |> Enum.into(%{html_body: note.data["content"]}),
+               user,
+               attrs[:boundary] ||
+                 if(
+                   !attrs[:to] or
+                     "https://www.w3.org/ns/activitystreams#Public" in List.wrap(attrs[:to]),
+                   do: "public",
+                   else: "mentions"
+                 ),
+               %{html_body: text},
                to_circles: attrs[:to_circles] || []
-             ),
+             )
+             |> debug("the_post"),
            {:ok, object} <- ActivityPub.Object.get_cached(pointer: id) do
         %ActivityPub.Object{
           data: object.data,
@@ -202,9 +228,16 @@ defmodule ActivityPub.Factory do
           pointer: post,
           is_object: true
         }
+      else
+        {:error, :not_found} ->
+          error(attrs, "Error creating local note: not found")
+          {:error, :not_found}
+
+        error ->
+          raise "Error creating local note: #{inspect(error)}"
       end
     else
-      # TODO?
+      note = build(:note, attrs |> Enum.into(%{actor: actor}))
       insert(note)
     end
   end
@@ -225,21 +258,23 @@ defmodule ActivityPub.Factory do
   def note_factory(attrs \\ %{}) do
     attrs = attrs |> Enum.into(%{})
     text = attrs[:status] || sequence(:text, &"This is note #{&1}")
-    actor = attrs[:actor] || insert(:actor)
+    actor = attrs[:actor] || insert(:actor, attrs)
 
-    data = %{
-      "type" => "Note",
-      "content" => text,
-      "id" => ActivityPub.Utils.generate_object_id(),
-      "actor" => actor.data["id"],
-      "to" => attrs[:to] || ["https://www.w3.org/ns/activitystreams#Public"],
-      "published" => DateTime.utc_now() |> DateTime.to_iso8601(),
-      # "likes" => [],
-      # "like_count" => 0,
-      "context" => "context",
-      "summary" => "summary",
-      "tag" => ["tag"]
-    }
+    data =
+      %{
+        "type" => "Note",
+        "content" => text,
+        "id" => ActivityPub.Utils.generate_object_id(),
+        "actor" => actor.data["id"],
+        "to" => attrs[:to] || ["https://www.w3.org/ns/activitystreams#Public"],
+        "published" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        # "likes" => [],
+        # "like_count" => 0,
+        "context" => "context",
+        "summary" => "summary",
+        "tag" => ["tag"]
+      }
+      |> debug("base_data")
 
     %ActivityPub.Object{
       data:
@@ -248,6 +283,7 @@ defmodule ActivityPub.Factory do
       public: ActivityPub.Utils.public?(data),
       is_object: true
     }
+    |> debug("prepared object")
   end
 
   def local_direct_note(attrs \\ %{}) do
@@ -265,7 +301,7 @@ defmodule ActivityPub.Factory do
   end
 
   def direct_note_factory(attrs \\ %{}) do
-    to = attrs[:to] || insert(:actor)
+    to = attrs[:to] || insert(:actor, attrs)
 
     %ActivityPub.Object{data: data} = note_factory(attrs |> Enum.into(%{boundary: "mentions"}))
 
@@ -280,14 +316,9 @@ defmodule ActivityPub.Factory do
   end
 
   def note_activity_factory(attrs \\ %{}) do
-    with %{data: _} = note <-
-           attrs[:note] ||
-             insert(
-               :note,
-               attrs
-               |> Map.drop(["inReplyTo"])
-               |> Enum.into(%{actor: attrs[:actor] || insert(:actor)})
-             ) do
+    with actor = (attrs[:actor] || insert(:actor, attrs)) |> debug("actor"),
+         %{data: _} = note <-
+           (attrs[:note] || local_or_remote_note(attrs, actor)) |> debug("the_note") do
       actor = note.data["actor"]
 
       attrs = attrs |> Enum.into(%{}) |> Map.drop([:actor, :note, :data_attrs])
@@ -321,14 +352,17 @@ defmodule ActivityPub.Factory do
   end
 
   def announce_activity_factory(attrs \\ %{}) do
-    note_activity = attrs[:note_activity] || insert(:note)
-    actor = attrs[:actor] || insert(:actor)
+    note_activity = attrs[:note_activity] || insert(:note, attrs)
+    actor = attrs[:actor] || insert(:actor, attrs)
 
     data = %{
       "type" => "Announce",
       "actor" => actor.data["id"],
       "object" => note_activity.data["id"],
-      "to" => [actor.data["followers"], note_activity.data["actor"]],
+      "to" => [
+        actor.data["followers"],
+        note_activity.data["attributedTo"] || note_activity.data["actor"]
+      ],
       "cc" => ["https://www.w3.org/ns/activitystreams#Public"],
       "context" => note_activity.data["context"]
     }
@@ -358,10 +392,10 @@ defmodule ActivityPub.Factory do
     |> Map.merge(attrs)
   end
 
-  def like_activity_factory do
-    note_activity = insert(:note_activity)
+  def like_activity_factory(attrs \\ %{}) do
+    note_activity = insert(:note_activity, attrs)
     object = ActivityPub.Object.normalize(note_activity)
-    actor = insert(:actor)
+    actor = insert(:actor, attrs)
 
     data = %{
       "id" => ActivityPub.Utils.generate_object_id(),

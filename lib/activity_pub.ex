@@ -627,7 +627,7 @@ defmodule ActivityPub do
   end
 
   defp make_like_data(
-         %{data: %{"id" => ap_id}} = actor,
+         %{data: %{"id" => actor_ap_id}} = actor,
          %{data: %{"id" => id}} = object,
          activity_id
        ) do
@@ -644,19 +644,25 @@ defmodule ActivityPub do
 
     to =
       if Utils.public?(object.data) do
-        [actor.data["followers"], object.data["actor"]]
+        [
+          ActivityPub.Config.public_uri(),
+          actor.data["followers"],
+          object.data["attributedTo"] || object.data["actor"]
+        ]
       else
-        [object.data["actor"]]
+        [object.data["attributedTo"] || object.data["actor"]]
       end
 
     cc =
       ((object.data["to"] || []) ++ (object.data["cc"] || []))
-      |> List.delete(ap_id)
-      |> List.delete(object_actor_followers)
+      |> Enum.reject(
+        &(&1 == actor_ap_id or &1 == object_actor_followers or
+            &1 == ActivityPub.Config.public_uri())
+      )
 
     data = %{
       "type" => "Like",
-      "actor" => ap_id,
+      "actor" => actor_ap_id,
       "object" => id,
       "to" => to,
       "cc" => cc,
@@ -700,7 +706,7 @@ defmodule ActivityPub do
          %{data: %{"id" => ap_id}} = actor,
          %Object{data: %{"id" => id}} = object,
          activity_id,
-         false,
+         false = _public?,
          summary,
          published
        ) do
@@ -709,7 +715,7 @@ defmodule ActivityPub do
       "actor" => ap_id,
       "object" => id,
       "to" => [actor.data["followers"]],
-      "cc" => [],
+      "cc" => [object.data["attributedTo"] || object.data["actor"]],
       "context" => object.data["context"],
       "summary" => summary,
       "published" => published || Utils.make_date()
@@ -722,7 +728,7 @@ defmodule ActivityPub do
          %{data: %{"id" => ap_id}} = actor,
          %Object{data: %{"id" => id}} = object,
          activity_id,
-         true,
+         true = _public?,
          summary,
          published
        ) do
@@ -730,8 +736,8 @@ defmodule ActivityPub do
       "type" => "Announce",
       "actor" => ap_id,
       "object" => id,
-      "to" => [actor.data["followers"], object.data["actor"]],
-      "cc" => [ActivityPub.Config.public_uri()],
+      "to" => [ActivityPub.Config.public_uri(), actor.data["followers"]],
+      "cc" => [object.data["attributedTo"] || object.data["actor"]],
       "context" => object.data["context"],
       "summary" => summary,
       "published" => published || Utils.make_date()

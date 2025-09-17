@@ -39,7 +39,7 @@ defmodule ActivityPub.Federator.APPublisher do
     type = activity.data["type"]
 
     case recipients(actor, prepared_activity_data, tos, is_public?)
-         |> flood("initial recipients for #{type}")
+         |> debug("initial recipients for #{type}")
          |> Enum.group_by(fn
            %{data: actor_data} ->
              maybe_use_sharedinbox(actor_data)
@@ -51,7 +51,7 @@ defmodule ActivityPub.Federator.APPublisher do
              err(other, "dunno how to determine inbox for recipient")
              nil
          end)
-         |> flood("initial inboxes")
+         |> debug("initial inboxes")
          |> Enum.map(fn {inbox, recipients} ->
            ids =
              Enum.map(recipients, fn
@@ -65,11 +65,11 @@ defmodule ActivityPub.Federator.APPublisher do
              {List.first(recipients).data["inbox"], %{ids: ids}}
            end
          end)
-         |> flood("determined inboxes")
+         |> debug("determined inboxes")
          |> Enum.uniq_by(fn {inbox, _} -> inbox end)
          |> Map.new()
          |> Instances.filter_reachable()
-         |> flood("reacheable inboxes") do
+         |> debug("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
         recipients
         |> Enum.map(fn {inbox, meta} ->

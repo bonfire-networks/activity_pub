@@ -22,7 +22,7 @@ defmodule ActivityPub.Web.RedirectController do
       else
         ActivityPub.Object.get_cached!(id: uuid)
       end
-      |> flood("object for redirect")
+      |> debug("object for redirect")
 
     redirect_to_adapter(conn, object) ||
       conn
@@ -124,7 +124,7 @@ defmodule ActivityPub.Web.RedirectController do
   end
 
   defp redirect_to_adapter(conn, object_username_or_id) do
-    case Adapter.get_redirect_url(object_username_or_id) |> flood("from adapter") do
+    case Adapter.get_redirect_url(object_username_or_id) |> debug("from adapter") do
       "http" <> _ = url -> redirect(conn, external: url)
       url when is_binary(url) -> redirect(conn, to: url)
       _ -> nil

@@ -397,6 +397,9 @@ defmodule ActivityPub do
                  |> Map.put_new_lazy("id", fn ->
                    Map.get(params, :pointer) |> Object.object_url()
                  end)
+                 |> Map.put_new_lazy("update", fn ->
+                   Utils.make_date()
+                 end)
              },
              additional
            ),
@@ -1048,7 +1051,9 @@ defmodule ActivityPub do
       "type" => "QuoteAuthorization",
       "attributedTo" => actor_id,
       "interactingObject" => quote_post_ap_id,
-      "interactionTarget" => quoted_object_ap_id
+      "interactionTarget" => quoted_object_ap_id,
+      #  make public
+      "to" => [ActivityPub.Config.public_uri()]
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data

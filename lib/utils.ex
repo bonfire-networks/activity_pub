@@ -266,7 +266,7 @@ defmodule ActivityPub.Utils do
   def get_with_cache(get_fun, cache_bucket, key, identifier, opts \\ [])
       when is_function(get_fun) do
     if some_identifier = some_identifier(identifier) do
-      cache_key = "#{key}:#{some_identifier}"
+      cache_key = "#{short_hash(repo(), 6)}:#{key}:#{some_identifier}"
       mock_fun = Process.get(Tesla.Mock)
 
       case cachex_fetch(cache_bucket, cache_key, fn ->
@@ -607,8 +607,21 @@ defmodule ActivityPub.Utils do
     # Timex.lformat!(date, "{WDshort}, {0D} {Mshort} {YYYY} {h24}:{m}:{s} GMT", "en")
   end
 
-  def hash(seed, opts \\ []) do
+  def hash(seed, opts \\ [])
+
+  def hash(seed, opts) when is_binary(seed) do
     :crypto.hash(opts[:algorithm] || :md5, seed)
     |> Base.url_encode64(padding: opts[:padding] || false)
+  end
+
+  def hash(seed, opts) when is_atom(seed) do
+    seed
+    |> Atom.to_string()
+    |> hash(opts)
+  end
+
+  def short_hash(seed, length, opts \\ []) do
+    hash(seed, opts)
+    |> binary_part(0, length)
   end
 end

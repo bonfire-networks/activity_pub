@@ -192,17 +192,17 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_fresh_object_from_id(%{"id" => id}, opts), do: fetch_fresh_object_from_id(id, opts)
 
   def fetch_fresh_object_from_id(id, opts) when is_binary(id) do
-    # raise "STOOOP"
+    base_url = ActivityPub.Web.base_url()
+
     with true <- String.starts_with?(id, "http"),
-         false <- String.starts_with?(id, ActivityPub.Web.base_url()),
+         false <- String.starts_with?(id, base_url),
          {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <-
            cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true)) do
       {:ok, object}
     else
       true ->
-        warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
-        Adapter.get_actor_by_ap_id(id)
+        maybe_get_local(id)
 
       {:reject, e} ->
         error(:reject, e)
@@ -213,6 +213,15 @@ defmodule ActivityPub.Federator.Fetcher do
 
       other ->
         error(other)
+    end
+  end
+
+  defp maybe_get_local(id) when is_binary(id) do
+    warn(id, "seems we're trying to fetch a local object...")
+
+    with {:error, :not_found} <- Object.get_cached(ap_id: id) do
+      warn(id, "could not find in cache or AP db, looking it up from the adapter...")
+      Adapter.get_actor_by_ap_id(id)
     end
   end
 
@@ -585,9 +594,7 @@ defmodule ActivityPub.Federator.Fetcher do
         {:error, :network_error}
 
       {:error, :is_local} ->
-        warn("seems we're trying to fetch a local actor, looking it up from the adapter...")
-
-        with {:ok, actor} <- Adapter.get_actor_by_ap_id(id) do
+        with {:ok, actor} <- maybe_get_local(id) do
           {:ok, actor}
         else
           {:error, :not_found} ->

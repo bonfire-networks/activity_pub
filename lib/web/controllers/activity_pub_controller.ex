@@ -91,7 +91,7 @@ defmodule ActivityPub.Web.ActivityPubController do
         opts
       )
     else
-      debug(id, "query by UUID")
+      debug(id, "query by ap_id based on UUID")
 
       ap_id =
         ap_route_helper(id)

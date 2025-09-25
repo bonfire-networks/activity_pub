@@ -1236,8 +1236,9 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming block")
 
-    with {:ok, %{local: true} = blocked} <- Actor.get_cached(ap_id: blocked),
-         {:ok, blocker} <- Actor.get_cached(ap_id: blocker),
+    with %{local: true} = blocked <-
+           Actor.get_cached!(ap_id: blocked) || error(blocker, "Could not find actor to block"),
+         {:ok, %{local: false} = blocker} <- Actor.get_cached_or_fetch(ap_id: blocker),
          {:ok, activity} <-
            ActivityPub.block(%{
              actor: blocker,
@@ -1247,7 +1248,14 @@ defmodule ActivityPub.Federator.Transformer do
            }) do
       {:ok, activity}
     else
-      e -> error(e)
+      {:ok, %{local: false} = blocked} ->
+        error(blocked, "Not accepting incoming Block of a remote user")
+
+      {:ok, %{local: true} = blocker} ->
+        error(blocker, "Not accepting incoming Block from local user")
+
+      e ->
+        error(e, "Error while trying to handle incoming block")
     end
   end
 

@@ -73,13 +73,13 @@ defmodule ActivityPub.Test.Helpers do
     else
       ActivityPub.LocalActor.get(ap_id: id)
     end
-    |> from_ok()
+    |> from_ok() || raise("No user found for AP id #{id}")
   end
 
   def user_by_ap_id(%{pointer: %{id: _} = user}), do: user
   def user_by_ap_id(%{pointer_id: id}), do: user_by_ap_id(id)
   def user_by_ap_id(%{"id" => id}), do: user_by_ap_id(id)
-  def user_by_ap_id(user), do: user
+  def user_by_ap_id(user), do: user || raise("No user found for AP id")
 
   # def ap_id(%{ap_id: id}), do: id
   # def ap_id(%{data: %{"id" => id}}), do: id

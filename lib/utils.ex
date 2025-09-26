@@ -180,13 +180,37 @@ defmodule ActivityPub.Utils do
   def ap_id(%{"id" => id}), do: id
   def ap_id(id) when is_binary(id), do: id
 
-  def some_identifier(%{id: id}) do
+  def some_identifier(_, id) when is_binary(id) do
     id
   end
 
-  def some_identifier(object) do
-    uid(object) || ap_id(object)
+  def some_identifier(:id, %{id: id}) do
+    id
   end
+
+  def some_identifier(:pointer_id, %{pointer_id: id}) do
+    id
+  end
+
+  def some_identifier(:pointer_id, %{pointer: %{id: id}}) do
+    id
+  end
+
+  def some_identifier(:ap_id, %{"id" => id}) do
+    id
+  end
+
+  def some_identifier(:ap_id, %{data: %{"id" => id}}) do
+    id
+  end
+
+  def some_identifier(:ap_id, %{ap_id: id}) do
+    id
+  end
+
+  # def some_identifier(_, object) do
+  #   uid(object) || ap_id(object)
+  # end
 
   # def maybe_forward_activity(
   #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
@@ -265,7 +289,7 @@ defmodule ActivityPub.Utils do
 
   def get_with_cache(get_fun, cache_bucket, key, identifier, opts \\ [])
       when is_function(get_fun) do
-    if some_identifier = some_identifier(identifier) do
+    if some_identifier = some_identifier(key, identifier) do
       cache_key = "#{short_hash(repo(), 6)}:#{key}:#{some_identifier}"
       mock_fun = Process.get(Tesla.Mock)
 

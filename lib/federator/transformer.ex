@@ -1510,8 +1510,8 @@ defmodule ActivityPub.Federator.Transformer do
            fix_other_object(data, opts)
            |> Object.insert(false),
          true <-
-           Keyword.get(
-             Application.get_env(:activity_pub, :instance),
+           Map.get(
+             Application.get_env(:activity_pub, :instance, %{}) |> Map.new(),
              :handle_unknown_activities
            ) || {:ok, activity},
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),

@@ -95,8 +95,9 @@ defmodule ActivityPub.MRF do
     do: get_policies() |> filter(object, is_local?)
 
   def get_policies do
-    Keyword.get(
-      Application.get_env(:activity_pub, :instance, []),
+    Application.get_env(:activity_pub, :instance, %{})
+    |> Map.new()
+    |> Map.get(
       :rewrite_policy,
       []
     )

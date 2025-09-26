@@ -212,6 +212,23 @@ defmodule ActivityPub.Utils do
   #   uid(object) || ap_id(object)
   # end
 
+  @doc """
+  Generates a consistent cache key for ActivityPub cache buckets.
+
+  ## Examples
+
+      iex> ActivityPub.Utils.ap_cache_key(:pointer, "01K62V27CP9Z5B0AP231QSY199")
+      "abc123:pointer:01K62V27CP9Z5B0AP231QSY199"
+
+  """
+  def ap_cache_key(key, id_or_object) do
+    do_ap_cache_key(key, some_identifier(key, id_or_object))
+  end
+
+  def do_ap_cache_key(key, id) do
+    "#{short_hash(repo(), 6)}:#{key}:#{id}"
+  end
+
   # def maybe_forward_activity(
   #       %{data: %{"type" => "Create", "to" => to, "object" => object}} = activity
   #     ) do
@@ -290,7 +307,7 @@ defmodule ActivityPub.Utils do
   def get_with_cache(get_fun, cache_bucket, key, identifier, opts \\ [])
       when is_function(get_fun) do
     if some_identifier = some_identifier(key, identifier) do
-      cache_key = "#{short_hash(repo(), 6)}:#{key}:#{some_identifier}"
+      cache_key = do_ap_cache_key(key, some_identifier)
       mock_fun = Process.get(Tesla.Mock)
 
       case cachex_fetch(cache_bucket, cache_key, fn ->
@@ -350,6 +367,8 @@ defmodule ActivityPub.Utils do
           error(msg)
       end
     else
+      warn(identifier, "could not determine identifier for cache key, skipping cache")
+
       if is_function(get_fun, 2) do
         get_fun.([{key, identifier}], opts)
       else

@@ -606,19 +606,18 @@ defmodule ActivityPub.Actor do
   def set_cache({:ok, actor}), do: set_cache(actor)
 
   def set_cache(%Actor{} = actor) do
-    # TODO: optimise memory use by storing in cache only once, and only IDs for the others
-    for key <-
+    for {key, value} <-
           ([
-             "id:#{actor.id}",
-             "ap_id:#{actor.ap_id}",
-             "username:#{actor.username}"
+             {:id, actor.id},
+             {:ap_id, actor.ap_id},
+             {:username, actor.username}
            ] ++
-             (case actor.pointer_id do
+             (case actor.pointer_id || Map.get(actor.pointer || %{}, :id) do
                 nil -> []
-                _ -> ["pointer:#{actor.pointer_id}"]
+                _ -> [{:pointer, actor.pointer_id}]
               end))
-          |> debug() do
-      Cachex.put(:ap_actor_cache, key, actor)
+          |> debug("keys") do
+      Cachex.put(:ap_actor_cache, Utils.ap_cache_key(key, value), actor)
     end
 
     {:ok, actor}
@@ -633,12 +632,17 @@ defmodule ActivityPub.Actor do
   def set_cache(e), do: error(e, "Not an actor")
 
   def invalidate_cache(%Actor{} = actor) do
-    Cachex.del(:ap_actor_cache, "id:#{actor.id}")
-    Cachex.del(:ap_actor_cache, "ap_id:#{actor.ap_id}")
-    Cachex.del(:ap_actor_cache, "pointer:#{actor.pointer_id}")
-    Cachex.del(:ap_actor_cache, "username:#{actor.username}")
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:id, actor.id))
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:ap_id, actor.ap_id))
 
-    Cachex.del(:ap_actor_cache, "json:#{actor.username}")
+    Cachex.del(
+      :ap_actor_cache,
+      Utils.ap_cache_key(:pointer, actor.pointer_id || Map.get(actor.pointer || %{}, :id))
+    )
+
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:username, actor.username))
+
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.username))
     Object.invalidate_cache(actor)
   end
 

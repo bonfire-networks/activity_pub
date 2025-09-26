@@ -388,27 +388,32 @@ defmodule ActivityPub.Object do
     debug(ap_id, "put_cache")
 
     # TODO: store in cache only once, and only IDs for the others
-    Cachex.put(:ap_object_cache, "id:#{id}", object)
-    Cachex.put(:ap_object_cache, "ap_id:#{ap_id}", object)
+    Cachex.put(:ap_object_cache, Utils.ap_cache_key(:id, id), object)
+    Cachex.put(:ap_object_cache, Utils.ap_cache_key(:ap_id, ap_id), object)
 
-    if pointer_id do
-      Cachex.put(:ap_object_cache, "pointer:#{pointer_id}", object)
+    if pointer_id = pointer_id || Map.get(object.pointer || %{}, :id) do
+      Cachex.put(:ap_object_cache, Utils.ap_cache_key(:pointer, pointer_id), object)
     end
 
     {:ok, object}
   end
 
-  def invalidate_cache(%{id: id, data: %{"id" => ap_id}, pointer_id: pointer_id}) do
+  def invalidate_cache(%{
+        id: id,
+        data: %{"id" => ap_id},
+        pointer_id: pointer_id,
+        pointer: pointer
+      }) do
     debug(ap_id, "invalidate_cache")
 
-    Cachex.del(:ap_object_cache, "id:#{id}")
-    Cachex.del(:ap_object_cache, "ap_id:#{ap_id}")
+    Cachex.del(:ap_object_cache, Utils.ap_cache_key(:id, id))
+    Cachex.del(:ap_object_cache, Utils.ap_cache_key(:ap_id, ap_id))
 
-    Cachex.del(:ap_object_cache, "json:#{id}")
+    Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, id))
 
-    if pointer_id do
-      Cachex.del(:ap_object_cache, "pointer:#{pointer_id}")
-      Cachex.del(:ap_object_cache, "json:#{pointer_id}")
+    if pointer_id = pointer_id || Map.get(pointer || %{}, :id) do
+      Cachex.del(:ap_object_cache, Utils.ap_cache_key(:pointer, pointer_id))
+      Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, pointer_id))
     end
 
     :ok

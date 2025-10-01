@@ -76,7 +76,7 @@ defmodule ActivityPub.Federator.WebFinger do
   defp gather_links(%{data: %{"id" => id}}), do: gather_links(id)
   defp gather_links(%{"id" => id}), do: gather_links(id)
 
-  defp gather_links(id) do
+  defp gather_links(id) when is_binary(id) do
     [
       %{
         "rel" => "http://webfinger.net/rel/profile-page",
@@ -87,7 +87,9 @@ defmodule ActivityPub.Federator.WebFinger do
   end
 
   def local_hostname,
-    do: ActivityPub.Federator.Adapter.base_url() |> hostname_with_optional_port() |> debug()
+    do: ActivityPub.Federator.Adapter.base_url() |> hostname_with_optional_port()
+
+  # |> debug()
 
   defp hostname_with_optional_port(%{} = uri) do
     if uri.port not in [80, 443], do: "#{uri.host}:#{uri.port}", else: uri.host
@@ -135,6 +137,7 @@ defmodule ActivityPub.Federator.WebFinger do
     }
   end
 
+  @doc "Processes an incoming webfinger JSON document into a map of useful data."
   def webfinger_from_json(doc) do
     data =
       Enum.reduce(doc["links"], %{"subject" => doc["subject"]}, fn link, data ->

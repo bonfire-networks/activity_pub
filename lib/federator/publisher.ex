@@ -64,10 +64,11 @@ defmodule ActivityPub.Federator.Publisher do
   @callback gather_webfinger_links(Map.t()) :: list()
 
   @spec gather_webfinger_links(Map.t()) :: list()
-  def gather_webfinger_links(user) do
-    (Application.get_env(:activity_pub, :instance)[:federation_publisher_modules] || [])
+  def gather_webfinger_links(id) do
+    (Application.get_env(:activity_pub, :instance, [])[:federation_publisher_modules] ||
+       [ActivityPub.Federator.APPublisher])
     |> Enum.reduce([], fn module, links ->
-      links ++ module.gather_webfinger_links(user)
+      links ++ module.gather_webfinger_links(id)
     end)
   end
 end

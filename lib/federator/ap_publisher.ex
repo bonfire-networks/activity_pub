@@ -341,7 +341,7 @@ defmodule ActivityPub.Federator.APPublisher do
   def gather_webfinger_links(%{data: %{"id" => id}}), do: gather_webfinger_links(id)
   def gather_webfinger_links(%{"id" => id}), do: gather_webfinger_links(id)
 
-  def gather_webfinger_links(id) do
+  def gather_webfinger_links(id) when is_binary(id) do
     base_url = ActivityPub.Web.base_url()
 
     [

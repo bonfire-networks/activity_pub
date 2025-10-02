@@ -802,11 +802,12 @@ defmodule ActivityPub.Federator.Transformer do
 
     Fetcher.maybe_fetch_collection(
       first,
-      Keyword.merge(
-        [mode: Keyword.get(options, :fetch_collection, options[:fetch_collection_entries])],
-        options
+      options
+      |> Keyword.put(
+        :mode,
+        Keyword.get(options, :fetch_collection, options[:fetch_collection_entries])
       )
-      # |> debug("opts")
+      |> Keyword.put_new(:triggered_by, "fix_replies")
     )
     |> debug("fetched replies collection?")
 
@@ -1474,9 +1475,9 @@ defmodule ActivityPub.Federator.Transformer do
       when ActivityPub.Config.is_in(type, :collection_types) do
     debug(type, "don't store Collections")
 
-    with {:ok, object} <- Object.prepare_data(data) do
-      {:ok, object}
-    end
+    # with {:ok, data} <- Object.prepare_data(data) do
+    {:ok, data}
+    # end
   end
 
   def handle_incoming(%{"type" => type, "object" => _} = data, opts) do
@@ -1506,7 +1507,11 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(%{"links" => _} = data, opts) do
     # maybe be webfinger
     {:ok, fingered} = ActivityPub.Federator.WebFinger.webfinger_from_json(data)
-    Fetcher.fetch_object_from_id(fingered["id"], opts)
+
+    Fetcher.fetch_object_from_id(
+      fingered["id"],
+      opts |> Keyword.put_new(:triggered_by, "handle_incoming:links")
+    )
   end
 
   def maybe_handle_other_activity(data, opts) do

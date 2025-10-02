@@ -59,7 +59,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 "depth" => opts[:depth],
                 "fetch_collection_entries" => opts[:fetch_collection_entries],
                 "user_id" => opts[:user_id],
-                "triggered_by" => opts[:triggered_by] || "get_cached_object_or_maybe_fetch_ap_id"
+                "context" => opts[:triggered_by] || "get_cached_object_or_maybe_fetch_ap_id"
               })
             )
 
@@ -88,6 +88,8 @@ defmodule ActivityPub.Federator.Fetcher do
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
   def fetch_object_from_id(id, opts \\ []) do
+    opts = opts |> Keyword.put_new(:triggered_by, "fetch_object_from_id")
+
     case cached_or_handle_incoming(id, opts) do
       {:ok, object} ->
         {:ok, object}
@@ -148,7 +150,7 @@ defmodule ActivityPub.Federator.Fetcher do
                   "fetch_collection_entries" => opts[:fetch_collection_entries],
                   #  just to keep track of who made the request
                   "user_id" => opts[:user_id],
-                  "triggered_by" => opts[:triggered_by] || "maybe_fetch"
+                  "context" => opts[:triggered_by] || "maybe_fetch"
                 })
               )
             end
@@ -197,6 +199,7 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_fresh_object_from_id(%{"id" => id}, opts), do: fetch_fresh_object_from_id(id, opts)
 
   def fetch_fresh_object_from_id(id, opts) when is_binary(id) do
+    opts = opts |> Keyword.put_new(:triggered_by, "fetch_fresh_object_from_id")
     base_url = ActivityPub.Web.base_url()
 
     with true <- String.starts_with?(id, "http"),
@@ -274,7 +277,7 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp maybe_handle_incoming(cached, id_or_data, opts) do
-    opts = opts |> Keyword.put_new(:triggered_by, "cached_or_handle_incoming")
+    opts = opts |> Keyword.put_new(:triggered_by, "maybe_handle_incoming")
 
     case cached do
       # {:ok, %{local: true}} ->
@@ -342,11 +345,12 @@ defmodule ActivityPub.Federator.Fetcher do
       |> Keyword.put_new(:triggered_by, "handle_fetched")
       |> debug("opts")
 
-    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
+    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> flood("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
       fetch_collection_mode = opts[:fetch_collection]
       skip_fetch_collection? = !fetch_collection_mode
-      skip_fetch_collection_entries? = !opts[:fetch_collection_entries]
+      fetch_collection_entries = opts[:fetch_collection_entries]
+      # skip_fetch_collection_entries? = !fetch_collection_entries
 
       case object do
         %Actor{data: %{"outbox" => outbox}}
@@ -356,21 +360,40 @@ defmodule ActivityPub.Federator.Fetcher do
             "An actor was fetched, fetch outbox collection (and maybe queue a fetch of entries as well)"
           )
 
-          maybe_fetch_collection(outbox, mode: fetch_collection_mode)
+          maybe_fetch_collection(outbox,
+            mode: fetch_collection_mode,
+            triggered_by: opts[:triggered_by]
+          )
 
           {:ok, object}
 
-        %{data: %{"type" => type} = collection}
-        when ActivityPub.Config.is_in(type, :collection_types)
-        when skip_fetch_collection_entries? == false ->
-          debug(
-            opts[:fetch_collection_entries],
+        # %{data: %{"type" => type} = collection}
+        # when ActivityPub.Config.is_in(type, :collection_types)
+        # and skip_fetch_collection_entries? == false ->
+        #   flood(
+        #     fetch_collection_entries,
+        #     "A collection was fetched, queue a fetch of entries as well"
+        #   )
+
+        #   handle_collection(collection,
+        #     mode: fetch_collection_entries,
+        #     triggered_by: opts[:triggered_by]
+        #   )
+
+        #   {:ok, object}
+
+        %{"type" => type} = collection
+        when ActivityPub.Config.is_in(type, :collection_types) and
+               fetch_collection_entries != false ->
+          flood(
+            fetch_collection_entries,
             "A collection was fetched, queue a fetch of entries as well"
           )
 
-          handle_collection(collection,
-            mode: opts[:fetch_collection_entries],
-            triggered_by: opts[:triggered_by] || "handle_fetched"
+          handle_collection(
+            collection,
+            opts
+            |> Keyword.put(:mode, fetch_collection_entries)
           )
 
           {:ok, object}
@@ -408,7 +431,10 @@ defmodule ActivityPub.Federator.Fetcher do
       "fetch outbox collection (and maybe queue a fetch of entries as well)"
     )
 
-    fetch_collection(outbox, mode: opts[:fetch_collection])
+    fetch_collection(outbox,
+      mode: opts[:fetch_collection],
+      triggered_by: opts[:triggered_by] || "fetch_outbox"
+    )
   end
 
   def fetch_outbox(other, opts) do
@@ -502,7 +528,8 @@ defmodule ActivityPub.Federator.Fetcher do
            HTTP.get(
              id,
              headers
-           ),
+           )
+           |> flood("fetch_done"),
          _ <- Instances.set_reachable(uri) do
       with {:ok, data} <- Jason.decode(body),
            {true, _} <-
@@ -734,11 +761,11 @@ defmodule ActivityPub.Federator.Fetcher do
 
         with {:ok, page} <-
                get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: true)
-               |> debug("collection fetched") do
+               |> flood("collection fetched") do
           {:ok, handle_collection(page, opts)}
         else
           e ->
-            error(e, "Could not fetch collection #{ap_id}")
+            err(e, "Could not fetch collection #{ap_id}")
         end
     end
   end

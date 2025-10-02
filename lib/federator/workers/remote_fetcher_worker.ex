@@ -15,7 +15,8 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
       depth: args["depth"],
       max_depth: args["max_depth"],
       fetch_collection_entries: ActivityPub.Utils.maybe_to_atom(args["fetch_collection_entries"]),
-      user_id: args["user_id"]
+      user_id: args["user_id"],
+      triggered_by: args["context"] || "remote_fetcher_worker"
     )
   end
 

@@ -386,7 +386,10 @@ defmodule ActivityPub.Actor do
     with federating? when federating? != false <- Config.federating?(),
          {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
            WebFinger.finger(username) do
-      Fetcher.fetch_object_from_id(ap_id, opts)
+      Fetcher.fetch_object_from_id(
+        ap_id,
+        opts |> Keyword.put_new(:triggered_by, "Actor.fetch_by_username")
+      )
     else
       {:error, e} when is_binary(e) ->
         e

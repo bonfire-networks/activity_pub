@@ -345,7 +345,7 @@ defmodule ActivityPub.Federator.Fetcher do
       |> Keyword.put_new(:triggered_by, "handle_fetched")
       |> debug("opts")
 
-    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> flood("handled") do
+    with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
       fetch_collection_mode = opts[:fetch_collection]
       skip_fetch_collection? = !fetch_collection_mode
@@ -370,7 +370,7 @@ defmodule ActivityPub.Federator.Fetcher do
         # %{data: %{"type" => type} = collection}
         # when ActivityPub.Config.is_in(type, :collection_types)
         # and skip_fetch_collection_entries? == false ->
-        #   flood(
+        #   debug(
         #     fetch_collection_entries,
         #     "A collection was fetched, queue a fetch of entries as well"
         #   )
@@ -385,7 +385,7 @@ defmodule ActivityPub.Federator.Fetcher do
         %{"type" => type} = collection
         when ActivityPub.Config.is_in(type, :collection_types) and
                fetch_collection_entries != false ->
-          flood(
+          debug(
             fetch_collection_entries,
             "A collection was fetched, queue a fetch of entries as well"
           )
@@ -529,7 +529,7 @@ defmodule ActivityPub.Federator.Fetcher do
              id,
              headers
            )
-           |> flood("fetch_done"),
+           |> debug("fetch_done"),
          _ <- Instances.set_reachable(uri) do
       with {:ok, data} <- Jason.decode(body),
            {true, _} <-
@@ -761,7 +761,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
         with {:ok, page} <-
                get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: true)
-               |> flood("collection fetched") do
+               |> debug("collection fetched") do
           {:ok, handle_collection(page, opts)}
         else
           e ->

@@ -37,7 +37,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  def get_cached_object_or_maybe_fetch_ap_id(id, opts \\ []) do
+  defp get_cached_object_or_maybe_fetch_ap_id(id, opts \\ []) do
     case Object.get_cached(ap_id: id) do
       {:ok, object} ->
         {:ok, object}
@@ -58,7 +58,8 @@ defmodule ActivityPub.Federator.Fetcher do
               Enum.into(opts[:worker_attrs] || %{}, %{
                 "depth" => opts[:depth],
                 "fetch_collection_entries" => opts[:fetch_collection_entries],
-                "user_id" => opts[:user_id]
+                "user_id" => opts[:user_id],
+                "triggered_by" => opts[:triggered_by] || "get_cached_object_or_maybe_fetch_ap_id"
               })
             )
 
@@ -77,7 +78,10 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def get_cached_object_or_fetch_pointer_id(pointer, opts \\ []) do
     Object.get_cached(pointer: pointer)
-    |> maybe_handle_incoming(pointer, opts)
+    |> maybe_handle_incoming(
+      pointer,
+      opts |> Keyword.put_new(:triggered_by, "get_cached_object_or_fetch_pointer_id")
+    )
   end
 
   @doc """
@@ -143,7 +147,8 @@ defmodule ActivityPub.Federator.Fetcher do
                   "max_depth" => max_items,
                   "fetch_collection_entries" => opts[:fetch_collection_entries],
                   #  just to keep track of who made the request
-                  "user_id" => opts[:user_id]
+                  "user_id" => opts[:user_id],
+                  "triggered_by" => opts[:triggered_by] || "maybe_fetch"
                 })
               )
             end
@@ -230,7 +235,12 @@ defmodule ActivityPub.Federator.Fetcher do
   def cached_or_handle_incoming(%{"type" => type} = id_or_data, opts)
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
     debug("create/update an Actor")
-    handle_fetched(id_or_data, opts)
+    |> debug("opts")
+
+    handle_fetched(
+      id_or_data,
+      opts |> Keyword.put_new(:triggered_by, "cached_or_handle_incoming")
+    )
   end
 
   def cached_or_handle_incoming(id_or_data, opts)
@@ -239,12 +249,19 @@ defmodule ActivityPub.Federator.Fetcher do
                 (is_map_key(id_or_data, :ap_id) or is_map_key(id_or_data, "id"))) do
     Object.get_cached(ap_id: id_or_data)
     |> debug("got from cache")
-    |> maybe_handle_incoming(id_or_data, opts)
+    |> maybe_handle_incoming(
+      id_or_data,
+      opts |> Keyword.put_new(:triggered_by, "cached_or_handle_incoming")
+    )
   end
 
   def cached_or_handle_incoming(%ActivityPub.Object{} = object, opts) do
     # TODO: clean up workaround
-    maybe_handle_incoming({:ok, object}, object, opts)
+    maybe_handle_incoming(
+      {:ok, object},
+      object,
+      opts |> Keyword.put_new(:triggered_by, "cached_or_handle_incoming")
+    )
   end
 
   def cached_or_handle_incoming(%{status: _, body: _} = data, _opts) do
@@ -257,6 +274,8 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp maybe_handle_incoming(cached, id_or_data, opts) do
+    opts = opts |> Keyword.put_new(:triggered_by, "cached_or_handle_incoming")
+
     case cached do
       # {:ok, %{local: true}} ->
       #   debug("local object so don't treat as incoming")
@@ -317,7 +336,11 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp handle_fetched(data, opts) do
     debug(data, "data")
-    debug(opts, "opts")
+
+    opts =
+      opts
+      |> Keyword.put_new(:triggered_by, "handle_fetched")
+      |> debug("opts")
 
     with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do
       #  :ok <- check_if_public(object.public) do # huh?
@@ -345,7 +368,10 @@ defmodule ActivityPub.Federator.Fetcher do
             "A collection was fetched, queue a fetch of entries as well"
           )
 
-          handle_collection(collection, mode: opts[:fetch_collection_entries])
+          handle_collection(collection,
+            mode: opts[:fetch_collection_entries],
+            triggered_by: opts[:triggered_by] || "handle_fetched"
+          )
 
           {:ok, object}
 
@@ -679,6 +705,11 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_collection(ap_id, opts \\ [])
 
   def fetch_collection(ap_id, opts) when is_binary(ap_id) do
+    opts =
+      opts
+      |> Keyword.put_new(:triggered_by, "fetch_collection")
+      |> debug("opts")
+
     case opts[:mode] do
       false ->
         debug("skip")
@@ -714,22 +745,27 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_collection(%{"type" => type} = page, opts)
       when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
-    {:ok, handle_collection(page, opts)}
+    {:ok, handle_collection(page, opts |> Keyword.put_new(:triggered_by, "fetch_collection"))}
   end
 
   def fetch_collection(%{data: %{"type" => type} = page}, opts)
       when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
-    {:ok, handle_collection(page, opts)}
+    {:ok, handle_collection(page, opts |> Keyword.put_new(:triggered_by, "fetch_collection"))}
   end
 
   def fetch_collection(other, opts) do
     with {:ok, %{data: %{"id" => collection_ap_id}}} when is_binary(collection_ap_id) <-
            Object.get_cached(other) do
-      fetch_collection(collection_ap_id, opts)
+      fetch_collection(
+        collection_ap_id,
+        opts |> Keyword.put_new(:triggered_by, "fetch_collection")
+      )
     end
   end
 
   defp handle_collection(page, opts) do
+    opts = opts |> Keyword.put_new(:triggered_by, "handle_collection")
+
     with entries when is_list(entries) <- objects_from_collection(page, opts) do
       entries
       |> debug("objects_from_collection")
@@ -780,12 +816,19 @@ defmodule ActivityPub.Federator.Fetcher do
       with {:ok, page} <-
              get_cached_object_or_maybe_fetch_ap_id(
                page_id,
-               opts |> Keyword.put_new(:skip_contain_origin_check, true)
+               opts
+               |> Keyword.put_new(:skip_contain_origin_check, true)
+               |> Keyword.put_new(:triggered_by, "fetch_page")
              ) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do
-          maybe_next_page(page, items ++ objects, opts)
+          maybe_next_page(
+            page,
+            items ++ objects,
+            opts
+            |> Keyword.put_new(:triggered_by, "fetch_page")
+          )
         else
           items
         end
@@ -820,26 +863,53 @@ defmodule ActivityPub.Federator.Fetcher do
   defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
        when is_list(items) and items != [] and
               type in ["OrderedCollection", "OrderedCollectionPage"],
-       do: maybe_next_page(page, items, opts)
+       do:
+         maybe_next_page(
+           page,
+           items,
+           opts
+           |> Keyword.put_new(:triggered_by, "objects_from_collection")
+         )
 
   defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
        when is_list(items) and items != [] and type in ["Collection", "CollectionPage"],
-       do: maybe_next_page(page, items, opts)
+       do:
+         maybe_next_page(
+           page,
+           items,
+           opts
+           |> Keyword.put_new(:triggered_by, "objects_from_collection")
+         )
 
   defp objects_from_collection(%{"type" => type, "first" => first}, opts)
        when is_binary(first) and type in ["Collection", "OrderedCollection"] do
-    fetch_page(first, [], opts)
+    fetch_page(
+      first,
+      [],
+      opts
+      |> Keyword.put_new(:triggered_by, "objects_from_collection")
+    )
   end
 
   defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}}, opts)
        when is_binary(id) and type in ["Collection", "OrderedCollection"] do
-    fetch_page(id, [], opts)
+    fetch_page(
+      id,
+      [],
+      opts
+      |> Keyword.put_new(:triggered_by, "objects_from_collection")
+    )
   end
 
   defp objects_from_collection(%{"type" => type, "next" => next}, opts)
        when is_binary(next) and type in ["CollectionPage"] do
     # needed for GtS
-    fetch_page(next, [], opts)
+    fetch_page(
+      next,
+      [],
+      opts
+      |> Keyword.put_new(:triggered_by, "objects_from_collection")
+    )
   end
 
   defp objects_from_collection(page, _opts) do
@@ -854,7 +924,14 @@ defmodule ActivityPub.Federator.Fetcher do
     #  max pages to fetch
     if allowed_recursion?(depth, opts[:max_pages] || 2) do
       info(depth, "fetch an extra page from collection")
-      fetch_page(page_id, items, opts |> Keyword.put(:page_depth, depth + 1))
+
+      fetch_page(
+        page_id,
+        items,
+        opts
+        |> Keyword.put(:page_depth, depth + 1)
+        |> Keyword.put_new(:triggered_by, "maybe_next_page")
+      )
     else
       items
     end

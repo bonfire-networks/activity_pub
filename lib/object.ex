@@ -598,8 +598,8 @@ defmodule ActivityPub.Object do
 
   def normalize(_, _, _), do: nil
 
-  def maybe_fetch(ap_id, true) when is_binary(ap_id) do
-    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id) do
+  defp maybe_fetch(ap_id, true) when is_binary(ap_id) do
+    with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id, triggered_by: "Object.normalize") do
       object
     else
       e ->
@@ -608,7 +608,7 @@ defmodule ActivityPub.Object do
     end
   end
 
-  def maybe_fetch(_, _), do: nil
+  defp maybe_fetch(_, _), do: nil
 
   def get_ap_id(%{"id" => id} = _), do: id
   def get_ap_id(%{data: data}), do: get_ap_id(data)

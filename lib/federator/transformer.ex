@@ -386,7 +386,12 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_in_reply_to(%{"inReplyTo" => in_reply_to} = object, options)
       when not is_nil(in_reply_to) do
     with in_reply_to_id when is_binary(in_reply_to_id) <- Utils.single_ap_id(in_reply_to),
-         _ <- Fetcher.maybe_fetch(in_reply_to_id, options) |> info("fetched reply_to?") do
+         _ <-
+           Fetcher.maybe_fetch(
+             in_reply_to_id,
+             options |> Keyword.put_new(:triggered_by, "fix_in_reply_to")
+           )
+           |> info("fetched reply_to?") do
       object
       |> Map.put("inReplyTo", in_reply_to_id)
       # |> Map.put("context", replied_object.data["context"] || object["conversation"]) # TODO as an update when we get the async inReplyTo?
@@ -480,7 +485,7 @@ defmodule ActivityPub.Federator.Transformer do
 
       context when is_binary(context) ->
         # fetching async
-        Fetcher.maybe_fetch(context, options)
+        Fetcher.maybe_fetch(context, options |> Keyword.put_new(:triggered_by, "fix_context"))
         |> debug("fetched context?")
 
         object
@@ -751,7 +756,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => replies} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options)
+    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -760,7 +765,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"items" => replies}} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options)
+    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -769,7 +774,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"first" => replies}} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options)
+    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -778,7 +783,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options)
+    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?

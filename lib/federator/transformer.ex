@@ -450,7 +450,7 @@ defmodule ActivityPub.Federator.Transformer do
     object
     |> Map.update("tag", [quote_tag], fn existing_tags ->
       # Remove any existing quote tags to avoid duplicates
-      existing_tags
+      List.wrap(existing_tags)
       |> Kernel.++([quote_tag])
       |> Enum.uniq_by(fn
         %{"type" => "Link", "rel" => rel, "href" => href}

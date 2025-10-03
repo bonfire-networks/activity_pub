@@ -69,7 +69,7 @@ defmodule ActivityPub.Web.Router do
         get("/actor/:username", ActivityPubController, :actor)
 
         # maybe return the public outbox
-        get("/shared_outbox", ActivityPubController, :outbox)
+        get("/shared_outbox", ActivityPubController, :shared_outbox)
         # maybe return inbox, or error saying only POST supported
         get("/shared_inbox", ActivityPubController, :maybe_inbox)
       end
@@ -105,7 +105,7 @@ defmodule ActivityPub.Web.Router do
 
         # inbox
         post("/actors/:username/inbox", IncomingActivityPubController, :inbox)
-        post("/shared_inbox", IncomingActivityPubController, :inbox)
+        post("/shared_inbox", IncomingActivityPubController, :shared_inbox)
 
         # outbox
         # post("/actors/:username/outbox", IncomingActivityPubController, :only_get_error!) # return error saying not supported

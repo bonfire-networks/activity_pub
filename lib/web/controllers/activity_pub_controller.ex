@@ -222,7 +222,7 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def outbox(conn, params) do
+  def shared_outbox(conn, params) do
     if Config.env() != :prod and Config.federating?() do
       conn
       |> put_resp_content_type("application/activity+json")

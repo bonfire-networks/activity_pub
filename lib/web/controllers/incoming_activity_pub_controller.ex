@@ -53,7 +53,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     apply_process(conn, params, &maybe_process_unsigned/3)
   end
 
-  def outbox_info(conn, _params) do
+  def only_get_error!(conn, _params) do
     if Config.federating?() do
       "this API path only accepts GET requests"
     else

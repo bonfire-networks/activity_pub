@@ -242,7 +242,8 @@ defmodule ActivityPub.Web.ActivityPubController do
         conn
         |> put_resp_content_type("application/activity+json")
         |> put_view(ObjectView)
-        |> render("inbox.json", %{inbox: :shared_inbox, page: page_number(params["page"])})
+        |> render("inbox.json", %{actor: username, page: page_number(params["page"])})
+
       _ ->
         # This is a federation request - return error for GET
         Utils.error_json(conn, "this API path only accepts POST requests", 403)

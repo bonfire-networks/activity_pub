@@ -15,6 +15,10 @@ defmodule ActivityPub.Web.TestRouter do
     pipe_through(:api)
   end
 
+  pipeline :load_authorization do
+    # TODO?
+  end
+
   # Enables LiveDashboard only for development
   #
   # If you want to use the LiveDashboard in production, you should put

@@ -19,6 +19,8 @@ defmodule ActivityPub.Web.WebFingerController do
 
   def webfinger(conn, %{"resource" => resource}) do
     with {:ok, response} <- WebFinger.output(resource) do
+      debug(response, "WebFinger response")
+
       json(conn, response)
     else
       e ->

@@ -800,9 +800,7 @@ defmodule ActivityPub.Object do
     |> do_list_page(page)
   end
 
-  def get_inbox(all_or_instance_or_actor_url, page \\ 1)
-
-  def get_inbox(:shared, page) do
+  def get_inbox_for_instance(page \\ 1) do
     from(object in Object,
       where:
         object.local == false and
@@ -812,18 +810,18 @@ defmodule ActivityPub.Object do
     |> do_list_page(page)
   end
 
-  def get_inbox(instance_or_actor_url, page) do
-    instance_or_actor_filter = "#{instance_or_actor_url}%"
+  # def get_inbox(instance_or_actor_url, page) do
+  #   instance_or_actor_filter = "#{instance_or_actor_url}%"
 
-    from(object in Object,
-      where:
-        fragment("(?)->>'actor' ilike ?", object.data, ^instance_or_actor_filter) and
-          object.local != true and
-          object.public == true and
-          object.is_object != true
-    )
-    |> do_list_page(page)
-  end
+  #   from(object in Object,
+  #     where:
+  #       fragment("(?)->>'actor' ilike ?", object.data, ^instance_or_actor_filter) and
+  #         object.local != true and
+  #         object.public == true and
+  #         object.is_object != true
+  #   )
+  #   |> do_list_page(page)
+  # end
 
   defp do_list_page(query, page) do
     offset = (page - 1) * 10

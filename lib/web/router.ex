@@ -36,11 +36,6 @@ defmodule ActivityPub.Web.Router do
         plug(ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug)
       end
 
-      pipeline :activity_pub_c2s do
-        plug(:accepts, ["json", "activity+json", "ld+json"])
-        plug(ActivityPub.Web.Plugs.C2SAuth, scopes: ["write:statuses"])
-      end
-
       scope "/.well-known", ActivityPub.Web do
         pipe_through(:webfinger)
 
@@ -49,7 +44,7 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
-        # pipe_through(:load_authorization)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_fetch)
 
         get("/actors/:username/followers", ActivityPubController, :followers)
@@ -61,7 +56,7 @@ defmodule ActivityPub.Web.Router do
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json_or_html)
-        # pipe_through(:load_authorization)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_fetch)
 
         get("/objects/:uuid", ActivityPubController, :object)
@@ -81,7 +76,7 @@ defmodule ActivityPub.Web.Router do
 
       scope "/", ActivityPub.Web do
         pipe_through(:activity_json_or_html)
-        # pipe_through(:load_authorization)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_fetch)
 
         # URLs for interop with Mastodon clients / AP testing tools
@@ -92,33 +87,32 @@ defmodule ActivityPub.Web.Router do
       scope "/", ActivityPub.Web do
         pipe_through(:activity_json)
 
-        # pipe_through(:load_authorization)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_incoming)
 
-        # URLs for interop with Mastodon clients / AP testing tools
+        # URLs for interop with  some AP testing tools 
         post("/users/:username", IncomingActivityPubController, :inbox)
         post("/users/:username/inbox", IncomingActivityPubController, :inbox)
 
-        # return error saying not supported
-        post("/users/:username/outbox", IncomingActivityPubController, :outbox_info)
+        # post("/users/:username/outbox", IncomingActivityPubController, :only_get_error!)  # return error saying not supported
+        post("/users/:username/outbox", C2SOutboxController, :create)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do
         pipe_through(:activity_json)
-        # pipe_through(:load_authorization)
+        pipe_through(:load_authorization)
         pipe_through(:signed_activity_pub_incoming)
 
+        # inbox
         post("/actors/:username/inbox", IncomingActivityPubController, :inbox)
-        # TODO: implement this for AP C2S API
-        post("/actors/:username/outbox", IncomingActivityPubController, :outbox_info)
-        post("/shared_inbox", IncomingActivityPubController, :shared_inbox)
-      end
+        post("/shared_inbox", IncomingActivityPubController, :inbox)
 
-      # C2S (Client-to-Server) API routes with authentication
-      scope unquote(ap_base_path), ActivityPub.Web do
-        pipe_through(:activity_pub_c2s)
-
+        # outbox
+        # post("/actors/:username/outbox", IncomingActivityPubController, :only_get_error!) # return error saying not supported
         post("/actors/:username/outbox", C2SOutboxController, :create)
+
+        # proxy for c2s to get remote objects
+        post("/proxy_remote_object", ProxyRemoteObjectController, :proxy)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

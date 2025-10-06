@@ -16,10 +16,16 @@ defmodule ActivityPub.C2S do
   """
   def handle_c2s_activity(conn, %{"username" => username} = params) do
     with true <- validate_actor_match?(conn.assigns[:current_actor], username),
-         {:ok, activity_type, formatted_attrs} <-
-           format_activity(params, conn.assigns[:current_user]),
+         current_user when not is_nil(current_user) <- conn.assigns[:current_user] do
+      do_handle_c2s_activity(current_user, params)
+    end
+  end
+
+  def do_handle_c2s_activity(current_user, params) do
+    with {:ok, activity_type, formatted_attrs} <-
+           format_activity(params, current_user),
          {:ok, result} <-
-           dispatch_activity(activity_type, formatted_attrs, conn.assigns[:current_user], params) do
+           dispatch_activity(activity_type, formatted_attrs, current_user, params) do
       {:ok, result}
     end
   end
@@ -43,12 +49,16 @@ defmodule ActivityPub.C2S do
   end
 
   def dispatch_activity("Create", attrs, user, _params) do
-    # Convert Create activities to Bonfire posts for better integration
-    Bonfire.Posts.publish(
-      current_user: user,
-      post_attrs: attrs,
-      boundary: "public"
-    )
+    # Only Create activities with a prepared post_content (i.e., Notes) are mapped to posts
+    if Map.has_key?(attrs, :post_content) do
+      Bonfire.Posts.publish(
+        current_user: user,
+        post_attrs: attrs,
+        boundary: "public"
+      )
+    else
+      dispatch_activity(nil, attrs, user, %{})
+    end
   end
 
   # Process activities through APActivities for proper Bonfire integration
@@ -75,21 +85,18 @@ defmodule ActivityPub.C2S do
   def format_activity(params, current_user) do
     case Map.get(params, "type") do
       "Create" ->
-        # Special handling for Create since we convert it to posts
-        format_typed_activity("Create", params, current_user)
+        # Only handle Create as post if object is a Note
+        with {:ok, object} <- extract_object(params) do
+          case object["type"] do
+            "Note" -> format_note_activity("Create", params, current_user)
+            _ -> format_generic_activity("Create", params, current_user)
+          end
+        end
 
-      nil ->
-        # Auto-wrap non-activity objects in Create
-        format_auto_create(params, current_user)
-
-      type
-      when type in ["Note", "Article", "Event", "Place", "Document", "Image", "Video", "Audio"] ->
-        # Auto-wrap objects in Create activity
-        format_auto_create(params, current_user)
+      "Note" ->
+        format_auto_note(params, current_user)
 
       type when is_binary(type) ->
-        # For any other activity type, pass through with minimal formatting
-        # This allows us to handle any ActivityPub activity type without explicit support
         format_generic_activity(type, params, current_user)
 
       _ ->
@@ -97,9 +104,23 @@ defmodule ActivityPub.C2S do
     end
   end
 
-  defp format_typed_activity("Create", params, user) do
+  defp format_note_activity("Create", params, user) do
     with {:ok, object} <- extract_object(params),
          {:ok, content_attrs} <- format_object_for_post(object),
+         {:ok, boundaries} <- extract_boundaries(params, user) do
+      attrs =
+        Map.merge(content_attrs, %{
+          to_circles: boundaries[:to_circles],
+          to_boundaries: boundaries[:to_boundaries]
+        })
+
+      {:ok, "Create", attrs}
+    end
+  end
+
+  defp format_auto_note(params, user) do
+    # Only for bare Note objects
+    with {:ok, content_attrs} <- format_object_for_post(params),
          {:ok, boundaries} <- extract_boundaries(params, user) do
       attrs =
         Map.merge(content_attrs, %{
@@ -120,20 +141,6 @@ defmodule ActivityPub.C2S do
       }
 
       {:ok, type, attrs}
-    end
-  end
-
-  defp format_auto_create(params, user) do
-    # Wrap a bare object in a Create activity
-    with {:ok, content_attrs} <- format_object_for_post(params),
-         {:ok, boundaries} <- extract_boundaries(params, user) do
-      attrs =
-        Map.merge(content_attrs, %{
-          to_circles: boundaries[:to_circles],
-          to_boundaries: boundaries[:to_boundaries]
-        })
-
-      {:ok, "Create", attrs}
     end
   end
 

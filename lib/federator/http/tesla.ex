@@ -2,6 +2,8 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
   use Tesla
   import Untangle
 
+  plug Tesla.Middleware.Telemetry
+
   if ActivityPub.Config.env() != :test do
     # rate limit outgoing HTTP requests
     plug ActivityPub.Federator.HTTP.RateLimit

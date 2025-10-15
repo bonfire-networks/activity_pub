@@ -25,7 +25,7 @@ defmodule ActivityPub.Web.C2SOutboxController do
       |> json(data)
     else
       false ->
-        flood("Actor does not match authenticated user")
+        debug("Actor does not match authenticated user")
 
         conn
         |> put_status(:forbidden)
@@ -33,7 +33,7 @@ defmodule ActivityPub.Web.C2SOutboxController do
         |> halt()
 
       {:error, :insufficient_scopes} ->
-        flood("Actor does not have scopes")
+        debug("Actor does not have scopes")
 
         conn
         |> put_status(:forbidden)

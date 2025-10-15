@@ -1,16 +1,13 @@
 defmodule ActivityPub.Migrations do
   @moduledoc false
   use Ecto.Migration
+  @disable_ddl_transaction true
 
-  def weak_pointer() do
-    if Code.ensure_loaded?(Needle.Pointer) do
-      references(Needle.Pointer.__schema__(:source),
-        type: :uuid,
-        on_update: :update_all,
-        on_delete: :nilify_all
-      )
+  defp ap_add_pointer_id() do
+    if Code.ensure_loaded?(Needle.Migration) do
+      Needle.Migration.add_pointer(:pointer_id, :weak, Needle.Pointer)
     else
-      :uuid
+      add(:pointer_id, :uuid)
     end
   end
 
@@ -22,13 +19,13 @@ defmodule ActivityPub.Migrations do
       add(:data, :map)
       add(:local, :boolean, default: false, null: false)
       add(:public, :boolean, default: false, null: false)
-      add(:pointer_id, weak_pointer())
+      ap_add_pointer_id()
 
       timestamps(type: :utc_datetime_usec)
     end
 
-    create(unique_index(:ap_object, ["(data->>'id')"]))
-    create(unique_index(:ap_object, [:pointer_id]))
+    create(unique_index(:ap_object, ["(data->>'id')"], concurrently: true))
+    create(unique_index(:ap_object, [:pointer_id], concurrently: true))
 
     create table("ap_instance", primary_key: false) do
       add(:id, :uuid, primary_key: true)
@@ -38,8 +35,8 @@ defmodule ActivityPub.Migrations do
       timestamps()
     end
 
-    create(unique_index("ap_instance", [:host]))
-    create(index("ap_instance", [:unreachable_since]))
+    create(unique_index("ap_instance", [:host], concurrently: true))
+    create(index("ap_instance", [:unreachable_since], concurrently: true))
   end
 
   def prepare_test do

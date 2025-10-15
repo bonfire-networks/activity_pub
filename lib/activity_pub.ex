@@ -89,11 +89,20 @@ defmodule ActivityPub do
 
       {:ok, activity}
     else
-      {:ok, %Object{} = object} -> {:ok, object}
-      %Object{} = object -> {:ok, object}
-      {:error, error} when is_binary(error) -> error(error)
-      :ignore -> :ignore
-      other -> error(other, "Error with the Create Activity")
+      {:ok, %Object{} = object} ->
+        {:ok, object}
+
+      %Object{} = object ->
+        {:ok, object}
+
+      {:error, error} when is_binary(error) ->
+        error(error)
+
+      :ignore ->
+        :ignore
+
+      other ->
+        err(other, "Error with the Create Activity")
     end
   end
 

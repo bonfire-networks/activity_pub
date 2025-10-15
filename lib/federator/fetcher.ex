@@ -90,7 +90,8 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_object_from_id(id, opts \\ []) do
     opts = opts |> Keyword.put_new(:triggered_by, "fetch_object_from_id")
 
-    case cached_or_handle_incoming(id, opts) do
+    case cached_or_handle_incoming(id, opts)
+         |> debug("fetch_object_from_id -> cached_or_handled_incoming") do
       {:ok, object} ->
         {:ok, object}
 
@@ -206,7 +207,8 @@ defmodule ActivityPub.Federator.Fetcher do
          false <- String.starts_with?(id, base_url),
          {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <-
-           cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true)) do
+           cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true))
+           |> debug("fetch_fresh_object_from_id -> cached_or_handled_incoming") do
       {:ok, object}
     else
       true ->

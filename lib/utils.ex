@@ -35,9 +35,7 @@ defmodule ActivityPub.Utils do
 
   def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
 
-  def make_json_ld_header(type \\ :object)
-
-  def make_json_ld_header(type) do
+  def make_json_ld_header(type \\ :object) do
     %{
       "@context" => make_json_ld_context_list(type)
     }
@@ -45,18 +43,30 @@ defmodule ActivityPub.Utils do
 
   def make_json_ld_context_list(type \\ :object)
 
-  def make_json_ld_context_list(type) do
-    json_contexts = Application.get_env(:activity_pub, :json_contexts, [])
-
+  def make_json_ld_context_list(:actor = type) do
     [
       "https://www.w3.org/ns/activitystreams",
-      Enum.into(
-        stringify_keys(json_contexts[type] || json_contexts[:object]) || %{},
-        %{
-          "@language" => Adapter.get_locale()
-        }
-      )
+      "https://w3id.org/security/v1",
+      do_make_json_ld_context_list(type)
     ]
+  end
+
+  def make_json_ld_context_list(type) do
+    [
+      "https://www.w3.org/ns/activitystreams",
+      do_make_json_ld_context_list(type)
+    ]
+  end
+
+  defp do_make_json_ld_context_list(type) do
+    json_contexts = Application.get_env(:activity_pub, :json_contexts, [])
+
+    Enum.into(
+      stringify_keys(json_contexts[type] || json_contexts[:object]) || %{},
+      %{
+        "@language" => Adapter.get_locale()
+      }
+    )
   end
 
   @doc """

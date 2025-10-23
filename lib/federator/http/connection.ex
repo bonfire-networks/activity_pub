@@ -28,8 +28,8 @@ defmodule ActivityPub.Federator.HTTP.Connection do
        follow_redirect: true,
        pool: :federation,
        ssl_options: [
-         # insecure: true
-         #  versions: [:'tlsv1.2'],
+         # insecure: false,
+         # versions: [:'tlsv1.2'],
          verify: :verify_peer,
          cacertfile: :certifi.cacertfile(),
          verify_fun: &:ssl_verify_hostname.verify_fun/3

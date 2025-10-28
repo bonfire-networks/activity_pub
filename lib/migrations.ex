@@ -24,19 +24,21 @@ defmodule ActivityPub.Migrations do
       timestamps(type: :utc_datetime_usec)
     end
 
-    create(unique_index(:ap_object, ["(data->>'id')"], concurrently: true))
-    create(unique_index(:ap_object, [:pointer_id], concurrently: true))
+    concurrently? = System.get_env("DB_MIGRATE_INDEXES_CONCURRENTLY") != "false"
+
+    create(unique_index(:ap_object, ["(data->>'id')"], concurrently: concurrently?))
+    create(unique_index(:ap_object, [:pointer_id], concurrently: concurrently?))
 
     create table("ap_instance", primary_key: false) do
-      add(:id, :uuid, primary_key: true)
+      add(:id, :uuid, primary_key: concurrently?)
       add(:host, :string)
       add(:unreachable_since, :naive_datetime_usec)
 
       timestamps()
     end
 
-    create(unique_index("ap_instance", [:host], concurrently: true))
-    create(index("ap_instance", [:unreachable_since], concurrently: true))
+    create(unique_index("ap_instance", [:host], concurrently: concurrently?))
+    create(index("ap_instance", [:unreachable_since], concurrently: concurrently?))
   end
 
   def prepare_test do

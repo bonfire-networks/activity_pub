@@ -134,13 +134,16 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   def maybe_handle_activity(%{data: %{"type" => verb}} = activity) when verb in ["Move"] do
-    debug(verb, "looks like a local activity wish we handle to handle as incoming anyway")
+    debug(verb, "looks like a local activity which we handle as incoming anyway")
     handle_activity(activity)
   end
 
-  def maybe_handle_activity(activity) do
-    debug(activity, "looks like a local activity, so we don't pass it to the adapter as incoming")
+  def maybe_handle_activity(%Object{local: true} = activity) do
     {:ok, :local}
+  end
+
+  def maybe_handle_activity(activity) do
+    error(activity, "unrecognized activity structure")
   end
 
   @doc """

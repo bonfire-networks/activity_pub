@@ -1198,6 +1198,9 @@ defmodule ActivityPub.Federator.Transformer do
         actor: actor
       })
     else
+      {:error, :not_found} ->
+        handle_activity_with_pruned_object(data, "Update")
+
       e ->
         error(e, "could not update")
     end
@@ -1270,7 +1273,7 @@ defmodule ActivityPub.Federator.Transformer do
           "type" => "Delete",
           "object" => object
           # "actor" => _actor
-        } = _data,
+        } = data,
         opts
       ) do
     info("Handle incoming deletion")
@@ -1288,6 +1291,9 @@ defmodule ActivityPub.Federator.Transformer do
            ActivityPub.delete(verified_object || object_id, false) |> debug("deleted!!") do
       {:ok, activity}
     else
+      {:error, :not_found} ->
+        handle_activity_with_pruned_object(data, "Delete")
+
       {:actor, true} ->
         debug("it's an actor!")
 
@@ -1299,16 +1305,12 @@ defmodule ActivityPub.Federator.Transformer do
           {:ok, %Actor{} = actor} ->
             ActivityPub.delete(actor, false)
 
-          e ->
-            error(e, "Could not find actor to delete")
-            # so oban doesn't try again
-            {:ok, nil}
-        end
+          {:error, :not_found} ->
+            handle_activity_with_pruned_object(data, "Delete")
 
-      {:error, :not_found} ->
-        # TODO: optimise / short circuit incoming Delete activities for unknown remote objects/actors, see https://github.com/bonfire-networks/bonfire-app/issues/850
-        error(object_id, "Object is not cached locally, so deletion was skipped")
-        {:ok, nil}
+          e ->
+            error(e, "Error while trying to find actor to delete in AP db")
+        end
 
       {:error, :not_deleted} ->
         error("Could not verify incoming deletion")
@@ -1537,5 +1539,17 @@ defmodule ActivityPub.Federator.Transformer do
       warn(id, "no such object found")
       {:error, :not_found}
     end
+  end
+
+  # Helper function to handle activities when objects are pruned from AP cache
+  defp handle_activity_with_pruned_object(data, activity_type) do
+    object_id = Object.get_ap_id(data["object"])
+
+    info(
+      object_id,
+      "Object is not cached in AP db - still pass to adapter in case it was pruned from AP db for #{activity_type}"
+    )
+
+    Adapter.maybe_handle_activity(%Object{data: data, local: false, public: true})
   end
 end

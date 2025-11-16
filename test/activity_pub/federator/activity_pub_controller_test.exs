@@ -533,6 +533,34 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
       assert Object.get_cached!(ap_id: data["id"])
     end
+
+    # can't do this because adapter needs to handle pruned objects
+    @tag :todo
+    test "it discards Delete activities for unknown objects without enqueueing", %{conn: conn} do
+      subject = actor(local: false)
+
+      data =
+        file("fixtures/mastodon/mastodon-delete.json")
+        |> Jason.decode!()
+        |> Map.put("actor", subject.data["id"])
+        |> put_in(["object", "id"], "https://remote.example/objects/unknown-123")
+
+      conn =
+        conn
+        |> assign(:valid_signature, true)
+        |> put_req_header("signature", "keyId=\"#{subject.data["id"]}/main-key\"")
+        |> put_req_header("content-type", "application/activity+json")
+        |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+
+      assert json_response(conn, 200) == "ok"
+
+      # Verify no Oban job was enqueued
+      assert all_enqueued(worker: ReceiverWorker) == []
+
+      # Verify object was not (fetched or) cached
+      assert {:error, :not_found} =
+               Object.get_cached(ap_id: "https://remote.example/objects/unknown-123")
+    end
   end
 
   test "it clears `unreachable` federation status of the sender instance when receiving an activity",

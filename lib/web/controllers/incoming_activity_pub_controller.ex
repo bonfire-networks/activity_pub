@@ -61,9 +61,20 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   end
 
   defp apply_process(conn, %{"type" => "Delete"} = params, fun) do
-    # TODO: check if the actor/object being deleted is even known locally before bothering?
-    #  workaround in case the remote actor is not yet actually deleted
+    # # Check if we know the object locally before enqueueing -> NOTE: can't do here as it may have been pruned from AP db but exists in adapter
+    # object_id = ActivityPub.Object.get_ap_id(params["object"])
+
+    # case ActivityPub.Object.get_cached(ap_id: object_id) do
+    #   {:ok, _object} ->
+
+    # process the deletion with a delay (in the remote is still in the process of deleting it)
     fun.(conn, params, schedule_in: {2, :minutes})
+
+    #   {:error, :not_found} ->
+    #     # Object not cached locally, discard without enqueueing
+    #     debug(object_id, "Discarding Delete for unknown object")
+    #     json(conn, "nok")
+    # end
   end
 
   defp apply_process(conn, params, fun) do

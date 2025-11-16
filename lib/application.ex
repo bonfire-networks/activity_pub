@@ -53,6 +53,7 @@ defmodule ActivityPub.Application do
     def start(_type, _args) do
       children =
         [
+          rate_limiter(),
           # Start the Ecto repository
           repo(),
           # Start the Telemetry supervisor
@@ -86,13 +87,26 @@ defmodule ActivityPub.Application do
     end
   else
     def start(_type, _args) do
-      children = cachex()
+      children = [rate_limiter()] ++ cachex()
 
       # See https://hexdocs.pm/elixir/Supervisor.html
       # for other strategies and supported options
       opts = [strategy: :one_for_one, name: ActivityPub.Supervisor]
       Supervisor.start_link(children, opts)
     end
+  end
+
+  defp rate_limiter do
+    # Read cleanup interval from config (in milliseconds)
+    # Default to 10 minutes (600_000 ms) if not specified
+    clean_period =
+      Application.get_env(:hammer, :backend)
+      |> case do
+        {_, opts} when is_list(opts) -> Keyword.get(opts, :cleanup_interval_ms, 600_000)
+        _ -> 600_000
+      end
+
+    {ActivityPub.Web.RateLimit, clean_period: clean_period}
   end
 
   def cachex() do

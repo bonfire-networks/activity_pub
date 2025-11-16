@@ -11,6 +11,8 @@ defmodule ActivityPub.Web.C2SOutboxController do
   alias ActivityPub.{Object, Utils}
   alias ActivityPub.C2S
 
+  plug :rate_limit, key_prefix: :c2s
+
   @doc """
   Handles POST requests to /actors/:username/outbox for C2S API.
   """

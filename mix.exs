@@ -71,7 +71,7 @@ defmodule ActivityPub.MixProject do
        git: "https://github.com/bonfire-networks/http_signatures"},
       {:mfm_parser, git: "https://akkoma.dev/AkkomaGang/mfm-parser.git", optional: true},
       {:remote_ip, "~> 1.1"},
-      {:hammer_plug, "~> 3.0"},
+      {:hammer, "~> 7.0"},
       {:cachex, "~> 4.0"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},

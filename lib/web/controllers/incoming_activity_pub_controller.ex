@@ -19,13 +19,10 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   # alias ActivityPub.Safety.Containment
   # alias ActivityPub.Federator
 
-  @limit_num Application.compile_env(:activity_pub, __MODULE__, 5000)
-  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 120_000)
-
-  plug Hammer.Plug,
-    rate_limit: {"activity_pub_incoming", @limit_ms, @limit_num},
-    by: :ip,
-    on_deny: &ActivityPub.Web.rate_limit_reached/2
+  plug :rate_limit,
+    key_prefix: :incoming,
+    scale_ms: 120_000,
+    limit: 5000
 
   def shared_inbox(conn, params) do
     inbox(conn, params)

@@ -6,16 +6,10 @@ defmodule ActivityPub.Web.WebFingerController do
 
   alias ActivityPub.Federator.WebFinger
 
-  @limit_num Application.compile_env(:activity_pub, __MODULE__, 200)
-  @limit_ms Application.compile_env(:activity_pub, __MODULE__, 60_000)
-
-  plug Hammer.Plug,
-    rate_limit: {"activity_pub_api", @limit_ms, @limit_num},
-    by: :ip,
-    # when_nil: :raise,
-    on_deny: &ActivityPub.Web.rate_limit_reached/2
-
-  # when action == :object
+  plug :rate_limit,
+    key_prefix: :webfinger,
+    scale_ms: 60_000,
+    limit: 200
 
   def webfinger(conn, %{"resource" => resource}) do
     with {:ok, response} <- WebFinger.output(resource) do

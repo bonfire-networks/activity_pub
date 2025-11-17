@@ -1,4 +1,4 @@
-defmodule ActivityPub.Web.RateLimit do
+defmodule ActivityPub.RateLimit do
   @moduledoc """
   Rate limiter for ActivityPub using Hammer 7.x with ETS backend.
 

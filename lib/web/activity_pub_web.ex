@@ -57,7 +57,7 @@ defmodule ActivityPub.Web do
         ip = conn.remote_ip |> :inet.ntoa() |> to_string()
         key = "#{key_prefix}:#{ip}"
 
-        case ActivityPub.Web.RateLimit.hit(key, scale_ms, limit) do
+        case ActivityPub.RateLimit.hit(key, scale_ms, limit) do
           {:allow, _count} ->
             conn
 

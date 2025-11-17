@@ -106,7 +106,7 @@ defmodule ActivityPub.Application do
         _ -> 600_000
       end
 
-    {ActivityPub.Web.RateLimit, clean_period: clean_period}
+    {ActivityPub.RateLimit, clean_period: clean_period}
   end
 
   def cachex() do

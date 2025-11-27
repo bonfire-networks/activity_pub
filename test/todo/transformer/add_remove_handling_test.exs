@@ -83,7 +83,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
              |> post("#{Utils.ap_base_url()}/shared_inbox", data)
              |> json_response(200)
 
-    ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+    ObanHelpers.perform(all_enqueued())
     assert Object.get_cached!(ap_id: data["id"])
     user = user_by_ap_id(data["actor"])
 
@@ -107,7 +107,7 @@ defmodule ActivityPub.Federator.Transformer.AddRemoveHandlingTest do
              |> post("#{Utils.ap_base_url()}/shared_inbox", data)
              |> json_response(200)
 
-    ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+    ObanHelpers.perform(all_enqueued())
     user = refresh_record(user)
     # TODO
     # refute user.pinned_objects[data["object"]]

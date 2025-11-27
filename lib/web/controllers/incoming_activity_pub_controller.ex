@@ -18,6 +18,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   alias ActivityPub.Instances
   # alias ActivityPub.Safety.Containment
   # alias ActivityPub.Federator
+  alias ActivityPub.Federator.Worker.ReceiverRouter
 
   plug :rate_limit,
     key_prefix: :incoming,
@@ -83,7 +84,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   defp process_incoming(conn, params, worker_args \\ []) do
     if Config.federating?() do
-      ActivityPub.Federator.Workers.ReceiverWorker.enqueue(
+      ReceiverRouter.route_worker(params, true).enqueue(
         "incoming_ap_doc",
         %{
           "params" => params,
@@ -103,7 +104,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   defp maybe_process_unsigned(conn, params, worker_args \\ []) do
     if Config.federating?() do
-      ActivityPub.Federator.Workers.ReceiverWorker.enqueue(
+      ReceiverRouter.route_worker(params, false).enqueue(
         "incoming_unverified_ap_doc",
         %{
           "params" => debug(params, "incoming_unverified_ap_doc params"),

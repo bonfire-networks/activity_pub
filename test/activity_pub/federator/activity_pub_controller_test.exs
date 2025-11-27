@@ -12,7 +12,6 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
   alias ActivityPub.Utils
   alias ActivityPub.Instances
   alias ActivityPub.Tests.ObanHelpers
-  alias ActivityPub.Federator.Workers.ReceiverWorker
 
   def nickname(%{nickname: nickname}), do: nickname
   def nickname(%{character: %{username: nickname}}), do: nickname
@@ -493,7 +492,10 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
       assert json_response(conn, 200) in ["ok", "tbd"]
 
-      ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+      #  worker = ActivityPub.Federator.Worker.ReceiverRouter.route_worker(data, true)
+      #  |> debug("worker routed")
+
+      ObanHelpers.perform(all_enqueued())
       assert Object.get_cached!(ap_id: data["id"])
     end
 
@@ -530,7 +532,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
       assert json_response(conn, 200) in ["ok", "tbd"]
 
-      ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+      ObanHelpers.perform(all_enqueued())
       assert Object.get_cached!(ap_id: data["id"])
     end
 
@@ -555,7 +557,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       assert json_response(conn, 200) == "ok"
 
       # Verify no Oban job was enqueued
-      assert all_enqueued(worker: ReceiverWorker) == []
+      assert all_enqueued() == []
 
       # Verify object was not (fetched or) cached
       assert {:error, :not_found} =
@@ -617,7 +619,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
         |> post("#{Utils.ap_base_url()}/actors/#{user |> nickname()}/inbox", data)
 
       assert "ok" == json_response(conn, 200)
-      ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+      ObanHelpers.perform(all_enqueued())
       assert Object.get_cached!(ap_id: data["id"])
     end
 
@@ -641,7 +643,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
         |> post("#{Utils.ap_base_url()}/actors/#{user |> nickname()}/inbox", data)
 
       assert "ok" == json_response(conn, 200)
-      ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+      ObanHelpers.perform(all_enqueued())
       assert Object.get_cached!(ap_id: data["id"])
     end
 
@@ -665,7 +667,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
         |> post("#{Utils.ap_base_url()}/actors/#{user |> nickname()}/inbox", data)
 
       assert "ok" == json_response(conn, 200)
-      ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+      ObanHelpers.perform(all_enqueued())
       %Object{} = activity = Object.get_cached!(ap_id: data["id"])
       assert ap_id(user) in activity.data["to"] || ap_id(user) in activity.data["cc"]
     end
@@ -692,7 +694,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
                |> post("#{Utils.ap_base_url()}/actors/#{user |> nickname()}/inbox", data)
                |> json_response(200)
 
-      ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+      ObanHelpers.perform(all_enqueued())
       assert Object.get_cached!(ap_id: data["id"])
     end
   end

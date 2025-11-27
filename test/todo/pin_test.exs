@@ -82,7 +82,7 @@
 #                |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 #                |> json_response(200)
 
-#       ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+#       ObanHelpers.perform(all_enqueued())
 #       assert Activity.get_by_object_ap_id_with_object(data["object"])
 #       user = user_by_ap_id(data["actor"])
 #       assert user.pinned_objects[data["object"]]
@@ -102,7 +102,7 @@
 #                |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 #                |> json_response(200)
 
-#       ObanHelpers.perform(all_enqueued(worker: ReceiverWorker))
+#       ObanHelpers.perform(all_enqueued())
 #       assert Activity.get_by_object_ap_id_with_object(data["object"])
 #       user = refresh_record(user)
 #       refute user.pinned_objects[data["object"]]

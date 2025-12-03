@@ -2,7 +2,7 @@ defmodule ActivityPub.Web.C2SOutboxController do
   @moduledoc """
   Controller for ActivityPub Client-to-Server (C2S) API outbox endpoints.
 
-  Handles POST requests to actor outboxes
+  Handles POST requests to actor outboxes.
   """
 
   use ActivityPub.Web, :controller
@@ -10,21 +10,23 @@ defmodule ActivityPub.Web.C2SOutboxController do
 
   alias ActivityPub.{Object, Utils}
   alias ActivityPub.C2S
+  alias ActivityPub.Federator.Adapter
 
   plug :rate_limit, key_prefix: :c2s
 
   @doc """
   Handles POST requests to /actors/:username/outbox for C2S API.
   """
-  def create(conn, %{"username" => username} = params) do
-    required_scopes = ["write:statuses"]
+  def create(conn, %{"username" => _username} = params) do
+    # TODO: uncomment when scope validation is implemented
+    # required_scopes = ["write:statuses"]
+    # with true <- validate_authorized_scopes(conn, required_scopes) || {:error, :insufficient_scopes} do
 
-    #  with  true <- C2S.validate_authorized_scopes(conn, required_scopes) || {:error, :insufficient_scopes}, # TODO: check scope?
-    with {:ok, %ActivityPub.Object{data: data} = object} <- C2S.handle_c2s_activity(conn, params) do
+    with {:ok, activity} <- C2S.handle_c2s_activity(conn, params) do
       conn
       |> put_status(:created)
-      # |> put_resp_header("location", get_activity_url(object))
-      |> json(data)
+      |> maybe_put_location_header(activity)
+      |> json(activity_to_json(activity))
     else
       {:error, :unauthorized} ->
         conn
@@ -47,21 +49,23 @@ defmodule ActivityPub.Web.C2SOutboxController do
         |> put_status(:forbidden)
         |> json(%{
           error: "Insufficient scope",
-          error_description: "Required scopes: #{Enum.join(required_scopes, ", ")}"
+          error_description: "Required scopes for this action"
         })
         |> halt()
 
-      {:error, :unsupported_activity} ->
+      {:error, :invalid_activity} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Unsupported activity type"})
+        |> json(%{error: "Invalid activity"})
 
       {:error, reason} when is_binary(reason) ->
         conn
         |> put_status(:bad_request)
         |> json(%{error: reason})
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        error(reason, "C2S activity processing failed")
+
         conn
         |> put_status(:internal_server_error)
         |> json(%{error: "Failed to process activity"})
@@ -75,7 +79,28 @@ defmodule ActivityPub.Web.C2SOutboxController do
     |> json(%{error: "Invalid request format"})
   end
 
-  defp get_activity_url(%ActivityPub.Object{data: data, id: id}) do
-    Map.get(data, "id") || Object.object_url(id)
+  defp activity_to_json(%Object{data: data}), do: data
+  defp activity_to_json(%{data: data}), do: data
+  defp activity_to_json(data) when is_map(data), do: data
+
+  defp maybe_put_location_header(conn, activity) do
+    case get_activity_url(activity) do
+      nil -> conn
+      url -> put_resp_header(conn, "location", url)
+    end
+  end
+
+  defp get_activity_url(%Object{data: %{"id" => id}}), do: id
+  defp get_activity_url(%{data: %{"id" => id}}), do: id
+  defp get_activity_url(%{"id" => id}), do: id
+  defp get_activity_url(%Object{id: id}), do: Object.object_url(id)
+  defp get_activity_url(_), do: nil
+
+  # Scope validation - can be extended via adapter callback if needed
+  defp validate_authorized_scopes(conn, required_scopes) do
+    required_scopes = List.wrap(required_scopes)
+
+    Enum.empty?(required_scopes) or
+      Adapter.call_or(:validate_authorized_scopes, [conn, required_scopes], true)
   end
 end

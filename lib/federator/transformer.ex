@@ -883,7 +883,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them
   # with nil ID.
-  def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, _opts) do
+  def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, opts) do
     with objects = List.wrap(objects),
          context <- data["context"],
          content <- data["content"] || "",
@@ -909,7 +909,7 @@ defmodule ActivityPub.Federator.Transformer do
         account: account,
         statuses: statuses || objects,
         content: content,
-        local: false,
+        local: local?(opts),
         additional: %{
           "cc" => if(account, do: [account.data["id"]]) || []
         }
@@ -966,7 +966,7 @@ defmodule ActivityPub.Federator.Transformer do
       object: object,
       actor: actor,
       context: if(is_map(object), do: object["context"] || object["conversation"]),
-      local: false,
+      local: local?(opts),
       published: data["published"],
       additional:
         Map.take(data, [
@@ -1014,7 +1014,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => followed,
           "actor" => follower
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming follow")
 
@@ -1024,7 +1024,7 @@ defmodule ActivityPub.Federator.Transformer do
         actor: follower,
         object: followed,
         activity_id: data["id"],
-        local: false
+        local: local?(opts)
       })
     end
   end
@@ -1035,7 +1035,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => follow_object,
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     debug("Handle incoming Accept")
 
@@ -1050,7 +1050,7 @@ defmodule ActivityPub.Federator.Transformer do
         actor: followed,
         object: follow_activity,
         result: debug(data["result"], "incoming accept result"),
-        local: false
+        local: local?(opts)
       })
       |> debug("accept result")
     else
@@ -1065,7 +1065,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => follow_object,
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     debug("Handle incoming Reject")
 
@@ -1079,7 +1079,7 @@ defmodule ActivityPub.Federator.Transformer do
         type: type,
         actor: followed,
         object: follow_activity.data["id"],
-        local: false
+        local: local?(opts)
       })
       |> debug("reject result")
     else
@@ -1094,7 +1094,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => object_id,
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming like")
 
@@ -1106,7 +1106,7 @@ defmodule ActivityPub.Federator.Transformer do
              actor: actor,
              object: object,
              activity_id: data["id"],
-             local: false
+             local: local?(opts)
            }) do
       {:ok, activity}
     else
@@ -1120,7 +1120,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => object_id,
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming boost")
 
@@ -1133,7 +1133,7 @@ defmodule ActivityPub.Federator.Transformer do
              activity_id: data["id"],
              actor: actor,
              object: object,
-             local: false,
+             local: local?(opts),
              public: public
            }) do
       {:ok, activity}
@@ -1164,7 +1164,7 @@ defmodule ActivityPub.Federator.Transformer do
       # TODO: do we need to register an Update activity for this?
       # ActivityPub.update(%{
       #   id: data["id"],
-      #   local: false,
+      #   local: local?(opts),
       #   to: data["to"] || [],
       #   cc: data["cc"] || [],
       #   object: actor.data, # NOTE: we use the data from update_actor which was re-fetched from the source
@@ -1183,7 +1183,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => %{"type" => _object_type} = object,
           "actor" => actor
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming update of an Object")
 
@@ -1191,7 +1191,7 @@ defmodule ActivityPub.Federator.Transformer do
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
       ActivityPub.update(%{
-        local: false,
+        local: local?(opts),
         to: data["to"] || [],
         cc: data["cc"] || [],
         object: object,
@@ -1199,7 +1199,7 @@ defmodule ActivityPub.Federator.Transformer do
       })
     else
       {:error, :not_found} ->
-        handle_activity_with_pruned_object(data, "Update")
+        handle_activity_with_pruned_object(data, "Update", opts)
 
       e ->
         error(e, "could not update")
@@ -1212,7 +1212,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => object_id,
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     debug("Handle incoming quote request")
 
@@ -1226,7 +1226,7 @@ defmodule ActivityPub.Federator.Transformer do
              object: object,
              instrument: instrument,
              activity_id: data["id"],
-             local: false
+             local: local?(opts)
            })
            |> debug("processed/saved incoming quote request") do
       {:ok, activity}
@@ -1241,9 +1241,13 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => blocked,
           "actor" => blocker
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming block")
+
+    local? = local?(opts)
+
+    # TODO: adapt the pattern matching based on local? 
 
     with %{local: true} = blocked <-
            Actor.get_cached!(ap_id: blocked) || error(blocker, "Could not find actor to block"),
@@ -1253,7 +1257,7 @@ defmodule ActivityPub.Federator.Transformer do
              actor: blocker,
              object: blocked,
              activity_id: data["id"],
-             local: false
+             local: local?
            }) do
       {:ok, activity}
     else
@@ -1292,7 +1296,7 @@ defmodule ActivityPub.Federator.Transformer do
       {:ok, activity}
     else
       {:error, :not_found} ->
-        handle_activity_with_pruned_object(data, "Delete")
+        handle_activity_with_pruned_object(data, "Delete", opts)
 
       {:actor, true} ->
         debug("it's an actor!")
@@ -1306,7 +1310,7 @@ defmodule ActivityPub.Federator.Transformer do
             ActivityPub.delete(actor, false)
 
           {:error, :not_found} ->
-            handle_activity_with_pruned_object(data, "Delete")
+            handle_activity_with_pruned_object(data, "Delete", opts)
 
           e ->
             error(e, "Error while trying to find actor to delete in AP db")
@@ -1329,7 +1333,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => %{"type" => "Announce", "object" => object_id},
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming unboost")
 
@@ -1341,7 +1345,7 @@ defmodule ActivityPub.Federator.Transformer do
              actor: actor,
              object: object,
              activity_id: data["id"],
-             local: false
+             local: local?(opts)
            }) do
       {:ok, activity}
     else
@@ -1355,7 +1359,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => %{"type" => "Like", "object" => object_id},
           "actor" => _actor
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming unlike")
 
@@ -1367,7 +1371,7 @@ defmodule ActivityPub.Federator.Transformer do
              actor: actor,
              object: object,
              activity_id: data["id"],
-             local: false
+             local: local?(opts)
            }) do
       {:ok, activity}
     else
@@ -1381,7 +1385,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => %{"type" => "Follow", "object" => followed},
           "actor" => follower
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming unfollow")
 
@@ -1391,7 +1395,7 @@ defmodule ActivityPub.Federator.Transformer do
         actor: follower,
         object: followed,
         activity_id: data["id"],
-        local: false
+        local: local?(opts)
       })
     else
       e -> error(e)
@@ -1404,7 +1408,7 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => %{"type" => "Block", "object" => blocked},
           "actor" => blocker
         } = data,
-        _opts
+        opts
       ) do
     info("Handle incoming unblock")
 
@@ -1416,7 +1420,7 @@ defmodule ActivityPub.Federator.Transformer do
              actor: blocker,
              object: blocked,
              activity_id: data["id"],
-             local: false
+             local: local?(opts)
            }) do
       {:ok, activity}
     else
@@ -1431,11 +1435,11 @@ defmodule ActivityPub.Federator.Transformer do
           "object" => origin_actor,
           "target" => target_actor
         },
-        _opts
+        opts
       ) do
     with {:ok, %{} = origin_user} <- Actor.get_cached(ap_id: origin_actor),
          {:ok, %{} = target_user} <- Actor.get_cached_or_fetch(ap_id: target_actor) do
-      ActivityPub.move(origin_user, target_user, false)
+      ActivityPub.move(origin_user, target_user, local?(opts))
     else
       e -> error(e)
     end
@@ -1516,11 +1520,13 @@ defmodule ActivityPub.Federator.Transformer do
     )
   end
 
+  defp local?(opts), do: Keyword.get(opts, :local, false)
+
   def maybe_handle_other_activity(data, opts) do
     # Process nested objects for all activity types
     with {:ok, activity} <-
            fix_other_object(data, opts)
-           |> Object.insert(false),
+           |> Object.insert(local?(opts)),
          true <-
            Map.get(
              Application.get_env(:activity_pub, :instance, %{}) |> Map.new(),
@@ -1542,7 +1548,7 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # Helper function to handle activities when objects are pruned from AP cache
-  defp handle_activity_with_pruned_object(data, activity_type) do
+  defp handle_activity_with_pruned_object(data, activity_type, opts) do
     object_id = Object.get_ap_id(data["object"])
 
     info(
@@ -1550,6 +1556,6 @@ defmodule ActivityPub.Federator.Transformer do
       "Object is not cached in AP db - still pass to adapter in case it was pruned from AP db for #{activity_type}"
     )
 
-    Adapter.maybe_handle_activity(%Object{data: data, local: false, public: true})
+    Adapter.maybe_handle_activity(%Object{data: data, local: local?(opts), public: true})
   end
 end

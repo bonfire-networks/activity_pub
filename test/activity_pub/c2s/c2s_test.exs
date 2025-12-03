@@ -77,7 +77,6 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
       assert object.data["type"] == "Create"
     end
 
-    @tag :todo
     test "can Create Note when authenticated with current_actor", %{conn: conn} do
       actor = local_actor()
 

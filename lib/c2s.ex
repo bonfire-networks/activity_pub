@@ -12,6 +12,8 @@ defmodule ActivityPub.C2S do
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Utils
 
+  @addressing_fields ["to", "cc", "bto", "bcc", "audience"]
+
   @doc """
   Handles POST requests to /actors/:username/outbox for C2S API.
 
@@ -20,47 +22,74 @@ defmodule ActivityPub.C2S do
   """
   def handle_c2s_activity(conn, %{"username" => username} = params) do
     current_actor = conn.assigns[:current_actor]
-    # current_user = conn.assigns[:current_user]
 
     with true <- not is_nil(current_actor) || {:error, :unauthorized},
          true <- validate_actor_match?(current_actor, username) || {:error, :actor_mismatch} do
       params
       |> maybe_wrap_object_in_create()
       |> ensure_actor(current_actor)
+      |> ensure_attributed_to()
       |> ensure_ids()
+      |> copy_addressing()
       |> process_activity(current_actor)
     end
   end
 
-  defp ensure_actor(params, current_actor) do
-    case Map.get(params, "actor") do
-      nil -> Map.put(params, "actor", current_actor.ap_id)
-      _existing -> params
-    end
+  defp ensure_actor(params, %{ap_id: ap_id}) do
+    Map.put_new(params, "actor", ap_id)
   end
 
-  defp ensure_ids(params),
-    do:
-      params
-      |> maybe_put_id()
-      |> ensure_object_id()
+  defp ensure_actor(params, %{data: %{"id" => ap_id}}) do
+    Map.put_new(params, "actor", ap_id)
+  end
 
-  @doc """
-  Ensures the nested object has an ID per C2S spec:
-  "For non-transient objects, the server MUST attach an id to both the wrapping Create and its wrapped Object."
-  """
+  defp ensure_actor(params, %{"id" => ap_id}) do
+    Map.put_new(params, "actor", ap_id)
+  end
+
+  # Ensure nested object has attributedTo set to the activity actor
+  defp ensure_attributed_to(%{"type" => "Create", "object" => object, "actor" => actor} = params)
+       when is_map(object) and is_binary(actor) do
+    # for Create we override attributedTo to match actor
+    Map.update!(params, "object", &Map.put(&1, "attributedTo", actor))
+  end
+
+  defp ensure_attributed_to(params), do: params
+
+  # Per spec: servers MUST ignore client-provided IDs and generate new ones
+  defp ensure_ids(params) do
+    params
+    |> Map.put("id", Utils.generate_object_id())
+    |> ensure_object_id()
+  end
+
   defp ensure_object_id(%{"type" => "Create", "object" => object} = params) when is_map(object) do
-    Map.put(params, "object", maybe_put_id(object))
+    Map.update!(params, "object", fn obj ->
+      obj
+      |> Map.put("id", Utils.generate_object_id())
+    end)
   end
 
   defp ensure_object_id(params), do: params
 
-  defp maybe_put_id(map, key \\ "id") do
-    case Map.get(map, key) do
-      nil -> Map.put(map, key, Utils.generate_object_id())
-      _existing -> map
-    end
+  @doc """
+  Per spec: copy addressing between activity and nested object bidirectionally.
+  Uses put_new so existing values are preserved.
+  """
+  defp copy_addressing(%{"type" => "Create", "object" => object} = params) when is_map(object) do
+    # Build merged addressing (activity values take precedence, then object values)
+    merged =
+      @addressing_fields
+      |> Enum.map(fn field -> {field, params[field] || object[field]} end)
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+
+    params
+    |> Map.merge(merged)
+    |> Map.update!("object", &Map.merge(&1, merged))
   end
+
+  defp copy_addressing(params), do: params
 
   @doc """
   Wraps a bare object (like a Note) in a Create activity if needed.
@@ -70,15 +99,8 @@ defmodule ActivityPub.C2S do
              not ActivityPub.Config.is_in(type, :supported_intransitive_types) do
     %{
       "type" => "Create",
-      "actor" => params["actor"] || params["attributedTo"],
-      "to" => params["to"],
-      "cc" => params["cc"],
-      "bto" => params["bto"],
-      "bcc" => params["bcc"],
       "object" => params
     }
-    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-    |> Map.new()
   end
 
   def maybe_wrap_object_in_create(params), do: params
@@ -87,11 +109,24 @@ defmodule ActivityPub.C2S do
     # Route through the standard incoming activity handler with local: true
     # This reuses all existing activity handling logic
     with {:ok, %{local: true} = activity} <-
-           Transformer.handle_incoming(params, local: true, current_actor: current_actor) do
+           Transformer.handle_incoming(params,
+             local: true,
+             from_c2s: true,
+             current_actor: current_actor
+           ) do
       {:ok, activity}
     else
       {:ok, %{local: false} = activity} ->
         err(activity, "C2S activity was not marked as local")
+
+      {:error, :not_deleted} ->
+        {:error, :unauthorized}
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, :unauthorized} ->
+        {:error, :unauthorized}
 
       e ->
         err(e, "C2S activity processing failed")

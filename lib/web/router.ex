@@ -113,6 +113,7 @@ defmodule ActivityPub.Web.Router do
 
         # proxy for c2s to get remote objects
         post("/proxy_remote_object", ProxyRemoteObjectController, :proxy)
+        get("/proxy_remote_object", ProxyRemoteObjectController, :proxy)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

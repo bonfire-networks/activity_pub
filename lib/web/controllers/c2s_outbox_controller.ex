@@ -53,6 +53,12 @@ defmodule ActivityPub.Web.C2SOutboxController do
         })
         |> halt()
 
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Object not found"})
+        |> halt()
+
       {:error, :invalid_activity} ->
         conn
         |> put_status(:unprocessable_entity)

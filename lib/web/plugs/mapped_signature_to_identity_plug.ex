@@ -47,7 +47,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   # already authorized somehow? but we need an Actor and not just a user
   def call(%{assigns: %{current_user: %{id: pointer_id}}} = conn, _opts) do
     with {:ok, %Actor{} = actor} <- Actor.get_cached(pointer: pointer_id) do
-      flood(actor, "found current_actor from current_user #{pointer_id}")
+      debug(actor, "found current_actor from current_user #{pointer_id}")
 
       conn
       |> assign(:current_actor, actor)

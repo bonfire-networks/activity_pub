@@ -129,20 +129,29 @@ defmodule ActivityPub.Federator.Adapter do
     adapter().get_redirect_url(id_or_username_or_object)
   end
 
-  def maybe_handle_activity(%Object{local: false} = activity) do
+  def maybe_handle_activity(activity, opts \\ [])
+
+  def maybe_handle_activity(%Object{local: false} = activity, _opts) do
+    # remote activities should always go to adapter
     handle_activity(activity)
   end
 
-  def maybe_handle_activity(%{data: %{"type" => verb}} = activity) when verb in ["Move"] do
+  def maybe_handle_activity(%{data: %{"type" => verb}} = activity, _opts) when verb in ["Move"] do
     debug(verb, "looks like a local activity which we handle as incoming anyway")
     handle_activity(activity)
   end
 
-  def maybe_handle_activity(%Object{local: true} = activity) do
-    {:ok, :local}
+  def maybe_handle_activity(%Object{local: true} = activity, opts) do
+    if opts[:from_c2s] do
+      # C2S activities should go to adapter
+      handle_activity(activity)
+    else
+      # Regular local activities skip adapter (they originated from there)
+      {:ok, :local}
+    end
   end
 
-  def maybe_handle_activity(activity) do
+  def maybe_handle_activity(activity, _opts) do
     error(activity, "unrecognized activity structure")
   end
 

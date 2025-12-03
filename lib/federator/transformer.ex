@@ -915,7 +915,7 @@ defmodule ActivityPub.Federator.Transformer do
         }
       }
 
-      ActivityPub.flag(params)
+      ActivityPub.flag(params, opts)
     end
   end
 
@@ -979,7 +979,7 @@ defmodule ActivityPub.Federator.Transformer do
     }
 
     with nil <- Object.get_activity_for_object_ap_id(object) do
-      ActivityPub.create(params)
+      ActivityPub.create(params, opts)
     else
       %{data: %{"type" => "Tombstone"}} = _activity ->
         debug("do not save Tombstone in adapter")
@@ -994,7 +994,8 @@ defmodule ActivityPub.Federator.Transformer do
 
         with {:ok, adapter_object} <-
                Adapter.maybe_handle_activity(
-                 Map.put(activity, :data, Map.merge(activity.data, %{"object" => object}))
+                 Map.put(activity, :data, Map.merge(activity.data, %{"object" => object})),
+                 opts
                ) do
           {:ok, Map.put(activity, :pointer, adapter_object)}
         end
@@ -1020,12 +1021,15 @@ defmodule ActivityPub.Federator.Transformer do
 
     with {:ok, follower} <- Actor.get_cached_or_fetch(ap_id: follower) |> debug("follower"),
          {:ok, followed} <- Actor.get_cached(ap_id: followed) |> debug("followed") do
-      ActivityPub.follow(%{
-        actor: follower,
-        object: followed,
-        activity_id: data["id"],
-        local: local?(opts)
-      })
+      ActivityPub.follow(
+        %{
+          actor: follower,
+          object: followed,
+          activity_id: data["id"],
+          local: local?(opts)
+        },
+        opts
+      )
     end
   end
 
@@ -1043,15 +1047,21 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug("followed"),
          {:ok, follow_activity} <-
            Object.get_follow_activity(follow_object, followed) |> debug("follow_activity") do
-      ActivityPub.accept(%{
-        activity_id: data["id"],
-        to: follow_activity.data["to"],
-        type: type,
-        actor: followed,
-        object: follow_activity,
-        result: debug(data["result"], "incoming accept result"),
-        local: local?(opts)
-      })
+      # Get follower from follow activity to use as default recipient
+      follower_id = follow_activity.data["actor"]
+
+      ActivityPub.accept(
+        %{
+          activity_id: data["id"],
+          to: data["to"] || follow_activity.data["to"] || List.wrap(follower_id),
+          type: type,
+          actor: followed,
+          object: follow_activity,
+          result: debug(data["result"], "incoming accept result"),
+          local: local?(opts)
+        },
+        opts
+      )
       |> debug("accept result")
     else
       e ->
@@ -1073,14 +1083,20 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug("followed"),
          {:ok, follow_activity} <-
            Object.get_follow_activity(follow_object, followed) |> debug("follow_activity") do
-      ActivityPub.reject(%{
-        activity_id: data["id"],
-        to: follow_activity.data["to"],
-        type: type,
-        actor: followed,
-        object: follow_activity.data["id"],
-        local: local?(opts)
-      })
+      # Get follower from follow activity to use as default recipient
+      follower_id = follow_activity.data["actor"]
+
+      ActivityPub.reject(
+        %{
+          activity_id: data["id"],
+          to: data["to"] || follow_activity.data["to"] || List.wrap(follower_id),
+          type: type,
+          actor: followed,
+          object: follow_activity.data["id"],
+          local: local?(opts)
+        },
+        opts
+      )
       |> debug("reject result")
     else
       e ->
@@ -1102,12 +1118,15 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.like(%{
-             actor: actor,
-             object: object,
-             activity_id: data["id"],
-             local: local?(opts)
-           }) do
+           ActivityPub.like(
+             %{
+               actor: actor,
+               object: object,
+               activity_id: data["id"],
+               local: local?(opts)
+             },
+             opts
+           ) do
       {:ok, activity}
     else
       e -> error(e)
@@ -1129,13 +1148,16 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          public <- Utils.public?(data, object),
          {:ok, activity} <-
-           ActivityPub.announce(%{
-             activity_id: data["id"],
-             actor: actor,
-             object: object,
-             local: local?(opts),
-             public: public
-           }) do
+           ActivityPub.announce(
+             %{
+               activity_id: data["id"],
+               actor: actor,
+               object: object,
+               local: local?(opts),
+               public: public
+             },
+             opts
+           ) do
       {:ok, activity}
     else
       e -> error(e)
@@ -1169,40 +1191,58 @@ defmodule ActivityPub.Federator.Transformer do
       #   cc: data["cc"] || [],
       #   object: actor.data, # NOTE: we use the data from update_actor which was re-fetched from the source
       #   actor: actor
-      # })
+      # }, opts)
       {:ok, actor}
     else
+      {:error, e} ->
+        error(e)
+
       e ->
-        error(e, "could not update")
+        error(e, "Could not update actor")
     end
   end
 
   def handle_incoming(
         %{
           "type" => "Update",
-          "object" => %{"type" => _object_type} = object,
+          "object" => %{"id" => object_id} = object,
           "actor" => actor
         } = data,
         opts
       ) do
     info("Handle incoming update of an Object")
 
-    with {:ok, actor} <- Actor.get_cached(ap_id: actor) do
-      #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
-      #  {:ok, _} <- Actor.set_cache(actor) do
-      ActivityPub.update(%{
-        local: local?(opts),
-        to: data["to"] || [],
-        cc: data["cc"] || [],
-        object: object,
-        actor: actor
-      })
+    with {:ok, actor} <- Actor.get_cached(ap_id: actor),
+         {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
+         true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized} do
+      ActivityPub.update(
+        %{
+          local: local?(opts),
+          to: data["to"] || [],
+          cc: data["cc"] || [],
+          object: object,
+          actor: actor
+        },
+        opts
+      )
     else
       {:error, :not_found} ->
-        handle_activity_with_pruned_object(data, "Update", opts)
+        if local?(opts) do
+          # C2S: object must exist to update it
+          {:error, :not_found}
+        else
+          # S2S: pass to adapter in case it was pruned from AP db
+          handle_activity_with_pruned_object(data, "Update", opts)
+        end
+
+      {:error, :unauthorized} ->
+        {:error, :unauthorized}
+
+      {:error, e} ->
+        error(e)
 
       e ->
-        error(e, "could not update")
+        error(e, "Could not update object")
     end
   end
 
@@ -1221,13 +1261,16 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, instrument} <- object_normalize_and_maybe_fetch(data["instrument"]),
          {:ok, activity} <-
-           ActivityPub.quote_request(%{
-             actor: actor,
-             object: object,
-             instrument: instrument,
-             activity_id: data["id"],
-             local: local?(opts)
-           })
+           ActivityPub.quote_request(
+             %{
+               actor: actor,
+               object: object,
+               instrument: instrument,
+               activity_id: data["id"],
+               local: local?(opts)
+             },
+             opts
+           )
            |> debug("processed/saved incoming quote request") do
       {:ok, activity}
     else
@@ -1245,30 +1288,57 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming block")
 
-    local? = local?(opts)
-
-    # TODO: adapt the pattern matching based on local? 
-
-    with %{local: true} = blocked <-
-           Actor.get_cached!(ap_id: blocked) || error(blocker, "Could not find actor to block"),
-         {:ok, %{local: false} = blocker} <- Actor.get_cached_or_fetch(ap_id: blocker),
-         {:ok, activity} <-
-           ActivityPub.block(%{
-             actor: blocker,
-             object: blocked,
-             activity_id: data["id"],
-             local: local?
-           }) do
-      {:ok, activity}
+    if local?(opts) do
+      # C2S: Local user is blocking someone
+      # - Blocker must be a local actor (already authenticated)
+      # - Blocked can be anyone (local or remote)
+      handle_local_block(data, blocker, blocked, opts)
     else
-      {:ok, %{local: false} = blocked} ->
-        error(blocked, "Not accepting incoming Block of a remote user")
+      # S2S: Remote user is blocking our local user
+      # - Blocker must be remote (we received this from federation)
+      # - Blocked must be local (otherwise why tell us?)
+      handle_remote_block(data, blocker, blocked, opts)
+    end
+  end
 
-      {:ok, %{local: true} = blocker} ->
-        error(blocker, "Not accepting incoming Block from local user")
+  defp handle_local_block(data, blocker, blocked, opts) do
+    with {:ok, %{local: true} = blocker_actor} <- Actor.get_cached(ap_id: blocker),
+         {:ok, blocked_actor} <- Actor.get_cached_or_fetch(ap_id: blocked) do
+      ActivityPub.block(
+        %{
+          actor: blocker_actor,
+          object: blocked_actor,
+          activity_id: data["id"],
+          local: true
+        },
+        opts
+      )
+    else
+      e -> error(e, "Could not process C2S block")
+    end
+  end
+
+  defp handle_remote_block(data, blocker, blocked, opts) do
+    with {:ok, %{local: true} = blocked_actor} <- Actor.get_cached(ap_id: blocked),
+         {:ok, %{local: false} = blocker_actor} <- Actor.get_cached_or_fetch(ap_id: blocker) do
+      ActivityPub.block(
+        %{
+          actor: blocker_actor,
+          object: blocked_actor,
+          activity_id: data["id"],
+          local: false
+        },
+        opts
+      )
+    else
+      {:ok, %{local: false}} ->
+        error("S2S Block rejected: blocked user is not local")
+
+      {:ok, %{local: true}} ->
+        error("S2S Block rejected: blocker should not be local")
 
       e ->
-        error(e, "Error while trying to handle incoming block")
+        error(e, "Could not process S2S block")
     end
   end
 
@@ -1284,6 +1354,69 @@ defmodule ActivityPub.Federator.Transformer do
 
     object_id = Object.get_ap_id(object)
 
+    if local?(opts) do
+      # C2S: Local user is deleting their own object
+      # Skip remote verification - we trust the authenticated local user
+      handle_local_delete(data, object_id, opts)
+    else
+      # S2S: Remote user sent us a Delete activity
+      # Verify the object is actually deleted at the source
+      handle_remote_delete(data, object, object_id, opts)
+    end
+  end
+
+  defp handle_local_delete(data, object_id, opts) do
+    # For C2S deletes, verify the actor owns the object
+    actor_id = Object.actor_from_data(data)
+
+    with {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
+         true <- can_delete?(cached_object, actor_id, opts) || {:error, :unauthorized},
+         {:ok, activity} <- ActivityPub.delete(cached_object, true, opts) do
+      {:ok, activity}
+    else
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, :unauthorized} ->
+        {:error, :not_deleted}
+
+      e ->
+        error(e, "Could not process C2S delete")
+    end
+  end
+
+  # Check if the actor can delete the object
+  defp can_delete?(object, actor, opts) do
+    actor_owns_object?(object, actor) or
+      Adapter.call_or(:can_delete?, [opts[:current_actor] || actor, object], false)
+  end
+
+  defp can_delete?(_, _, _), do: false
+
+  # Check if the actor can update the object
+  defp can_update?(object, actor, opts) do
+    actor_owns_object?(object, actor) or
+      Adapter.call_or(:can_update?, [opts[:current_actor] || actor, object], false)
+  end
+
+  defp can_update?(_, _, _), do: false
+
+  # Shared helper: check if actor owns the object
+  defp actor_owns_object?(%Object{data: obj_data}, actor), do: actor_owns_object?(obj_data, actor)
+
+  defp actor_owns_object?(obj_data, %{ap_id: actor_id}),
+    do: actor_owns_object?(obj_data, actor_id)
+
+  defp actor_owns_object?(obj_data, %{"id" => actor_id}),
+    do: actor_owns_object?(obj_data, actor_id)
+
+  defp actor_owns_object?(%{} = obj_data, actor_id) do
+    Object.actor_id_from_data(obj_data) == actor_id
+  end
+
+  defp actor_owns_object?(_, _), do: false
+
+  defp handle_remote_delete(data, object, object_id, opts) do
     with {:ok, cached_object} <- Object.get_cached(ap_id: object_id) |> debug("re-fetched"),
          #  {:actor, false} <- {:actor, Actor.actor?(cached_object) || Actor.actor?(object)},
          {:ok, verified_data} <-
@@ -1292,7 +1425,7 @@ defmodule ActivityPub.Federator.Transformer do
          {:actor, false} <-
            {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
          {:ok, activity} <-
-           ActivityPub.delete(verified_object || object_id, false) |> debug("deleted!!") do
+           ActivityPub.delete(verified_object || object_id, false, opts) |> debug("deleted!!") do
       {:ok, activity}
     else
       {:error, :not_found} ->
@@ -1307,7 +1440,7 @@ defmodule ActivityPub.Federator.Transformer do
           # actor isn't the deleted object so we need to disable it.
           # {:ok, %Actor{data: %{"id" => ^actor}} = actor} ->
           {:ok, %Actor{} = actor} ->
-            ActivityPub.delete(actor, false)
+            ActivityPub.delete(actor, false, opts)
 
           {:error, :not_found} ->
             handle_activity_with_pruned_object(data, "Delete", opts)
@@ -1317,7 +1450,11 @@ defmodule ActivityPub.Federator.Transformer do
         end
 
       {:error, :not_deleted} ->
-        error("Could not verify incoming deletion")
+        if opts[:local] do
+          {:error, :not_deleted}
+        else
+          error("Could not verify incoming deletion")
+        end
 
       {:error, e} ->
         error(e)
@@ -1341,12 +1478,15 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_cached(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.unannounce(%{
-             actor: actor,
-             object: object,
-             activity_id: data["id"],
-             local: local?(opts)
-           }) do
+           ActivityPub.unannounce(
+             %{
+               actor: actor,
+               object: object,
+               activity_id: data["id"],
+               local: local?(opts)
+             },
+             opts
+           ) do
       {:ok, activity}
     else
       e -> error(e)
@@ -1367,12 +1507,15 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, actor} <- Actor.get_cached(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
          {:ok, activity} <-
-           ActivityPub.unlike(%{
-             actor: actor,
-             object: object,
-             activity_id: data["id"],
-             local: local?(opts)
-           }) do
+           ActivityPub.unlike(
+             %{
+               actor: actor,
+               object: object,
+               activity_id: data["id"],
+               local: local?(opts)
+             },
+             opts
+           ) do
       {:ok, activity}
     else
       e -> error(e)
@@ -1391,12 +1534,15 @@ defmodule ActivityPub.Federator.Transformer do
 
     with {:ok, follower} <- Actor.get_cached(ap_id: follower),
          {:ok, followed} <- Actor.get_cached(ap_id: followed) do
-      ActivityPub.unfollow(%{
-        actor: follower,
-        object: followed,
-        activity_id: data["id"],
-        local: local?(opts)
-      })
+      ActivityPub.unfollow(
+        %{
+          actor: follower,
+          object: followed,
+          activity_id: data["id"],
+          local: local?(opts)
+        },
+        opts
+      )
     else
       e -> error(e)
     end
@@ -1416,12 +1562,15 @@ defmodule ActivityPub.Federator.Transformer do
            Actor.get_cached(ap_id: blocked),
          {:ok, blocker} <- Actor.get_cached(ap_id: blocker),
          {:ok, activity} <-
-           ActivityPub.unblock(%{
-             actor: blocker,
-             object: blocked,
-             activity_id: data["id"],
-             local: local?(opts)
-           }) do
+           ActivityPub.unblock(
+             %{
+               actor: blocker,
+               object: blocked,
+               activity_id: data["id"],
+               local: local?(opts)
+             },
+             opts
+           ) do
       {:ok, activity}
     else
       e -> error(e)
@@ -1439,7 +1588,7 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     with {:ok, %{} = origin_user} <- Actor.get_cached(ap_id: origin_actor),
          {:ok, %{} = target_user} <- Actor.get_cached_or_fetch(ap_id: target_actor) do
-      ActivityPub.move(origin_user, target_user, local?(opts))
+      ActivityPub.move(origin_user, target_user, local?(opts), opts)
     else
       e -> error(e)
     end
@@ -1532,7 +1681,7 @@ defmodule ActivityPub.Federator.Transformer do
              Application.get_env(:activity_pub, :instance, %{}) |> Map.new(),
              :handle_unknown_activities
            ) || {:ok, activity},
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     end
@@ -1556,6 +1705,6 @@ defmodule ActivityPub.Federator.Transformer do
       "Object is not cached in AP db - still pass to adapter in case it was pruned from AP db for #{activity_type}"
     )
 
-    Adapter.maybe_handle_activity(%Object{data: data, local: local?(opts), public: true})
+    Adapter.maybe_handle_activity(%Object{data: data, local: local?(opts), public: true}, opts)
   end
 end

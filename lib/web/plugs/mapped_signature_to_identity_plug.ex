@@ -15,18 +15,45 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
   def init(options), do: options
 
-  def call(%{assigns: %{current_actor: %Actor{}}} = conn, _opts), do: conn
+  def call(%{assigns: %{current_actor: %Actor{}, current_user: %{id: _}}} = conn, _opts), do: conn
 
+  def call(
+        %{assigns: %{current_actor: %Actor{pointer: %{id: _} = pointer} = _actor}} = conn,
+        _opts
+      ) do
+    flood(pointer, "deriving current_user from current_actor")
+
+    conn
+    |> assign(:current_user, pointer)
+  end
+
+  # already authorized somehow? current_actor is set but current_user is not, so derive current_user from actor's pointer
+  def call(%{assigns: %{current_actor: %Actor{pointer_id: pointer_id} = actor}} = conn, _opts) do
+    case Adapter.get_actor_by_id(pointer_id) do
+      {:ok, %Actor{pointer: pointer}} when not is_nil(pointer) ->
+        flood(actor, "deriving current_user from current_actor")
+
+        conn
+        |> assign(:current_user, pointer)
+
+      _ ->
+        flood(actor, "could not derive current_user from current_actor, continuing without")
+
+        conn
+        |> assign(:valid_signature, false)
+    end
+  end
+
+  # already authorized somehow? but we need an Actor and not just a user
   def call(%{assigns: %{current_user: %{id: pointer_id}}} = conn, _opts) do
-    # already authorized somehow? but we need an Actor rather than a user
     with {:ok, %Actor{} = actor} <- Actor.get_cached(pointer: pointer_id) do
-      debug(actor, "found current_actor from current_user #{pointer_id}")
+      flood(actor, "found current_actor from current_user #{pointer_id}")
 
       conn
       |> assign(:current_actor, actor)
     else
       other ->
-        info(other, "Failed to find current Actor based on current_user")
+        flood(other, "Failed to find current Actor based on current_user")
 
         conn
         |> assign(:valid_signature, false)
@@ -35,6 +62,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
   # if this has a POST payload make sure it is signed by the same actor that made it
   def call(%{assigns: %{valid_signature: true}, params: %{"actor" => actor}} = conn, _opts) do
+    flood(actor, "verifying signature identity for payload actor")
     key_id = key_id_from_conn(conn)
 
     with actor_id <- Object.get_ap_id(actor),
@@ -45,7 +73,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       {:actor_match, false} ->
-        info("Failed to map identity from signature (payload actor mismatch)")
+        flood("Failed to map identity from signature (payload actor mismatch)")
         debug("key_id=#{inspect(key_id)}, actor=#{inspect(actor)}")
 
         conn
@@ -53,21 +81,21 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
       # remove me once testsuite uses mapped capabilities instead of what we do now
       {:actor, nil} ->
-        info("Failed to map identity from signature (lookup failure)")
+        flood("Failed to map identity from signature (lookup failure)")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
         |> assign(:valid_signature, false)
 
       {:federate, false} ->
-        info("Identity from signature is instance blocked")
+        flood("Identity from signature is instance blocked")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
         |> assign(:valid_signature, nil)
 
       other ->
-        info(other, "Failed to verify signature identity (no pattern matched)")
+        flood(other, "Failed to verify signature identity (no pattern matched)")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
@@ -85,21 +113,21 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       {:federate, false} ->
-        info("Identity from signature is instance blocked")
+        flood("Identity from signature is instance blocked")
         debug("key_id=#{inspect(key_id)}")
 
         conn
         |> assign(:valid_signature, nil)
 
       nil ->
-        info("Failed to map identity from signature (lookup failure)")
+        flood("Failed to map identity from signature (lookup failure)")
         debug("key_id=#{inspect(key_id)}")
 
         conn
         |> assign(:valid_signature, false)
 
       other ->
-        info(other, "Failed to verify signature identity (no pattern matched)")
+        flood(other, "Failed to verify signature identity (no pattern matched)")
         debug("key_id=#{inspect(key_id)}")
 
         conn

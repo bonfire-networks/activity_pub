@@ -989,7 +989,7 @@ defmodule ActivityPub.Federator.Transformer do
       %Object{pointer_id: nil} = activity ->
         debug(
           activity,
-          "a Create for this Object already exists, but not in the Adapter, try again"
+          "a Create for this Object already exists, but not in the Adapter, so pass it there now"
         )
 
         with {:ok, adapter_object} <-

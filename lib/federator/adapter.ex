@@ -56,7 +56,7 @@ defmodule ActivityPub.Federator.Adapter do
   @doc """
   Fetch an `Actor` by its ID in the host application database.
   """
-  @callback get_actor_by_id(Actor.id()) :: {:ok, Actor.t()} | {:error, any()}
+  @callback get_actor_by_id(String.t()) :: {:ok, Actor.t()} | {:error, any()}
   def get_actor_by_id(id) do
     validate_actor(adapter().get_actor_by_id(id))
   end

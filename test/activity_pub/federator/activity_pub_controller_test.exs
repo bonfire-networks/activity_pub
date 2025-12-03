@@ -145,7 +145,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
           assert response =
                    conn
-                   |> assign(:user, reader)
+                   |> assign(:current_user, reader)
                    |> put_req_header("accept", "application/activity+json")
                    |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
 
@@ -210,7 +210,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
     #   assert response =
     #            conn
-    #            |> assign(:user, reader)
+    #            |> assign(:current_user, reader)
     #            |> put_req_header("accept", "application/activity+json")
     #            |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
 
@@ -248,7 +248,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       marisa = local_actor()
 
       assert conn
-             |> assign(:user, marisa)
+             |> assign(:current_user, marisa)
              |> put_req_header("accept", "application/activity+json")
              |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
              |> json_response(404)
@@ -401,7 +401,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       uuid = String.split(note.data["id"], "/") |> List.last()
 
       assert conn
-             |> assign(:user, user_by_ap_id(third_party))
+             |> assign(:current_user, user_by_ap_id(third_party))
              |> put_req_header("accept", "application/activity+json")
              |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
              |> json_response(404)
@@ -769,7 +769,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
     #   resp =
     #     conn
-    #     |> assign(:user, reader)
+    #     |> assign(:current_user, reader)
     #     |> put_req_header("accept", "application/activity+json")
     #     |> get("#{Utils.ap_base_url()}/actors/#{user |> nickname()}/outbox?page=true")
     #     |> json_response(200)
@@ -844,7 +844,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
       assert outbox_get =
                conn
-               |> assign(:user, voter)
+               |> assign(:current_user, voter)
                |> put_req_header("accept", "application/activity+json")
                |> get(ap_id(voter) <> "/outbox?page=true")
                |> json_response(200)
@@ -862,7 +862,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
       result =
         conn
-        |> assign(:user, user_two)
+        |> assign(:current_user, user_two)
         |> get("#{Utils.ap_base_url()}/actors/#{user_two |> nickname()}/followers")
         |> json_response(200)
 

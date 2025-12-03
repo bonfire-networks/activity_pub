@@ -21,50 +21,6 @@ defmodule ActivityPub do
   # alias ActivityPub.MRF
 
   @doc """
-  Enqueues an activity for federation if it's local
-  """
-  defp maybe_federate(actor, object, opts \\ [])
-
-  defp maybe_federate(actor, %Object{local: true} = activity, opts) do
-    # debug(opts, "maybe_federate oopts")
-
-    # TODO? do we need to check if actor has federation enabled here or do we rely on the adapter having already checked?
-    if Config.federating?() do
-      with {:ok, job} <-
-             ActivityPub.Federator.publish(activity, opts |> Keyword.put(:actor, actor)) do
-        if job.state == "completed" do
-          info(
-            job,
-            "ActivityPub outgoing federation has been completed"
-          )
-        else
-          info(
-            job,
-            "ActivityPub outgoing federation has been queued"
-          )
-        end
-
-        :ok
-      end
-    else
-      warn(
-        "ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)"
-      )
-
-      :ok
-    end
-  end
-
-  defp maybe_federate(_actor, object, _) do
-    debug(
-      object,
-      "Skip outgoing federation of non-local object"
-    )
-
-    :ok
-  end
-
-  @doc """
   Generates and federates a Create activity via the data passed through `params`.
   """
   @spec create(%{
@@ -1066,6 +1022,50 @@ defmodule ActivityPub do
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
+  end
+
+  @doc """
+  Enqueues an activity for federation if it's local
+  """
+  defp maybe_federate(actor, object, opts \\ [])
+
+  defp maybe_federate(actor, %Object{local: true} = activity, opts) do
+    # debug(opts, "maybe_federate oopts")
+
+    # TODO? do we need to check if actor has federation enabled here or do we rely on the adapter having already checked?
+    if Config.federating?() do
+      with {:ok, job} <-
+             ActivityPub.Federator.publish(activity, opts |> Keyword.put(:actor, actor)) do
+        if job.state == "completed" do
+          info(
+            job,
+            "ActivityPub outgoing federation has been completed"
+          )
+        else
+          info(
+            job,
+            "ActivityPub outgoing federation has been queued"
+          )
+        end
+
+        :ok
+      end
+    else
+      warn(
+        "ActivityPub outgoing federation is disabled, skipping (change `:activity_pub, :instance, :federating` to `true` in config to enable)"
+      )
+
+      :ok
+    end
+  end
+
+  defp maybe_federate(_actor, object, _) do
+    debug(
+      object,
+      "Skip outgoing federation of non-local object"
+    )
+
+    :ok
   end
 
   #  TODO: put somewhere better

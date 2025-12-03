@@ -26,7 +26,13 @@ defmodule ActivityPub.Web.C2SOutboxController do
       # |> put_resp_header("location", get_activity_url(object))
       |> json(data)
     else
-      false ->
+      {:error, :unauthorized} ->
+        conn
+        |> put_status(:forbidden)
+        |> json(%{error: "Please sign in to perform this action"})
+        |> halt()
+
+      {:error, :actor_mismatch} ->
         debug("Actor does not match authenticated user")
 
         conn

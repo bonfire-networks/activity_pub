@@ -7,6 +7,7 @@ defmodule ActivityPub.C2S do
   """
 
   use Untangle
+  use Arrows
 
   @doc """
   Handles POST requests to /actors/:username/outbox for C2S API.
@@ -15,47 +16,78 @@ defmodule ActivityPub.C2S do
   activity, and delegates to appropriate Bonfire modules.
   """
   def handle_c2s_activity(conn, %{"username" => username} = params) do
-    with true <- validate_actor_match?(conn.assigns[:current_actor], username),
-         current_user when not is_nil(current_user) <- conn.assigns[:current_user] do
-      do_handle_c2s_activity(current_user, params)
+    current_actor = conn.assigns[:current_actor]
+    current_user = conn.assigns[:current_user]
+
+    with true <- validate_actor_match?(current_actor, username) || {:error, :actor_mismatch},
+         true <- not is_nil(current_user) || {:error, :unauthorized} do
+      do_handle_c2s_activity(current_user, current_actor, params)
     end
   end
 
-  def do_handle_c2s_activity(current_user, params) do
+  def do_handle_c2s_activity(current_user, current_actor, params) do
+    # Ensure actor is set from the authenticated actor
+    params = ensure_actor(params, current_actor)
+
     with {:ok, activity_type, formatted_attrs} <-
            format_activity(params, current_user),
          {:ok, result} <-
            dispatch_activity(activity_type, formatted_attrs, current_user, params) do
       {:ok, result}
+    else
+      {:error, reason} ->
+        error(reason)
+
+      reason ->
+        err(reason, "failed to handle C2S activity")
     end
   end
 
+  defp ensure_actor(params, current_actor) do
+    case Map.get(params, "actor") do
+      nil ->
+        Map.put(params, "actor", current_actor.ap_id)
+
+      _existing ->
+        params
+    end
+  end
+
+  defp validate_actor_match?(%{username: actor_username}, username) when is_binary(username) do
+    actor_username == username
+  end
+
+  defp validate_actor_match?(_, _) do
+    false
+  end
+
   ############################################################################
-  # TODO: remove or move the following to adapter 
+  # TODO: remove/refactor or move the following to adapter 
 
   def validate_authorized_scopes(conn, required_scopes) do
     required_scopes = required_scopes |> List.wrap()
 
+    # TODO: should not call Bonfire modules here
     Enum.empty?(required_scopes) or
       Bonfire.OpenID.Plugs.Authorize.authorized_scopes?(conn, required_scopes)
   end
 
-  def validate_actor_match?(%{username: actor_username}, username) when is_binary(username) do
-    actor_username == username
-  end
-
-  def validate_actor_match?(_, _) do
-    false
-  end
+  # TODO: dispatch_activity should instead dispatch to ActivityPub.Federator.Transformer.handle_incoming(attrs, local: true, current_actor: current_actor, current_user: current_user)
 
   def dispatch_activity("Create", attrs, user, _params) do
     # Only Create activities with a prepared post_content (i.e., Notes) are mapped to posts
     if Map.has_key?(attrs, :post_content) do
-      Bonfire.Posts.publish(
-        current_user: user,
-        post_attrs: attrs,
-        boundary: "public"
-      )
+      with {:ok, result} <-
+             Bonfire.Posts.publish(
+               current_user: user,
+               post_attrs: attrs,
+               boundary: "public"
+             ) do
+        return_json(result)
+      else
+        e ->
+          err(e, "failed to publish post from C2S Create activity")
+      end
     else
       dispatch_activity(nil, attrs, user, %{})
     end
@@ -70,12 +102,29 @@ defmodule ActivityPub.C2S do
         {:ok, _apactivity} ->
           {:ok, object}
 
-        {:error, _reason} ->
+        e ->
+          err(e, "failed to create APActivity for received C2S activity")
           # Still return success if ap_object was created
           {:ok, object}
       end
+    else
+      e ->
+        err(e, "failed to store C2S activity as ap_object")
+    end
+    |> return_json()
+  end
+
+  defp return_json({:ok, object}), do: return_json(object)
+
+  defp return_json(%{} = object) do
+    case object do
+      %{activity: %{federate_activity_pub: object}} -> {:ok, object}
+      %{federate_activity_pub: object} -> {:ok, object}
+      _ -> {:ok, object}
     end
   end
+
+  defp return_json(other), do: other
 
   @doc """
   Formats an ActivityPub activity for processing by Bonfire modules.
@@ -100,7 +149,7 @@ defmodule ActivityPub.C2S do
         format_generic_activity(type, params, current_user)
 
       _ ->
-        {:error, "Invalid activity type"}
+        {:error, :unsupported_activity}
     end
   end
 

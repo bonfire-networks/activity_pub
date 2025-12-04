@@ -26,4 +26,29 @@ defmodule ActivityPub.Web.WebFingerController do
         |> json(msg)
     end
   end
+
+  def webfinger(conn, _params) do
+    conn
+    |> put_status(400)
+    |> json(%{"error" => "Missing required parameter: resource"})
+  end
+
+  @doc """
+  Returns a compliant host-meta response per RFC 6415.
+  This enables WebFinger discovery by providing the template URL.
+  """
+  def host_meta(conn, _params) do
+    base_url = ActivityPub.Web.base_url()
+
+    xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
+      <Link rel="lrdd" template="#{base_url}/.well-known/webfinger?resource={uri}"/>
+    </XRD>
+    """
+
+    conn
+    |> put_resp_content_type("application/xrd+xml")
+    |> send_resp(200, xml)
+  end
 end

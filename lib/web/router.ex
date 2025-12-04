@@ -16,6 +16,11 @@ defmodule ActivityPub.Web.Router do
         plug(:accepts, ["json", "jrd+json", "activity+json", "ld+json"])
       end
 
+      # host-meta accepts any content type since it always returns XML
+      pipeline :host_meta do
+        plug(:accepts, ~w(xml xrd+xml html json activity+json ld+json jrd+json))
+      end
+
       pipeline :activity_json do
         plug(:accepts, ["json", "activity+json", "ld+json"])
       end
@@ -40,6 +45,12 @@ defmodule ActivityPub.Web.Router do
         pipe_through(:webfinger)
 
         get("/webfinger", WebFingerController, :webfinger)
+      end
+
+      scope "/.well-known", ActivityPub.Web do
+        pipe_through(:host_meta)
+
+        get("/host-meta", WebFingerController, :host_meta)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

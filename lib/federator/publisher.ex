@@ -31,7 +31,8 @@ defmodule ActivityPub.Federator.Publisher do
         "module" => to_string(module),
         "params" => params,
         "user_id" => Map.get(actor, :pointer_id) || Map.get(actor, :id)
-      }
+      },
+      PublisherWorker.maybe_schedule_worker_args(params, [])
     )
   end
 

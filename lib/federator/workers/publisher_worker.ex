@@ -53,4 +53,42 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
 
   @impl Oban.Worker
   def timeout(_job), do: :timer.minutes(5)
+
+  @doc """
+  Returns worker args with Oban's `scheduled_at` set if the activity's published date is in the future.
+
+  ## Examples
+
+      iex> now = DateTime.utc_now()
+      iex> future = DateTime.add(now, 3600, :second) |> DateTime.to_iso8601()
+      iex> params = %{"object" => %{"published" => future}}
+      iex> ActivityPub.Federator.Workers.PublisherWorker.maybe_schedule_worker_args(params, []) |> Keyword.has_key?(:scheduled_at)
+      true
+
+      iex> params = %{"published" => DateTime.utc_now() |> DateTime.to_iso8601()}
+      iex> ActivityPub.Federator.Workers.PublisherWorker.maybe_schedule_worker_args(params, [])
+      []
+  """
+  def maybe_schedule_worker_args(%{"published" => published}, worker_args)
+      when is_binary(published) do
+    with {:ok, dt, _} <- DateTime.from_iso8601(published),
+         true <- DateTime.compare(dt, DateTime.utc_now()) == :gt do
+      Keyword.put(worker_args, :scheduled_at, dt)
+    else
+      _ -> worker_args
+    end
+  end
+
+  def maybe_schedule_worker_args(%{"object" => %{"published" => published} = object}, worker_args)
+      when is_binary(published) do
+    maybe_schedule_worker_args(object, worker_args)
+  end
+
+  def maybe_schedule_worker_args(%{"activity" => %{} = activity}, worker_args) do
+    maybe_schedule_worker_args(activity, worker_args)
+  end
+
+  def maybe_schedule_worker_args(_, worker_args) do
+    worker_args
+  end
 end

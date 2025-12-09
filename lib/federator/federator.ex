@@ -12,11 +12,11 @@ defmodule ActivityPub.Federator do
 
   def publish(activity, opts \\ [])
 
-  def publish(%{id: activity_id} = activity, opts) do
+  def publish(%{id: activity_id, data: data} = activity, opts) do
     if opts[:federate_inline] do
       perform(:publish, activity, opts)
     else
-      publish(activity_id, opts)
+      publish(activity_id, opts |> Keyword.put(:activity_data, data))
     end
   end
 
@@ -27,7 +27,7 @@ defmodule ActivityPub.Federator do
       PublisherWorker.enqueue(
         "publish",
         build_actor_fields(%{"activity" => activity}, opts[:actor]),
-        opts[:worker_args]
+        PublisherWorker.maybe_schedule_worker_args(activity, opts[:worker_args] || [])
       )
     end
   end
@@ -36,7 +36,7 @@ defmodule ActivityPub.Federator do
     PublisherWorker.enqueue(
       "publish",
       build_actor_fields(%{"activity_id" => activity_id}, opts[:actor]),
-      opts[:worker_args]
+      PublisherWorker.maybe_schedule_worker_args(opts[:activity_data], opts[:worker_args] || [])
     )
   end
 

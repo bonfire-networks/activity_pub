@@ -21,7 +21,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
         %{assigns: %{current_actor: %Actor{pointer: %{id: _} = pointer} = _actor}} = conn,
         _opts
       ) do
-    flood(pointer, "deriving current_user from current_actor")
+    debug(pointer, "deriving current_user from current_actor")
 
     conn
     |> assign(:current_user, pointer)
@@ -31,13 +31,13 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   def call(%{assigns: %{current_actor: %Actor{pointer_id: pointer_id} = actor}} = conn, _opts) do
     case Adapter.get_actor_by_id(pointer_id) do
       {:ok, %Actor{pointer: pointer}} when not is_nil(pointer) ->
-        flood(actor, "deriving current_user from current_actor")
+        debug(actor, "deriving current_user from current_actor")
 
         conn
         |> assign(:current_user, pointer)
 
       _ ->
-        flood(actor, "could not derive current_user from current_actor, continuing without")
+        debug(actor, "could not derive current_user from current_actor, continuing without")
 
         conn
         |> assign(:valid_signature, false)
@@ -53,7 +53,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       other ->
-        flood(other, "Failed to find current Actor based on current_user")
+        debug(other, "Failed to find current Actor based on current_user")
 
         conn
         |> assign(:valid_signature, false)
@@ -62,7 +62,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
   # if this has a POST payload make sure it is signed by the same actor that made it
   def call(%{assigns: %{valid_signature: true}, params: %{"actor" => actor}} = conn, _opts) do
-    flood(actor, "verifying signature identity for payload actor")
+    debug(actor, "verifying signature identity for payload actor")
     key_id = key_id_from_conn(conn)
 
     with actor_id <- Object.get_ap_id(actor),
@@ -73,7 +73,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       {:actor_match, false} ->
-        flood("Failed to map identity from signature (payload actor mismatch)")
+        debug("Failed to map identity from signature (payload actor mismatch)")
         debug("key_id=#{inspect(key_id)}, actor=#{inspect(actor)}")
 
         conn
@@ -81,21 +81,21 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
       # remove me once testsuite uses mapped capabilities instead of what we do now
       {:actor, nil} ->
-        flood("Failed to map identity from signature (lookup failure)")
+        debug("Failed to map identity from signature (lookup failure)")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
         |> assign(:valid_signature, false)
 
       {:federate, false} ->
-        flood("Identity from signature is instance blocked")
+        debug("Identity from signature is instance blocked")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
         |> assign(:valid_signature, nil)
 
       other ->
-        flood(other, "Failed to verify signature identity (no pattern matched)")
+        debug(other, "Failed to verify signature identity (no pattern matched)")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
@@ -113,21 +113,21 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       {:federate, false} ->
-        flood("Identity from signature is instance blocked")
+        debug("Identity from signature is instance blocked")
         debug("key_id=#{inspect(key_id)}")
 
         conn
         |> assign(:valid_signature, nil)
 
       nil ->
-        flood("Failed to map identity from signature (lookup failure)")
+        debug("Failed to map identity from signature (lookup failure)")
         debug("key_id=#{inspect(key_id)}")
 
         conn
         |> assign(:valid_signature, false)
 
       other ->
-        flood(other, "Failed to verify signature identity (no pattern matched)")
+        debug(other, "Failed to verify signature identity (no pattern matched)")
         debug("key_id=#{inspect(key_id)}")
 
         conn

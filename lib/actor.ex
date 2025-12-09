@@ -649,12 +649,48 @@ defmodule ActivityPub.Actor do
     Object.invalidate_cache(actor)
   end
 
+  @doc """
+  Batch loads actors by pointer IDs with a single DB query.
+  Populates cache for each result to benefit future single lookups.
+  """
+  def get_cached_batch_by_pointers(pointer_ids) when is_list(pointer_ids) do
+    if pointer_ids == [] do
+      []
+    else
+      # Single batch query to DB
+      Object.get_by_pointer_ids(pointer_ids)
+      |> Enum.map(fn object ->
+        actor = format_remote_actor(object)
+        # Populate cache for future single lookups
+        set_cache(actor)
+        actor
+      end)
+    end
+  end
+
+  @doc """
+  Batch loads actors by AP IDs with a single DB query.
+  Populates cache for each result.
+  """
+  def get_cached_batch_by_ap_ids(ap_ids) when is_list(ap_ids) do
+    if ap_ids == [] do
+      []
+    else
+      Object.get_by_ap_ids(ap_ids)
+      |> Enum.map(fn object ->
+        actor = format_remote_actor(object)
+        set_cache(actor)
+        actor
+      end)
+    end
+  end
+
   def get_followings(actor, purpose_or_current_actor \\ nil) do
     followings =
       Adapter.get_following_local_ids(actor, purpose_or_current_actor)
       |> debug("following_local_ids")
       |> Enum.reject(&is_nil/1)
-      |> Enum.map(&get_cached!(pointer: &1))
+      |> get_cached_batch_by_pointers()
       |> Enum.reject(&is_nil/1)
       |> debug("got_followings")
 
@@ -665,7 +701,7 @@ defmodule ActivityPub.Actor do
     Adapter.get_follower_local_ids(actor, purpose_or_current_actor)
     |> debug("follower_local_ids")
     |> Enum.reject(&is_nil/1)
-    |> Enum.map(&get_cached!(pointer: &1))
+    |> get_cached_batch_by_pointers()
     |> Enum.reject(&is_nil/1)
     |> debug("got_followers")
   end

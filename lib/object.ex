@@ -155,6 +155,34 @@ defmodule ActivityPub.Object do
     err(opts, "Unexpected args when attempting to get an AP object")
   end
 
+  @doc """
+  Batch query objects by pointer IDs.
+  Returns list of Object structs (not {:ok, object} tuples).
+  """
+  def get_by_pointer_ids(pointer_ids) when is_list(pointer_ids) do
+    valid_ids = Enum.filter(pointer_ids, &Utils.is_ulid?/1)
+
+    if valid_ids == [] do
+      []
+    else
+      from(o in Object, where: o.pointer_id in ^valid_ids)
+      |> repo().all()
+    end
+  end
+
+  @doc """
+  Batch query objects by AP IDs (the id field in the JSONB data).
+  Returns list of Object structs.
+  """
+  def get_by_ap_ids(ap_ids) when is_list(ap_ids) do
+    if ap_ids == [] do
+      []
+    else
+      from(o in Object, where: fragment("(?)->>'id' = ANY(?)", o.data, ^ap_ids))
+      |> repo().all()
+    end
+  end
+
   def query(ap_id: ap_id) when is_binary(ap_id) do
     from(object in Object,
       # support for looking up by non-canonical URL

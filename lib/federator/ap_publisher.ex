@@ -295,7 +295,7 @@ defmodule ActivityPub.Federator.APPublisher do
     |> debug("recipients from data")
     |> List.flatten()
     |> Enum.reject(&(is_nil(&1) or Utils.has_as_public?(&1)))
-    |> Enum.map(&(Actor.get_cached!(ap_id: &1) || &1))
+    |> batch_resolve_actors()
     |> Enum.reject(fn
       %{local: true} ->
         true
@@ -312,6 +312,28 @@ defmodule ActivityPub.Federator.APPublisher do
         true
     end)
     |> debug()
+  end
+
+  # Batch resolves AP ID strings to Actor structs with a single DB query
+  # instead of N+1 queries. Keeps unresolved strings as-is.
+  defp batch_resolve_actors(items) when is_list(items) do
+    # Partition into already-resolved actors vs ap_id strings
+    {actors, ap_id_strings} = Enum.split_with(items, &is_struct(&1, Actor))
+
+    ap_id_strings = Enum.filter(ap_id_strings, &is_binary/1)
+
+    if ap_id_strings == [] do
+      actors
+    else
+      # Batch resolve ap_ids to actors
+      resolved = Actor.get_cached_batch_by_ap_ids(ap_id_strings)
+      resolved_ids = MapSet.new(resolved, & &1.ap_id)
+
+      # Keep unresolved as original strings (for external actors not in DB)
+      unresolved = Enum.reject(ap_id_strings, &MapSet.member?(resolved_ids, &1))
+
+      actors ++ resolved ++ unresolved
+    end
   end
 
   @doc """

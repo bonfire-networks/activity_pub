@@ -649,39 +649,78 @@ defmodule ActivityPub.Actor do
     Object.invalidate_cache(actor)
   end
 
-  @doc """
-  Batch loads actors by pointer IDs with a single DB query.
-  Populates cache for each result to benefit future single lookups.
-  """
-  def get_cached_batch_by_pointers(pointer_ids) when is_list(pointer_ids) do
-    if pointer_ids == [] do
-      []
+  # Partitions IDs into {cached_actors, uncached_ids}
+  # Follows pattern from bonfire_common/lib/cache/cache.ex
+  defp partition_by_cache(_key_type, []), do: {[], []}
+
+  defp partition_by_cache(key_type, ids) do
+    if Config.env() == :test do
+      # Bypass cache in test environment (consistent with cachex_fetch)
+      {[], ids}
     else
-      # Single batch query to DB
-      Object.get_by_pointer_ids(pointer_ids)
-      |> Enum.map(fn object ->
-        actor = format_remote_actor(object)
-        # Populate cache for future single lookups
-        set_cache(actor)
-        actor
+      Enum.reduce(ids, {[], []}, fn id, {cached_acc, uncached_acc} ->
+        cache_key = Utils.ap_cache_key(key_type, id)
+
+        case Cachex.get(:ap_actor_cache, cache_key) do
+          {:ok, actor} when not is_nil(actor) ->
+            {[actor | cached_acc], uncached_acc}
+
+          _ ->
+            {cached_acc, [id | uncached_acc]}
+        end
       end)
     end
   end
 
   @doc """
-  Batch loads actors by AP IDs with a single DB query.
-  Populates cache for each result.
+  Batch loads actors by pointer IDs with cache-awareness.
+  Checks cache first, only queries DB for cache misses.
+  """
+  def get_cached_batch_by_pointers(pointer_ids) when is_list(pointer_ids) do
+    if pointer_ids == [] do
+      []
+    else
+      {cached, uncached_ids} = partition_by_cache(:pointer, pointer_ids)
+
+      from_db =
+        if uncached_ids == [] do
+          []
+        else
+          Object.get_by_pointer_ids(uncached_ids)
+          |> Enum.map(fn object ->
+            actor = format_remote_actor(object)
+            set_cache(actor)
+            actor
+          end)
+        end
+
+      cached ++ from_db
+    end
+  end
+
+  @doc """
+  Batch loads actors by AP IDs with cache-awareness.
+  Checks cache first, only queries DB for cache misses.
   """
   def get_cached_batch_by_ap_ids(ap_ids) when is_list(ap_ids) do
     if ap_ids == [] do
       []
     else
-      Object.get_by_ap_ids(ap_ids)
-      |> Enum.map(fn object ->
-        actor = format_remote_actor(object)
-        set_cache(actor)
-        actor
-      end)
+      {cached, uncached_ids} = partition_by_cache(:ap_id, ap_ids)
+
+      from_db =
+        if uncached_ids == [] do
+          []
+        else
+          Object.get_by_ap_ids(uncached_ids)
+          |> Enum.map(fn object ->
+            actor = format_remote_actor(object)
+            set_cache(actor)
+            actor
+          end)
+        end
+
+      cached ++ from_db
     end
   end
 

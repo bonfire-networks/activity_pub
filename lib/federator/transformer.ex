@@ -281,6 +281,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_object(%{} = object, options) do
     object
     |> fix_actor()
+    |> fix_type(options)
     |> fix_url()
     |> fix_mfm_content()
     |> fix_attachments()
@@ -671,18 +672,18 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_content_map(object), do: object
 
-  # defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => _} = object, options)
-  #      when is_binary(reply_id) do
-  #   options = Keyword.put(options, :fetch, true)
+  defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => _} = object, options)
+       when is_binary(reply_id) do
+    options = Keyword.put(options, :fetch, true)
 
-  #   with %Object{data: %{"type" => "Question"}} <- Object.normalize(reply_id, options) do
-  #     Map.put(object, "type", "Answer")
-  #   else
-  #     _ -> object
-  #   end
-  # end
+    with %Object{data: %{"type" => "Question"}} <- Object.normalize(reply_id, options) do
+      Map.put(object, "type", "Answer")
+    else
+      _ -> object
+    end
+  end
 
-  # defp fix_type(object, _options), do: object
+  defp fix_type(object, _options), do: object
 
   # See https://akkoma.dev/FoundKeyGang/FoundKey/issues/343
   # Misskey/Foundkey drops some of the custom formatting when it sends remotely

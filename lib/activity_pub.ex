@@ -35,7 +35,22 @@ defmodule ActivityPub do
     with nil <- Object.normalize(params[:additional]["id"], false),
          create_data <-
            make_create_data(params) |> debug("create_data"),
-         {:ok, activity} <-
+         {:ok, activity} <- do_create(params, create_data, opts) do
+      {:ok, activity}
+    end
+  end
+
+  @doc "Create an Object that is also an Activity (i.e. do not wrap in a Create activity) "
+  def create_intransitive(%{to: _, actor: actor, object: _} = params, opts \\ []) do
+    with nil <- Object.normalize(params[:additional]["id"], false),
+         create_data <- make_intransitive_data(params) |> debug("made_intransitive_data"),
+         {:ok, activity} <- do_create(params, create_data, opts) do
+      {:ok, activity}
+    end
+  end
+
+  defp do_create(%{to: _, actor: actor, object: _} = params, create_data, opts \\ []) do
+    with {:ok, activity} <-
            Object.insert(create_data, Map.get(params, :local, true), Map.get(params, :pointer)),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
@@ -812,6 +827,24 @@ defmodule ActivityPub do
   end
 
   #### Create-related helpers
+
+  defp make_intransitive_data(params) do
+    published = params[:published] || Utils.make_date()
+
+    # Ensure the object also has the published date
+    object =
+      case params.object do
+        %{} = obj -> Map.put_new(obj, "published", published)
+        other -> other
+      end
+
+    Enum.into(params[:additional] || %{}, object)
+    |> Map.put_new("type", "Create")
+    |> Map.put_new("published", published)
+    |> Map.put_new_lazy("actor", fn -> params.actor.data["id"] end)
+    |> Map.put_new_lazy("context", fn -> params[:context] end)
+  end
+
   defp make_create_data(params) do
     published = params[:published] || Utils.make_date()
 

@@ -662,7 +662,7 @@ defmodule ActivityPub.Actor do
         cache_key = Utils.ap_cache_key(key_type, id)
 
         case Cachex.get(:ap_actor_cache, cache_key) do
-          {:ok, actor} when not is_nil(actor) ->
+          {:ok, %{ap_id: _} = actor} ->
             {[actor | cached_acc], uncached_acc}
 
           _ ->

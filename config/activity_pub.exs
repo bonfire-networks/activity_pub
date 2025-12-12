@@ -138,3 +138,6 @@ config :activity_pub, :oban_queues,
 config :activity_pub, ActivityPub.Federator.HTTP.RateLimit,
   scale_ms: String.to_integer(System.get_env("AP_RATELIMIT_PER_MS", "10000")),
   limit: String.to_integer(System.get_env("AP_RATELIMIT_NUM", "20"))
+
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}

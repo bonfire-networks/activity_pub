@@ -713,6 +713,7 @@ defmodule ActivityPub.Actor do
           []
         else
           Object.get_by_ap_ids(uncached_ids)
+          |> Enum.filter(&actor?/1)
           |> Enum.map(fn object ->
             actor = format_remote_actor(object)
             set_cache(actor)

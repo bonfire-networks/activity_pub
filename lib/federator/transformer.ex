@@ -757,7 +757,15 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => replies} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
+    Fetcher.maybe_fetch(
+      replies,
+      options
+      |> Keyword.put(
+        :mode,
+        options[:fetch_collection_entries] || false
+      )
+      |> Keyword.put_new(:triggered_by, "fix_replies")
+    )
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -766,7 +774,15 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"items" => replies}} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
+    Fetcher.maybe_fetch(
+      replies,
+      options
+      |> Keyword.put(
+        :mode,
+        options[:fetch_collection_entries] || false
+      )
+      |> Keyword.put_new(:triggered_by, "fix_replies")
+    )
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -775,7 +791,15 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"first" => replies}} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
+    Fetcher.maybe_fetch(
+      replies,
+      options
+      |> Keyword.put(
+        :mode,
+        options[:fetch_collection_entries] || false
+      )
+      |> Keyword.put_new(:triggered_by, "fix_replies")
+    )
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -784,7 +808,15 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_replies(%{"replies" => %{"first" => %{"items" => replies}}} = data, options)
       when is_list(replies) and replies != [] do
-    Fetcher.maybe_fetch(replies, options |> Keyword.put_new(:triggered_by, "fix_replies"))
+    Fetcher.maybe_fetch(
+      replies,
+      options
+      |> Keyword.put(
+        :mode,
+        options[:fetch_collection_entries] || false
+      )
+      |> Keyword.put_new(:triggered_by, "fix_replies")
+    )
     |> debug("fetched replies?")
 
     # TODO: update the data with only IDs in case we have full objects?
@@ -806,7 +838,7 @@ defmodule ActivityPub.Federator.Transformer do
       options
       |> Keyword.put(
         :mode,
-        Keyword.get(options, :fetch_collection, options[:fetch_collection_entries])
+        Keyword.get(options, :fetch_collection) || options[:fetch_collection_entries] || false
       )
       |> Keyword.put_new(:triggered_by, "fix_replies")
     )

@@ -115,12 +115,15 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
             ActivityPub.Federator.Transformer.handle_incoming(params)
           else
+            reason =
+              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
+
             Untangle.error(
               e,
-              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
+              reason
             )
 
-            :ok
+            {:cancel, reason}
           end
       end
     end

@@ -33,10 +33,12 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
           |> info("Rate limit reached, will retry in (seconds)")
       end
 
-    # :timer.sleep(retry_after * 1000)
-    # Tesla.run(env, next)
-
-    raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: retry_after
+    if Process.get(:ap_oban_worker) do
+      raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: retry_after
+    else
+      :timer.sleep(retry_after * 1000)
+      Tesla.run(env, next)
+    end
   end
 
   defp handle_rate_limit_headers({:error, error}, next, _opts) do

@@ -24,12 +24,64 @@ defmodule ActivityPub.Federator.Worker do
       """
       @impl Oban.Worker
       def perform(job) do
+        # Mark this process as an Oban worker for downstream checks
+        Process.put(:ap_oban_worker, true)
+
         try do
-          perform_job(job)
+          case perform_job(job) do
+            :ok ->
+              :ok
+
+            {:cancel, _} = cancel ->
+              cancel
+
+            {:snooze, seconds} ->
+              {:snooze, seconds}
+
+            {:ok, :skip} ->
+              {:cancel, "Federation skipped"}
+
+            {:ok, :ignore} ->
+              {:cancel, "Federation ignored"}
+
+            {:ok, _} = ok ->
+              ok
+
+            {:error, :skip} ->
+              {:cancel, "Federation skipped"}
+
+            {:error, :ignore} ->
+              {:cancel, "Federation ignored"}
+
+            {:error, _} = error ->
+              error
+
+            :skip ->
+              {:cancel, "Federation skipped"}
+
+            :ignore ->
+              {:cancel, "Federation ignored"}
+
+            {:skip, reason} ->
+              {:cancel, "Federation skipped - #{reason}"}
+
+            {:ignore, reason} ->
+              {:cancel, "Federation ignored - #{reason}"}
+
+            other ->
+              Untangle.error(other, "Unexpected return value from perform_job")
+          end
         rescue
           e in ActivityPub.Federator.HTTP.RateLimitSnooze ->
             {:snooze, max(e.wait_sec, 1)}
         end
+
+        # NOTE possible return values:
+        # :ok - the job is successful and marked as completed.
+        # {:ok, ignored} - the job is successful, marked as completed, and the return value is ignored.
+        # {:cancel, reason} - the job is marked as cancelled for the provided reason and no longer retried.
+        # {:error, reason} - the job is marked as retryable for the provided reason, or discarded if it has exhausted all attempts.
+        # {:snooze, seconds} - mark the job as scheduled to run again seconds in the future.
       end
 
       def enqueueable(op, params, worker_args \\ []) do

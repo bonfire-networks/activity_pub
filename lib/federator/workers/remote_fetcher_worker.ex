@@ -9,8 +9,8 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
 
   alias ActivityPub.Federator.Fetcher
 
-  @impl Oban.Worker
-  def perform(%Job{args: %{"op" => "fetch_remote", "id" => id} = args}) do
+  @impl true
+  def perform_job(%Job{args: %{"op" => "fetch_remote", "id" => id} = args}) do
     Fetcher.fetch_object_from_id(id,
       depth: args["depth"],
       max_depth: args["max_depth"],

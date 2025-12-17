@@ -19,6 +19,19 @@ defmodule ActivityPub.Federator.Worker do
       # Note: `max_attempts` is intended to be overridden in `new/2` call
       use Oban.Worker, unquote(opts)
 
+      @doc """
+      Default perform/1 implementation. Calls perform_job/1, handling rate limiting by snoozing the job.
+      """
+      @impl Oban.Worker
+      def perform(job) do
+        try do
+          perform_job(job)
+        rescue
+          e in ActivityPub.Federator.HTTP.RateLimitSnooze ->
+            {:snooze, max(e.wait_sec, 1)}
+        end
+      end
+
       def enqueueable(op, params, worker_args \\ []) do
         params = Map.merge(%{"op" => op, "repo" => ActivityPub.Utils.repo()}, params)
         queue_atom = String.to_atom(unquote(queue))

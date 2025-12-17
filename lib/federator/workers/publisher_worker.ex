@@ -5,8 +5,8 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
   alias ActivityPub.Object
   alias ActivityPub.Federator
 
-  @impl Oban.Worker
-  def perform(%Oban.Job{
+  @impl true
+  def perform_job(%Oban.Job{
         args: %{"op" => "publish" = op, "activity_id" => activity_id, "repo" => repo}
       }) do
     info(activity_id, "Use queued activity to perform outgoing federation")
@@ -23,7 +23,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
     end
   end
 
-  def perform(%Oban.Job{
+  def perform_job(%Oban.Job{
         args: %{"op" => "publish" = op, "activity" => activity, "repo" => repo}
       }) do
     ActivityPub.Utils.set_repo(repo)
@@ -33,7 +33,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
     Federator.perform(:publish, activity)
   end
 
-  def perform(%Oban.Job{
+  def perform_job(%Oban.Job{
         args: %{
           "op" => "publish_one" = op,
           "module" => module_name,

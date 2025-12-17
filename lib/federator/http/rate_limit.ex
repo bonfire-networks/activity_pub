@@ -30,9 +30,11 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
       {:deny, retry_after} ->
         # Wait for the retry period (but cap it at scale_ms to avoid excessive delays)
         wait_ms = min(retry_after, scale_ms)
-        :timer.sleep(wait_ms)
-        info(wait_ms, "HTTP client rate limit reached, waited (ms)")
-        Tesla.run(env, next)
+        wait_sec = wait_ms * 1000
+        info(wait_sec, "HTTP client rate limit reached, snoozing (seconds)")
+        # :timer.sleep(wait_ms)
+        # Tesla.run(env, next)
+        raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: wait_ms
     end
   end
 end

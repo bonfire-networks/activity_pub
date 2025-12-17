@@ -11,6 +11,8 @@ defmodule ActivityPub.Migrations do
     end
   end
 
+  def concurrently?, do: System.get_env("DB_MIGRATE_INDEXES_CONCURRENTLY") != "false"
+
   def up do
     execute("CREATE EXTENSION IF NOT EXISTS citext")
 
@@ -24,10 +26,11 @@ defmodule ActivityPub.Migrations do
       timestamps(type: :utc_datetime_usec)
     end
 
-    concurrently? = System.get_env("DB_MIGRATE_INDEXES_CONCURRENTLY") != "false"
+    concurrently? = concurrently?()
 
     create(unique_index(:ap_object, ["(data->>'id')"], concurrently: concurrently?))
     create(unique_index(:ap_object, [:pointer_id], concurrently: concurrently?))
+    add_object_url_index(concurrently?)
 
     create table("ap_instance", primary_key: false) do
       add(:id, :uuid, primary_key: concurrently?)
@@ -64,7 +67,7 @@ defmodule ActivityPub.Migrations do
 
   def add_object_boolean do
     alter(table("ap_object")) do
-      add(:is_object, :boolean, default: false, null: false)
+      add_if_not_exists(:is_object, :boolean, default: false, null: false)
     end
   end
 
@@ -72,5 +75,19 @@ defmodule ActivityPub.Migrations do
     alter(table("ap_object")) do
       remove(:is_object)
     end
+  end
+
+  @doc """
+  Adds a non-unique index on (data->>'url') for ap_object
+  """
+  def add_object_url_index(concurrently? \\ concurrently?()) do
+    create(index(:ap_object, ["(data->>'url')"], concurrently: concurrently?))
+  end
+
+  @doc """
+  Drops the index on (data->>'url') for ap_object.
+  """
+  def drop_object_url_index do
+    drop(index(:ap_object, ["(data->>'url')"]))
   end
 end

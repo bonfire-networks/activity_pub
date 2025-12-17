@@ -672,8 +672,8 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_content_map(object), do: object
 
-  defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => _} = object, options)
-       when is_binary(reply_id) do
+  defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => name} = object, options)
+       when is_binary(name) do
     options = Keyword.put(options, :fetch, true)
 
     with %Object{data: %{"type" => "Question"}} <- Object.normalize(reply_id, options) do

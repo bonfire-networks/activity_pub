@@ -157,7 +157,7 @@ defmodule ActivityPub.Object do
 
   def query(ap_id: ap_id) when is_binary(ap_id) do
     from(object in Object,
-      # support for looking up by non-canonical URL
+      # support for looking up by non-canonical URL as well
       where:
         fragment("(?)->>'id' = ?", object.data, ^ap_id) or
           fragment("(?)->>'url' = ?", object.data, ^ap_id)

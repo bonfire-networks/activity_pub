@@ -1,5 +1,5 @@
 defmodule ActivityPub.Federator.HTTP.RateLimitSnooze do
-  defexception [:wait_ms]
+  defexception [:wait_sec]
 
   @impl true
   def message(%{wait_sec: wait_sec}) do

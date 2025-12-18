@@ -27,11 +27,12 @@ defmodule ActivityPub.Web.ObjectView do
     outbox = Object.get_outbox_for_actor(actor)
 
     total = length(outbox)
+    url = "#{actor.ap_id}/outbox"
 
     %{
-      "id" => "#{actor.ap_id}/outbox",
+      "id" => url,
       "type" => "OrderedCollection",
-      "first" => collection(outbox, "#{actor.ap_id}/outbox", 1, total),
+      "first" => collection(outbox, url, 1, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header(:object))
@@ -70,7 +71,7 @@ defmodule ActivityPub.Web.ObjectView do
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
-  def render("inbox.json", %{actor: _} = params) do
+  def render("inbox.json", %{actor: actor} = params) do
     # TODO
     warn("user inbox is todo! For now rendering shared inbox")
 
@@ -80,10 +81,12 @@ defmodule ActivityPub.Web.ObjectView do
 
     total = length(outbox)
 
+    url = "#{actor.ap_id}/inbox"
+
     %{
-      "id" => "#{ap_base_url}/shared_inbox",
+      "id" => url,
       "type" => "OrderedCollection",
-      "first" => collection(outbox, "#{ap_base_url}/shared_inbox", page, total),
+      "first" => collection(outbox, url, page, total),
       "totalItems" => total
     }
     |> Map.merge(Utils.make_json_ld_header(:object))

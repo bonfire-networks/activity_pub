@@ -37,7 +37,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
         |> assign(:current_user, pointer)
 
       _ ->
-        debug(actor, "could not derive current_user from current_actor, continuing without")
+        warn(actor, "could not derive current_user from current_actor, continuing without")
 
         conn
         |> assign(:valid_signature, false)
@@ -53,7 +53,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       other ->
-        debug(other, "Failed to find current Actor based on current_user")
+        warn(other, "Failed to find current Actor based on current_user")
 
         conn
         |> assign(:valid_signature, false)
@@ -73,7 +73,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       {:actor_match, false} ->
-        debug("Failed to map identity from signature (payload actor mismatch)")
+        warn("Failed to map identity from signature (payload actor mismatch)")
         debug("key_id=#{inspect(key_id)}, actor=#{inspect(actor)}")
 
         conn
@@ -81,21 +81,21 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
 
       # remove me once testsuite uses mapped capabilities instead of what we do now
       {:actor, nil} ->
-        debug("Failed to map identity from signature (lookup failure)")
+        warn("Failed to map identity from signature (lookup failure)")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
         |> assign(:valid_signature, false)
 
       {:federate, false} ->
-        debug("Identity from signature is instance blocked")
+        warn("Identity from signature is instance blocked")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
         |> assign(:valid_signature, nil)
 
       other ->
-        debug(other, "Failed to verify signature identity (no pattern matched)")
+        warn(other, "Failed to verify signature identity (no pattern matched)")
         debug("key_id=#{inspect(key_id)}, actor=#{actor}")
 
         conn
@@ -113,21 +113,21 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
       |> assign(:current_actor, actor)
     else
       {:federate, false} ->
-        debug("Identity from signature is instance blocked")
+        warn("Identity from signature is instance blocked")
         debug("key_id=#{inspect(key_id)}")
 
         conn
         |> assign(:valid_signature, nil)
 
       nil ->
-        debug("Failed to map identity from signature (lookup failure)")
+        warn("Failed to map identity from signature (lookup failure)")
         debug("key_id=#{inspect(key_id)}")
 
         conn
         |> assign(:valid_signature, false)
 
       other ->
-        debug(other, "Failed to verify signature identity (no pattern matched)")
+        warn(other, "Failed to verify signature identity (no pattern matched)")
         debug("key_id=#{inspect(key_id)}")
 
         conn

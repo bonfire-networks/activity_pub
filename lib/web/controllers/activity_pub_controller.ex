@@ -229,20 +229,29 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  def maybe_inbox(conn, %{"username" => username} = params) do
+  def maybe_inbox(conn, %{"username" => request_username} = params) do
     # Check if this is a C2S request with Bearer token
-    case get_req_header(conn, "authorization") do
-      ["Bearer " <> _token] ->
-        # For C2S requests with Bearer token, render the shared inbox for now
-        # TODO: This is a minimal implementation - should check token validity and show user-specific inbox
-        conn
-        |> put_resp_content_type("application/activity+json")
-        |> put_view(ObjectView)
-        |> render("inbox.json", %{actor: username, page: page_number(params["page"])})
 
-      _ ->
+    with %{username: current_username} = current_actor <- conn.assigns[:current_actor],
+         true <- current_username == request_username do
+      # {:ok, actor} <- Actor.get_cached(username: username),
+      # ["Bearer " <> _token] <-  get_req_header(conn, "authorization") do
+
+      # For C2S requests with Bearer token, render the shared inbox for now
+      # TODO: This is a minimal implementation - should check token validity and show user-specific inbox
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("inbox.json", %{actor: current_actor, page: page_number(params["page"])})
+    else
+      e ->
+        warn(e, "Not a C2S request with Bearer token")
         # This is a federation request - return error for GET
-        Utils.error_json(conn, "this API path only accepts POST requests", 403)
+        Utils.error_json(
+          conn,
+          "this API endpoint only accepts POST requests, or authenticated GET requests",
+          403
+        )
     end
   end
 

@@ -72,6 +72,9 @@ defmodule ActivityPub do
       :ignore ->
         :ignore
 
+      {:reject, reason} ->
+        {:error, {:rejected, reason}}
+
       other ->
         err(other, "Error with the Create Activity")
     end

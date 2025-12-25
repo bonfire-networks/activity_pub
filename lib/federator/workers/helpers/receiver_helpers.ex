@@ -94,37 +94,53 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         Untangle.warn("HTTP Signature was invalid even after refetch")
       end
 
-      is_deleted? =
+      # Accept/Reject of Follow activities have unfetchable URLs (fragment identifiers like #accepts/follows/)
+      # but can be safely validated against our local Follow activity records.
+      # This mirrors how Mastodon handles it: https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/accept.rb
+      is_follow_response? =
+        params["type"] in ["Accept", "Reject"] and
+          is_map(params["object"]) and params["object"]["type"] == "Follow"
+
+      if is_follow_response? do
         Untangle.debug(
-          params["type"] in ["Delete", "Tombstone"] or
-            (is_map(params["object"]) and params["object"]["type"] == "Tombstone"),
-          "is_deleted?"
+          "Accept/Reject of Follow - validating against local Follow activity (URLs are typically unfetchable)"
         )
 
-      with id when is_binary(id) <- params["id"],
-           {:ok, object} <- Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
-        Untangle.debug(object, "Unsigned activity workaround worked :)")
-        {:ok, object}
+        ActivityPub.Federator.Transformer.handle_incoming(params)
       else
-        e ->
-          if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
-            Untangle.warn(
-              e,
-              "Unsigned incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication. Accept anyway because ACCEPT_UNSIGNED_ACTIVITIES is set in env."
-            )
+        is_deleted? =
+          Untangle.debug(
+            params["type"] in ["Delete", "Tombstone"] or
+              (is_map(params["object"]) and params["object"]["type"] == "Tombstone"),
+            "is_deleted?"
+          )
 
-            ActivityPub.Federator.Transformer.handle_incoming(params)
-          else
-            reason =
-              "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
+        with id when is_binary(id) <- params["id"],
+             {:ok, object} <-
+               Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
+          Untangle.debug(object, "Unsigned activity workaround worked :)")
+          {:ok, object}
+        else
+          e ->
+            if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
+              Untangle.warn(
+                e,
+                "Unsigned incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication. Accept anyway because ACCEPT_UNSIGNED_ACTIVITIES is set in env."
+              )
 
-            Untangle.error(
-              e,
-              reason
-            )
+              ActivityPub.Federator.Transformer.handle_incoming(params)
+            else
+              reason =
+                "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
 
-            {:cancel, reason}
-          end
+              Untangle.error(
+                e,
+                reason
+              )
+
+              {:cancel, reason}
+            end
+        end
       end
     end
   end

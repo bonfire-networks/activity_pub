@@ -51,7 +51,12 @@ defmodule ActivityPub do
 
   defp do_create(%{to: _, actor: actor, object: _} = params, create_data, opts \\ []) do
     with {:ok, activity} <-
-           Object.insert(create_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(
+             create_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -76,7 +81,7 @@ defmodule ActivityPub do
         {:error, {:rejected, reason}}
 
       other ->
-        err(other, "Error with the Create Activity")
+        error(other, "Error with the Create Activity")
     end
   end
 
@@ -94,7 +99,7 @@ defmodule ActivityPub do
   def follow(%{actor: follower, object: followed} = params, opts \\ []) do
     with data <- make_follow_data(follower, followed, Map.get(params, :activity_id)),
          {:ok, activity} <-
-           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
          :ok <- maybe_federate(follower, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          {:ok, activity} <- Object.get_cached(ap_id: activity),
@@ -124,7 +129,12 @@ defmodule ActivityPub do
              Map.get(params, :activity_id)
            ),
          {:ok, activity} <-
-           Object.insert(unfollow_data, Map.get(params, :local, true), Map.get(params, :pointer))
+           Object.insert(
+             unfollow_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           )
            |> debug("insert"),
          :ok <- maybe_federate(actor, activity) |> debug("adapt"),
          {:ok, adapter_object} <-
@@ -188,7 +198,7 @@ defmodule ActivityPub do
                end
            ) || data,
          {:ok, accept_activity} <-
-           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
          :ok <- maybe_federate(actor, accept_activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(accept_activity, opts) do
       {:ok, accept_activity, adapter_object, accepted_activity}
@@ -218,7 +228,7 @@ defmodule ActivityPub do
          %Object{data: %{"type" => type}} = activity_to_reject <-
            Object.get_cached!(ap_id: object) |> debug("activity_to_reject"),
          {:ok, activity} <-
-           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer))
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts)
            |> debug("inserted rejection on repo #{Utils.repo()}"),
          :ok <- maybe_federate(actor, activity) |> debug("federated"),
          {:ok, adapter_object} <-
@@ -251,7 +261,12 @@ defmodule ActivityPub do
     with nil <- Object.get_existing_like(ap_id, object_id),
          like_data <- make_like_data(actor, object, Map.get(params, :activity_id)),
          {:ok, activity} <-
-           Object.insert(like_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(
+             like_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -282,7 +297,12 @@ defmodule ActivityPub do
          unlike_data <-
            make_unlike_data(actor, like_activity, Map.get(params, :activity_id)),
          {:ok, activity} <-
-           Object.insert(unlike_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(
+             unlike_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
          {:ok, _activity} <- Object.hard_delete(like_activity),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
@@ -320,7 +340,12 @@ defmodule ActivityPub do
              Map.get(params, :published, nil)
            ),
          {:ok, activity} <-
-           Object.insert(announce_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(
+             announce_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -355,7 +380,8 @@ defmodule ActivityPub do
            Object.insert(
              unannounce_data,
              Map.get(params, :local, true),
-             Map.get(params, :pointer)
+             Map.get(params, :pointer),
+             opts
            ),
          :ok <- maybe_federate(actor, activity),
          {:ok, _activity} <- Object.hard_delete(announce_activity) |> info("deleted?"),
@@ -399,7 +425,8 @@ defmodule ActivityPub do
              activity_data,
              Map.get(params, :local, true),
              Map.get(params, :pointer),
-             :update
+             opts
+             |> Keyword.put(:upsert, :update)
            ),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
@@ -422,7 +449,12 @@ defmodule ActivityPub do
 
     with block_data <- make_block_data(blocker, blocked, Map.get(params, :activity_id)),
          {:ok, activity} <-
-           Object.insert(block_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(
+             block_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
          :ok <- maybe_federate(blocker, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -450,7 +482,12 @@ defmodule ActivityPub do
              Map.get(params, :activity_id)
            ),
          {:ok, activity} <-
-           Object.insert(unblock_data, Map.get(params, :local, true), Map.get(params, :pointer)),
+           Object.insert(
+             unblock_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
          :ok <- maybe_federate(blocker, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -496,7 +533,7 @@ defmodule ActivityPub do
              "bcc" => opts[:bcc]
            }
            |> debug("delete params"),
-         {:ok, activity} <- Object.insert(params, is_local?),
+         {:ok, activity} <- Object.insert(params, is_local?, nil, opts),
          :ok <- maybe_federate(delete_actor, activity, opts),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -533,7 +570,7 @@ defmodule ActivityPub do
            "to" => to,
            "bcc" => opts[:bcc]
          },
-         {:ok, activity} <- Object.insert(data, is_local?),
+         {:ok, activity} <- Object.insert(data, is_local?, nil, opts),
          :ok <- maybe_federate(actor, activity, opts) |> debug("maybe_federated"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -574,7 +611,7 @@ defmodule ActivityPub do
 
     with {:ok, activity} <-
            make_flag_data(params, [params[:account]] ++ (params[:statuses] || []), additional)
-           |> Object.insert(Map.get(params, :local, true), Map.get(params, :pointer)),
+           |> Object.insert(Map.get(params, :local, true), Map.get(params, :pointer), opts),
          :ok <- maybe_federate(params[:actor], activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -599,7 +636,7 @@ defmodule ActivityPub do
     }
 
     with true <- Actor.also_known_as?(origin_ap_id, target.data),
-         {:ok, activity} <- Object.insert(params, local),
+         {:ok, activity} <- Object.insert(params, local, nil, opts),
          # TODO: which one to use as actor
          :ok <- maybe_federate(nil, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
@@ -928,7 +965,8 @@ defmodule ActivityPub do
              quote_request_data,
              Map.get(params, :local, true),
              Map.get(params, :pointer),
-             true
+             opts
+             |> Keyword.put(:upsert, true)
            )
            |> debug("inserted quote request"),
          :ok <- maybe_federate(actor, activity) |> debug("federated quote request"),

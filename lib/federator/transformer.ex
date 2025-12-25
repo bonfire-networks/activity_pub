@@ -1708,7 +1708,7 @@ defmodule ActivityPub.Federator.Transformer do
     # Process nested objects for all activity types
     with {:ok, activity} <-
            fix_other_object(data, opts)
-           |> Object.insert(local?(opts)),
+           |> Object.insert(local?(opts), nil, opts),
          true <-
            Map.get(
              Application.get_env(:activity_pub, :instance, %{}) |> Map.new(),

@@ -1431,12 +1431,12 @@ defmodule ActivityPub.Federator.Transformer do
     actor =
       opts[:current_actor] ||
         actor
-        |> flood("current_actor")
+        |> debug("current_actor")
 
-    flood(object, "object to update")
+    debug(object, "object to update")
 
-    actor_owns_object?(object, actor) |> flood("actor_owns_object?") or
-      Adapter.call_or(:can_update?, [actor, object], false) |> flood("can_update? via adapter")
+    actor_owns_object?(object, actor) |> debug("actor_owns_object?") or
+      Adapter.call_or(:can_update?, [actor, object], false) |> debug("can_update? via adapter")
   end
 
   defp can_update?(_, _, _), do: false

@@ -110,11 +110,14 @@ config :activity_pub,
 
 # NOTE: you'll probably want to put these in your runtime config instead:
 config :activity_pub, Oban,
-    queues: [
-    federator_incoming_mentions: String.to_integer(System.get_env("QUEUE_SIZE_AP_IN_MENTIONS", "2")),
+  queues: [
+    federator_incoming_mentions:
+      String.to_integer(System.get_env("QUEUE_SIZE_AP_IN_MENTIONS", "2")),
     federator_incoming: String.to_integer(System.get_env("QUEUE_SIZE_AP_IN", "3")),
-    federator_incoming_follows: String.to_integer(System.get_env("QUEUE_SIZE_AP_IN_FOLLOWS", "2")),
-    federator_incoming_unverified: String.to_integer(System.get_env("QUEUE_SIZE_AP_IN_UNVERIFIED", "1")),
+    federator_incoming_follows:
+      String.to_integer(System.get_env("QUEUE_SIZE_AP_IN_FOLLOWS", "2")),
+    federator_incoming_unverified:
+      String.to_integer(System.get_env("QUEUE_SIZE_AP_IN_UNVERIFIED", "1")),
     federator_outgoing: String.to_integer(System.get_env("QUEUE_SIZE_AP_OUT", "2")),
     remote_fetcher: String.to_integer(System.get_env("QUEUE_SIZE_AP_FETCH", "1")),
     import: String.to_integer(System.get_env("QUEUE_SIZE_IMPORT", "1")),

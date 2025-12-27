@@ -78,21 +78,25 @@ defmodule ActivityPub.MRF do
 
   # import Untangle
 
-  @callback filter(Map.t(), boolean()) :: {:ok | :reject, Map.t()}
+  @callback filter(Map.t(), Keyword.t()) :: {:ok | :reject, Map.t()}
 
-  def filter(policies, %{} = object, is_local?) do
+  def filter(policies, object, is_local?) when is_boolean(is_local?) do
+    filter(policies, object, is_local: is_local?)
+  end
+
+  def filter(policies, %{} = object, opts) do
     policies
     |> Enum.reduce({:ok, object}, fn
       policy, {:ok, object} ->
-        policy.filter(object, is_local?)
+        policy.filter(object, opts)
 
       _, error ->
         error
     end)
   end
 
-  def filter(%{} = object, is_local?),
-    do: get_policies() |> filter(object, is_local?)
+  def filter(%{} = object, opts),
+    do: get_policies() |> filter(object, opts)
 
   def get_policies do
     Application.get_env(:activity_pub, :instance, %{})

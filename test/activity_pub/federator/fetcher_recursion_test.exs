@@ -53,7 +53,10 @@ defmodule ActivityPub.Federator.FetcherRecursionTest do
       clear_config([:instance, :federation_incoming_max_recursion], 4)
 
       assert {:ok, _} =
-               Fetcher.fetch_object_from_id(@reply_ap_id, depth: 1)
+               Fetcher.fetch_object_from_id(@reply_ap_id,
+                 fetch_collection_entries: :async,
+                 depth: 2
+               )
 
       Oban.drain_queue(queue: :remote_fetcher, with_recursion: true)
 

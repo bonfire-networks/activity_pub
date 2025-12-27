@@ -202,16 +202,16 @@ defmodule ActivityPub.Object do
   end
 
   @doc false
-  def insert(params, local?, pointer \\ nil, upsert? \\ false)
+  def insert(params, local?, pointer \\ nil, opts \\ [])
       when is_map(params) and is_boolean(local?) do
     with activity_id <- Ecto.UUID.generate(),
          params <- normalize_params(params, activity_id, pointer),
          :ok <- Actor.check_actor_is_active(params["actor"]),
          # set some healthy boundaries
-         {:ok, params} <- MRF.filter(params, local?),
+         {:ok, params} <- MRF.filter(params, opts |> Keyword.put(:is_local, local?)),
          # first insert the object if there is one
          {:ok, activity, object} <-
-           do_insert_object(params, local?, pointer, upsert?),
+           do_insert_object(params, local?, pointer, opts[:upsert] || false),
          # then insert the activity (containing only an ID as object)
          {:ok, activity} <-
            (if not is_nil(activity) do

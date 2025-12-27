@@ -44,7 +44,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
   require ActivityPub.Config
 
   @impl true
-  def filter(%{"actor" => actor} = object, _is_local?) do
+  def filter(%{"actor" => actor} = object, _opts) do
     actor_info = URI.parse(actor)
     # |> info()
 
@@ -59,7 +59,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
     end
   end
 
-  def filter(%{"id" => actor, "type" => type} = object, _is_local?)
+  def filter(%{"id" => actor, "type" => type} = object, _opts)
       when ActivityPub.Config.is_in(type, :supported_actor_types) do
     actor_info = URI.parse(actor)
 
@@ -72,7 +72,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
     end
   end
 
-  def filter(object, _is_local?), do: {:ok, object}
+  def filter(object, _opts), do: {:ok, object}
 
   def check_reject(%{host: actor_host} = _actor_info, object \\ nil) do
     rejects =

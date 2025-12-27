@@ -583,7 +583,16 @@ defmodule ActivityPub.Utils do
   # |> request_ip()
   # end
   def request_ip(%{remote_ip: remote_ip}), do: request_ip(remote_ip)
-  def request_ip(remote_ip), do: to_string(:inet_parse.ntoa(remote_ip))
+
+  def request_ip(remote_ip) do
+    with {:error, e} <- :inet_parse.ntoa(remote_ip) do
+      nil
+    else
+      ip ->
+        to_string(ip)
+    end
+  end
+
   # defp parse_forwarded_for(header) do
   #   String.split(header, ",")
   #   |> Enum.map(&String.trim/1)

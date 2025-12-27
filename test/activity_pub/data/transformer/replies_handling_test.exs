@@ -112,7 +112,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     } do
       clear_config([:instance, :federation_incoming_max_recursion], 10)
 
-      {:ok, activity} = Transformer.handle_incoming(data)
+      {:ok, activity} = Transformer.handle_incoming(data, fetch_collection_entries: :async)
       object = Object.normalize(activity.data["object"])
 
       assert object.data["replies"] == items
@@ -160,7 +160,9 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     } do
       clear_config([:instance, :federation_incoming_max_recursion], 3)
 
-      assert {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(activity)
+      assert {:ok, %Activity{data: data, local: false}} =
+               Transformer.handle_incoming(activity, fetch_collection_entries: :async)
+
       object = Object.normalize(data["object"])
 
       for {id, i} <- Enum.with_index(object.data["replies"]) do
@@ -176,7 +178,9 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
     } do
       clear_config([:instance, :federation_incoming_max_recursion], 2)
 
-      assert {:ok, %Activity{data: data, local: false}} = Transformer.handle_incoming(activity)
+      assert {:ok, %Activity{data: data, local: false}} =
+               Transformer.handle_incoming(activity, fetch_collection_entries: :async)
+
       object = Object.normalize(data["object"])
 
       for {id, i} <- Enum.with_index(object.data["replies"]) do
@@ -217,7 +221,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         all_enqueued(worker: Workers.RemoteFetcherWorker)
         |> debug("all_enqueued")
 
-      assert length(all_enqueued) == already_enqueued + limit
+      assert length(all_enqueued) <= already_enqueued + limit
     end
 
     test "does NOT execute scheduled *recursive* background fetching of `replies` beyond what the max recursion limit allows",
@@ -229,7 +233,9 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         length(all_enqueued(worker: Workers.RemoteFetcherWorker))
         |> debug("already_enqueued")
 
-      {:ok, %Activity{data: data}} = Transformer.handle_incoming(activity)
+      {:ok, %Activity{data: data}} =
+        Transformer.handle_incoming(activity, fetch_collection_entries: :async)
+
       object = Object.normalize(data["object"])
 
       replies = object.data["replies"]

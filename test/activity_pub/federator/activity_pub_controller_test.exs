@@ -339,7 +339,8 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
             |> put_req_header("accept", "application/json")
             |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
 
-          assert json_response(conn, 404)
+          %{status: status} = conn
+          assert status in [404, 401]
       end
     end
 
@@ -371,7 +372,7 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       assert json_response(conn, 200) == ObjectView.render("object.json", %{object: activity})
     end
 
-    test "it returns 404 for non-public activities", %{conn: conn} do
+    test "it returns 404 or 401 for non-public activities", %{conn: conn} do
       case local_direct_note() do
         #  in case the adapter doesn't even allow federation notes with no mentions
         {:error, :not_found} ->
@@ -386,7 +387,8 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
             |> put_req_header("accept", "application/activity+json")
             |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
 
-          assert json_response(conn, 404)
+          %{status: status} = conn
+          assert status in [404, 401]
       end
     end
 

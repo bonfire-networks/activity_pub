@@ -212,14 +212,20 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp recipients(actor, activity_data, tos, is_public?) do
     addressed_recipients(activity_data) ++
-      (if activity_data["type"] == "Flag" do
+      (cond do
+         # Accept/Reject should only go to addressed recipients, not fan out to followers
+         activity_data["type"] in ["Accept", "Reject"] ->
+           []
+
          # When handling Flag activities, we need special recipient handling
-         flag_recipients(activity_data["object"])
-       else
-         if is_public? || actor.data["followers"] in tos do
+         activity_data["type"] == "Flag" ->
+           flag_recipients(activity_data["object"])
+
+         is_public? || actor.data["followers"] in tos ->
            Actor.get_external_followers(actor, :publish)
            |> debug("external_followers")
-         else
+
+         true ->
            # optionally send it to a subset of followers
            with {:ok, followers} <- Adapter.external_followers_for_activity(actor, activity_data) do
              followers
@@ -228,7 +234,6 @@ defmodule ActivityPub.Federator.APPublisher do
                error(e)
                nil
            end
-         end
        end || [])
   end
 

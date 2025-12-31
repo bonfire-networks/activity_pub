@@ -90,4 +90,18 @@ defmodule ActivityPub.Migrations do
   def drop_object_url_index do
     drop(index(:ap_object, ["(data->>'url')"]))
   end
+
+  @doc """
+  Adds a non-unique index on (data->>'inReplyTo') for ap_object
+  """
+  def add_object_in_reply_to_index(concurrently? \\ concurrently?()) do
+    create(index(:ap_object, ["(data->>'inReplyTo')"], concurrently: concurrently?))
+  end
+
+  @doc """
+  Drops the index on (data->>'inReplyTo') for ap_object.
+  """
+  def drop_object_in_reply_to_index do
+    drop(index(:ap_object, ["(data->>'inReplyTo')"]))
+  end
 end

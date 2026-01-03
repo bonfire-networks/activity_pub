@@ -35,7 +35,7 @@ defmodule ActivityPub.Federator.Transformer.QuoteHandlingTest do
         |> Jason.decode!()
 
       %{"quoteUri" => "https://mastodon.local/objects/43479e20-c0f8-4f49-bf7f-13fab8234924"} =
-        Transformer.fix_quote_url(note)
+        Transformer.fix_quote(note)
     end
 
     test "a fedibird quote should work", _ do

@@ -2,6 +2,7 @@ defmodule ActivityPub.Federator.FetcherSpoofTest do
   use ActivityPub.DataCase, async: false
   import Tesla.Mock
   import Mock
+  use Oban.Testing, repo: repo()
 
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.WebFinger
@@ -24,12 +25,15 @@ defmodule ActivityPub.Federator.FetcherSpoofTest do
   end
 
   describe "fetching objects" do
-    # FIXME!
+    @tag :fixme
     test "it does not fetch a spoofed object uploaded on an instance as an attachment" do
+      # FIXME!
       assert {:error, _} =
                Fetcher.fetch_object_from_id(
                  "https://patch.local/media/03ca3c8b4ac3ddd08bf0f84be7885f2f88de0f709112131a22d83650819e36c2.json"
                )
+
+      assert all_enqueued(worker: Workers.RemoteFetcherWorker) == []
     end
 
     test "does not fetch anything from a rejected instance" do

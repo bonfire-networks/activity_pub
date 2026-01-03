@@ -78,17 +78,22 @@ defmodule ActivityPub.Migrations do
   end
 
   @doc """
-  Adds a non-unique index on (data->>'url') for ap_object
+  Adds a non-unique index on md5(data->>'url') for ap_object.
+  Uses MD5 hash to handle URLs longer than the btree index limit of 2704 bytes.
+  Automatically migrates from old full-URL index if it exists.
   """
   def add_object_url_index(concurrently? \\ concurrently?()) do
-    create(index(:ap_object, ["(data->>'url')"], concurrently: concurrently?))
+    # Drop old full-URL index if it exists (may fail silently, that's ok)
+    drop_if_exists(index(:ap_object, ["(data->>'url')"]))
+    # Create new MD5 hash-based index
+    create(index(:ap_object, ["(md5(data->>'url'))"], concurrently: concurrently?))
   end
 
   @doc """
-  Drops the index on (data->>'url') for ap_object.
+  Drops the MD5 hash index on (data->>'url') for ap_object.
   """
   def drop_object_url_index do
-    drop(index(:ap_object, ["(data->>'url')"]))
+    drop(index(:ap_object, ["(md5(data->>'url')))"]))
   end
 
   @doc """

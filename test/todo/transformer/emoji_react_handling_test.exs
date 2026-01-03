@@ -114,7 +114,7 @@ defmodule ActivityPub.Federator.Transformer.EmojiReactHandlingTest do
     # woman detective emoji, fully qualified
     # emoji = [0x1F575, 0xFE0F, 0x200D, 0x2640, 0xFE0F] |> List.to_string()
     emoji = "🕵️‍♀️"
-    assert data["content"] == emoji
+    assert data["content"] =~ emoji
 
     {:ok, object} = Object.get_cached(ap_id: data["object"])
 

@@ -388,7 +388,7 @@ defmodule ActivityPub.Actor do
            WebFinger.finger(username) do
       Fetcher.fetch_object_from_id(
         ap_id,
-        opts |> Keyword.put_new(:triggered_by, "Actor.fetch_by_username")
+        opts |> Keyword.put(:triggered_by, "Actor.fetch_by_username")
       )
     else
       {:error, e} when is_binary(e) ->

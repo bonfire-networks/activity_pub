@@ -1,4 +1,4 @@
-defmodule ActivityPub.Repo.Migrations.AddURLIndex do
+defmodule ActivityPub.Repo.Migrations.AddURLMD5Index do
   @moduledoc false
   use Ecto.Migration
 

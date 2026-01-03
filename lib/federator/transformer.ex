@@ -390,7 +390,7 @@ defmodule ActivityPub.Federator.Transformer do
          _ <-
            Fetcher.maybe_fetch(
              in_reply_to_id,
-             options |> Keyword.put_new(:triggered_by, "fix_in_reply_to")
+             options |> Keyword.put(:triggered_by, "fix_in_reply_to")
            )
            |> info("fetched reply_to?") do
       object
@@ -486,7 +486,7 @@ defmodule ActivityPub.Federator.Transformer do
 
       "http" <> _ = context ->
         # FIXME: should this really fetch async?
-        Fetcher.maybe_fetch(context, options |> Keyword.put_new(:triggered_by, "fix_context"))
+        Fetcher.maybe_fetch(context, options |> Keyword.put(:triggered_by, "fix_context"))
         |> debug("fetched context?")
 
         object
@@ -769,7 +769,7 @@ defmodule ActivityPub.Federator.Transformer do
         :mode,
         options[:fetch_collection_entries] || false
       )
-      |> Keyword.put_new(:triggered_by, "fix_replies")
+      |> Keyword.put(:triggered_by, "fix_replies")
     )
     |> debug("fetched replies?")
 
@@ -786,7 +786,7 @@ defmodule ActivityPub.Federator.Transformer do
         :mode,
         options[:fetch_collection_entries] || false
       )
-      |> Keyword.put_new(:triggered_by, "fix_replies")
+      |> Keyword.put(:triggered_by, "fix_replies")
     )
     |> debug("fetched replies?")
 
@@ -803,7 +803,7 @@ defmodule ActivityPub.Federator.Transformer do
         :mode,
         options[:fetch_collection_entries] || false
       )
-      |> Keyword.put_new(:triggered_by, "fix_replies")
+      |> Keyword.put(:triggered_by, "fix_replies")
     )
     |> debug("fetched replies?")
 
@@ -820,7 +820,7 @@ defmodule ActivityPub.Federator.Transformer do
         :mode,
         options[:fetch_collection_entries] || false
       )
-      |> Keyword.put_new(:triggered_by, "fix_replies")
+      |> Keyword.put(:triggered_by, "fix_replies")
     )
     |> debug("fetched replies?")
 
@@ -845,7 +845,7 @@ defmodule ActivityPub.Federator.Transformer do
         :mode,
         Keyword.get(options, :fetch_collection) || options[:fetch_collection_entries] || false
       )
-      |> Keyword.put_new(:triggered_by, "fix_replies")
+      |> Keyword.put(:triggered_by, "fix_replies")
     )
     |> debug("fetched replies collection?")
 
@@ -1256,9 +1256,9 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming update of an Object")
 
-    with {:ok, actor} <- Actor.get_cached(ap_id: actor) |> flood("fetch actor for update"),
+    with {:ok, actor} <- Actor.get_cached(ap_id: actor) |> debug("fetch actor for update"),
          {:ok, object} <-
-           object_normalize_and_maybe_fetch(object) |> flood("fetch object for update"),
+           object_normalize_and_maybe_fetch(object) |> debug("fetch object for update"),
          {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
          true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized} do
       ActivityPub.update(
@@ -1444,12 +1444,12 @@ defmodule ActivityPub.Federator.Transformer do
     actor =
       (opts[:current_actor] ||
          actor)
-      |> flood("current_actor")
+      |> debug("current_actor")
 
-    flood(object, "object to update")
+    debug(object, "object to update")
 
-    actor_owns_object?(object, actor) |> flood("actor_owns_object?") or
-      Adapter.call_or(:can_update?, [actor, object], false) |> flood("can_update? via adapter")
+    actor_owns_object?(object, actor) |> debug("actor_owns_object?") or
+      Adapter.call_or(:can_update?, [actor, object], false) |> debug("can_update? via adapter")
   end
 
   defp can_update?(_, _, _), do: false
@@ -1718,7 +1718,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     Fetcher.fetch_object_from_id(
       fingered["id"],
-      opts |> Keyword.put_new(:triggered_by, "handle_incoming:links")
+      opts |> Keyword.put(:triggered_by, "handle_incoming:links")
     )
   end
 

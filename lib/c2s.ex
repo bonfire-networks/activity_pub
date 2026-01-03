@@ -24,7 +24,9 @@ defmodule ActivityPub.C2S do
     current_actor = conn.assigns[:current_actor]
 
     with true <- not is_nil(current_actor) || {:error, :unauthorized},
-         true <- validate_actor_match?(current_actor, username) || {:error, :actor_mismatch} do
+         true <-
+           validate_actor_match?(current_actor, username) ||
+             error(:actor_mismatch, "Actor does not match authenticated user") do
       params
       |> maybe_wrap_object_in_create()
       |> ensure_actor(current_actor)

@@ -407,20 +407,24 @@ defmodule ActivityPub.Actor do
   @doc """
   Updates an existing actor struct by its AP ID.
   """
+  def update_actor(actor_id, data, fetch_remote? \\ nil, local? \\ false)
 
-  # def update_actor(actor_id) when is_binary(actor_id) do
-  #   debug(actor_id, "Updating actor")
-  #   with {:ok, data} <- Fetcher.fetch_remote_object_from_id(actor_id) |> debug() do
-  #     update_actor(actor_id, data)
-  #   end
-  # end
+  def update_actor(actor_id, %{data: data}, fetch_remote?, local?),
+    do: update_actor(actor_id, data, fetch_remote?, local?)
 
-  def update_actor(actor_id, data, fetch_remote? \\ nil)
+  def update_actor(actor_id, data, _fetch_remote?, _local? = true) do
+    Adapter.update_local_actor(
+      actor_id,
+      data
+    )
+  end
 
-  def update_actor(actor_id, %{data: data}, fetch_remote?),
-    do: update_actor(actor_id, data, fetch_remote?)
-
-  def update_actor(actor_id, %{"id" => ap_id, "type" => "Tombstone"} = data, _fetch_remote?) do
+  def update_actor(
+        actor_id,
+        %{"id" => ap_id, "type" => "Tombstone"} = data,
+        _fetch_remote?,
+        _local?
+      ) do
     debug(actor_id, "Making tombstone for actor")
 
     with {:ok, _object} <-
@@ -433,7 +437,7 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def update_actor(actor_id, data, fetch_remote?) do
+  def update_actor(actor_id, data, fetch_remote?, _local?) do
     with {:ok, object} <- update_actor_data(actor_id, data, fetch_remote?),
          Adapter.update_remote_actor(object),
          {:ok, actor} <- get(ap_id: actor_id) do

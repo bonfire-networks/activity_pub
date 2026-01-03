@@ -87,7 +87,9 @@ defmodule ActivityPub.Federator.Fetcher do
   @doc """
   Checks if an object exists in the AP and Adapter databases and fetches and creates it if not.
   """
-  def fetch_object_from_id(id, opts \\ []) do
+  def fetch_object_from_id(id, opts \\ [])
+
+  def fetch_object_from_id("http" <> id, opts) do
     opts = opts |> Keyword.put_new(:triggered_by, "fetch_object_from_id")
 
     case cached_or_handle_incoming(id, opts)
@@ -106,6 +108,10 @@ defmodule ActivityPub.Federator.Fetcher do
       _ ->
         fetch_fresh_object_from_id(id, opts)
     end
+  end
+
+  def fetch_object_from_id(id, opts) do
+    error(id, "Invalid url, cannot fetch object")
   end
 
   def fetch_objects_from_id(ids, opts \\ []) when is_list(ids) do

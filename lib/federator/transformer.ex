@@ -484,11 +484,16 @@ defmodule ActivityPub.Federator.Transformer do
         object
         |> Map.put("context", context)
 
-      context when is_binary(context) ->
-        # fetching async
+      "http" <> _ = context ->
+        # FIXME: should this really fetch async?
         Fetcher.maybe_fetch(context, options |> Keyword.put_new(:triggered_by, "fix_context"))
         |> debug("fetched context?")
 
+        object
+        |> Map.put("context", context)
+
+      context when is_binary(context) ->
+        # hope for the best?
         object
         |> Map.put("context", context)
 
@@ -1200,7 +1205,7 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(
         %{
           "type" => "Update",
-          "object" => %{"type" => type, "id" => update_actor_id} = _update_actor_data,
+          "object" => %{"type" => type, "id" => update_actor_id} = update_actor_data,
           "actor" => actor_id
         } = data,
         opts
@@ -1211,8 +1216,14 @@ defmodule ActivityPub.Federator.Transformer do
     debug(actor_id, "update an Actor")
     debug(opts, "opts")
 
-    #  NOTE: we avoid even passing the update_actor_data to avoid accepting invalid updates
-    with {:ok, actor} <- Actor.update_actor(actor_id, nil, opts[:already_fetched] != true) do
+    #  NOTE: we avoid even passing the update_actor_data to avoid accepting invalid updates
+    with {:ok, actor} <-
+           Actor.update_actor(
+             actor_id,
+             if(opts[:local], do: update_actor_data),
+             opts[:already_fetched] != true,
+             opts[:local] || false
+           ) do
       # Skip all of that because it's handled elsewhere after fetching
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
       #  {:ok, _} <- Actor.set_cache(actor) do
@@ -1245,7 +1256,9 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming update of an Object")
 
-    with {:ok, actor} <- Actor.get_cached(ap_id: actor),
+    with {:ok, actor} <- Actor.get_cached(ap_id: actor) |> flood("fetch actor for update"),
+         {:ok, object} <-
+           object_normalize_and_maybe_fetch(object) |> flood("fetch object for update"),
          {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
          true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized} do
       ActivityPub.update(
@@ -1429,14 +1442,14 @@ defmodule ActivityPub.Federator.Transformer do
   # Check if the actor can update the object
   defp can_update?(object, actor, opts) do
     actor =
-      opts[:current_actor] ||
-        actor
-        |> debug("current_actor")
+      (opts[:current_actor] ||
+         actor)
+      |> flood("current_actor")
 
-    debug(object, "object to update")
+    flood(object, "object to update")
 
-    actor_owns_object?(object, actor) |> debug("actor_owns_object?") or
-      Adapter.call_or(:can_update?, [actor, object], false) |> debug("can_update? via adapter")
+    actor_owns_object?(object, actor) |> flood("actor_owns_object?") or
+      Adapter.call_or(:can_update?, [actor, object], false) |> flood("can_update? via adapter")
   end
 
   defp can_update?(_, _, _), do: false

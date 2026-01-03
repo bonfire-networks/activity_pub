@@ -66,14 +66,14 @@ defmodule ActivityPub.Factory do
 
   def add_alias(%{local: true} = actor, to_alias) do
     {:ok, _actor} =
-      Adapter.update_local_actor(actor, %{
-        data:
-          Map.put(
-            actor.data,
-            "alsoKnownAs",
-            (Map.get(actor.data, "alsoKnownAs") || []) ++ [to_alias]
-          )
-      })
+      Adapter.update_local_actor(
+        actor,
+        Map.put(
+          actor.data,
+          "alsoKnownAs",
+          (Map.get(actor.data, "alsoKnownAs") || []) ++ [to_alias]
+        )
+      )
   end
 
   def add_alias(actor, to_alias) do

@@ -72,12 +72,9 @@ defmodule ActivityPub.Web.ObjectView do
   end
 
   def render("inbox.json", %{actor: actor} = params) do
-    # TODO
-    warn("user inbox is todo! For now rendering shared inbox")
-
     ap_base_url = Utils.ap_base_url()
     page = params[:page] || 1
-    outbox = Object.get_inbox_for_instance(page)
+    outbox = Object.get_inbox_for_actor(actor, page)
 
     total = length(outbox)
 

@@ -35,8 +35,6 @@ defmodule ActivityPub.Web.C2SOutboxController do
         |> halt()
 
       {:error, :actor_mismatch} ->
-        debug("Actor does not match authenticated user")
-
         conn
         |> put_status(:forbidden)
         |> json(%{error: "Actor does not match authenticated user"})

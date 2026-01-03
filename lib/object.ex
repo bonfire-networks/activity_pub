@@ -810,6 +810,23 @@ defmodule ActivityPub.Object do
     |> do_list_page(page)
   end
 
+  def get_inbox_for_actor(ap_id, page \\ 1)
+  def get_inbox_for_actor(%{ap_id: ap_id}, page), do: get_inbox_for_actor(ap_id, page)
+  def get_inbox_for_actor(%{"id" => ap_id}, page), do: get_inbox_for_actor(ap_id, page)
+
+  def get_inbox_for_actor(ap_id, page) when is_binary(ap_id) do
+    from(object in Object,
+      where: object.is_object != true,
+      # FIXME: this is not efficient and incomplete, only for testing
+      where:
+        fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
+          fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id)
+    )
+    |> do_list_page(page)
+  end
+
+  def get_inbox_for_actor(_, _page), do: []
+
   # def get_inbox(instance_or_actor_url, page) do
   #   instance_or_actor_filter = "#{instance_or_actor_url}%"
 

@@ -868,7 +868,7 @@ defmodule ActivityPub.Federator.Fetcher do
                page_id,
                opts
                |> Keyword.put_new(:skip_contain_origin_check, true)
-               |> Keyword.put(:triggered_by, "fetch_page")
+               |> Keyword.put_new(:triggered_by, "fetch_page")
              ) do
         objects = items_in_page(page)
 
@@ -918,7 +918,7 @@ defmodule ActivityPub.Federator.Fetcher do
            page,
            items,
            opts
-           |> Keyword.put(:triggered_by, "objects_from_collection")
+           |> Keyword.put_new(:triggered_by, "objects_from_collection")
          )
 
   defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
@@ -928,7 +928,7 @@ defmodule ActivityPub.Federator.Fetcher do
            page,
            items,
            opts
-           |> Keyword.put(:triggered_by, "objects_from_collection")
+           |> Keyword.put_new(:triggered_by, "objects_from_collection")
          )
 
   defp objects_from_collection(%{"type" => type, "first" => first}, opts)
@@ -937,7 +937,7 @@ defmodule ActivityPub.Federator.Fetcher do
       first,
       [],
       opts
-      |> Keyword.put(:triggered_by, "objects_from_collection")
+      |> Keyword.put_new(:triggered_by, "objects_from_collection")
     )
   end
 
@@ -947,7 +947,7 @@ defmodule ActivityPub.Federator.Fetcher do
       id,
       [],
       opts
-      |> Keyword.put(:triggered_by, "objects_from_collection")
+      |> Keyword.put_new(:triggered_by, "objects_from_collection")
     )
   end
 
@@ -958,7 +958,7 @@ defmodule ActivityPub.Federator.Fetcher do
       next,
       [],
       opts
-      |> Keyword.put(:triggered_by, "objects_from_collection")
+      |> Keyword.put_new(:triggered_by, "objects_from_collection")
     )
   end
 
@@ -980,7 +980,7 @@ defmodule ActivityPub.Federator.Fetcher do
         items,
         opts
         |> Keyword.put(:page_depth, depth + 1)
-        |> Keyword.put(:triggered_by, "maybe_next_page")
+        |> Keyword.put_new(:triggered_by, "maybe_next_page")
       )
     else
       items

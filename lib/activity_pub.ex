@@ -677,16 +677,9 @@ defmodule ActivityPub do
           nil
       end
 
-    to =
-      if Utils.public?(object.data) do
-        [
-          ActivityPub.Config.public_uri(),
-          actor.data["followers"],
-          object.data["attributedTo"] || object.data["actor"]
-        ]
-      else
-        [object.data["attributedTo"] || object.data["actor"]]
-      end
+    # TODO: reconsider if likes should be public (would allow remote instances to calculate like counts)
+    # For now, only send to the object author to avoid expensive fan-out to all followers
+    to = [object.data["attributedTo"] || object.data["actor"]]
 
     cc =
       ((object.data["to"] || []) ++ (object.data["cc"] || []))

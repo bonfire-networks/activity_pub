@@ -20,7 +20,7 @@ defmodule ActivityPub.Instances do
   def reachability_datetime_threshold do
     federation_reachability_timeout_days =
       Application.get_env(:activity_pub, :instance, [])[
-        :federation_reachability_timeout_day
+        :federation_reachability_timeout_days
       ] || 0
 
     if federation_reachability_timeout_days > 0 do

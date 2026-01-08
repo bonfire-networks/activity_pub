@@ -190,6 +190,16 @@ defmodule ActivityPub.Utils do
   def ap_id(%{"id" => id}), do: id
   def ap_id(id) when is_binary(id), do: id
 
+  def ap_id(other) do
+    warn(other, "Could not determine ap_id")
+    nil
+  end
+
+  def ap_id!(id) do
+    ap_id(id) ||
+      raise("Could not determine ap_id")
+  end
+
   def some_identifier(_, id) when is_binary(id) do
     id
   end

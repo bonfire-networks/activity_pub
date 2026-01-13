@@ -66,9 +66,34 @@ defmodule ActivityPub.Web.ActivityPubController do
   defp maybe_return_json(conn, meta, json, opts) do
     # debug(json)
 
-    if opts[:exporting] == true or json["type"] in ["Delete", "Tombstone"] or
+    is_deletion? = json["type"] in ["Delete", "Tombstone"]
+
+    if is_deletion? || opts[:exporting] == true ||
          federate_actor?(Map.get(json, "actor"), conn) do
-      Utils.return_json(conn, meta, json)
+      # If published date is in the future, do not return the object
+      published_in_future? =
+        case is_deletion? || json["published"] do
+          true ->
+            false
+
+          nil ->
+            false
+
+          date when is_binary(date) ->
+            case DateTime.from_iso8601(date) do
+              {:ok, dt, _} -> DateTime.compare(dt, DateTime.utc_now()) == :gt
+              _ -> false
+            end
+
+          _ ->
+            false
+        end
+
+      if published_in_future? do
+        Utils.error_json(conn, "not found", 404)
+      else
+        Utils.return_json(conn, meta, json)
+      end
     else
       Utils.error_json(conn, "this actor is not currently federating", 403)
     end
@@ -131,7 +156,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp maybe_object_json(%Object{}, _opts) do
-    # TODO: support authenticated fetching for non-public objects
+    # TODO: support authenticated fetching for non-public objects (especially needed for C2S)
     warn(
       "someone attempted to fetch a non-public object, we acknowledge its existence but do not return it"
     )

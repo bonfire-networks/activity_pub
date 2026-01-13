@@ -9,7 +9,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
   def perform_job(%Oban.Job{
         args: %{"op" => "publish" = op, "activity_id" => activity_id, "repo" => repo}
       }) do
-    info(activity_id, "Use queued activity to perform outgoing federation")
+    info(activity_id, "Using queued activity to perform outgoing federation")
 
     ActivityPub.Utils.set_repo(repo)
     Logger.metadata(action: info(op))

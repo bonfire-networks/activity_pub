@@ -785,7 +785,8 @@ defmodule ActivityPub.Object do
     from(object in Object,
       where:
         object.public == true and
-          object.is_object != true
+          object.is_object != true and
+          fragment("(data->>'published')::timestamptz <= now()")
     )
     |> Queries.by_actor(ap_id)
     |> do_list_page(page)
@@ -796,7 +797,8 @@ defmodule ActivityPub.Object do
       where:
         object.local == true and
           object.public == true and
-          object.is_object != true
+          object.is_object != true and
+          fragment("(data->>'published')::timestamptz <= now()")
     )
     |> do_list_page(page)
   end
@@ -806,7 +808,8 @@ defmodule ActivityPub.Object do
       where:
         object.local == false and
           object.public == true and
-          object.is_object != true
+          object.is_object != true and
+          fragment("(data->>'published')::timestamptz <= now()")
     )
     |> do_list_page(page)
   end
@@ -818,10 +821,10 @@ defmodule ActivityPub.Object do
   def get_inbox_for_actor(ap_id, page) when is_binary(ap_id) do
     from(object in Object,
       where: object.is_object != true,
-      # FIXME: this is not efficient and incomplete, only for testing
       where:
-        fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
-          fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id)
+        (fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
+           fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id)) and
+          fragment("(data->>'published')::timestamptz <= now()")
     )
     |> do_list_page(page)
   end

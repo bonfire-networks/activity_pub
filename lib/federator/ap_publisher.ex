@@ -223,11 +223,13 @@ defmodule ActivityPub.Federator.APPublisher do
 
          is_public? || actor.data["followers"] in tos ->
            Actor.get_external_followers(actor, :publish)
-           |> debug("external_followers")
+           |> debug("all external_followers")
 
          true ->
            # optionally send it to a subset of followers
-           with {:ok, followers} <- Adapter.external_followers_for_activity(actor, activity_data) do
+           with {:ok, followers} <-
+                  Adapter.external_followers_for_activity(actor, activity_data)
+                  |> debug("external_followers_for_activity from Adapter") do
              followers
            else
              e ->

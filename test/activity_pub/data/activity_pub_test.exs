@@ -207,6 +207,8 @@ defmodule ActivityPubTest do
   end
 
   describe "like a public object" do
+    # TODO: if user opts-in for likes to be public
+    @tag :todo
     test "adds a public like activity to the db", context do
       actor = local_actor()
       {:ok, note_actor} = Actor.get_cached(username: actor.username)

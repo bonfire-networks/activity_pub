@@ -217,21 +217,21 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def maybe_add_fetch_signature_headers(headers, id, date \\ nil) do
+  def maybe_add_fetch_signature_headers(headers, id, options \\ []) do
     # enabled by default :-)
     if Config.get([:sign_object_fetches], true) do
-      make_fetch_signature(id, date) ++ headers
+      make_fetch_signature(id, options) ++ headers
     else
       headers
     end
   end
 
-  defp make_fetch_signature(%URI{} = uri, date) do
-    # TODO: optionally fetch with the signature of user doing the request?
-    with {:ok, service_actor} <- Utils.service_actor(),
-         date = date || Utils.format_date(),
+  defp make_fetch_signature(%URI{} = uri, options) do
+    # WIP: optionally fetch with the signature of user doing the request?
+    with {:ok, request_actor} <- options[:current_actor] || Utils.service_actor(),
+         date = options[:date] || Utils.format_date(),
          {:ok, signature} <-
-           Keys.sign(service_actor, %{
+           Keys.sign(request_actor, %{
              "(request-target)": "get #{uri.path}",
              host: http_host(uri),
              date: date
@@ -246,8 +246,8 @@ defmodule ActivityPub.Safety.Keys do
     # |> debug()
   end
 
-  defp make_fetch_signature(id, date) do
-    make_fetch_signature(URI.parse(id), date)
+  defp make_fetch_signature(id, options) do
+    make_fetch_signature(URI.parse(id), options)
   end
 
   def http_host(%{host: host, port: port}) when port in [80, 443] do

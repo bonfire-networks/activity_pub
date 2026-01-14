@@ -782,34 +782,43 @@ defmodule ActivityPub.Object do
   def get_outbox_for_actor(%{"id" => ap_id}, page), do: get_outbox_for_actor(ap_id, page)
 
   def get_outbox_for_actor(ap_id, page) when is_binary(ap_id) do
+    now = DateTime.utc_now()
+
     from(object in Object,
       where:
         object.public == true and
           object.is_object != true and
-          fragment("(data->>'published')::timestamptz <= now()")
+          (fragment("(?->>'published') IS NULL", object.data) or
+             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
     |> Queries.by_actor(ap_id)
     |> do_list_page(page)
   end
 
   def get_outbox_for_instance(page \\ 1) do
+    now = DateTime.utc_now()
+
     from(object in Object,
       where:
         object.local == true and
           object.public == true and
           object.is_object != true and
-          fragment("(data->>'published')::timestamptz <= now()")
+          (fragment("(?->>'published') IS NULL", object.data) or
+             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
     |> do_list_page(page)
   end
 
   def get_inbox_for_instance(page \\ 1) do
+    now = DateTime.utc_now()
+
     from(object in Object,
       where:
         object.local == false and
           object.public == true and
           object.is_object != true and
-          fragment("(data->>'published')::timestamptz <= now()")
+          (fragment("(?->>'published') IS NULL", object.data) or
+             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
     |> do_list_page(page)
   end

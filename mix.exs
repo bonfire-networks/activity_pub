@@ -79,8 +79,8 @@ defmodule ActivityPub.MixProject do
       {:plug_http_validator, git: "https://github.com/bonfire-networks/plug_http_validator", branch: "pr-naive-datetime"},
       {
         :needle_uid,
-        # "~> 0.1"
-        git: "https://github.com/bonfire-networks/needle_uid",
+        "~> 0.0.2",
+        # git: "https://github.com/bonfire-networks/needle_uid",
       },
       # {:needle,
       #   #"~> 0.5"

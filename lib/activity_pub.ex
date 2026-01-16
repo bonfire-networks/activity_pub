@@ -902,20 +902,23 @@ defmodule ActivityPub do
   defp make_flag_data(params, objects, additional) do
     objects =
       Enum.map(objects || [], fn
-        %Actor{} = act ->
-          act.data["id"]
+        %Actor{data: data} ->
+          data["id"]
 
-        %Object{} = act ->
-          act.data["id"]
+        %Object{data: data} ->
+          data["id"]
 
-        act when is_map(act) ->
-          act["id"]
+        %{"id" => id} ->
+          id
 
         act when is_binary(act) ->
           act
 
+        nil ->
+          nil
+
         other ->
-          error(other, "dunno how to flag this")
+          err(other, "dunno how to flag this")
           nil
       end)
       |> Enum.reject(&is_nil/1)

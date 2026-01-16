@@ -927,7 +927,7 @@ defmodule ActivityPub.Federator.Transformer do
          content <- data["content"] || "",
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
 
-         # Reduce the object list to find the reported user.
+         # Reduce the object list to find reported user
          account <-
            Enum.reduce_while(objects, nil, fn ap_id, _ ->
              with {:ok, actor} <- Actor.get_cached(ap_id: ap_id) do
@@ -940,20 +940,25 @@ defmodule ActivityPub.Federator.Transformer do
          # Remove the reported user from the object list.
          statuses <-
            if(account, do: Enum.filter(objects, fn ap_id -> ap_id != account.data["id"] end)) do
-      params = %{
-        activity_id: data["id"],
-        actor: actor,
-        context: context,
-        account: account,
-        statuses: statuses || objects,
-        content: content,
-        local: local?(opts),
-        additional: %{
-          "cc" => if(account, do: [account.data["id"]]) || []
+      params =
+        %{
+          activity_id: data["id"],
+          actor: actor,
+          context: context,
+          account: account,
+          statuses: statuses || objects,
+          content: content,
+          local: local?(opts),
+          additional: %{
+            "cc" => if(account, do: [account.data["id"]]) || []
+          }
         }
-      }
+        |> debug("incoming flag params")
 
       ActivityPub.flag(params, opts)
+    else
+      e ->
+        err(e, "Could not handle incoming Flag")
     end
   end
 
@@ -1154,7 +1159,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
-         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          {:ok, activity} <-
            ActivityPub.like(
              %{
@@ -1183,7 +1188,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
-         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          public <- Utils.public?(data, object),
          {:ok, activity} <-
            ActivityPub.announce(
@@ -1221,7 +1226,7 @@ defmodule ActivityPub.Federator.Transformer do
            Actor.update_actor(
              actor_id,
              if(opts[:local], do: update_actor_data),
-             opts[:already_fetched] != true,
+             !opts[:already_fetched],
              opts[:local] || false
            ) do
       # Skip all of that because it's handled elsewhere after fetching
@@ -1249,16 +1254,33 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(
         %{
           "type" => "Update",
+          "object" => object_id
+        } = data,
+        opts
+      )
+      when is_binary(object_id) do
+    with {:ok, %{data: object_data} = _object} <-
+           object_normalize_and_maybe_fetch(object_id, Keyword.put(opts, :already_fetched, false))
+           |> debug("normalised object for update") do
+      handle_incoming(
+        Map.put(data, "object", object_data),
+        opts
+      )
+    end
+  end
+
+  def handle_incoming(
+        %{
+          "type" => "Update",
           "object" => %{"id" => object_id} = object,
           "actor" => actor
         } = data,
         opts
       ) do
     info("Handle incoming update of an Object")
+    debug(object, "incoming update data")
 
     with {:ok, actor} <- Actor.get_cached(ap_id: actor) |> debug("fetch actor for update"),
-         {:ok, object} <-
-           object_normalize_and_maybe_fetch(object) |> debug("fetch object for update"),
          {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
          true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized} do
       ActivityPub.update(
@@ -1304,8 +1326,12 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
-         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
-         {:ok, instrument} <- object_normalize_and_maybe_fetch(data["instrument"]),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
+         {:ok, instrument} <-
+           object_normalize_and_maybe_fetch(
+             data["instrument"],
+             Keyword.put(opts, :already_fetched, false)
+           ),
          {:ok, activity} <-
            ActivityPub.quote_request(
              %{
@@ -1529,7 +1555,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached(ap_id: actor),
-         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          {:ok, activity} <-
            ActivityPub.unannounce(
              %{
@@ -1558,7 +1584,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached(ap_id: actor),
-         {:ok, object} <- object_normalize_and_maybe_fetch(object_id),
+         {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          {:ok, activity} <-
            ActivityPub.unlike(
              %{
@@ -1740,11 +1766,16 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  defp object_normalize_and_maybe_fetch(id, opts \\ []) do
-    if object = Object.normalize(id, Fetcher.allowed_recursion?(opts[:depth])) do
+  defp object_normalize_and_maybe_fetch(id, opts) do
+    fetch? = opts[:already_fetched] != id and Fetcher.allowed_recursion?(opts[:depth])
+
+    if object = Object.normalize(id, fetch?) do
       {:ok, object}
     else
-      warn(id, "no such object found")
+      if fetch?,
+        do: warn(id, "no such object found (and didn't try fetching)"),
+        else: warn(id, "no such object found")
+
       {:error, :not_found}
     end
   end

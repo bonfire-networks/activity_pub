@@ -545,7 +545,7 @@ defmodule ActivityPub.Actor do
        when ActivityPub.Config.is_in(type, :supported_actor_types) do
     debug("create from AP JSON data")
 
-    case create_or_update_ap_object_for_actor(data, opts[:already_fetched]) do
+    case create_or_update_ap_object_for_actor(data, !!opts[:already_fetched]) do
       {:ok, %Object{} = object} ->
         debug("created object, now try actor")
         do_maybe_create_or_update_actor_from_object(object, opts)

@@ -228,7 +228,7 @@ defmodule ActivityPub.Federator.Fetcher do
          false <- String.starts_with?(id, base_url),
          {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <-
-           cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, true))
+           cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, id))
            |> debug("fetch_fresh_object_from_id -> cached_or_handled_incoming") do
       {:ok, object}
     else
@@ -529,16 +529,16 @@ defmodule ActivityPub.Federator.Fetcher do
     debug(id, "Attempting to fetch ActivityPub object")
     # debug(self())
 
-    with true <- Config.federating?() != false || {:error, "Federation is disabled"},
+    with true <- Config.federating?() != false || error("Federation is disabled"),
          true <-
            allowed_recursion?(options[:depth], options[:max_depth]) ||
-             {:error, "Stopping to avoid too much recursion"},
+             error("Stopping to avoid too much recursion"),
          true <-
-           String.starts_with?(id, "http") || {:error, "Unsupported URL (should start with http)"},
+           String.starts_with?(id, "http") || error("Unsupported URL (should start with http)"),
          uri <- URI.parse(id),
          true <-
            options[:force_instance_reachable] || Instances.reachable?(uri) ||
-             {:error, "Instance was recently not reachable"},
+             error("Instance was recently not reachable"),
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
          true <-
@@ -546,7 +546,7 @@ defmodule ActivityPub.Federator.Fetcher do
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(uri, options)
-           |> flood("ready to fetch #{inspect(id)} with signature headers"),
+           |> debug("ready to fetch #{inspect(id)} with signature headers"),
          {:ok, %{body: body, status: code, headers: headers}} when code in 200..299 <-
            HTTP.get(
              id,

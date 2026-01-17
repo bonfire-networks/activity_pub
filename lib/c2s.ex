@@ -61,14 +61,14 @@ defmodule ActivityPub.C2S do
   # Per spec: servers MUST ignore client-provided IDs and generate new ones
   defp ensure_ids(params) do
     params
-    |> Map.put("id", Utils.generate_object_id())
+    |> Map.put("id", Utils.generate_object_id(&Needle.ULID.generate/0))
     |> ensure_object_id()
   end
 
   defp ensure_object_id(%{"type" => "Create", "object" => object} = params) when is_map(object) do
     Map.update!(params, "object", fn obj ->
       obj
-      |> Map.put("id", Utils.generate_object_id())
+      |> Map.put("id", Utils.generate_object_id(&Needle.ULID.generate/0))
     end)
   end
 
@@ -116,7 +116,15 @@ defmodule ActivityPub.C2S do
              from_c2s: true,
              current_actor: current_actor
            ) do
+      # After successful C2S activity, delete activity and object from DB and cache
+
+      # ActivityPub.Object.get_cached(ap_id: activity.data["id"])
+      #       |> case do
+      #         {:ok, activity} -> {:ok, activity}
+      #         e -> 
+      #           err(e, "C2S activity created by adapter not found")
       {:ok, activity}
+      # end
     else
       {:ok, %{local: false} = activity} ->
         err(activity, "C2S activity was not marked as local")

@@ -25,9 +25,10 @@ defmodule ActivityPub.Utils do
 
   # def generate_context_id, do: generate_id("contexts")
 
-  def generate_object_id, do: generate_id("objects") |> debug
+  def generate_object_id(generator \\ &UUID.generate/0), do: generate_id("objects", generator)
 
-  def generate_id(type), do: ap_base_url() <> "/#{type}/#{UUID.generate()}"
+  def generate_id(type, generator \\ &UUID.generate/0),
+    do: ap_base_url() <> "/#{type}/#{generator.()}"
 
   def ap_base_url() do
     ActivityPub.Web.base_url() <> System.get_env("AP_BASE_PATH", "/pub")

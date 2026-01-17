@@ -343,7 +343,7 @@ defmodule ActivityPub.Object do
          # first check if it already exists
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
-           maybe_upsert(upsert?, maybe_existing_object, object_params) |> info("maybe_upserted") do
+           maybe_upsert(upsert?, maybe_existing_object, object_params) |> debug("maybe_upserted") do
       # return an activity that contains the ID as object rather than the actual object
       {:ok, object}
     end

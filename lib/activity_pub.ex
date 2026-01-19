@@ -874,7 +874,7 @@ defmodule ActivityPub do
     Enum.into(params[:additional] || %{}, object)
     |> Map.put_new("type", "Create")
     |> Map.put_new("published", published)
-    |> Map.put_new_lazy("actor", fn -> params.actor.data["id"] end)
+    |> Map.put_new_lazy("actor", fn -> actor_id_from_params(params) end)
     |> Map.put_new_lazy("context", fn -> params[:context] end)
   end
 
@@ -891,7 +891,7 @@ defmodule ActivityPub do
     Enum.into(params[:additional] || %{}, %{
       "type" => "Create",
       "to" => params.to,
-      "actor" => params.actor.data["id"],
+      "actor" => actor_id_from_params(params),
       "object" => object,
       "published" => published,
       "context" => params[:context]
@@ -926,11 +926,7 @@ defmodule ActivityPub do
     data =
       %{
         "type" => "Flag",
-        "actor" =>
-          if(is_struct(params[:actor]),
-            do: params[:actor].data["id"],
-            else: params[:actor] || Utils.service_actor!()
-          ),
+        "actor" => actor_id_from_params(params) || Utils.service_actor!(),
         "content" => params[:content],
         "object" => objects,
         "context" => params[:context],
@@ -941,6 +937,14 @@ defmodule ActivityPub do
     if params[:activity_id], do: Map.put(data, "id", params[:activity_id]), else: data
 
     # |> debug()
+  end
+
+  defp actor_id_from_params(%{actor: %{"id" => id}}) do
+    id
+  end
+
+  defp actor_id_from_params(%{actor: actor}) do
+    actor
   end
 
   @doc """

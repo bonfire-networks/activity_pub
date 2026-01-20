@@ -388,6 +388,15 @@ defmodule ActivityPub.Object do
   def set_cache(%{id: id, data: %{"id" => ap_id}, pointer_id: pointer_id} = object) do
     debug(ap_id, "put_cache")
 
+    # Clear JSON cache entries since we're not setting those
+    Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, id))
+    Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, ap_id))
+
+    if pointer_id = pointer_id || Map.get(object.pointer || %{}, :id) do
+      Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, pointer_id))
+    end
+
+    # Set object cache (these will overwrite any existing entries)
     # TODO: store in cache only once, and only IDs for the others
     Cachex.put(:ap_object_cache, Utils.ap_cache_key(:id, id), object)
     Cachex.put(:ap_object_cache, Utils.ap_cache_key(:ap_id, ap_id), object)
@@ -411,6 +420,7 @@ defmodule ActivityPub.Object do
     Cachex.del(:ap_object_cache, Utils.ap_cache_key(:ap_id, ap_id))
 
     Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, id))
+    Cachex.del(:ap_object_cache, Utils.ap_cache_key(:json, ap_id))
 
     if pointer_id = pointer_id || Map.get(pointer || %{}, :id) do
       Cachex.del(:ap_object_cache, Utils.ap_cache_key(:pointer, pointer_id))
@@ -838,7 +848,7 @@ defmodule ActivityPub.Object do
       where:
         (fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
            fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id)) and
-          fragment("(data->>'published')::timestamptz <= now()")
+          fragment("(?->>'published')::timestamptz <= now()", object.data)
     )
     |> do_list_page(page)
   end

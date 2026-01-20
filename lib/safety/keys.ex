@@ -122,7 +122,7 @@ defmodule ActivityPub.Safety.Keys do
 
     with {:ok, pem} <- generate_rsa_pem(),
          {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-         {:ok, actor} <- Actor.set_cache(actor) |> debug("donz") do
+         {:ok, actor} <- Actor.set_cache(actor) do
       {:ok, actor}
     else
       e -> error(e, "Could not generate or save keys")

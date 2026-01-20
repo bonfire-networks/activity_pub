@@ -413,10 +413,15 @@ defmodule ActivityPub.Actor do
     do: update_actor(actor_id, data, fetch_remote?, local?)
 
   def update_actor(actor_id, data, _fetch_remote?, _local? = true) do
-    Adapter.update_local_actor(
-      actor_id,
-      data
-    )
+    with {:ok, actor} <-
+           Adapter.update_local_actor(
+             actor_id,
+             data
+           )
+           |> flood("adapter updated local actor"),
+         {:ok, actor} <- Actor.set_cache(actor) do
+      {:ok, actor}
+    end
   end
 
   def update_actor(
@@ -613,6 +618,16 @@ defmodule ActivityPub.Actor do
   def set_cache({:ok, actor}), do: set_cache(actor)
 
   def set_cache(%Actor{} = actor) do
+    # Clear JSON cache entries since we're not setting those
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.id))
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.ap_id))
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.username))
+
+    if pointer_id = actor.pointer_id || Map.get(actor.pointer || %{}, :id) do
+      Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, pointer_id))
+    end
+
+    # Set actor cache (these will overwrite any existing entries)
     for {key, value} <-
           ([
              {:id, actor.id},
@@ -649,7 +664,14 @@ defmodule ActivityPub.Actor do
 
     Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:username, actor.username))
 
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.id))
+    Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.ap_id))
     Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.username))
+
+    if pointer_id = actor.pointer_id || Map.get(actor.pointer || %{}, :id) do
+      Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, pointer_id))
+    end
+
     Object.invalidate_cache(actor)
   end
 

@@ -325,38 +325,81 @@ defmodule ActivityPub.Utils do
   #   end)
   # end
 
+  @doc """
+  Calculates a TTL (in seconds) for caching based on the published date of an object.
+  If the published date is in the future, returns the number of seconds until then (plus a small buffer).
+  Otherwise, returns the default TTL (nil).
+
+  ## Examples
+
+      iex> ActivityPub.Utils.cache_ttl_from_published(%{"published" => DateTime.to_iso8601(DateTime.add(DateTime.utc_now(), 10))})
+      10..15
+      
+      iex> ActivityPub.Utils.cache_ttl_from_published(%{"published" => DateTime.to_iso8601(DateTime.add(DateTime.utc_now(), -10))})
+      nil
+  """
+  def cache_ttl_from_published(published) when is_binary(published) do
+    with {:ok, dt, _} <- DateTime.from_iso8601(published),
+         diff when diff > 0 <- DateTime.diff(dt, DateTime.utc_now()) do
+      # Add a small buffer (5 seconds)
+      diff + 5
+    else
+      _ -> nil
+    end
+  end
+
+  def cache_ttl_from_published(%{"published" => published}) when is_binary(published) do
+    cache_ttl_from_published(published)
+  end
+
+  def cache_ttl_from_published(%{data: %{"published" => published}}) when is_binary(published) do
+    cache_ttl_from_published(published)
+  end
+
+  def cache_ttl_from_published(%{"object" => %{"published" => published}})
+      when is_binary(published) do
+    cache_ttl_from_published(published)
+  end
+
+  def cache_ttl_from_published(_), do: nil
+
   def get_with_cache(get_fun, cache_bucket, key, identifier, opts \\ [])
       when is_function(get_fun) do
     if some_identifier = some_identifier(key, identifier) do
       cache_key = do_ap_cache_key(key, some_identifier)
       mock_fun = Process.get(Tesla.Mock)
 
-      case cachex_fetch(cache_bucket, cache_key, fn ->
-             maybe_put_mock(mock_fun)
+      case cachex_fetch(
+             cache_bucket,
+             cache_key,
+             fn ->
+               maybe_put_mock(mock_fun)
 
-             if is_function(get_fun, 2) do
-               get_fun.([{key, identifier}], opts)
-             else
-               get_fun.([{key, identifier}])
-             end
-             |> case do
-               {:ok, object} ->
-                 debug("#{cache_bucket}: got and now caching (key: #{cache_key})")
-                 debug(object, "got from cache")
+               if is_function(get_fun, 2) do
+                 get_fun.([{key, identifier}], opts)
+               else
+                 get_fun.([{key, identifier}])
+               end
+               |> case do
+                 {:ok, object} ->
+                   debug("#{cache_bucket}: got and now caching (key: #{cache_key})")
+                   debug(object, "got from cache")
 
-                 if key != :json, do: maybe_multi_cache(cache_bucket, object)
+                   if key != :json, do: maybe_multi_cache(cache_bucket, object)
 
-                 {:commit, object}
+                   {:commit, object}
 
-               {:error, :not_found} ->
-                 warn(identifier, "not found with #{inspect(get_fun)} for #{key}")
-                 {:commit, :not_found}
+                 {:error, :not_found} ->
+                   warn(identifier, "not found with #{inspect(get_fun)} for #{key}")
+                   {:commit, :not_found}
 
-               e ->
-                 warn(e, "error attempting to get with #{cache_key} ")
-                 {:ignore, e}
-             end
-           end) do
+                 e ->
+                   warn(e, "error attempting to get with #{cache_key} ")
+                   {:ignore, e}
+               end
+             end,
+             opts
+           ) do
         {:ok, :not_found} ->
           debug(":not_found was cached for #{cache_key}")
           {:error, :not_found}
@@ -455,9 +498,12 @@ defmodule ActivityPub.Utils do
           "request from"
         )
 
+    # ttl = cache_ttl_from_published(obj)
+    # cache_opts = if ttl, do: Keyword.put(opts, :ttl, ttl), else: opts
+
     with {:ok, %{json: json, meta: meta}} <-
            get_with_cache(get_fun, cache_bucket, :json, id, opts) do
-      # TODO: cache the actual json so it doesn't have to go through Jason each time?
+      # TODO: cache the actual json binary so it doesn't have to go through Jason each time?
       # FIXME: add a way disable JSON caching in config for cases where a reverse proxy is also doing caching, to avoid storing it twice?
 
       ret_fn.(conn, meta, json, opts)

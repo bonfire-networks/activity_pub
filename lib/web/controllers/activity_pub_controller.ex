@@ -60,7 +60,6 @@ defmodule ActivityPub.Web.ActivityPubController do
       &maybe_return_json/4,
       opts
     )
-    |> debug()
   end
 
   defp maybe_return_json(conn, meta, json, opts) do
@@ -108,7 +107,8 @@ defmodule ActivityPub.Web.ActivityPubController do
       #  current_user <- Map.get(conn.assigns, :current_user, nil) |> debug("current_user"), # TODO: should/how users make authenticated requested?
       # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") 
       maybe_object_json(
-        Object.get_cached!(pointer: id) || Adapter.maybe_publish_object(id, true),
+        Object.get_cached!(pointer: id) ||
+          Adapter.maybe_publish_object(id, opts |> Keyword.put(:manually_fetching?, true)),
         opts
       )
     else
@@ -120,6 +120,7 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       maybe_object_json(Object.get_cached!(ap_id: ap_id) |> debug("object from cache"), opts)
     end
+    |> flood("generated json for cache")
   end
 
   defp object_json([json: %ActivityPub.Object{} = object], opts) do

@@ -1,7 +1,9 @@
 defmodule ActivityPub.Migrations do
   @moduledoc false
   use Ecto.Migration
+
   @disable_ddl_transaction true
+  @disable_migration_lock true
 
   defp ap_add_pointer_id() do
     if Code.ensure_loaded?(Needle.Migration) do

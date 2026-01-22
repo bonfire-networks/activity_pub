@@ -87,6 +87,7 @@ defmodule ActivityPub.Migrations do
   def add_object_url_index(concurrently? \\ concurrently?()) do
     # Drop old full-URL index if it exists (may fail silently, that's ok)
     drop_if_exists(index(:ap_object, ["(data->>'url')"]))
+    drop_if_exists(index(:ap_object, ["(md5(data->>'url'))"]))
     # Create new MD5 hash-based index
     create(index(:ap_object, ["(md5(data->>'url'))"], concurrently: concurrently?))
   end

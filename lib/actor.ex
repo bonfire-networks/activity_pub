@@ -418,7 +418,7 @@ defmodule ActivityPub.Actor do
              actor_id,
              data
            )
-           |> flood("adapter updated local actor"),
+           |> debug("adapter updated local actor"),
          {:ok, actor} <- Actor.set_cache(actor) do
       {:ok, actor}
     end

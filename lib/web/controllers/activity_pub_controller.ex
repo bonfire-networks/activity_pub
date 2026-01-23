@@ -120,7 +120,7 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       maybe_object_json(Object.get_cached!(ap_id: ap_id) |> debug("object from cache"), opts)
     end
-    |> flood("generated json for cache")
+    |> debug("generated json for cache")
   end
 
   defp object_json([json: %ActivityPub.Object{} = object], opts) do

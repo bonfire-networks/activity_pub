@@ -1037,4 +1037,47 @@ defmodule ActivityPub.Object do
 
   def self_replies_ids(object, limit),
     do: replies_ids(object, limit, self_only: true)
+
+
+  def apply_to_object_and_history(object, fun) do
+    with history <- object["formerRepresentations"],
+         object <- Map.drop(object, ["formerRepresentations"]),
+         {_, {:ok, object}} <- {:main_body, fun.(object)},
+         {_, {:ok, history}} <- {:history_items, for_each_history_item(history, object, fun)} do
+      object =
+        if history do
+          Map.put(object, "formerRepresentations", history)
+        else
+          object
+        end
+
+      {:ok, object}
+    else
+      {:main_body, e} -> e
+      {:history_items, e} -> e
+    end
+  end
+
+  defp for_each_history_item(%{"orderedItems" => items} = history, _object, fun) do
+    new_items =
+      Enum.map(items, fun)
+      |> Enum.reduce_while(
+        {:ok, []},
+        fn
+          {:ok, item}, {:ok, acc} -> {:cont, {:ok, acc ++ [item]}}
+          e, _acc -> {:halt, e}
+        end
+      )
+
+    case new_items do
+      {:ok, items} -> {:ok, Map.put(history, "orderedItems", items)}
+      e -> e
+    end
+  end
+
+  defp for_each_history_item(history, _, _) do
+    {:ok, history}
+  end
+
+
 end

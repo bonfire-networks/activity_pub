@@ -89,7 +89,10 @@ defmodule ActivityPub.MixProject do
       # },
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
       {:arrows, "~> 0.2"},
-      {:untangle, "~> 0.3"}
+      {:untangle, "~> 0.3"},
+      {:ex_confusables, 
+      #"~> 0.1"
+      git: "https://github.com/bonfire-networks/ex_confusables"}
     ]
   end
 

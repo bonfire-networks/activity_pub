@@ -6,6 +6,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   alias ActivityPub.MRF
   alias ActivityPub.Config
   alias ActivityPub.Object
+  import Untangle
 
   @moduledoc "Reject or Word-Replace messages with a keyword or regex"
 
@@ -55,20 +56,105 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   #   }
   # end
 
-  
   defp string_matches?(string, _) when not is_binary(string) do
     false
   end
 
+  # For string patterns: case-insensitive comparison
   defp string_matches?(string, pattern) when is_binary(pattern) do
-    String.contains?(string, pattern) or
-      String.contains?(ExConfusables.skeleton(string), pattern)
+    downcased_string = String.downcase(string)
+    # TODO: optimise by downcasing the pattern when it is set in config
+    downcased_pattern = String.downcase(pattern)
+
+    cond do
+      String.contains?(downcased_string, downcased_pattern) ->
+        :exact
+
+      confusables_enabled?() ->
+        normalized_string =
+          string
+          |> normalize_for_matching()
+          |> String.downcase()
+          |> flood("normalised string '#{string}'")
+
+        if normalized_string
+           |> String.contains?(downcased_pattern) or
+             normalized_string
+             # reverse homoglyph just in case
+             |> String.replace("rn", "m")
+             |> String.contains?(downcased_pattern), do: :confusable, else: false
+
+      true ->
+        false
+    end
   end
 
+  # For regex patterns
   defp string_matches?(string, pattern) do
-    String.match?(string, pattern) or
-      String.match?(ExConfusables.skeleton(string), pattern)
+    # NOTE: users can add the i flag in the pattern (e.g., ~r/pattern/i)
+
+    cond do
+      String.match?(string, pattern) ->
+        :exact
+
+      confusables_enabled?() ->
+        normalized_string =
+          string
+          |> normalize_for_matching()
+          |> flood("normalised string '#{string}'")
+
+        if normalized_string
+           |> String.match?(pattern) or
+             normalized_string
+             # reverse homoglyph just in case
+             |> String.replace("rn", "m")
+             |> String.match?(pattern), do: :confusable, else: false
+
+      true ->
+        false
+    end
   end
+
+  # Multi-step normalization to catch various Unicode evasion techniques
+  defp normalize_for_matching(string) do
+    string
+    |> strip_zero_width_chars()
+    |> nfkc_normalize()
+    |> ExConfusables.skeleton()
+    |> strip_diacritics()
+  end
+
+  # Remove zero-width characters used to break up words
+  defp strip_zero_width_chars(string) do
+    # U+200B Zero Width Space, U+200C Zero Width Non-Joiner,
+    # U+200D Zero Width Joiner, U+FEFF Byte Order Mark/Zero Width No-Break Space
+    String.replace(string, ~r/[\x{200B}\x{200C}\x{200D}\x{FEFF}]/u, "")
+  end
+
+  # NFKC normalization decomposes compatibility characters:
+  # - Enclosed alphanumerics (Ⓐ → A)
+  # - Full-width chars (Ａ → A)
+  # - Ligatures (ﬁ → fi)
+  # - Superscript/subscript (² → 2)
+  defp nfkc_normalize(string) do
+    :unicode.characters_to_nfkc_binary(string)
+  end
+
+  # Strip combining diacritical marks (accents, etc.) after NFKD decomposition
+  defp strip_diacritics(string) do
+    string
+    |> :unicode.characters_to_nfkd_binary()
+    |> String.replace(~r/[\x{0300}-\x{036F}]/u, "")
+  end
+
+  defp confusables_enabled? do
+    Config.get([:mrf_keyword, :detect_confusables], true)
+  end
+
+  defp match_type_message(:exact), do: "[KeywordPolicy] Matches rejected keyword"
+
+  defp match_type_message(:confusable),
+    do: "[KeywordPolicy] Matches rejected keyword (confusable/homoglyph detected)"
 
   defp object_payload(%{} = object) do
     [object["content"], object["summary"], object["name"]]
@@ -81,12 +167,12 @@ defmodule ActivityPub.MRF.KeywordPolicy do
            Object.apply_to_object_and_history(object, fn object ->
              payload = object_payload(object)
 
-             if Enum.any?(Config.get([:mrf_keyword, :reject]), fn pattern ->
-                  string_matches?(payload, pattern)
-                end) do
-               {:reject, "[KeywordPolicy] Matches with rejected keyword"}
-             else
-               {:ok, message}
+             case find_matching_pattern(payload, Config.get([:mrf_keyword, :reject])) do
+               {:reject, match_type} ->
+                 {:reject, match_type_message(match_type)}
+
+               false ->
+                 {:ok, message}
              end
            end) do
       {:ok, message}
@@ -95,16 +181,25 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
+  defp find_matching_pattern(payload, patterns) do
+    Enum.find_value(patterns, fn pattern ->
+      case string_matches?(payload, pattern) do
+        false -> false
+        match_type -> {:reject, match_type}
+      end
+    end) || false
+  end
+
   defp check_ftl_removal(%{"type" => "Create", "to" => to, "object" => %{} = object} = message) do
     check_keyword = fn object ->
       payload = object_payload(object)
 
-      if Enum.any?(Config.get([:mrf_keyword, :federated_timeline_removal]), fn pattern ->
-           string_matches?(payload, pattern)
-         end) do
-        {:should_delist, nil}
-      else
-        {:ok, %{}}
+      case find_matching_pattern(payload, Config.get([:mrf_keyword, :federated_timeline_removal])) do
+        {:reject, match_type} ->
+          {:should_delist, match_type}
+
+        false ->
+          {:ok, %{}}
       end
     end
 
@@ -207,5 +302,4 @@ defmodule ActivityPub.MRF.KeywordPolicy do
 
     {:ok, %{mrf_keyword: mrf_keyword}}
   end
-
 end

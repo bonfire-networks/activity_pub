@@ -1038,7 +1038,6 @@ defmodule ActivityPub.Object do
   def self_replies_ids(object, limit),
     do: replies_ids(object, limit, self_only: true)
 
-
   def apply_to_object_and_history(object, fun) do
     with history <- object["formerRepresentations"],
          object <- Map.drop(object, ["formerRepresentations"]),
@@ -1078,6 +1077,4 @@ defmodule ActivityPub.Object do
   defp for_each_history_item(history, _, _) do
     {:ok, history}
   end
-
-
 end

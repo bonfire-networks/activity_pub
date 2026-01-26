@@ -56,65 +56,6 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   #   }
   # end
 
-  defp string_matches?(string, _) when not is_binary(string) do
-    false
-  end
-
-  # For string patterns: case-insensitive comparison
-  defp string_matches?(string, pattern) when is_binary(pattern) do
-    downcased_string = String.downcase(string)
-    # TODO: optimise by downcasing the pattern when it is set in config
-    downcased_pattern = String.downcase(pattern)
-
-    cond do
-      String.contains?(downcased_string, downcased_pattern) ->
-        :exact
-
-      confusables_enabled?() ->
-        normalized_string =
-          string
-          |> normalize_for_matching()
-          |> String.downcase()
-          |> flood("normalised string '#{string}'")
-
-        if normalized_string
-           |> String.contains?(downcased_pattern) or
-             normalized_string
-             # reverse homoglyph just in case
-             |> String.replace("rn", "m")
-             |> String.contains?(downcased_pattern), do: :confusable, else: false
-
-      true ->
-        false
-    end
-  end
-
-  # For regex patterns
-  defp string_matches?(string, pattern) do
-    # NOTE: users can add the i flag in the pattern (e.g., ~r/pattern/i)
-
-    cond do
-      String.match?(string, pattern) ->
-        :exact
-
-      confusables_enabled?() ->
-        normalized_string =
-          string
-          |> normalize_for_matching()
-          |> flood("normalised string '#{string}'")
-
-        if normalized_string
-           |> String.match?(pattern) or
-             normalized_string
-             # reverse homoglyph just in case
-             |> String.replace("rn", "m")
-             |> String.match?(pattern), do: :confusable, else: false
-
-      true ->
-        false
-    end
-  end
-
   # Multi-step normalization to catch various Unicode evasion techniques
   defp normalize_for_matching(string) do
     string
@@ -181,13 +122,61 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp find_matching_pattern(payload, patterns) do
-    Enum.find_value(patterns, fn pattern ->
-      case string_matches?(payload, pattern) do
-        false -> false
-        match_type -> {:reject, match_type}
-      end
-    end) || false
+  defp find_matching_pattern(string, patterns) when is_list(patterns) do
+    # TODO: optimise by splitting patterns when set in config
+    {string_patterns, regex_patterns} = Enum.split_with(patterns, &is_binary/1)
+
+    check_string_patterns(string, string_patterns) ||
+      check_regex_patterns(string, regex_patterns) ||
+      false
+  end
+
+  defp find_matching_pattern(_string, _), do: false
+
+  defp check_string_patterns(_string, []), do: nil
+
+  defp check_string_patterns(string, string_patterns) do
+    downcased_string = String.downcase(string)
+    # TODO: optimise by downcasing patterns when set in config
+    downcased_patterns = Enum.map(string_patterns, &String.downcase/1)
+
+    cond do
+      String.contains?(downcased_string, downcased_patterns) ->
+        {:reject, :exact}
+
+      confusables_enabled?() ->
+        normalized = string |> normalize_for_matching() |> String.downcase()
+
+        # Also check "rn" → "m" reverse homoglyph
+        if String.contains?(normalized, downcased_patterns) or
+             String.contains?(String.replace(normalized, "rn", "m"), downcased_patterns) do
+          {:reject, :confusable}
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  defp check_regex_patterns(_string, []), do: nil
+
+  defp check_regex_patterns(string, regex_patterns) do
+    # NOTE: we don't downcase here since regexes may have their own i flag
+    cond do
+      Enum.any?(regex_patterns, &String.match?(string, &1)) ->
+        {:reject, :exact}
+
+      confusables_enabled?() ->
+        normalized = normalize_for_matching(string)
+
+        if Enum.any?(regex_patterns, &String.match?(normalized, &1)) or
+             Enum.any?(regex_patterns, &String.match?(String.replace(normalized, "rn", "m"), &1)) do
+          {:reject, :confusable}
+        end
+
+      true ->
+        nil
+    end
   end
 
   defp check_ftl_removal(%{"type" => "Create", "to" => to, "object" => %{} = object} = message) do

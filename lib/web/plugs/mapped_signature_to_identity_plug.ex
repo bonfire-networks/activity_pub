@@ -21,7 +21,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
         %{assigns: %{current_actor: %Actor{pointer: %{id: _} = pointer} = _actor}} = conn,
         _opts
       ) do
-    debug(pointer, "deriving current_user from current_actor")
+    flood(pointer, "deriving current_user from current_actor")
 
     conn
     |> assign(:current_user, pointer)
@@ -31,7 +31,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   def call(%{assigns: %{current_actor: %Actor{pointer_id: pointer_id} = actor}} = conn, _opts) do
     case Adapter.get_actor_by_id(pointer_id) do
       {:ok, %Actor{pointer: pointer}} when not is_nil(pointer) ->
-        debug(actor, "deriving current_user from current_actor")
+        flood(actor, "deriving current_user from current_actor")
 
         conn
         |> assign(:current_user, pointer)
@@ -47,7 +47,7 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
   # already authorized somehow? but we need an Actor and not just a user
   def call(%{assigns: %{current_user: %{id: pointer_id}}} = conn, _opts) do
     with {:ok, %Actor{} = actor} <- Actor.get_cached(pointer: pointer_id) do
-      debug(actor, "found current_actor from current_user #{pointer_id}")
+      flood(actor, "found current_actor from current_user #{pointer_id}")
 
       conn
       |> assign(:current_actor, actor)

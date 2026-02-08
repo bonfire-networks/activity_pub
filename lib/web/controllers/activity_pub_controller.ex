@@ -270,6 +270,18 @@ defmodule ActivityPub.Web.ActivityPubController do
       |> put_view(ObjectView)
       |> render("inbox.json", %{actor: current_actor, page: page_number(params["page"])})
     else
+      false ->
+        warn(
+          conn.assigns[:current_actor],
+          "Requested user `#{request_username}` does not match current_actor username"
+        )
+
+        Utils.error_json(
+          conn,
+          "this API endpoint only accepts POST requests, or authenticated GET requests",
+          403
+        )
+
       e ->
         warn(e, "Not a C2S request with Bearer token")
         # This is a federation request - return error for GET

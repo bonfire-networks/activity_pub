@@ -16,22 +16,38 @@ defmodule ActivityPub.Federator.APPublisher do
   # handle all types
   def is_representable?(_activity), do: true
 
+  @doc "Publish/federate activity"
   def publish(actor, activity, opts \\ []) do
-    {:ok, prepared_activity_data} =
-      Transformer.prepare_outgoing(activity.data)
+    case prepare_publish_params(actor, activity) do
+      params_list when is_list(params_list) and params_list != [] ->
+        Enum.map(params_list, fn params ->
+          if opts[:federate_inline] do
+            publish_one(params)
+          else
+            ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, actor, params)
+          end
+        end)
 
-    # |> debug("data ready to publish as JSON")
+      _other ->
+        []
+    end
+  end
 
-    # |> info("JSON ready to publish")
-
-    # Utils.maybe_forward_activity(activity)
-
-    # embed the object in the activity JSON
+  @doc """
+  Builds the list of per-inbox params (including the JSON payload) that would be passed to `publish_one/1` or enqueued for async delivery.
+  """
+  def prepare_publish_params(actor, activity) do
+    # embed the object in the activity JSON (note: already being done in prepare_outgoing)
     # object_ap_id = activity.data["object"]
     # object = Object.get_cached!(object_ap_id)
-    # activity = Map.put(activity, )
+    # activity = Map.put(activity, :object, object)
 
-    # TODO: reuse from activity?
+    {:ok, prepared_activity_data} =
+      Transformer.prepare_outgoing(activity.data)
+      |> flood("prepared_activity_data")
+
+    # Utils.maybe_forward_activity(prepared_activity_data)
+
     to = activity.data["to"] || []
     cc = activity.data["cc"] || []
     tos = to ++ cc
@@ -71,18 +87,17 @@ defmodule ActivityPub.Federator.APPublisher do
          |> Instances.filter_reachable()
          |> debug("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
-        recipients
-        |> Enum.map(fn {inbox, meta} ->
+        Enum.map(recipients, fn {inbox, meta} ->
           json =
             Transformer.preserve_privacy_of_outgoing(
               prepared_activity_data,
               URI.parse(inbox).host,
               meta[:ids]
             )
-            # |> debug("safe json")
+            |> flood("safe json")
             |> Jason.encode!()
 
-          params = %{
+          %{
             inbox: inbox,
             json: json,
             actor_username: Map.get(actor, :username),
@@ -90,12 +105,6 @@ defmodule ActivityPub.Federator.APPublisher do
             id: prepared_activity_data["id"],
             unreachable_since: meta[:unreachable_since]
           }
-
-          if opts[:federate_inline] do
-            publish_one(params)
-          else
-            ActivityPub.Federator.Publisher.enqueue_one(__MODULE__, actor, params)
-          end
         end)
 
       _other ->

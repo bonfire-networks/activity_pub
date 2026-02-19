@@ -51,6 +51,42 @@ defmodule ActivityPub.Federator.APPublisherTest do
     assert queue[:failure] == (previous_queue[:failure] || 0)
   end
 
+  test "prepared params for a Create activity embed the full object in the JSON" do
+    note_actor = local_actor()
+    {:ok, note_actor} = Actor.get_cached(username: note_actor.username)
+    recipient_actor = actor()
+
+    note =
+      insert(:note, %{
+        actor: note_actor,
+        data: %{
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+          "cc" => [recipient_actor.ap_id, note_actor.data["followers"]]
+        }
+      })
+
+    activity = insert(:note_activity, %{note: note})
+    {:ok, actor} = Actor.get_cached(ap_id: activity.data["actor"])
+
+    # Verify the stored activity input data has the object as a string URI
+    assert is_binary(activity.data["object"])
+
+    params_list = APPublisher.prepare_publish_params(actor, activity)
+    assert [%{json: json, inbox: inbox} | _] = params_list
+    assert is_binary(inbox)
+
+    decoded = Jason.decode!(json)
+
+    # The object should be embedded as a map, not just a URI
+    assert is_map(decoded["object"]),
+           "Expected object to be embedded as a map, got: #{inspect(decoded["object"])}"
+
+    assert decoded["object"]["type"] == "Note"
+    assert decoded["object"]["content"] == note.data["content"]
+    assert decoded["object"]["id"] == note.data["id"]
+    assert decoded["type"] == "Create"
+  end
+
   # test "it adds index instance recipient if the env is set" do
 
   #   previous_queue = Oban.drain_queue(queue: :federator_outgoing)

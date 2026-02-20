@@ -14,7 +14,7 @@ defmodule ActivityPub.Test.Helpers do
 
   def endpoint,
     do:
-      Process.get(:phoenix_endpoint_module) ||
+      ProcessTree.get(:phoenix_endpoint_module) ||
         Application.get_env(
           :activity_pub,
           :endpoint_module,

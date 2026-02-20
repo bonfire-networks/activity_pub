@@ -114,6 +114,7 @@ defmodule ActivityPub.Pruner do
         Object
       end
       |> where([o], o.updated_at < ^time_deadline)
+      |> where([o], not o.local)
       |> where(
         [o],
         fragment("split_part(?->>'actor', '/', 3) != ?", o.data, ^Utils.ap_base_url())

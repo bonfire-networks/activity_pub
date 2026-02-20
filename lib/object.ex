@@ -344,7 +344,10 @@ defmodule ActivityPub.Object do
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> debug("maybe_upserted") do
-      # return an activity that contains the ID as object rather than the actual object
+      # Cache the newly inserted object to invalidate any negative cache entries
+      # (e.g. from the normalize/get_cached call above which caches :not_found before the insert)
+      set_cache(object)
+
       {:ok, object}
     end
   end
@@ -454,13 +457,23 @@ defmodule ActivityPub.Object do
     |> unique_constraint(:_data____id, match: :exact)
   end
 
-  def update_existing(object_id, attrs) do
-    case get(id: object_id) do
+  def update_existing(object_id, attrs) when is_binary(object_id) do
+    case get_cached(object_id) do
       {:ok, object} ->
         do_update_existing(object, attrs)
 
       _e ->
         error(object_id, "Could not find the object to update")
+    end
+  end
+
+  def update_existing(opts, attrs) when is_list(opts) do
+    case get_cached(opts) do
+      {:ok, object} ->
+        do_update_existing(object, attrs)
+
+      _e ->
+        error(opts, "Could not find the object to update")
     end
   end
 

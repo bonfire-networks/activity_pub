@@ -28,7 +28,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   """
   def perform(%Oban.Job{args: %{"op" => op, "params" => params, "repo" => repo}} = job, _type)
       when op in ["incoming_ap_doc", "incoming_ap_doc_mentions", "incoming_ap_doc_follows"] do
-    ActivityPub.Utils.set_repo(repo)
+    ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: op)
     Untangle.debug("Handling incoming AP activity (#{op})")
 
@@ -47,7 +47,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         },
         _type
       ) do
-    ActivityPub.Utils.set_repo(repo)
+    ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: "incoming_unverified_ap_doc")
     Untangle.debug("Handling incoming AP activity with no verified signature")
     maybe_process_unsigned(headers, params)

@@ -220,32 +220,59 @@ defmodule ActivityPub.Federator.APPublisher do
     do: recipients(actor, activity_data, tos, is_public?)
 
   defp recipients(actor, activity_data, tos, is_public?) do
-    addressed_recipients(activity_data) ++
-      (cond do
-         # Accept/Reject should only go to addressed recipients, not fan out to followers
-         activity_data["type"] in ["Accept", "Reject"] ->
-           []
+    addressed = addressed_recipients(activity_data)
 
-         # When handling Flag activities, we need special recipient handling
-         activity_data["type"] == "Flag" ->
-           flag_recipients(activity_data["object"])
+    # Collect pointer_ids of already-addressed recipients to skip redundant lookups
+    addressed_pointer_ids =
+      addressed
+      |> Enum.map(fn
+        %{pointer_id: pid} when is_binary(pid) -> pid
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
 
-         is_public? || actor.data["followers"] in tos ->
-           Actor.get_external_followers(actor, :publish)
-           |> debug("all external_followers")
+    followers =
+      cond do
+        # Accept/Reject should only go to addressed recipients, not fan out to followers
+        activity_data["type"] in ["Accept", "Reject"] ->
+          []
 
-         true ->
-           # optionally send it to a subset of followers
-           with {:ok, followers} <-
-                  Adapter.external_followers_for_activity(actor, activity_data)
-                  |> debug("external_followers_for_activity from Adapter") do
-             followers
-           else
-             e ->
-               error(e)
-               nil
-           end
-       end || [])
+        # When handling Flag activities, we need special recipient handling
+        activity_data["type"] == "Flag" ->
+          flag_recipients(activity_data["object"])
+
+        is_public? || actor.data["followers"] in tos ->
+          get_external_followers_except(actor, :publish, addressed_pointer_ids)
+
+        true ->
+          # optionally send it to a subset of followers
+          with {:ok, followers} <-
+                 Adapter.external_followers_for_activity(
+                   actor,
+                   activity_data,
+                   addressed_pointer_ids
+                 )
+                 |> debug("external_followers_for_activity from Adapter") do
+            followers
+          else
+            e ->
+              error(e)
+              nil
+          end
+      end || []
+
+    addressed ++ followers
+  end
+
+  defp get_external_followers_except(actor, purpose, addressed_pointer_ids) do
+    exclude_set = MapSet.new(addressed_pointer_ids)
+
+    Adapter.get_follower_local_ids(actor, purpose)
+    |> Enum.reject(&(is_nil(&1) or MapSet.member?(exclude_set, &1)))
+    |> Enum.map(&Actor.get_cached!(pointer: &1))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(fn x -> !x.local end)
+    |> debug("external_followers (excluding already addressed)")
   end
 
   defp flag_recipients(objects) when is_list(objects) do
@@ -308,10 +335,15 @@ defmodule ActivityPub.Federator.APPublisher do
       Map.get(data, "audience", nil),
       Map.get(data, "context", nil)
     ]
-    |> debug("recipients from data")
     |> List.flatten()
+    |> debug("recipients from data")
     |> Enum.reject(&(is_nil(&1) or Utils.has_as_public?(&1)))
-    |> Enum.map(&(Actor.get_cached!(ap_id: &1) || &1))
+    |> Enum.map(fn ap_id ->
+      case Actor.get_cached_or_fetch(ap_id: ap_id) do
+        {:ok, actor} -> actor
+        _ -> ap_id
+      end
+    end)
     |> Enum.reject(fn
       %{local: true} ->
         true

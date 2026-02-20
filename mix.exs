@@ -73,6 +73,7 @@ defmodule ActivityPub.MixProject do
       {:remote_ip, "~> 1.1"},
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.0"},
+      {:process_tree, "~> 0.2.1"},
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:mock, "~> 0.3.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test},

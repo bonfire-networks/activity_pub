@@ -147,7 +147,7 @@ defmodule ActivityPub.Federator.Fetcher do
             "no mode specified: check if we're already inside an Oban worker before enqueuing a separate one"
           )
 
-          if Process.get(:ap_oban_worker) do
+          if ProcessTree.get(:ap_oban_worker) do
             debug("already in worker: fetch synchronously")
             maybe_fetch(entries, opts |> Keyword.put(:mode, true))
           else

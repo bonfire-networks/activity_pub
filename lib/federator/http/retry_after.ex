@@ -33,7 +33,7 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
           |> info("Rate limit reached, will retry in (seconds)")
       end
 
-    if Process.get(:ap_oban_worker) do
+    if ProcessTree.get(:ap_oban_worker) do
       raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: retry_after
     else
       :timer.sleep(retry_after * 1000)

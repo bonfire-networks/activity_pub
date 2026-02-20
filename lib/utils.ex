@@ -11,7 +11,7 @@ defmodule ActivityPub.Utils do
   import Untangle
   # import Ecto.Query
 
-  def repo, do: Process.get(:ecto_repo_module) || ActivityPub.Config.get!(:repo)
+  def repo, do: ProcessTree.get(:ecto_repo_module) || ActivityPub.Config.get!(:repo)
 
   def adapter_fallback() do
     warn("Could not find an ActivityPub adapter, falling back to TestAdapter")
@@ -275,35 +275,19 @@ defmodule ActivityPub.Utils do
 
   # def maybe_forward_activity(_), do: :ok
 
-  def set_repo(repo) when is_binary(repo) do
-    String.to_existing_atom(repo)
-    |> set_repo()
-  end
-
-  def set_repo(nil), do: nil
-
-  def set_repo(repo) do
-    if is_atom(repo) and Code.ensure_loaded?(repo) do
-      Process.put(:ecto_repo_module, repo)
-      ActivityPub.Config.get!(:repo).put_dynamic_repo(repo)
-    else
-      error(repo, "invalid module")
-    end
-  end
-
   def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
     if Config.env() == :test do
       # FIXME: temporary workaround for Ecto sandbox / ExUnit issues
       fallback.()
     else
-      ecto_repo_module = ProcessTree.get(:ecto_repo_module)
+      {context, options} = Keyword.pop(options, :multi_tenant_context)
+      context = context || Adapter.get_multi_tenant_context()
 
       Cachex.fetch(
         cache,
         key,
         fn _ ->
-          set_repo(ecto_repo_module)
-
+          Adapter.set_multi_tenant_context(context)
           fallback.()
         end,
         options
@@ -367,14 +351,12 @@ defmodule ActivityPub.Utils do
       when is_function(get_fun) do
     if some_identifier = some_identifier(key, identifier) do
       cache_key = do_ap_cache_key(key, some_identifier)
-      mock_fun = Process.get(Tesla.Mock)
+      multi_tenant_context = Adapter.get_multi_tenant_context()
 
       case cachex_fetch(
              cache_bucket,
              cache_key,
              fn ->
-               maybe_put_mock(mock_fun)
-
                if is_function(get_fun, 2) do
                  get_fun.([{key, identifier}], opts)
                else
@@ -398,7 +380,7 @@ defmodule ActivityPub.Utils do
                    {:ignore, e}
                end
              end,
-             opts
+             Keyword.put(opts, :multi_tenant_context, multi_tenant_context)
            ) do
         {:ok, :not_found} ->
           debug(":not_found was cached for #{cache_key}")
@@ -418,7 +400,7 @@ defmodule ActivityPub.Utils do
           other
 
         {:error, :no_cache} ->
-          maybe_put_mock(mock_fun)
+          Adapter.set_multi_tenant_context(multi_tenant_context)
 
           if is_function(get_fun, 2) do
             get_fun.([{key, identifier}], opts)
@@ -457,13 +439,6 @@ defmodule ActivityPub.Utils do
       else
         get_fun.([{key, identifier}])
       end
-  end
-
-  defp maybe_put_mock(mock_fun) do
-    # so our test mocks carry over when fetching
-    if(is_function(mock_fun)) do
-      Process.put(Tesla.Mock, mock_fun)
-    end
   end
 
   # FIXME: should we be caching the objects once, and just using the multiple keys to lookup a unique key?

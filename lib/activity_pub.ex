@@ -57,7 +57,8 @@ defmodule ActivityPub do
              Map.get(params, :pointer),
              opts
            ),
-         :ok <- maybe_federate(actor, activity),
+         # Skip federation for C2S activities - the adapter's outgoing path will handle it
+         :ok <- if(opts[:from_c2s], do: :ok, else: maybe_federate(actor, activity)),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
       # Clear cache for the object we're replying to so its replies collection gets regenerated

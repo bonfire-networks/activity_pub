@@ -96,7 +96,24 @@ defmodule ActivityPub.Federator.Worker do
       end
 
       def enqueue(op, params, worker_args \\ []) do
-        Oban.insert(enqueueable(op, params, worker_args || []))
+        changeset = enqueueable(op, params, worker_args || [])
+
+        # Route to the correct Oban instance based on current repo context
+        # (e.g. Oban.TestInstance for the test instance database)
+        oban_name =
+          case ActivityPub.Utils.repo() do
+            repo when is_atom(repo) and not is_nil(repo) ->
+              configured_repo = ActivityPub.Config.get!(:repo)
+
+              if repo != configured_repo and Process.whereis(Oban.TestInstance),
+                do: Oban.TestInstance,
+                else: Oban
+
+            _ ->
+              Oban
+          end
+
+        Oban.insert(oban_name, changeset)
       end
     end
   end

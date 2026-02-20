@@ -11,7 +11,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
       }) do
     info(activity_id, "Using queued activity to perform outgoing federation")
 
-    ActivityPub.Utils.set_repo(repo)
+    ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: info(op))
 
     with {:ok, activity} <- Object.get_cached(id: activity_id) do
@@ -26,7 +26,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
   def perform_job(%Oban.Job{
         args: %{"op" => "publish" = op, "activity" => activity, "repo" => repo}
       }) do
-    ActivityPub.Utils.set_repo(repo)
+    ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: info(op))
 
     info(activity, "Perform outgoing federation with JSON")
@@ -41,7 +41,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
           "repo" => repo
         }
       }) do
-    ActivityPub.Utils.set_repo(repo)
+    ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: info(op))
 
     Federator.perform(

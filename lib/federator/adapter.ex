@@ -164,14 +164,23 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   @doc """
-  Compute and return a subset of followers that should receive a specific activity (optional)
+  Compute and return a subset of followers that should receive a specific activity (optional).
+  Accepts an optional `addressed_pointer_ids` list to exclude already-addressed recipients from lookups.
   """
   @callback external_followers_for_activity(List.t(), Map.t()) :: List.t()
-  def external_followers_for_activity(actor, activity) do
-    if function_exported?(adapter(), :external_followers_for_activity, 2) do
-      adapter().external_followers_for_activity(actor, activity)
-    else
-      {:ok, []}
+  @callback external_followers_for_activity(List.t(), Map.t(), list()) :: List.t()
+  def external_followers_for_activity(actor, activity, addressed_pointer_ids \\ []) do
+    adapter = adapter()
+
+    cond do
+      function_exported?(adapter, :external_followers_for_activity, 3) ->
+        adapter.external_followers_for_activity(actor, activity, addressed_pointer_ids)
+
+      function_exported?(adapter, :external_followers_for_activity, 2) ->
+        adapter.external_followers_for_activity(actor, activity)
+
+      true ->
+        {:ok, []}
     end
   end
 
@@ -208,5 +217,37 @@ defmodule ActivityPub.Federator.Adapter do
     end
   end
 
-  @optional_callbacks external_followers_for_activity: 2
+  @doc """
+  Captures multi-tenancy context from the current process for propagation into other processes (e.g. Cachex workers, Oban jobs).
+  Returns an opaque map that can be passed to `set_multi_tenant_context/1`.
+  """
+  @callback get_multi_tenant_context() :: map()
+  def get_multi_tenant_context() do
+    if function_exported?(adapter(), :get_multi_tenant_context, 0) do
+      adapter().get_multi_tenant_context()
+    else
+      %{
+        tesla_mock: ProcessTree.get(Tesla.Mock)
+      }
+    end
+  end
+
+  @doc """
+  Restores multi-tenancy context (captured by `get_multi_tenant_context/0`) into the current process.
+  """
+  @callback set_multi_tenant_context(term()) :: any()
+  def set_multi_tenant_context(context) do
+    if function_exported?(adapter(), :set_multi_tenant_context, 1) do
+      adapter().set_multi_tenant_context(context)
+    else
+      if is_map(context) and is_function(context[:tesla_mock]) do
+        Process.put(Tesla.Mock, context[:tesla_mock])
+      end
+    end
+  end
+
+  @optional_callbacks external_followers_for_activity: 2,
+                      external_followers_for_activity: 3,
+                      get_multi_tenant_context: 0,
+                      set_multi_tenant_context: 1
 end

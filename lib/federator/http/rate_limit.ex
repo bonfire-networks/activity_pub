@@ -31,7 +31,7 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
         # Wait for the retry period (but cap it at scale_ms to avoid excessive delays)
         wait_ms = min(retry_after, scale_ms)
 
-        if Process.get(:ap_oban_worker) do
+        if ProcessTree.get(:ap_oban_worker) do
           wait_sec = wait_ms * 1000
           info(wait_sec, "HTTP client rate limit reached, snoozing (seconds)")
 

@@ -501,6 +501,42 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       assert Object.get_cached!(ap_id: data["id"])
     end
 
+    test "it returns 401 for signed but invalid activities", %{conn: conn} do
+      data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+      subject = actor(local: false)
+
+      data =
+        data
+        |> Map.put("actor", subject.data["id"])
+
+      conn =
+        conn
+        |> assign(:valid_signature, false)
+        |> put_req_header("signature", "keyId=\"#{subject.data["id"]}/main-key\"")
+        |> put_req_header("content-type", "application/activity+json")
+        |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+
+      assert json_response(conn, 401) == %{"error" => "invalid HTTP signature"}
+    end
+
+    test "it returns 401 when signature-input is present and signature is invalid", %{conn: conn} do
+      data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+      subject = actor(local: false)
+
+      data =
+        data
+        |> Map.put("actor", subject.data["id"])
+
+      conn =
+        conn
+        |> assign(:valid_signature, false)
+        |> put_req_header("signature-input", "sig1=(\"@method\");created=1234567890")
+        |> put_req_header("content-type", "application/activity+json")
+        |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+
+      assert json_response(conn, 401) == %{"error" => "invalid HTTP signature"}
+    end
+
     @tag capture_log: true
     test "it inserts an incoming activity into the database" <>
            "even if we can't fetch the user but have it in our db",

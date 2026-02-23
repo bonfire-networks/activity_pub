@@ -35,7 +35,11 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   # accept (but re-fetch) unsigned unsigned (or invalidly signed) activities
   def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
-    apply_process(conn, params, &maybe_process_unsigned/3)
+    if has_http_signature_headers?(conn) do
+      Utils.error_json(conn, "invalid HTTP signature", 401)
+    else
+      apply_process(conn, params, &maybe_process_unsigned/3)
+    end
   end
 
   # accept (but verify) unsigned Creates only?
@@ -80,6 +84,16 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   defp apply_process(conn, params, fun) do
     fun.(conn, params, [])
+  end
+
+  defp has_http_signature_headers?(conn) do
+    has_req_header?(conn, "signature") or has_req_header?(conn, "signature-input")
+  end
+
+  defp has_req_header?(conn, header) do
+    conn
+    |> get_req_header(header)
+    |> Enum.any?()
   end
 
   defp process_incoming(conn, params, worker_args \\ []) do

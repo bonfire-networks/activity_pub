@@ -3,7 +3,12 @@ import Config
 config :activity_pub,
   sign_object_fetches: true,
   reject_unsigned: true,
-  env: config_env()
+  env: config_env(),
+  # FEP-844e: capabilities advertised via actor generator.implements
+  implements: [
+    "https://www.w3.org/TR/activitypub/",
+    "https://datatracker.ietf.org/doc/html/rfc9421"
+  ]
 
 #   adapter: MyApp.Adapter,
 #   repo: MyApp.Repo
@@ -88,7 +93,13 @@ config :activity_pub,
       },
       "sensitive" => "as:sensitive",
       # TODO
-      "manuallyApprovesFollowers" => "as:manuallyApprovesFollowers"
+      "manuallyApprovesFollowers" => "as:manuallyApprovesFollowers",
+      # FEP-844e: capability discovery
+      "implements" => %{
+        "@id" => "https://w3id.org/fep/844e#implements",
+        "@type" => "@id",
+        "@container" => "@set"
+      }
     },
     object: %{
       "Hashtag" => "as:Hashtag",

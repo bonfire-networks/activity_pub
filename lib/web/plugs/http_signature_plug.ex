@@ -29,29 +29,11 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     Logger.metadata(action: info("HTTPSignaturePlug"))
 
     reject_unsigned? = Config.get([:activity_pub, :reject_unsigned], false)
-    has_signature_header? = has_signature_header?(conn)
+    has_signature? = has_signature_header?(conn)
+    has_rfc9421? = has_rfc9421_header?(conn)
 
-    if has_signature_header? && (http_method == "POST" or reject_unsigned?) do
-      # set (request-target) header to the appropriate value
-      # we also replace the digest header with the one we computed in `ActivityPub.Web.Plugs.DigestPlug`
-      request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
-
-      conn =
-        conn
-        |> put_req_header("(request-target)", request_target)
-        |> case do
-          %{assigns: %{digest: digest}} = conn ->
-            put_req_header(
-              conn,
-              "digest",
-              digest
-              |> debug("diggest")
-            )
-
-          conn ->
-            debug(conn.assigns, "no diggest")
-            conn
-        end
+    if (has_signature? or has_rfc9421?) && (http_method == "POST" or reject_unsigned?) do
+      conn = prepare_headers_for_validation(conn, http_method, has_rfc9421?)
 
       validated? =
         if opts[:fetch_public_key] do
@@ -67,7 +49,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
         |> info("valid_signature?")
       )
     else
-      if !has_signature_header? do
+      if !has_signature? and !has_rfc9421? do
         warn(conn.req_headers, "conn has no signature header!")
       else
         warn(
@@ -80,7 +62,59 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     end
   end
 
+  # Prepare request headers for signature validation
+  defp prepare_headers_for_validation(conn, http_method, true = _rfc9421?) do
+    # RFC 9421: set derived component values that HTTPSignatures.RFC9421 needs
+    request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
+
+    conn
+    |> put_req_header("@method", String.upcase("#{http_method}"))
+    |> put_req_header("@authority", get_authority(conn))
+    |> put_req_header("@path", conn.request_path)
+    |> put_req_header("@scheme", to_string(conn.scheme || "https"))
+    |> put_req_header("(request-target)", request_target)
+    |> maybe_put_content_digest()
+    |> maybe_put_legacy_digest()
+  end
+
+  defp prepare_headers_for_validation(conn, http_method, false = _rfc9421?) do
+    # Draft-cavage: set (request-target) and digest as before
+    request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
+
+    conn
+    |> put_req_header("(request-target)", request_target)
+    |> maybe_put_legacy_digest()
+  end
+
+  defp maybe_put_content_digest(%{assigns: %{content_digest: content_digest}} = conn) do
+    put_req_header(conn, "content-digest", content_digest |> debug("content-digest"))
+  end
+
+  defp maybe_put_content_digest(conn), do: conn
+
+  defp maybe_put_legacy_digest(%{assigns: %{digest: digest}} = conn) do
+    put_req_header(conn, "digest", digest |> debug("digest"))
+  end
+
+  defp maybe_put_legacy_digest(conn) do
+    debug(conn.assigns, "no digest")
+    conn
+  end
+
+  defp get_authority(conn) do
+    host = conn.host || "localhost"
+
+    case conn.port do
+      port when port in [80, 443, nil] -> host
+      port -> "#{host}:#{port}"
+    end
+  end
+
   defp has_signature_header?(conn) do
-    conn |> get_req_header("signature") |> Enum.at(0, false)
+    conn |> get_req_header("signature") |> Enum.any?()
+  end
+
+  defp has_rfc9421_header?(conn) do
+    conn |> get_req_header("signature-input") |> Enum.any?()
   end
 end

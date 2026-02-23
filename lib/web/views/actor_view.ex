@@ -4,6 +4,7 @@ defmodule ActivityPub.Web.ActorView do
 
   import Untangle
   alias ActivityPub.Actor
+  alias ActivityPub.Config
   alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
 
@@ -26,10 +27,40 @@ defmodule ActivityPub.Web.ActorView do
     actor.data
     |> Map.put("url", actor.data["id"])
     |> Map.put("type", type)
+    |> maybe_put_generator()
     |> Map.merge(Utils.make_json_ld_header(:actor))
     |> Enum.filter(fn {_k, v} -> v != nil end)
     |> Enum.into(%{})
     |> debug
+  end
+
+  # FEP-844e: Capability discovery via generator property
+  defp maybe_put_generator(data) do
+    implements = Config.get(:implements, [])
+
+    if implements != [] do
+      generator =
+        case Utils.service_actor() do
+          {:ok, service_actor} ->
+            %{
+              "type" => "Application",
+              "id" => service_actor.ap_id,
+              "name" => service_actor.data["name"] || service_actor.username,
+              "implements" => implements
+            }
+
+          _ ->
+            # Fallback: anonymous Application object without id
+            %{
+              "type" => "Application",
+              "implements" => implements
+            }
+        end
+
+      Map.put(data, "generator", generator)
+    else
+      data
+    end
   end
 
   def render("following.json", %{actor: actor, page: page}) when is_integer(page) do

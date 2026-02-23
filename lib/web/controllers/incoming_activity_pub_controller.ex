@@ -36,6 +36,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   # accept (but re-fetch) unsigned unsigned (or invalidly signed) activities
   def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
     if has_http_signature_headers?(conn) do
+      # TODO: do we want to fully reject if signature is present but invalid? or try to re-fetch like we do for missing signatures?
       Utils.error_json(conn, "invalid HTTP signature", 401)
     else
       apply_process(conn, params, &maybe_process_unsigned/3)

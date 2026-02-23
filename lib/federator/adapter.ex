@@ -157,6 +157,8 @@ defmodule ActivityPub.Federator.Adapter do
 
   @doc """
   Creates an internal service actor by username, if missing.
+
+  # TODO: make the application actor discoverable with https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md and https://codeberg.org/fediverse/fep/src/branch/main/fep/2677/fep-2677.md
   """
   @callback get_or_create_service_actor() :: Actor.t() | nil
   def get_or_create_service_actor() do

@@ -511,6 +511,8 @@ defmodule ActivityPub.Utils do
     |> PlugHTTPValidator.set(meta)
     #  4.2 hours - TODO: configurable
     |> Plug.Conn.put_resp_header("cache-control", "max-age=#{15120}")
+    # RFC 9421 §5.1: advertise that we accept HTTP Message Signatures
+    |> Plug.Conn.put_resp_header("accept-signature", "sig1=()")
     |> Plug.Conn.put_resp_content_type("application/activity+json")
     |> Phoenix.Controller.json(json)
   end

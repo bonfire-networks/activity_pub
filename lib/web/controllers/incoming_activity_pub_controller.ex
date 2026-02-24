@@ -109,9 +109,11 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       )
       |> debug("handling enqueued or processed")
 
-      Instances.set_reachable(params["actor"])
+      Instances.handle_successful_contact(params["actor"])
 
-      json(conn, "ok")
+      conn
+      |> Plug.Conn.put_resp_header("accept-signature", "sig1=()")
+      |> json("ok")
     else
       Utils.error_json(conn, "this instance is not currently federating", 403)
     end
@@ -129,10 +131,11 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       )
       |> debug("verification enqueued or processed")
 
-      # TODO: async
-      Instances.set_reachable(params["actor"])
+      Instances.handle_successful_contact(params["actor"])
 
-      json(conn, "tbd")
+      conn
+      |> Plug.Conn.put_resp_header("accept-signature", "sig1=()")
+      |> json("tbd")
     else
       Utils.error_json(conn, "this instance is not currently federating", 403)
     end

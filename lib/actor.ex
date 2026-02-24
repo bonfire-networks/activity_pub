@@ -274,6 +274,7 @@ defmodule ActivityPub.Actor do
 
   def get_cached_or_fetch([ap_id: ap_id], opts) when is_binary(ap_id) do
     with {:ok, actor} <- get_cached(ap_id: ap_id) do
+      maybe_extract_generator_from_actor(actor)
       {:ok, actor}
     else
       e ->
@@ -549,6 +550,7 @@ defmodule ActivityPub.Actor do
   defp do_maybe_create_or_update_actor_from_object(%{"type" => type} = data, opts)
        when ActivityPub.Config.is_in(type, :supported_actor_types) do
     debug("create from AP JSON data")
+    maybe_extract_generator_from_data(data)
 
     case create_or_update_ap_object_for_actor(data, !!opts[:already_fetched]) do
       {:ok, %Object{} = object} ->
@@ -586,6 +588,26 @@ defmodule ActivityPub.Actor do
 
   defp do_maybe_create_or_update_actor_from_object(object, _opts),
     do: error(object, "Actor to update not recognised")
+
+  defp maybe_extract_generator_from_actor(%{data: %{"id" => id, "generator" => _} = data}) do
+    host = URI.parse(id).host
+
+    if host && is_nil(ActivityPub.Safety.HTTP.Signatures.get_signature_format(host)) do
+      ActivityPub.Safety.HTTP.Signatures.maybe_extract_generator_info(host, data)
+    end
+  end
+
+  defp maybe_extract_generator_from_actor(_), do: :ok
+
+  defp maybe_extract_generator_from_data(%{"id" => id, "generator" => _} = data) do
+    host = URI.parse(id).host
+
+    if host do
+      ActivityPub.Safety.HTTP.Signatures.maybe_extract_generator_info(host, data)
+    end
+  end
+
+  defp maybe_extract_generator_from_data(_), do: :ok
 
   defp create_or_update_ap_object_for_actor(%{"id" => id} = data, true = _already_fetched) do
     with {:error, :not_found} <- Object.get_cached(ap_id: id),

@@ -16,6 +16,7 @@ defmodule ActivityPub.Instances.Instance do
   schema "ap_instance" do
     field(:host, :string)
     field(:unreachable_since, :naive_datetime_usec)
+    field(:service_actor_uri, :string)
 
     timestamps()
   end
@@ -24,7 +25,7 @@ defmodule ActivityPub.Instances.Instance do
 
   def changeset(struct, params \\ %{}) do
     struct
-    |> cast(params, [:host, :unreachable_since])
+    |> cast(params, [:host, :unreachable_since, :service_actor_uri])
     |> validate_required([:host])
     |> unique_constraint(:host)
   end
@@ -116,6 +117,35 @@ defmodule ActivityPub.Instances.Instance do
     end
     |> debug("set_reachable?")
   end
+
+  @doc "Returns the Instance record for a given host, or nil."
+  def get_by_host(host) when is_binary(host), do: repo().get_by(Instance, %{host: host})
+  def get_by_host(_), do: nil
+
+  @doc "Returns the stored service_actor_uri for a host, or nil."
+  def get_service_actor_uri(host) when is_binary(host) do
+    case get_by_host(host) do
+      %Instance{service_actor_uri: uri} when is_binary(uri) -> uri
+      _ -> nil
+    end
+  end
+
+  def get_service_actor_uri(_), do: nil
+
+  @doc "Stores the service_actor_uri for a host, upserting the Instance record."
+  def set_service_actor_uri(host, uri) when is_binary(host) and is_binary(uri) do
+    case repo().get_by(Instance, %{host: host}) do
+      %Instance{} = instance ->
+        instance |> changeset(%{service_actor_uri: uri}) |> repo().update()
+
+      nil ->
+        %Instance{}
+        |> changeset(%{host: host, service_actor_uri: uri})
+        |> repo().insert(on_conflict: {:replace, [:service_actor_uri]}, conflict_target: :host)
+    end
+  end
+
+  def set_service_actor_uri(_, _), do: {:error, :invalid_args}
 
   def set_unreachable(uri_or_host, unreachable_since \\ nil)
 

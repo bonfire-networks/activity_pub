@@ -23,7 +23,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
          %{"keyId" => "https://mastodon.local/users/admin#main-key"}
        end,
        # NOTE: here we are assuming that the actor is cached
-       validate_cached: fn conn ->
+       validate: fn conn, _opts ->
          Map.get(conn.assigns, :valid_signature, true)
        end
      ]}
@@ -36,7 +36,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
     params = %{"actor" => "https://mastodon.local/users/admin"}
     conn = build_conn(:post, "/doesntmattter", params)
 
-    with_mock HTTPSignatures, validate_cached: fn _ -> true end do
+    with_mock HTTPSignatures, validate: fn _, _ -> true end do
       conn =
         conn
         |> put_req_header(
@@ -49,7 +49,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
 
       assert conn.assigns.valid_signature == true
       assert conn.halted == false
-      assert called(HTTPSignatures.validate_cached(:_))
+      assert called(HTTPSignatures.validate(:_, :_))
     end
   end
 
@@ -65,7 +65,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
     end
 
     test_with_mock "and signature is present and incorrect", %{conn: conn}, HTTPSignatures, [],
-      validate_cached: fn conn ->
+      validate: fn conn, _opts ->
         Map.get(conn.assigns, :valid_signature, false)
       end do
       conn =
@@ -78,7 +78,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
         |> HTTPSignaturePlug.call(%{})
 
       assert conn.assigns.valid_signature == false
-      assert called(HTTPSignatures.validate_cached(:_))
+      assert called(HTTPSignatures.validate(:_, :_))
     end
 
     test "and signature is correct", %{conn: conn} do
@@ -91,7 +91,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
         |> HTTPSignaturePlug.call(%{})
 
       assert conn.assigns.valid_signature == true
-      assert called(HTTPSignatures.validate_cached(:_))
+      assert called(HTTPSignatures.validate(:_, :_))
     end
 
     test "and halts the connection when `signature` header is not present", %{conn: conn} do

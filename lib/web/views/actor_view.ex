@@ -34,30 +34,33 @@ defmodule ActivityPub.Web.ActorView do
     |> debug
   end
 
-  # FEP-844e: Capability discovery via generator property
+  # FEP-844e: Capability discovery via generator/implements properties
   defp maybe_put_generator(data) do
     implements = Config.get(:implements, [])
 
     if implements != [] do
-      generator =
-        case Utils.service_actor() do
-          {:ok, service_actor} ->
-            %{
+      case Utils.service_actor() do
+        {:ok, service_actor} ->
+          if data["id"] == service_actor.ap_id do
+            # The service actor IS the Application — put implements directly
+            Map.put(data, "implements", implements)
+          else
+            # User actors get a generator pointing to the service actor
+            Map.put(data, "generator", %{
               "type" => "Application",
               "id" => service_actor.ap_id,
               "name" => service_actor.data["name"] || service_actor.username,
               "implements" => implements
-            }
+            })
+          end
 
-          _ ->
-            # Fallback: anonymous Application object without id
-            %{
-              "type" => "Application",
-              "implements" => implements
-            }
-        end
-
-      Map.put(data, "generator", generator)
+        _ ->
+          # Fallback: anonymous generator without id
+          Map.put(data, "generator", %{
+            "type" => "Application",
+            "implements" => implements
+          })
+      end
     else
       data
     end

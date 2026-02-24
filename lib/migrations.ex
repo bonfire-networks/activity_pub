@@ -67,6 +67,13 @@ defmodule ActivityPub.Migrations do
     # drop index("ap_instance", [:unreachable_since])
   end
 
+  @doc "Adds service_actor_uri column to ap_instance for storing discovered service/application actor URIs."
+  def add_service_actor_uri do
+    alter table("ap_instance") do
+      add_if_not_exists(:service_actor_uri, :string)
+    end
+  end
+
   def add_object_boolean do
     alter(table("ap_object")) do
       add_if_not_exists(:is_object, :boolean, default: false, null: false)

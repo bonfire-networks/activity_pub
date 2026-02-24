@@ -543,17 +543,22 @@ defmodule ActivityPub.Federator.Fetcher do
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
          true <-
            not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :is_local},
+         format <- Instances.get_or_discover_signature_format(uri.host),
          headers <-
            [{"Accept", "application/activity+json"}]
-           |> Keys.maybe_add_fetch_signature_headers(uri, options)
+           |> Keys.maybe_add_fetch_signature_headers(
+             uri,
+             Keyword.put(options, :signature_format, format)
+           )
            |> debug("ready to fetch #{inspect(id)} with signature headers"),
-         {:ok, %{body: body, status: code, headers: headers}} when code in 200..299 <-
+         {:ok, %{body: body, status: code, headers: resp_headers}} when code in 200..299 <-
            HTTP.get(
              id,
              headers
            )
            |> debug("fetch_done"),
-         _ <- Instances.set_reachable(uri) do
+         _ <- Instances.handle_successful_contact(uri),
+         _ <- ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(uri, resp_headers) do
       with {:ok, data} <- Jason.decode(body),
            {true, _} <-
              {options[:skip_contain_origin_check] ||
@@ -564,13 +569,34 @@ defmodule ActivityPub.Federator.Fetcher do
           cache_fetch_error(id)
           {:error, :not_found}
         else
+          # Opportunistically extract generator info from fetched data
+          maybe_extract_generator_from_fetched(id, data)
           {:ok, data}
         end
       else
-        returned -> handle_fetch_error(returned, id, options, code, headers)
+        returned -> handle_fetch_error(returned, id, options, code, resp_headers)
       end
     else
       returned -> handle_fetch_error(returned, id, options)
+    end
+  end
+
+  defp maybe_extract_generator_from_fetched(id, %{"generator" => _} = data) do
+    do_extract_generator(id, data)
+  end
+
+  # Application/service actors have `implements` directly (they are the generator)
+  defp maybe_extract_generator_from_fetched(id, %{"implements" => _} = data) do
+    do_extract_generator(id, data)
+  end
+
+  defp maybe_extract_generator_from_fetched(_, _), do: :ok
+
+  defp do_extract_generator(id, data) do
+    host = URI.parse(id).host
+
+    if host && is_nil(ActivityPub.Safety.HTTP.Signatures.get_signature_format(host)) do
+      ActivityPub.Safety.HTTP.Signatures.maybe_extract_generator_info(host, data)
     end
   end
 

@@ -4,6 +4,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
   import Plug.Conn
   import Untangle
   alias ActivityPub.Config
+  alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
 
   def init(options) do
     options
@@ -36,16 +37,21 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
       conn = prepare_headers_for_validation(conn, http_method, has_rfc9421?)
 
       validated? =
-        if opts[:fetch_public_key] do
-          HTTPSignatures.validate(conn)
-        else
-          HTTPSignatures.validate_cached(conn)
-        end
+        HTTPSignatures.validate(conn,
+          return: :key_host,
+          refetch_if_expired: opts[:fetch_public_key] || false
+        )
+
+      # When valid, validated? is the sender's hostname (from keyId)
+      if is_binary(validated?) do
+        format = if has_rfc9421?, do: :rfc9421, else: :cavage
+        SignaturesAdapter.put_signature_format(validated?, format)
+      end
 
       assign(
         conn,
         :valid_signature,
-        validated?
+        (validated? != false)
         |> info("valid_signature?")
       )
     else

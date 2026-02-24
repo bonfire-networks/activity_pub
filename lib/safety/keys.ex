@@ -13,6 +13,7 @@ defmodule ActivityPub.Safety.Keys do
   # alias ActivityPub.Safety.HTTP.Signatures
   # alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.Adapter
+  alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
 
   @known_suffixes ["/publickey", "/main-key"]
 
@@ -208,26 +209,58 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def sign(%{keys: _} = actor, headers) do
+  def sign(%{keys: _} = actor, headers, opts \\ []) do
     with {:ok, actor} <- ensure_keys_present(actor),
-         {:ok, private_key, _} when not is_nil(private_key) <- Keys.keypair_from_pem(actor.keys),
-         signed when is_binary(signed) <-
-           HTTPSignatures.sign(private_key, actor.data["id"] <> "#main-key", headers) do
-      {:ok, signed}
+         {:ok, private_key, _} when not is_nil(private_key) <- Keys.keypair_from_pem(actor.keys) do
+      key_id = actor.data["id"] <> "#main-key"
+      {:ok, HTTPSignatures.sign(private_key, key_id, headers, opts)}
     end
   end
 
   def maybe_add_fetch_signature_headers(headers, id, options \\ []) do
     # enabled by default :-)
     if Config.get([:sign_object_fetches], true) do
-      make_fetch_signature(id, options) ++ headers
+      format =
+        options[:signature_format] || SignaturesAdapter.get_signature_format(id_host(id)) ||
+          :cavage
+
+      make_fetch_signature(id, format, options) ++ headers
     else
       headers
     end
   end
 
-  defp make_fetch_signature(%URI{} = uri, options) do
-    # WIP: optionally fetch with the signature of user doing the request?
+  defp id_host(%URI{host: host}), do: host
+  defp id_host(url) when is_binary(url), do: URI.parse(url).host
+  defp id_host(_), do: nil
+
+  defp make_fetch_signature(%URI{} = uri, format, options) do
+    case format do
+      :rfc9421 -> make_fetch_signature_rfc9421(uri, options)
+      _cavage -> make_fetch_signature_cavage(uri, options)
+    end
+  end
+
+  defp make_fetch_signature_rfc9421(%URI{} = uri, options) do
+    target_uri = URI.to_string(uri)
+
+    with {:ok, request_actor} <- options[:current_actor] || Utils.service_actor(),
+         {:ok, {sig_input, sig}} <-
+           Keys.sign(
+             request_actor,
+             %{
+               "@method" => "GET",
+               "@target-uri" => target_uri
+             }, format: :rfc9421, components: ["@method", "@target-uri"]) do
+      [{"signature-input", sig_input}, {"signature", sig}]
+    else
+      other ->
+        error(other, "Could not sign the fetch with RFC 9421")
+        []
+    end
+  end
+
+  defp make_fetch_signature_cavage(%URI{} = uri, options) do
     with {:ok, request_actor} <- options[:current_actor] || Utils.service_actor(),
          date = options[:date] || Utils.format_date(),
          {:ok, signature} <-
@@ -242,8 +275,6 @@ defmodule ActivityPub.Safety.Keys do
         error(other, "Could not sign the fetch")
         []
     end
-
-    # |> debug()
   end
 
   defp make_fetch_signature(id, options) do

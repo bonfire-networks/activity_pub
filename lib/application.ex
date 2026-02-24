@@ -19,10 +19,15 @@ defmodule ActivityPub.Application do
     do: Application.get_env(:activity_pub, :repo, ActivityPub.TestRepo)
 
   @expiration Cachex.Spec.expiration(
-                #  42 minutes by default
-                default: 2_520_000,
+                default: to_timeout(minute: 42),
                 interval: 1000
               )
+
+  @sig_format_expiration Cachex.Spec.expiration(
+                           # long cache — signature format changes slowly as instances upgrade
+                           default: to_timeout(week: 2),
+                           interval: 60_000
+                         )
 
   @hooks [
     # hook(module: Cachex.Stats),
@@ -135,6 +140,18 @@ defmodule ActivityPub.Application do
                  expiration: @expiration,
                  hooks: @hooks
                  #  limit: @limit
+               ]
+             ]}
+        },
+        %{
+          id: :ap_sig_format_cache,
+          start:
+            {Cachex, :start_link,
+             [
+               :ap_sig_format_cache,
+               [
+                 expiration: @sig_format_expiration,
+                 hooks: @hooks
                ]
              ]}
         }

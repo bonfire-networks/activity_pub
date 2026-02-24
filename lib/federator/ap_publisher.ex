@@ -8,6 +8,7 @@ defmodule ActivityPub.Federator.APPublisher do
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Utils
+  alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
 
   import Untangle
 
@@ -124,7 +125,66 @@ defmodule ActivityPub.Federator.APPublisher do
   """
   def publish_one(%{json: json, actor: %Actor{} = actor, inbox: inbox} = params) do
     uri = URI.parse(inbox)
+    format = Instances.get_or_discover_signature_format(uri.host)
 
+    case format do
+      :rfc9421 -> publish_one_rfc9421(params, actor, uri, json)
+      _cavage -> publish_one_cavage(params, actor, uri, json)
+    end
+  end
+
+  def publish_one(%{actor_id: id} = params) when is_binary(id) do
+    debug("special case for Tombstone actor")
+
+    with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
+      params
+      |> Map.delete(:actor_id)
+      |> Map.put(:actor, Actor.format_remote_actor(actor))
+      |> publish_one()
+    else
+      e ->
+        warn(e, "Could not find actor by ID")
+    end
+  end
+
+  def publish_one(%{json: json} = params) do
+    digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
+    date = Utils.format_date()
+
+    error(params, "not adding a signature, because we don't have an actor or inbox")
+
+    do_publish_one(params, date, digest)
+  end
+
+  defp publish_one_rfc9421(params, actor, uri, json) do
+    inbox = URI.to_string(uri)
+    content_digest = "sha-256=:" <> Base.encode64(:crypto.hash(:sha256, json)) <> ":"
+
+    headers = %{
+      "@method" => "POST",
+      "@target-uri" => inbox,
+      "content-digest" => content_digest
+    }
+
+    with {:ok, {sig_input, sig}} <-
+           ActivityPub.Safety.Keys.sign(actor, headers,
+             format: :rfc9421,
+             components: ["@method", "@target-uri", "content-digest"]
+           ) do
+      do_publish_one(
+        params,
+        Utils.format_date(),
+        content_digest,
+        [{"signature-input", sig_input}, {"signature", sig}, {"content-digest", content_digest}]
+      )
+    else
+      e ->
+        error(e, "problem adding RFC 9421 signature, falling back to cavage")
+        publish_one_cavage(params, actor, uri, json)
+    end
+  end
+
+  defp publish_one_cavage(params, actor, uri, json) do
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
     date = Utils.format_date()
 
@@ -157,33 +217,10 @@ defmodule ActivityPub.Federator.APPublisher do
     end
   end
 
-  def publish_one(%{actor_id: id} = params) when is_binary(id) do
-    debug("special case for Tombstone actor")
-
-    with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
-      params
-      |> Map.delete(:actor_id)
-      |> Map.put(:actor, Actor.format_remote_actor(actor))
-      |> publish_one()
-    else
-      e ->
-        warn(e, "Could not find actor by ID")
-    end
-  end
-
-  def publish_one(%{json: json} = params) do
-    digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
-    date = Utils.format_date()
-
-    error(params, "not adding a signature, because we don't have an actor or inbox")
-
-    do_publish_one(params, date, digest)
-  end
-
   defp do_publish_one(%{inbox: inbox, json: json, id: id} = params, date, digest, headers \\ []) do
     info(inbox, "Federating #{id} to")
 
-    with result = {:ok, %{status: code}} when code in 200..299 <-
+    with result = {:ok, %{status: code} = response} when code in 200..299 <-
            HTTP.post(
              inbox,
              json,
@@ -196,12 +233,14 @@ defmodule ActivityPub.Federator.APPublisher do
            ) do
       if !Map.has_key?(params, :unreachable_since) ||
            params[:unreachable_since],
-         do: Instances.set_reachable(inbox)
+         do: Instances.handle_successful_contact(inbox)
 
+      SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
       debug(result, "remote responded with #{code}")
     else
       {_post_result, %{status: code} = response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
+        SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
         error(response, "could not push activity to #{inbox}, got HTTP #{code}")
 
       {_post_result, response} when is_binary(response) or is_atom(response) ->

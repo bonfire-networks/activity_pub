@@ -23,8 +23,9 @@ defmodule ActivityPub.Federator.WebFinger do
              "#{base_url}/.well-known/webfinger?#{URI.encode_query(%{"resource" => "acct:#{account}"})}",
              [{"Accept", "application/jrd+json"}]
            ),
-         {:ok, %{status: status, body: body}} when status in 200..299 <-
+         {:ok, %{status: status, body: body, headers: headers}} when status in 200..299 <-
            response,
+         _ <- ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(base_url, headers),
          {:ok, doc} <- Jason.decode(body) do
       webfinger_from_json(doc)
     else
@@ -135,6 +136,38 @@ defmodule ActivityPub.Federator.WebFinger do
       "aliases" => [id],
       "links" => gather_links(id)
     }
+  end
+
+  @doc """
+  FEP-d556: Discover the server actor for a host via WebFinger.
+  Queries `resource=https://host/` and extracts the `self` link.
+  """
+  def finger_host(host) when is_binary(host) do
+    base_url =
+      if String.starts_with?(host, "localhost"),
+        do: "http://#{host}",
+        else: "https://#{host}"
+
+    with {:ok, %{status: status, body: body, headers: headers}} when status in 200..299 <-
+           HTTP.get(
+             "#{base_url}/.well-known/webfinger?#{URI.encode_query(%{"resource" => base_url})}",
+             [{"Accept", "application/jrd+json"}]
+           ),
+         _ <-
+           ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(host, headers),
+         {:ok, doc} <- Jason.decode(body),
+         %{"href" => service_actor_uri} <-
+           Enum.find(doc["links"] || [], fn link ->
+             link["rel"] == "self" and
+               link["type"] in [
+                 "application/activity+json",
+                 "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+               ]
+           end) do
+      {:ok, service_actor_uri}
+    else
+      _ -> {:error, :not_found}
+    end
   end
 
   @doc "Processes an incoming webfinger JSON document into a map of useful data."

@@ -234,14 +234,7 @@ defmodule ActivityPub.Safety.Keys do
   defp id_host(url) when is_binary(url), do: URI.parse(url).host
   defp id_host(_), do: nil
 
-  defp make_fetch_signature(%URI{} = uri, format, options) do
-    case format do
-      :rfc9421 -> make_fetch_signature_rfc9421(uri, options)
-      _cavage -> make_fetch_signature_cavage(uri, options)
-    end
-  end
-
-  defp make_fetch_signature_rfc9421(%URI{} = uri, options) do
+  defp make_fetch_signature(%URI{} = uri, :rfc9421, options) do
     target_uri = URI.to_string(uri)
 
     with {:ok, request_actor} <- options[:current_actor] || Utils.service_actor(),
@@ -251,7 +244,10 @@ defmodule ActivityPub.Safety.Keys do
              %{
                "@method" => "GET",
                "@target-uri" => target_uri
-             }, format: :rfc9421, components: ["@method", "@target-uri"]) do
+             },
+             format: :rfc9421,
+             components: ["@method", "@target-uri"]
+           ) do
       [{"signature-input", sig_input}, {"signature", sig}]
     else
       other ->
@@ -260,7 +256,7 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  defp make_fetch_signature_cavage(%URI{} = uri, options) do
+  defp make_fetch_signature(%URI{} = uri, _cavage, options) do
     with {:ok, request_actor} <- options[:current_actor] || Utils.service_actor(),
          date = options[:date] || Utils.format_date(),
          {:ok, signature} <-
@@ -277,8 +273,8 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  defp make_fetch_signature(id, options) do
-    make_fetch_signature(URI.parse(id), options)
+  defp make_fetch_signature(id, format, options) do
+    make_fetch_signature(URI.parse(id), format, options)
   end
 
   def http_host(%{host: host, port: port}) when port in [80, 443] do

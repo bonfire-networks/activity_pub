@@ -248,7 +248,7 @@ defmodule ActivityPub.Safety.SignatureTest do
     end
   end
 
-  test "it returns 401 for signed but invalid activities", %{conn: conn} do
+  test "it queues for verification when HTTP signature is present but invalid", %{conn: conn} do
     data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
     subject = actor(local: false)
 
@@ -263,10 +263,12 @@ defmodule ActivityPub.Safety.SignatureTest do
       |> put_req_header("content-type", "application/activity+json")
       |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 
-    assert json_response(conn, 401) == %{"error" => "invalid HTTP signature"}
+    # Activities with invalid HTTP signatures are queued for the verification
+    # cascade (key re-fetch, LD signature, source re-fetch) rather than rejected
+    assert json_response(conn, 200) == "tbd"
   end
 
-  test "it returns 401 when signature-input is present and signature is invalid", %{conn: conn} do
+  test "it queues for verification when signature-input is present but invalid", %{conn: conn} do
     data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
     subject = actor(local: false)
 
@@ -281,6 +283,8 @@ defmodule ActivityPub.Safety.SignatureTest do
       |> put_req_header("content-type", "application/activity+json")
       |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 
-    assert json_response(conn, 401) == %{"error" => "invalid HTTP signature"}
+    # Activities with invalid HTTP signatures are queued for the verification
+    # cascade (key re-fetch, LD signature, source re-fetch) rather than rejected
+    assert json_response(conn, 200) == "tbd"
   end
 end

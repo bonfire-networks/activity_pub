@@ -5,6 +5,16 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   Provides shared `perform/1` and `maybe_process_unsigned/2` logic for
   handling incoming AP docs, including unsigned and unverified cases.
 
+  ## Verification cascade
+
+  When an activity arrives without a valid HTTP signature, verification
+  is attempted in this order:
+
+  1. Re-fetch the actor's public key and re-validate the HTTP signature
+  2. Check for a Linked Data Signature (RsaSignature2017) embedded in the body
+  3. Re-fetch the activity from its source URI
+  4. Accept anyway if `ACCEPT_UNSIGNED_ACTIVITIES=1` is set
+
   ## Usage
 
       defmodule ActivityPub.Federator.Workers.ReceiverMentionsWorker do
@@ -17,6 +27,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
+  alias ActivityPub.Safety.LinkedDataSignatures
 
   import Untangle
 
@@ -55,6 +66,9 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
   @doc """
   Handles unsigned or unverified incoming AP docs.
+
+  Attempts HTTP signature re-validation, then Linked Data Signature
+  verification, then falls back to refetching the activity from source.
   """
   def maybe_process_unsigned(headers, params) do
     actor = Object.actor_from_data(params)
@@ -63,84 +77,103 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
     fetch_fresh_public_key? =
       if signed? do
         if String.contains?(headers["signature"], actor) do
-          Untangle.error(
-            headers,
-            "Unknown HTTP signature validation error, will attempt re-fetching public_key and failing that fetch the AP activity from source"
+          Untangle.warn(
+            "HTTP signature validation failed for #{actor}, will start by re-fetching public key"
           )
 
           true
         else
-          Untangle.error(
-            headers,
-            "No match between actor (#{actor}) and the HTTP signature provided, will attempt re-fetching AP activity from source"
+          Untangle.warn(
+            "HTTP signature actor mismatch (expected #{actor}), skipping key re-fetch"
           )
 
           false
         end
       else
-        Untangle.error(
-          params,
-          "No HTTP signature provided, will attempt re-fetching AP activity from source (note: if using a reverse proxy make sure you are forwarding the HTTP Host header)"
-        )
+        Untangle.warn("No HTTP signature provided, will try LD signature or re-fetch from source")
 
         false
       end
 
     if fetch_fresh_public_key? and HTTPSignatures.validate(headers) do
-      Untangle.debug("Found a valid HTTP Signature upon refetch, handle activity now :)")
+      Untangle.debug("HTTP signature valid after key re-fetch, processing activity")
       ActivityPub.Federator.Transformer.handle_incoming(params)
     else
       if fetch_fresh_public_key? do
-        Untangle.warn("HTTP Signature was invalid even after refetch")
+        Untangle.warn("HTTP signature still invalid after key re-fetch")
       end
 
-      # Accept/Reject of Follow activities have unfetchable URLs (fragment identifiers like #accepts/follows/)
-      # but can be safely validated against our local Follow activity records.
-      # This mirrors how Mastodon handles it: https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/accept.rb
-      is_follow_response? =
-        params["type"] in ["Accept", "Reject"] and
-          is_map(params["object"]) and params["object"]["type"] == "Follow"
+      # Try Linked Data Signature (RsaSignature2017) embedded in the activity body.
+      # This covers relay-forwarded activities and activities from shutting-down servers.
+      if LinkedDataSignatures.has_verifiable_signature?(params) do
+        case LinkedDataSignatures.verify(params) do
+          {:ok, creator} ->
+            Untangle.info("Valid Linked Data Signature from #{creator}, processing activity")
 
-      if is_follow_response? do
+            ActivityPub.Federator.Transformer.handle_incoming(params)
+
+          {:error, reason} ->
+            Untangle.warn(
+              reason,
+              "Linked Data Signature verification failed, falling back to activity or object refetch"
+            )
+
+            maybe_process_unsigned_fallback(params)
+        end
+      else
+        maybe_process_unsigned_fallback(params)
+      end
+    end
+  end
+
+  # Fallback logic for activities without valid HTTP or LD signatures: tries refetching from source, validates follow responses locally, or accepts if ACCEPT_UNSIGNED_ACTIVITIES is set.
+  defp maybe_process_unsigned_fallback(params) do
+    # Accept/Reject of Follow activities have unfetchable URLs (fragment identifiers like #accepts/follows/)
+    # but can be safely validated against our local Follow activity records.
+    # This mirrors how Mastodon handles it: https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/accept.rb
+    is_follow_response? =
+      params["type"] in ["Accept", "Reject"] and
+        is_map(params["object"]) and params["object"]["type"] == "Follow"
+
+    if is_follow_response? do
+      Untangle.debug(
+        "Accept/Reject of Follow - validating against local Follow activity (URLs are typically unfetchable)"
+      )
+
+      ActivityPub.Federator.Transformer.handle_incoming(params)
+    else
+      is_deleted? =
         Untangle.debug(
-          "Accept/Reject of Follow - validating against local Follow activity (URLs are typically unfetchable)"
+          params["type"] in ["Delete", "Tombstone"] or
+            (is_map(params["object"]) and params["object"]["type"] == "Tombstone"),
+          "is_deleted?"
         )
 
-        ActivityPub.Federator.Transformer.handle_incoming(params)
+      with id when is_binary(id) <- params["id"],
+           {:ok, object} <-
+             Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
+        Untangle.debug(object, "Activity verified by re-fetching from source")
+        {:ok, object}
       else
-        is_deleted? =
-          Untangle.debug(
-            params["type"] in ["Delete", "Tombstone"] or
-              (is_map(params["object"]) and params["object"]["type"] == "Tombstone"),
-            "is_deleted?"
-          )
+        e ->
+          if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
+            Untangle.warn(
+              e,
+              "No valid signature and re-fetch failed, but accepting because ACCEPT_UNSIGNED_ACTIVITIES=1"
+            )
 
-        with id when is_binary(id) <- params["id"],
-             {:ok, object} <-
-               Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
-          Untangle.debug(object, "Unsigned activity workaround worked :)")
-          {:ok, object}
-        else
-          e ->
-            if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
-              Untangle.warn(
-                e,
-                "Unsigned incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object without authentication. Accept anyway because ACCEPT_UNSIGNED_ACTIVITIES is set in env."
-              )
+            ActivityPub.Federator.Transformer.handle_incoming(params)
+          else
+            reason =
+              "Rejecting activity: no valid HTTP or LD signature, and re-fetch from source failed"
 
-              ActivityPub.Federator.Transformer.handle_incoming(params)
-            else
-              reason =
-                "Reject incoming federation: HTTP Signature missing or not from author, AND we couldn't fetch a non-public object"
+            Untangle.error(
+              e,
+              reason
+            )
 
-              Untangle.error(
-                e,
-                reason
-              )
-
-              {:cancel, reason}
-            end
-        end
+            {:cancel, reason}
+          end
       end
     end
   end

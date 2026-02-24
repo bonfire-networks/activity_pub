@@ -1,7 +1,11 @@
 defmodule ActivityPub.Web.IncomingActivityPubController do
   @moduledoc """
+  Endpoints for the ActivityPub inbox.
 
-  Endpoints for the ActivityPub inbox
+  Incoming activities are routed based on HTTP signature validity:
+  - Valid HTTP signature: processed immediately
+  - Missing or invalid HTTP signature: queued for verification cascade
+    (key re-fetch, LD signature check, source re-fetch — see `ReceiverHelpers`)
   """
 
   use ActivityPub.Web, :controller
@@ -33,14 +37,10 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     apply_process(conn, params, &process_incoming/3)
   end
 
-  # accept (but re-fetch) unsigned unsigned (or invalidly signed) activities
+  # HTTP signature missing or invalid — queue for the full verification cascade
+  # (key re-fetch, LD signature check, source re-fetch) in ReceiverHelpers.
   def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
-    if has_http_signature_headers?(conn) do
-      # TODO: do we want to fully reject if signature is present but invalid? or try to re-fetch like we do for missing signatures?
-      Utils.error_json(conn, "invalid HTTP signature", 401)
-    else
-      apply_process(conn, params, &maybe_process_unsigned/3)
-    end
+    apply_process(conn, params, &maybe_process_unsigned/3)
   end
 
   # accept (but verify) unsigned Creates only?
@@ -85,16 +85,6 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   defp apply_process(conn, params, fun) do
     fun.(conn, params, [])
-  end
-
-  defp has_http_signature_headers?(conn) do
-    has_req_header?(conn, "signature") or has_req_header?(conn, "signature-input")
-  end
-
-  defp has_req_header?(conn, header) do
-    conn
-    |> get_req_header(header)
-    |> Enum.any?()
   end
 
   defp process_incoming(conn, params, worker_args \\ []) do

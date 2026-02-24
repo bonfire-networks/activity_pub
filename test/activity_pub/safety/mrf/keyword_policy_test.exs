@@ -25,7 +25,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
         }
       }
 
-      assert {:reject, "[KeywordPolicy] Matches with rejected keyword"} =
+      assert {:reject, "[KeywordPolicy] Matches rejected keyword"} =
                KeywordPolicy.filter(message)
     end
 
@@ -40,7 +40,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
         }
       }
 
-      assert {:reject, "[KeywordPolicy] Matches with rejected keyword"} =
+      assert {:reject, "[KeywordPolicy] Matches rejected keyword"} =
                KeywordPolicy.filter(message)
     end
 
@@ -57,7 +57,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
                    }
                  }
 
-                 {:reject, "[KeywordPolicy] Matches with rejected keyword"} ==
+                 {:reject, "[KeywordPolicy] Matches rejected keyword"} ==
                    KeywordPolicy.filter(message)
                end)
     end
@@ -75,7 +75,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
                    }
                  }
 
-                 {:reject, "[KeywordPolicy] Matches with rejected keyword"} ==
+                 {:reject, "[KeywordPolicy] Matches rejected keyword"} ==
                    KeywordPolicy.filter(message)
                end)
     end
@@ -100,7 +100,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
         }
       }
 
-      assert {:reject, "[KeywordPolicy] Matches with rejected keyword"} =
+      assert {:reject, "[KeywordPolicy] Matches rejected keyword"} =
                KeywordPolicy.filter(message)
     end
 
@@ -124,7 +124,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
         }
       }
 
-      assert {:reject, "[KeywordPolicy] Matches with rejected keyword"} =
+      assert {:reject, "[KeywordPolicy] Matches rejected keyword"} =
                KeywordPolicy.filter(message)
     end
   end

@@ -91,9 +91,12 @@ defmodule ActivityPub.MixProject do
       {:ex_doc, "~> 0.22", only: [:dev, :test], runtime: false},
       {:arrows, "~> 0.2"},
       {:untangle, "~> 0.3"},
-      {:ex_confusables, 
+      {:ex_confusables,
       #"~> 0.1"
-      git: "https://github.com/bonfire-networks/ex_confusables"}
+      git: "https://github.com/bonfire-networks/ex_confusables"},
+      # JSON-LD canonicalization for Linked Data Signature verification
+      {:json_ld, "~> 1.0"},
+      {:rdf, "~> 2.1"}
     ]
   end
 

@@ -287,4 +287,102 @@ defmodule ActivityPub.Safety.SignatureTest do
     # cascade (key re-fetch, LD signature, source re-fetch) rather than rejected
     assert json_response(conn, 200) == "tbd"
   end
+
+  describe "Date header staleness check" do
+    test "stale Date header causes signature to be treated as invalid and queued for verification",
+         %{conn: conn} do
+      data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+      subject = actor(local: false)
+      data = Map.put(data, "actor", subject.data["id"])
+
+      # Date from 2 hours ago — beyond the 1 hour + 1 minute skew window
+      stale_date = Utils.format_date(NaiveDateTime.add(NaiveDateTime.utc_now(), -7200))
+
+      # Mock HTTPSignatures.validate to return a valid hostname so the Date check runs
+      with_mock HTTPSignatures, [:passthrough],
+        validate: fn _conn, _opts -> "mastodon.local" end do
+        {result, log} =
+          ExUnit.CaptureLog.with_log(fn ->
+            conn
+            |> put_req_header("content-type", "application/activity+json")
+            |> put_req_header("date", stale_date)
+            |> put_req_header(
+              "signature",
+              "keyId=\"#{subject.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"date\",signature=\"fake\""
+            )
+            |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+          end)
+
+        assert log =~ "Date header too stale"
+        # Stale date → treated as unsigned → queued for verification cascade
+        assert json_response(result, 200) == "tbd"
+      end
+    end
+
+    test "fresh Date header allows valid signature to be accepted directly", %{conn: conn} do
+      data = file("fixtures/mastodon/mastodon-post-activity.json") |> Jason.decode!()
+      subject = actor(local: false)
+      data = Map.put(data, "actor", subject.data["id"])
+
+      fresh_date = Utils.format_date()
+
+      # Mock HTTPSignatures.validate to return a valid hostname
+      with_mock HTTPSignatures, [:passthrough],
+        validate: fn _conn, _opts -> "mastodon.local" end do
+        {result, log} =
+          ExUnit.CaptureLog.with_log(fn ->
+            conn
+            |> put_req_header("content-type", "application/activity+json")
+            |> put_req_header("date", fresh_date)
+            |> put_req_header(
+              "signature",
+              "keyId=\"#{subject.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"date\",signature=\"fake\""
+            )
+            |> post("#{Utils.ap_base_url()}/shared_inbox", data)
+          end)
+
+        refute log =~ "Date header too stale"
+        # Fresh date → signature accepted → processed directly
+        assert json_response(result, 200) == "ok"
+      end
+    end
+  end
+
+  describe "publicKey as a list" do
+    test "public_key_from_data handles publicKey as a list" do
+      pem1 = @public_key
+      pem2 = "-----BEGIN PUBLIC KEY-----\nFAKEKEY2\n-----END PUBLIC KEY-----"
+
+      actor = %{
+        data: %{
+          "publicKey" => [
+            %{"id" => "https://example.com/users/alice#main-key", "publicKeyPem" => pem1},
+            %{"id" => "https://example.com/users/alice#ed25519-key", "publicKeyPem" => pem2}
+          ]
+        },
+        keys: nil
+      }
+
+      # Without key_id, returns first key
+      assert {:ok, ^pem1} = Keys.public_key_from_data(actor)
+
+      # With matching key_id, returns the matched key
+      assert {:ok, ^pem2} =
+               Keys.public_key_from_data(actor, "https://example.com/users/alice#ed25519-key")
+
+      # With non-matching key_id, falls back to first key
+      assert {:ok, ^pem1} = Keys.public_key_from_data(actor, "https://example.com/nonexistent")
+    end
+
+    test "public_key_from_data still handles single publicKey object" do
+      actor = %{
+        data: %{
+          "publicKey" => %{"publicKeyPem" => @public_key}
+        },
+        keys: nil
+      }
+
+      assert {:ok, @public_key} = Keys.public_key_from_data(actor)
+    end
+  end
 end

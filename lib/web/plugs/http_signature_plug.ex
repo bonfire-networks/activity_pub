@@ -48,6 +48,15 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
         SignaturesAdapter.put_signature_format(validated?, format)
       end
 
+      # Reject signatures with stale Date headers to prevent replay attacks
+      validated? =
+        if is_binary(validated?) and not date_within_skew?(conn) do
+          warn("Date header too stale, treating signature as invalid")
+          false
+        else
+          validated?
+        end
+
       assign(
         conn,
         :valid_signature,
@@ -122,5 +131,40 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
 
   defp has_rfc9421_header?(conn) do
     conn |> get_req_header("signature-input") |> Enum.any?()
+  end
+
+  # 1 hour + 1 minute buffer for clock skew
+  @max_clock_skew_seconds 3660
+
+  defp date_within_skew?(conn) do
+    case get_req_header(conn, "date") do
+      [date_str] ->
+        case parse_http_date(date_str) do
+          {:ok, request_time} ->
+            abs(DateTime.diff(DateTime.utc_now(), request_time)) <= @max_clock_skew_seconds
+
+          _ ->
+            # Can't parse date — be lenient, don't reject on date alone
+            true
+        end
+
+      _ ->
+        # No Date header — don't reject on date alone
+        true
+    end
+  end
+
+  defp parse_http_date(date_str) do
+    case :httpd_util.convert_request_date(String.to_charlist(date_str)) do
+      {date, time} ->
+        NaiveDateTime.from_erl({date, time})
+        |> case do
+          {:ok, naive} -> DateTime.from_naive(naive, "Etc/UTC")
+          error -> error
+        end
+
+      _ ->
+        {:error, :invalid_date}
+    end
   end
 end

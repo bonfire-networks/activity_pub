@@ -193,6 +193,7 @@ defmodule ActivityPub.Federator.APPublisher do
              "(request-target)": "post #{uri.path}",
              host: ActivityPub.Safety.Keys.http_host(uri),
              "content-length": byte_size(json),
+             "content-type": "application/activity+json",
              digest: digest,
              date: date
            }) do

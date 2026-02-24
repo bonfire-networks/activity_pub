@@ -43,24 +43,43 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  def public_key_from_data(%{
-        data: %{
-          "publicKey" => %{"publicKeyPem" => public_key_pem}
-        }
-      })
+  def public_key_from_data(actor, key_id \\ nil)
+
+  # publicKey is a list — find the one matching key_id (if provided), else take first
+  def public_key_from_data(%{data: %{"publicKey" => keys}}, key_id)
+      when is_list(keys) do
+    key_obj =
+      if is_binary(key_id),
+        do: Enum.find(keys, List.first(keys), &(&1["id"] == key_id)),
+        else: List.first(keys)
+
+    case key_obj do
+      %{"publicKeyPem" => pem} when is_binary(pem) -> {:ok, pem}
+      _ -> {:error, "No valid publicKeyPem found in key list"}
+    end
+  end
+
+  def public_key_from_data(
+        %{
+          data: %{
+            "publicKey" => %{"publicKeyPem" => public_key_pem}
+          }
+        },
+        _key_id
+      )
       when is_binary(public_key_pem) do
     {:ok, public_key_pem}
   end
 
-  def public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = _actor) do
+  def public_key_from_data(%{keys: "-----BEGIN PUBLIC KEY-----" <> _ = key} = _actor, _key_id) do
     {:ok, key}
   end
 
-  def public_key_from_data(%{keys: keys} = _actor) when not is_nil(keys) do
+  def public_key_from_data(%{keys: keys} = _actor, _key_id) when not is_nil(keys) do
     public_key_from_private_key(%{keys: keys})
   end
 
-  def public_key_from_data(data) do
+  def public_key_from_data(data, _key_id) do
     error(data, "Public key not found")
   end
 

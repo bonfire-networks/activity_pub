@@ -230,11 +230,9 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   end
 
   @doc """
-  Checks response headers for `Accept-Signature` (RFC 9421 §5.1) and caches
-  the format if present. Works with both GET and POST responses.
+  Checks response headers for `Accept-Signature` (RFC 9421 §5.1) and caches the format if present. Works with both GET and POST responses.
 
-  Accepts either a `%{headers: list}` response struct or a plain headers list,
-  plus a host string or URI/URL to extract the host from.
+  Accepts either a `%{headers: list}` response struct or a plain headers list, plus a host string or URI/URL to extract the host from.
   """
   def maybe_cache_accept_signature(host_or_uri, %{headers: headers}) when is_list(headers) do
     maybe_cache_accept_signature(host_or_uri, headers)

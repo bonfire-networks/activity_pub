@@ -517,7 +517,7 @@ defmodule ActivityPub.Actor do
     %__MODULE__{
       id: object.id,
       data: data,
-      keys: data["publicKey"]["publicKeyPem"],
+      keys: extract_public_key_pem(data["publicKey"]),
       local: object.local,
       ap_id: data["id"],
       username: format_username(data),
@@ -531,6 +531,10 @@ defmodule ActivityPub.Actor do
   def format_remote_actor(%__MODULE__{} = actor) do
     actor
   end
+
+  defp extract_public_key_pem(%{"publicKeyPem" => pem}) when is_binary(pem), do: pem
+  defp extract_public_key_pem([%{"publicKeyPem" => pem} | _]) when is_binary(pem), do: pem
+  defp extract_public_key_pem(_), do: nil
 
   def create_or_update_actor_from_object(actor, opts \\ []) do
     case do_maybe_create_or_update_actor_from_object(actor, opts) do

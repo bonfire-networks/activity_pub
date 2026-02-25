@@ -512,14 +512,31 @@ defmodule ActivityPub.Utils do
     #  4.2 hours - TODO: configurable
     |> Plug.Conn.put_resp_header("cache-control", "max-age=#{15120}")
     # RFC 9421 §5.1: advertise that we accept HTTP Message Signatures
-    |> Plug.Conn.put_resp_header("accept-signature", "sig1=()")
+    # (skip if client already sent an RFC 9421 signature)
+    |> maybe_advertise_accept_signature()
     |> Plug.Conn.put_resp_content_type("application/activity+json")
     |> Phoenix.Controller.json(json)
+  end
+
+  @doc """
+  Adds `Accept-Signature` response header to advertise RFC 9421 support,
+  but skips it if the client already sent an RFC 9421 signature.
+  """
+  def maybe_advertise_accept_signature(conn) do
+    if Plug.Conn.get_req_header(conn, "signature-input") |> Enum.any?() do
+      conn
+    else
+      Plug.Conn.put_resp_header(conn, "accept-signature", "sig1=()")
+    end
   end
 
   def error_json(conn, error, status \\ 500) do
     conn
     |> Plug.Conn.put_status(status)
+    # On 401, hint that we accept RFC 9421 signatures
+    |> then(fn conn ->
+      if status in 401..403, do: maybe_advertise_accept_signature(conn), else: conn
+    end)
     |> Phoenix.Controller.json(%{error: error})
   end
 

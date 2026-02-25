@@ -38,6 +38,7 @@ config :activity_pub, :endpoint, ActivityPub.Web.Endpoint
 
 # Imported library config (i.e. the stuff you'd usually put in the config of the app using this library, though of course you can add any of the above in there as well)
 import_config "activity_pub.exs"
+import_config "oban.exs"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

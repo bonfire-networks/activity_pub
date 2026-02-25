@@ -82,11 +82,13 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     # RFC 9421: set derived component values that HTTPSignatures.RFC9421 needs
     request_target = String.downcase("#{http_method}") <> " #{conn.request_path}"
 
+    base_uri = ActivityPub.Web.base_uri()
+
     conn
     |> put_req_header("@method", String.upcase("#{http_method}"))
-    |> put_req_header("@authority", get_authority(conn))
+    |> put_req_header("@authority", get_authority(base_uri))
     |> put_req_header("@path", conn.request_path)
-    |> put_req_header("@scheme", to_string(conn.scheme || "https"))
+    |> put_req_header("@scheme", get_scheme(base_uri))
     |> put_req_header("(request-target)", request_target)
     |> maybe_put_content_digest()
     |> maybe_put_legacy_digest()
@@ -116,14 +118,23 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     conn
   end
 
-  defp get_authority(conn) do
-    host = conn.host || "localhost"
+  # Derive @scheme and @authority from configured base_url to avoid proxy mismatches
+  defp get_scheme(%URI{scheme: scheme}) do
+    scheme || "https"
+  end
 
-    case conn.port do
-      port when port in [80, 443, nil] -> host
-      port -> "#{host}:#{port}"
+  defp get_scheme(_), do: "https"
+
+  defp get_authority(%URI{host: host, port: port, scheme: scheme}) do
+    cond do
+      is_nil(port) -> host
+      scheme == "https" and port == 443 -> host
+      scheme == "http" and port == 80 -> host
+      true -> "#{host}:#{port}"
     end
   end
+
+  defp get_authority(_), do: "localhost"
 
   defp has_signature_header?(conn) do
     conn |> get_req_header("signature") |> Enum.any?()

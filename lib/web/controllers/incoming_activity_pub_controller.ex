@@ -102,7 +102,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       Instances.handle_successful_contact(params["actor"])
 
       conn
-      |> Plug.Conn.put_resp_header("accept-signature", "sig1=()")
+      |> Utils.maybe_advertise_accept_signature()
       |> json("ok")
     else
       Utils.error_json(conn, "this instance is not currently federating", 403)
@@ -124,7 +124,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       Instances.handle_successful_contact(params["actor"])
 
       conn
-      |> Plug.Conn.put_resp_header("accept-signature", "sig1=()")
+      |> Utils.maybe_advertise_accept_signature()
       |> json("tbd")
     else
       Utils.error_json(conn, "this instance is not currently federating", 403)

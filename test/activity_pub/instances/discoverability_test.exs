@@ -91,6 +91,7 @@ defmodule ActivityPub.Instances.DiscoverabilityTest do
       assert is_list(implements), "Expected generator.implements to be a list"
 
       assert Enum.any?(implements, fn
+               %{"href" => href} -> href == "https://datatracker.ietf.org/doc/html/rfc9421"
                %{"id" => id} -> id == "https://datatracker.ietf.org/doc/html/rfc9421"
                id when is_binary(id) -> id == "https://datatracker.ietf.org/doc/html/rfc9421"
                _ -> false
@@ -142,8 +143,9 @@ defmodule ActivityPub.Instances.DiscoverabilityTest do
              "Expected implements directly on service actor, got keys: #{inspect(Map.keys(body))}"
 
       assert Enum.any?(implements, fn
-               id when is_binary(id) -> String.contains?(id, "rfc9421")
+               %{"href" => href} -> String.contains?(href, "rfc9421")
                %{"id" => id} -> String.contains?(id, "rfc9421")
+               id when is_binary(id) -> String.contains?(id, "rfc9421")
                _ -> false
              end),
              "Expected service actor implements to include RFC 9421, got: #{inspect(implements)}"

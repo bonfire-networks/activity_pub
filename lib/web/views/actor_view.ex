@@ -42,8 +42,10 @@ defmodule ActivityPub.Web.ActorView do
       case Utils.service_actor() do
         {:ok, service_actor} ->
           if data["id"] == service_actor.ap_id do
-            # The service actor IS the Application — put implements directly
-            Map.put(data, "implements", implements)
+            # The service actor IS the Application: put implements directly, and change the type from Person to Application
+            data
+            |> Map.put("type", "Application")
+            |> Map.put("implements", implements)
           else
             # User actors get a generator pointing to the service actor
             Map.put(data, "generator", %{

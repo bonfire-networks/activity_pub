@@ -121,6 +121,8 @@ defmodule ActivityPub.Web do
     ActivityPub.Federator.Adapter.base_url() || ActivityPub.Web.Endpoint.url()
   end
 
+  def base_uri, do: URI.parse(base_url())
+
   def rate_limit_reached(conn, retry_after) when is_integer(retry_after) do
     conn
     |> Plug.Conn.put_resp_header("retry-after", retry_after |> div(1000) |> Integer.to_string())

@@ -15,7 +15,9 @@ defmodule ActivityPub.Web.WebFingerController do
     with {:ok, response} <- WebFinger.output(resource) do
       debug(response, "WebFinger response")
 
-      json(conn, response)
+      conn
+      |> ActivityPub.Utils.maybe_advertise_accept_signature()
+      |> json(response)
     else
       e ->
         msg = "Could not find user"

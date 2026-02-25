@@ -138,12 +138,12 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
     end
   end
 
-  defp rfc9421_implement?(%{"id" => id}) when is_binary(id) do
-    String.contains?(id, "rfc9421")
-  end
-
   defp rfc9421_implement?(%{"href" => href}) when is_binary(href) do
     String.contains?(href, "rfc9421")
+  end
+
+  defp rfc9421_implement?(%{"id" => id}) when is_binary(id) do
+    String.contains?(id, "rfc9421")
   end
 
   defp rfc9421_implement?(uri) when is_binary(uri) do

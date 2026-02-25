@@ -30,8 +30,20 @@ defmodule ActivityPub.FEP844eTest do
       assert generator, "actor should include generator property"
       assert generator["type"] == "Application"
       assert is_list(generator["implements"])
-      assert "https://datatracker.ietf.org/doc/html/rfc9421" in generator["implements"]
-      assert "https://www.w3.org/TR/activitypub/" in generator["implements"]
+
+      assert Enum.any?(generator["implements"], fn
+               %{"href" => href} -> href == "https://datatracker.ietf.org/doc/html/rfc9421"
+               uri when is_binary(uri) -> uri == "https://datatracker.ietf.org/doc/html/rfc9421"
+               _ -> false
+             end),
+             "Expected implements to include RFC 9421 URI"
+
+      assert Enum.any?(generator["implements"], fn
+               %{"href" => href} -> href == "https://www.w3.org/TR/activitypub/"
+               uri when is_binary(uri) -> uri == "https://www.w3.org/TR/activitypub/"
+               _ -> false
+             end),
+             "Expected implements to include ActivityPub URI"
 
       # check for context term for FEP-844e
       context = resp["@context"]

@@ -36,6 +36,21 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     if (has_signature? or has_rfc9421?) && (http_method == "POST" or reject_unsigned?) do
       conn = prepare_headers_for_validation(conn, http_method, has_rfc9421?)
 
+      if has_rfc9421? do
+        debug(
+          %{
+            "@method" => Plug.Conn.get_req_header(conn, "@method") |> List.first(),
+            "@authority" => Plug.Conn.get_req_header(conn, "@authority") |> List.first(),
+            "@path" => Plug.Conn.get_req_header(conn, "@path") |> List.first(),
+            "@scheme" => Plug.Conn.get_req_header(conn, "@scheme") |> List.first(),
+            "signature-input" =>
+              Plug.Conn.get_req_header(conn, "signature-input") |> List.first(),
+            "content-digest" => Plug.Conn.get_req_header(conn, "content-digest") |> List.first()
+          },
+          "RFC 9421 receiver-side headers for verification"
+        )
+      end
+
       validated? =
         HTTPSignatures.validate(conn,
           return: :key_host,

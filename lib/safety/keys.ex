@@ -230,8 +230,15 @@ defmodule ActivityPub.Safety.Keys do
 
   def sign(%{keys: _} = actor, headers, opts \\ []) do
     with {:ok, actor} <- ensure_keys_present(actor),
-         {:ok, private_key, _} when not is_nil(private_key) <- Keys.keypair_from_pem(actor.keys) do
+         {:ok, private_key, public_key} when not is_nil(private_key) <-
+           Keys.keypair_from_pem(actor.keys) do
       key_id = actor.data["id"] <> "#main-key"
+
+      :crypto.hash(:sha256, :erlang.term_to_binary(public_key))
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
+      |> debug("TEMP: signing as #{key_id} with pub_key fingerprint")
+
       {:ok, HTTPSignatures.sign(private_key, key_id, headers, opts)}
     end
   end

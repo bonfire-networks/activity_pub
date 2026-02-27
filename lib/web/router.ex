@@ -30,7 +30,7 @@ defmodule ActivityPub.Web.Router do
       end
 
       pipeline :signed_activity_pub_incoming do
-        plug(ActivityPub.Web.Plugs.HTTPSignaturePlug)
+        plug(ActivityPub.Web.Plugs.FetchHTTPSignaturePlug)
         plug(ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug)
         plug(ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug)
       end

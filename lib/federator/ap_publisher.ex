@@ -17,7 +17,7 @@ defmodule ActivityPub.Federator.APPublisher do
   # handle all types
   def is_representable?(_activity), do: true
 
-  @doc "Publish/federate activity"
+  @doc "Publish/federate activity (or usually enqueue for publication) to all desired actors/instances."
   def publish(actor, activity, opts \\ []) do
     case prepare_publish_params(actor, activity) do
       params_list when is_list(params_list) and params_list != [] ->
@@ -103,6 +103,7 @@ defmodule ActivityPub.Federator.APPublisher do
             json: json,
             actor_username: Map.get(actor, :username),
             actor_id: Map.get(actor, :id),
+            actor_ap_id: Map.get(actor, :ap_id) || (Map.get(actor, :data) || %{})["id"],
             id: prepared_activity_data["id"],
             unreachable_since: meta[:unreachable_since]
           }
@@ -123,7 +124,73 @@ defmodule ActivityPub.Federator.APPublisher do
   * `actor`: the actor which is signing the message
   * `id`: the ActivityStreams URI of the message
   """
-  def publish_one(%{json: json, actor: %Actor{} = actor, inbox: inbox} = params) do
+  def publish_one(%{actor: %Actor{} = actor, inbox: _inbox} = params) do
+    sign_and_publish_one(actor, params |> Map.delete(:actor))
+  end
+
+  def publish_one(%{actor_id: id, inbox: _inbox} = params) when is_binary(id) do
+    with {:ok, actor} <- Actor.get_cached(id: id) do
+      sign_and_publish_one(actor, params)
+    else
+      {:error, :not_found} ->
+        with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
+          debug("special case to check for Tombstone actor")
+
+          Actor.format_remote_actor(actor)
+          |> sign_and_publish_one(params)
+        else
+          _ ->
+            warn(id, "Could not find actor by ID, trying other methods")
+            publish_one(Map.drop(params, [:actor_id]))
+        end
+
+      e ->
+        warn(e, "Error while looking up actor, trying other methods")
+        publish_one(Map.drop(params, [:actor_id]))
+    end
+  end
+
+  def publish_one(%{actor_ap_id: ap_id, inbox: _inbox} = params) when is_binary(ap_id) do
+    with {:ok, actor} <- Actor.get_cached(ap_id: ap_id) do
+      sign_and_publish_one(actor, params)
+    else
+      {:error, :not_found} ->
+        with {:ok, actor} <- ActivityPub.Object.get_cached(ap_id: ap_id) do
+          debug("special case to check for Tombstone actor")
+
+          Actor.format_remote_actor(actor)
+          |> sign_and_publish_one(params)
+        else
+          _ ->
+            warn(ap_id, "Could not find actor by AP ID, trying other methods")
+            publish_one(Map.drop(params, [:actor_ap_id]))
+        end
+
+      _ ->
+        warn(ap_id, "Could not find actor by AP ID, trying other methods")
+        publish_one(Map.drop(params, [:actor_ap_id]))
+    end
+  end
+
+  def publish_one(%{actor_username: username} = params) when is_binary(username) do
+    with {:ok, actor} <- Actor.get_cached(username: username) do
+      sign_and_publish_one(actor, params)
+    else
+      {:error, :not_found} ->
+        warn(username, "Could not find actor by username, trying other methods")
+        publish_one(Map.drop(params, [:actor_username]))
+
+      e ->
+        warn(e, "Error while looking up actor by username `#{username}`, trying other methods")
+        publish_one(Map.drop(params, [:actor_username]))
+    end
+  end
+
+  def publish_one(%{json: _json} = params) do
+    publish_one_unsigned(params)
+  end
+
+  defp sign_and_publish_one(actor, %{json: json, inbox: inbox} = params) do
     uri = URI.parse(inbox)
     format = Instances.get_or_discover_signature_format(uri.host)
 
@@ -133,36 +200,24 @@ defmodule ActivityPub.Federator.APPublisher do
     end
   end
 
-  def publish_one(%{actor_id: id} = params) when is_binary(id) do
-    debug("special case for Tombstone actor")
-
-    with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
-      params
-      |> Map.delete(:actor_id)
-      |> Map.put(:actor, Actor.format_remote_actor(actor))
-      |> publish_one()
-    else
-      e ->
-        warn(e, "Could not find actor by ID")
-    end
-  end
-
-  def publish_one(%{json: json} = params) do
+  def publish_one_unsigned(%{json: json} = params) do
     digest = "SHA-256=" <> (:crypto.hash(:sha256, json) |> Base.encode64())
     date = Utils.format_date()
 
-    error(params, "not adding a signature, because we don't have an actor or inbox")
+    warn(params, "not adding a signature, because we don't have an actor or inbox")
 
     do_publish_one(params, date, digest)
   end
 
   defp publish_one_rfc9421(params, actor, uri, json) do
-    inbox = URI.to_string(uri)
     content_digest = "sha-256=:" <> Base.encode64(:crypto.hash(:sha256, json)) <> ":"
 
+    # Provide sub-components so resolve_component("@target-uri") can reconstruct the full URI
     headers = %{
       "@method" => "POST",
-      "@target-uri" => inbox,
+      "@scheme" => uri.scheme || "https",
+      "@authority" => ActivityPub.Safety.Keys.http_host(uri),
+      "@path" => uri.path || "/",
       "content-digest" => content_digest
     }
 
@@ -171,6 +226,9 @@ defmodule ActivityPub.Federator.APPublisher do
              format: :rfc9421,
              components: ["@method", "@target-uri", "content-digest"]
            ) do
+      debug(sig_input, "RFC 9421 outgoing signature-input")
+      debug(headers, "RFC 9421 outgoing headers/components")
+
       do_publish_one(
         params,
         Utils.format_date(),
@@ -202,19 +260,6 @@ defmodule ActivityPub.Federator.APPublisher do
       e ->
         error(e, "problem adding a signature, skip")
         do_publish_one(params, date, digest)
-    end
-  end
-
-  def publish_one(%{actor_username: username} = params) when is_binary(username) do
-    with {:ok, actor} <- Actor.get_cached(username: username) do
-      params
-      |> Map.delete(:actor_username)
-      |> Map.put(:actor, actor)
-      |> publish_one()
-    else
-      e ->
-        warn(e, "Could not find actor by username `#{username}`, try another way...")
-        publish_one(Map.drop(params, [:actor_username]))
     end
   end
 
@@ -379,7 +424,7 @@ defmodule ActivityPub.Federator.APPublisher do
     |> debug("recipients from data")
     |> Enum.reject(&(is_nil(&1) or Utils.has_as_public?(&1)))
     |> Enum.map(fn ap_id ->
-      case Actor.get_cached_or_fetch(ap_id: ap_id) do
+      case Actor.get_cached(ap_id: ap_id) do
         {:ok, actor} -> actor
         _ -> ap_id
       end

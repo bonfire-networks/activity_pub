@@ -30,6 +30,11 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
            Keys.get_public_key_for_ap_id(actor_id)
            |> debug("public_key after get_public_key_for_ap_id"),
          {:ok, decoded} <- Keys.public_key_decode(public_key) do
+      :crypto.hash(:sha256, :erlang.term_to_binary(decoded))
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
+      |> debug("TEMP: verifying with pub_key fingerprint for #{key_id}")
+
       {:ok, decoded}
     else
       e ->

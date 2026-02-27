@@ -14,8 +14,10 @@ defmodule ActivityPub.Web.ProxyRemoteObjectController do
   Returns the fetched object as JSON, or an error if not found or fetch fails.
   """
   def proxy(conn, %{"id" => id}) when is_binary(id) do
-    with :ok <- validate_actor_auth(conn),
-         {:ok, %{data: data} = _object} <- ActivityPub.Object.get_cached(ap_id: id) do
+    with :ok <- actor_authed?(conn),
+         # this will fetch from cache if available, or fetch and store the and cache the JSON if not, but skip the adapter since the client just wants the raw object data and the app doesn't necessarily need to know about it
+         {:ok, %{data: data}} <-
+           ActivityPub.Federator.Fetcher.fetch_object_from_id(id, skip_adapter: true) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> send_resp(200, Jason.encode!(data))
@@ -41,11 +43,11 @@ defmodule ActivityPub.Web.ProxyRemoteObjectController do
     |> halt()
   end
 
-  defp validate_actor_auth(conn) do
-    if conn.assigns[:current_user] do
-      :ok
-    else
-      {:error, :unauthorized}
-    end
+  defp actor_authed?(%{assigns: %{current_user: %{} = _user}}) do
+    :ok
+  end
+
+  defp actor_authed?(%{}) do
+    {:error, :unauthorized}
   end
 end

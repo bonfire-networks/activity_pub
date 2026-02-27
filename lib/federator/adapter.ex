@@ -94,20 +94,35 @@ defmodule ActivityPub.Federator.Adapter do
 
   def maybe_handle_activity(activity, opts \\ [])
 
-  def maybe_handle_activity(%Object{local: false} = activity, _opts) do
-    # remote activities should always go to adapter
-    handle_activity(activity)
+  def maybe_handle_activity(%Object{local: false} = activity, opts) do
+    if opts[:skip_adapter] == true do
+      debug("skipping adapter for remote activity as requested")
+      {:ok, :skipped}
+    else
+      # remote activities should always go to adapter
+      handle_activity(activity)
+    end
   end
 
-  def maybe_handle_activity(%{data: %{"type" => verb}} = activity, _opts) when verb in ["Move"] do
-    debug(verb, "looks like a local activity which we handle as incoming anyway")
-    handle_activity(activity)
+  def maybe_handle_activity(%{data: %{"type" => verb}} = activity, opts) when verb in ["Move"] do
+    if opts[:skip_adapter] == true do
+      debug("skipping adapter for remote activity as requested")
+      {:ok, :skipped}
+    else
+      debug(verb, "looks like a local activity which we handle as incoming anyway")
+      handle_activity(activity)
+    end
   end
 
   def maybe_handle_activity(%Object{local: true} = activity, opts) do
     if opts[:from_c2s] do
-      # C2S activities should go to adapter
-      handle_activity(activity)
+      if opts[:skip_adapter] == true do
+        debug("skipping adapter for remote activity as requested")
+        {:ok, :skipped}
+      else
+        # C2S activities should go to adapter
+        handle_activity(activity)
+      end
     else
       # Regular local activities skip adapter (they originated from there)
       {:ok, :local}

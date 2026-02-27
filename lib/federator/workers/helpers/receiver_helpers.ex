@@ -84,7 +84,8 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
           true
         else
           Untangle.warn(
-            "HTTP signature actor mismatch (expected #{actor}), skipping key re-fetch"
+            headers["signature"],
+            "HTTP signature actor mismatch (expected it to contain #{actor}), skipping key re-fetch"
           )
 
           false

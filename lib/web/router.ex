@@ -133,6 +133,14 @@ defmodule ActivityPub.Web.Router do
         get("/remote_interaction", RedirectController, :remote_interaction)
         post("/remote_interaction", RedirectController, :remote_interaction)
       end
+
+      scope "/", ActivityPub.Web do
+        pipe_through(:browser)
+
+        # alias /authorize_interaction to /pub/remote_interaction because mastodon seems to hardcode that URL 
+        get("/authorize_interaction", RedirectController, :remote_interaction)
+        post("/authorize_interaction", RedirectController, :remote_interaction)
+      end
     end
   end
 end

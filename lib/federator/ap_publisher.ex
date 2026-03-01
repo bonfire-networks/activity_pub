@@ -45,7 +45,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
     {:ok, prepared_activity_data} =
       Transformer.prepare_outgoing(activity.data)
-      |> flood("prepared_activity_data")
+      |> debug("prepared_activity_data")
 
     # Utils.maybe_forward_activity(prepared_activity_data)
 
@@ -95,7 +95,7 @@ defmodule ActivityPub.Federator.APPublisher do
               URI.parse(inbox).host,
               meta[:ids]
             )
-            |> flood("safe json")
+            |> debug("safe json")
             |> Jason.encode!()
 
           %{

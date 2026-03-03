@@ -25,7 +25,7 @@ defmodule ActivityPub.SharedDataCase do
     u1b = actor1.data["endpoints"]["sharedInbox"]
     u2b = actor2.data["endpoints"]["sharedInbox"]
 
-    mock(fn
+    mock_global(fn
       %{method: :post, url: ^u1} ->
         %Tesla.Env{status: 200}
 

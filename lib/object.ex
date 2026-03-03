@@ -272,8 +272,13 @@ defmodule ActivityPub.Object do
            _data____id: {_, [constraint: :unique, constraint_name: "ap_object__data____id_index"]}
          ]
        } = e} ->
-        debug(e, "Already exists, try fetching from cache")
-        Object.get_cached(ap_id: params["id"])
+        if id = params["id"] do
+          debug(e, "Already exists, try fetching from cache")
+          Object.get_cached(ap_id: id)
+        else
+          error(e, "Constraint violation when trying to insert object without an ID")
+          {:error, "Cannot insert object without an ID"}
+        end
 
       error ->
         debug(params, "Error while trying to insert these params")

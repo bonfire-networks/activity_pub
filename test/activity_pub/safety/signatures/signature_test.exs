@@ -263,9 +263,9 @@ defmodule ActivityPub.Safety.SignatureTest do
       |> put_req_header("content-type", "application/activity+json")
       |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 
-    # Activities with invalid HTTP signatures are queued for the verification
-    # cascade (key re-fetch, LD signature, source re-fetch) rather than rejected
-    assert json_response(conn, 200) == "tbd"
+    # Activities with invalid HTTP signatures are queued for the verification cascade (key re-fetch, LD signature, source re-fetch) rather than rejected
+    resp = json_response(conn, 200)
+    assert resp == "tbd"
   end
 
   test "it queues for verification when signature-input is present but invalid", %{conn: conn} do

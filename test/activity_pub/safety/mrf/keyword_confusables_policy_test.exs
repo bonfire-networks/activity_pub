@@ -449,7 +449,7 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     end
 
     # gets normalised to "Get free rnoney now!"
-    @tag :fixme
+    @tag :todo
     test "rejects homoglyphs with regex patterns" do
       clear_config([:mrf_keyword, :reject], [~r/free.*money/i])
 
@@ -467,7 +467,7 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     end
 
     # gets normalised to this is the ǝnd
-    @tag :fixme
+    @tag :todo
     test "rejects reversed/mirrored character substitutions" do
       clear_config([:mrf_keyword, :reject], ["end"])
 
@@ -485,7 +485,7 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     end
 
     # gets normalised to check out vlrn editor
-    @tag :fixme
+    @tag :todo
     test "rejects roman numerals as letter substitutes via NFKC normalization" do
       clear_config([:mrf_keyword, :reject], ["vi"])
 

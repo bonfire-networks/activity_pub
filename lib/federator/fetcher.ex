@@ -20,13 +20,33 @@ defmodule ActivityPub.Federator.Fetcher do
   import Untangle
 
   @doc """
-  Checks if an object exists in the AP database and fetches it if not (but does not send to Adapter).
+  Returns a cached object or fetches, stores, and returns it.
+  Always returns `{:ok, %Object{}}` on success.
   """
-  # TODO: deduplicate this and fetch_object_from_id/2
-  def get_cached_object_or_fetch_ap_id(id, opts \\ []) do
+  def get_cached_or_fetch_object(id, opts \\ []) do
     case Object.get_cached(ap_id: id) do
       {:ok, object} ->
         {:ok, object}
+
+      {:error, :remote_error} ->
+        warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
+        {:error, :not_found}
+
+      _ ->
+        with {:ok, data} <- fetch_remote_object_from_id(id, opts) do
+          cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, id))
+        end
+    end
+  end
+
+  @doc """
+  Returns cached object data or fetches raw JSON (decoded map).
+  Returns `{:ok, map}` on success — the map is the raw ActivityStreams JSON.
+  """
+  def get_cached_or_fetch_object_json(id, opts \\ []) do
+    case Object.get_cached(ap_id: id) do
+      {:ok, %{data: data}} ->
+        {:ok, data}
 
       {:error, :remote_error} ->
         warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
@@ -37,10 +57,10 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  defp get_cached_object_or_maybe_fetch_ap_id(id, opts \\ []) do
+  defp get_cached_or_maybe_fetch_json(id, opts \\ []) do
     case Object.get_cached(ap_id: id) do
-      {:ok, object} ->
-        {:ok, object}
+      {:ok, %{data: data}} ->
+        {:ok, data}
 
       {:error, :remote_error} ->
         warn("Fetch was attempted recently and resulted in an error, skip and return :not_found")
@@ -59,7 +79,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 "depth" => opts[:depth],
                 "fetch_collection_entries" => opts[:fetch_collection_entries],
                 "user_id" => opts[:user_id],
-                "context" => opts[:triggered_by] || "get_cached_object_or_maybe_fetch_ap_id"
+                "context" => opts[:triggered_by] || "get_cached_or_maybe_fetch_json"
               })
             )
 
@@ -543,7 +563,7 @@ defmodule ActivityPub.Federator.Fetcher do
          {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
          true <-
            not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :is_local},
-         format <- Instances.get_or_discover_signature_format(uri.host),
+         format <- options[:signature_format] || Instances.get_or_discover_signature_format(uri),
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(
@@ -593,7 +613,7 @@ defmodule ActivityPub.Federator.Fetcher do
   defp maybe_extract_generator_from_fetched(_, _), do: :ok
 
   defp do_extract_generator(id, data) do
-    host = URI.parse(id).host
+    host = Utils.authority(id)
 
     if host && is_nil(ActivityPub.Safety.HTTP.Signatures.get_signature_format(host)) do
       ActivityPub.Safety.HTTP.Signatures.maybe_extract_generator_info(host, data)
@@ -809,7 +829,7 @@ defmodule ActivityPub.Federator.Fetcher do
         )
 
         with {:ok, page} <-
-               get_cached_object_or_fetch_ap_id(ap_id, skip_contain_origin_check: true)
+               get_cached_or_fetch_object_json(ap_id, skip_contain_origin_check: true)
                |> debug("collection fetched") do
           {:ok, handle_collection(page, opts)}
         else
@@ -890,7 +910,7 @@ defmodule ActivityPub.Federator.Fetcher do
       items
     else
       with {:ok, page} <-
-             get_cached_object_or_maybe_fetch_ap_id(
+             get_cached_or_maybe_fetch_json(
                page_id,
                opts
                |> Keyword.put_new(:skip_contain_origin_check, true)

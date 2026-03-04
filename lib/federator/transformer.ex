@@ -223,7 +223,7 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp recipient_is_from_instance?(bto, host, target_actor_ids) when is_binary(bto) do
-    bto in (target_actor_ids || []) or URI.parse(bto || "").host == host
+    bto in (target_actor_ids || []) or ActivityPub.Utils.authority(bto || "") == host
   end
 
   defp recipient_is_from_instance?(%{"id" => bto}, host, target_actor_ids) when is_binary(bto) do

@@ -92,7 +92,7 @@ defmodule ActivityPub.Federator.APPublisher do
           json =
             Transformer.preserve_privacy_of_outgoing(
               prepared_activity_data,
-              URI.parse(inbox).host,
+              Utils.authority(inbox),
               meta[:ids]
             )
             |> debug("safe json")
@@ -192,7 +192,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp sign_and_publish_one(actor, %{json: json, inbox: inbox} = params) do
     uri = URI.parse(inbox)
-    format = Instances.get_or_discover_signature_format(uri.host)
+    format = Instances.get_or_discover_signature_format(uri)
 
     case format do
       :rfc9421 -> publish_one_rfc9421(params, actor, uri, json)

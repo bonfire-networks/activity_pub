@@ -45,24 +45,11 @@ defmodule ActivityPub.Web do
             scale_ms: 60_000,
             limit: 200
       """
-      def rate_limit(conn, opts) do
-        key_prefix = Keyword.fetch!(opts, :key_prefix)
-
-        # Read from config, falling back to defaults
-        config = Application.get_env(:activity_pub, :rate_limit, [])[key_prefix] || []
-        scale_ms = Keyword.get(config, :scale_ms) || Keyword.get(opts, :scale_ms, 60_000)
-        limit = Keyword.get(config, :limit) || Keyword.get(opts, :limit, 200)
-
-        # Build rate limit key from IP
-        ip = conn.remote_ip |> :inet.ntoa() |> to_string()
-        key = "#{key_prefix}:#{ip}"
-
-        case ActivityPub.RateLimit.hit(key, scale_ms, limit) do
-          {:allow, _count} ->
-            conn
-
-          {:deny, retry_after} ->
-            ActivityPub.Web.rate_limit_reached(conn, retry_after)
+      if unquote(Mix.env()) == :test and System.get_env("ENABLE_RATE_LIMIT") != "yes" do
+        def rate_limit(conn, _opts), do: conn
+      else
+        def rate_limit(conn, opts) do
+          ActivityPub.Web.apply_rate_limit(conn, opts)
         end
       end
     end
@@ -122,6 +109,27 @@ defmodule ActivityPub.Web do
   end
 
   def base_uri, do: URI.parse(base_url())
+
+  def apply_rate_limit(conn, opts) do
+    key_prefix = Keyword.fetch!(opts, :key_prefix)
+
+    # Read from config, falling back to defaults
+    config = Application.get_env(:activity_pub, :rate_limit, [])[key_prefix] || []
+    scale_ms = Keyword.get(config, :scale_ms) || Keyword.get(opts, :scale_ms, 60_000)
+    limit = Keyword.get(config, :limit) || Keyword.get(opts, :limit, 200)
+
+    # Build rate limit key from IP
+    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+    key = "#{key_prefix}:#{ip}"
+
+    case ActivityPub.RateLimit.hit(key, scale_ms, limit) do
+      {:allow, _count} ->
+        conn
+
+      {:deny, retry_after} ->
+        rate_limit_reached(conn, retry_after)
+    end
+  end
 
   def rate_limit_reached(conn, retry_after) when is_integer(retry_after) do
     conn

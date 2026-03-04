@@ -8,6 +8,7 @@ defmodule ActivityPub.Instances do
   alias ActivityPub.Federator.WebFinger
   alias ActivityPub.Instances.Instance
   alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
+  alias ActivityPub.Utils
   # alias ActivityPub.Config
 
   @discovery_cache :ap_sig_format_cache
@@ -49,13 +50,11 @@ defmodule ActivityPub.Instances do
     end
   end
 
-  def host(%URI{host: host}) do
-    host
-  end
+  def host(%URI{} = uri), do: Utils.authority(uri)
 
   def host(url_or_host) when is_binary(url_or_host) do
     if url_or_host =~ ~r/^http/i do
-      URI.parse(url_or_host).host
+      Utils.authority(url_or_host)
     else
       url_or_host
     end
@@ -68,19 +67,22 @@ defmodule ActivityPub.Instances do
   def host(_), do: nil
 
   def scrape_nodeinfo(%URI{} = instance_uri) do
+    host = Utils.authority(instance_uri)
+
     # with true <- Config.get([:instances_nodeinfo, :enabled]),
-    with {_, true} <- {:reachable, reachable?(instance_uri.host)},
+    with {_, true} <- {:reachable, reachable?(host)},
          {:ok, %Tesla.Env{status: 200, body: body, headers: headers}} <-
-           Tesla.get(
-             "https://#{instance_uri.host}/.well-known/nodeinfo",
-             headers: [{"Accept", "application/json"}]
+           HTTP.get(
+             "#{Utils.base_url(instance_uri)}/.well-known/nodeinfo",
+             [{"Accept", "application/json"}],
+             []
            ),
          _ <-
-           ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(instance_uri, headers),
+           ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(host, headers),
          {:ok, json} <- Jason.decode(body),
          {:ok, %{"links" => links}} <- {:ok, json},
          # FEP-2677: extract application actor from JRD links
-         _ <- maybe_store_application_actor(instance_uri.host, links),
+         _ <- maybe_store_application_actor(host, links),
          {:ok, %{"href" => href}} <-
            {:ok,
             Enum.find(links, fn link ->
@@ -95,7 +97,7 @@ defmodule ActivityPub.Instances do
          {:length, true} <- {:length, String.length(data) < 50_000},
          {:ok, nodeinfo} <- Jason.decode(data) do
       # Infer signature format from known software versions
-      maybe_infer_format_from_nodeinfo(instance_uri.host, nodeinfo)
+      maybe_infer_format_from_nodeinfo(host, nodeinfo)
       nodeinfo
     else
       {:reachable, false} ->
@@ -127,20 +129,35 @@ defmodule ActivityPub.Instances do
   Checks cache first, then runs discovery (WebFinger, nodeinfo, FEP-844e) if the format is unknown and discovery hasn't been attempted recently.
   Always returns `:rfc9421` or `:cavage`.
   """
-  def get_or_discover_signature_format(host) when is_binary(host) do
+  def get_or_discover_signature_format(%URI{} = uri) do
+    host = Utils.authority(uri)
+
     case SignaturesAdapter.get_signature_format(host) do
       format when format in [:rfc9421, :cavage] ->
         format
 
       nil ->
-        unless discovery_attempted?(host) do
-          mark_discovery_attempted(host)
-          discover_service_actor(host)
-          discover_signature_format(host)
+        unless Process.get(:ap_discovery_in_progress) || discovery_attempted?(host) do
+          try do
+            # Prevents re-entrant discovery (when handle_incoming during discovery
+            # triggers another fetch) and suppresses Tesla retries
+            Process.put(:ap_discovery_in_progress, true)
+            mark_discovery_attempted(host)
+            discover_service_actor(uri)
+            discover_signature_format(host)
+          rescue
+            e -> warn(e, "Signature format discovery failed for #{host}, using default")
+          after
+            Process.delete(:ap_discovery_in_progress)
+          end
         end
 
         SignaturesAdapter.determine_signature_format(host)
     end
+  end
+
+  def get_or_discover_signature_format(host) when is_binary(host) do
+    get_or_discover_signature_format(%URI{host: host})
   end
 
   def get_or_discover_signature_format(_), do: :cavage
@@ -155,8 +172,9 @@ defmodule ActivityPub.Instances do
 
   # Step 1: Find the service actor URI via WebFinger (FEP-d556) or nodeinfo (FEP-2677),
   # and infer signature format from nodeinfo software version.
-  defp discover_service_actor(host) do
-    wf_result = WebFinger.finger_host(host)
+  defp discover_service_actor(%URI{} = uri) do
+    host = Utils.authority(uri)
+    wf_result = WebFinger.finger_host(uri)
     info("#{host} — finger_host result: #{inspect(wf_result)}")
 
     case wf_result do
@@ -177,7 +195,7 @@ defmodule ActivityPub.Instances do
     # If WebFinger didn't already give us enough, try nodeinfo for
     # FEP-2677 application actor and software version-based format inference.
     if is_nil(service_actor) or is_nil(cached_format) do
-      nodeinfo = scrape_nodeinfo(%URI{host: host, scheme: "https"})
+      nodeinfo = scrape_nodeinfo(uri)
       info("#{host} — nodeinfo result: #{inspect(nodeinfo && nodeinfo["software"])}")
 
       info(
@@ -186,23 +204,39 @@ defmodule ActivityPub.Instances do
     end
   end
 
-  # Step 2: Determine signature format from what we know about the host
+  defp discover_service_actor(host) when is_binary(host) do
+    # Parse host string to URI for proper URL construction
+    uri =
+      if host =~ ~r/^http/i do
+        URI.parse(host)
+      else
+        scheme = if String.starts_with?(host, "localhost"), do: "http", else: "https"
+        URI.parse("#{scheme}://#{host}")
+      end
+
+    discover_service_actor(uri)
+  end
+
+  # Step 2: Determine signature format from what we know about the host.
+  # Passes signature_format: :cavage to skip discovery in the Fetcher, which would otherwise call get_or_discover_signature_format again (infinite loop).
   defp discover_signature_format(host) do
-    # Already found via Accept-Signature header during WebFinger/nodeinfo fetch?
     cached = SignaturesAdapter.get_signature_format(host)
     info("#{host} — discover_signature_format: cached=#{inspect(cached)}")
 
     unless cached do
-      # Try fetching the service actor to check FEP-844e generator/implements
-      uri = Instance.get_service_actor_uri(host)
-      info("#{host} — fetching service actor: #{inspect(uri)}")
+      service_actor_uri = Instance.get_service_actor_uri(host)
+      info("#{host} — fetching service actor: #{inspect(service_actor_uri)}")
 
-      with uri when is_binary(uri) <- uri do
-        fetch_result = ActivityPub.Federator.Fetcher.get_cached_object_or_fetch_ap_id(uri)
+      with uri when is_binary(uri) <- service_actor_uri do
+        case ActivityPub.Federator.Fetcher.fetch_object_from_id(uri,
+               signature_format: :cavage
+             ) do
+          {:ok, %{data: data}} ->
+            SignaturesAdapter.maybe_extract_generator_info(host, data)
 
-        info(
-          "#{host} — service actor fetch result: #{inspect(elem(fetch_result, 0))} — format now: #{inspect(SignaturesAdapter.get_signature_format(host))}"
-        )
+          _ ->
+            :ok
+        end
       end
     end
   end

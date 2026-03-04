@@ -34,6 +34,48 @@ defmodule ActivityPub.Utils do
     ActivityPub.Web.base_url() <> System.get_env("AP_BASE_PATH", "/pub")
   end
 
+  @doc "Returns host:port for non-standard ports, bare host otherwise."
+  def authority(%{host: host, port: port, scheme: scheme}) when is_binary(host) do
+    cond do
+      is_nil(port) -> host
+      scheme == "https" and port == 443 -> host
+      scheme == "http" and port == 80 -> host
+      true -> "#{host}:#{port}"
+    end
+  end
+
+  def authority(%{host: host}) when is_binary(host), do: host
+
+  def authority(url) when is_binary(url) do
+    uri = URI.parse(url)
+
+    if uri.host do
+      authority(uri)
+    else
+      # URI.parse("localhost:4002") gives %URI{scheme: "localhost", path: "4002", host: nil}
+      # so treat it as a bare authority string and return as-is
+      url
+    end
+  end
+
+  @doc "Builds a base URL (scheme://host[:port]) from a URI, omitting standard ports."
+  def base_url(%{scheme: scheme, host: host} = uri) when is_binary(scheme) and is_binary(host),
+    do: scheme <> "://" <> authority(uri)
+
+  def base_url(%{host: host} = uri) when is_binary(host), do: "http://" <> authority(uri)
+
+  def base_url(url) when is_binary(url) do
+    uri = URI.parse(url)
+
+    if uri.host do
+      base_url(uri)
+    else
+      # Bare authority like "localhost:4002" — infer scheme
+      scheme = if String.starts_with?(url, "localhost"), do: "http", else: "https"
+      "#{scheme}://#{url}"
+    end
+  end
+
   def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
 
   def make_json_ld_header(type \\ :object) do

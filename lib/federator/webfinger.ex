@@ -10,6 +10,7 @@ defmodule ActivityPub.Federator.WebFinger do
   alias ActivityPub.Actor
   alias ActivityPub.Federator.HTTP
   alias ActivityPub.Federator.Publisher
+  alias ActivityPub.Utils
 
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.
@@ -88,15 +89,7 @@ defmodule ActivityPub.Federator.WebFinger do
   end
 
   def local_hostname,
-    do: ActivityPub.Federator.Adapter.base_url() |> hostname_with_optional_port()
-
-  # |> debug()
-
-  defp hostname_with_optional_port(%{} = uri) do
-    if uri.port not in [80, 443], do: "#{uri.host}:#{uri.port}", else: uri.host
-  end
-
-  defp hostname_with_optional_port(url), do: URI.parse(url) |> hostname_with_optional_port()
+    do: ActivityPub.Federator.Adapter.base_url() |> Utils.authority()
 
   defp remote_base_url(account) do
     {name, domain} =
@@ -109,19 +102,14 @@ defmodule ActivityPub.Federator.WebFinger do
 
         _e ->
           #  TODO: can we parse the name?
-          {nil, hostname_with_optional_port(account)}
+          {nil, Utils.authority(account)}
       end
       |> debug()
 
     if local_hostname() == domain do
       {:error, {:local_user, name}}
     else
-      # TODO: don't assume
-      {:ok,
-       if(String.starts_with?(domain, "localhost"),
-         do: "http://#{domain}",
-         else: "https://#{domain}"
-       )}
+      {:ok, Utils.base_url(domain)}
     end
   end
 
@@ -142,11 +130,9 @@ defmodule ActivityPub.Federator.WebFinger do
   FEP-d556: Discover the server actor for a host via WebFinger.
   Queries `resource=https://host/` and extracts the `self` link.
   """
-  def finger_host(host) when is_binary(host) do
-    base_url =
-      if String.starts_with?(host, "localhost"),
-        do: "http://#{host}",
-        else: "https://#{host}"
+  def finger_host(%URI{} = uri) do
+    base_url = Utils.base_url(uri)
+    host = Utils.authority(uri)
 
     with {:ok, %{status: status, body: body, headers: headers}} when status in 200..299 <-
            HTTP.get(
@@ -167,6 +153,18 @@ defmodule ActivityPub.Federator.WebFinger do
       {:ok, service_actor_uri}
     else
       _ -> {:error, :not_found}
+    end
+  end
+
+  def finger_host(url) when is_binary(url) do
+    uri = URI.parse(url)
+
+    if uri.host do
+      finger_host(uri)
+    else
+      # Bare hostname like "example.com" — URI.parse misparses it
+      scheme = if String.starts_with?(url, "localhost"), do: "http", else: "https"
+      finger_host(URI.parse("#{scheme}://#{url}"))
     end
   end
 

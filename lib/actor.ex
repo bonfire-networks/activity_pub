@@ -303,7 +303,7 @@ defmodule ActivityPub.Actor do
     else
       _e ->
         with [_nick, domain] <- String.split(username, "@"),
-             false <- domain == URI.parse(Adapter.base_url()).host,
+             false <- domain == ActivityPub.Utils.authority(Adapter.base_url()),
              {:ok, actor} <- fetch_by_username(username, opts) do
           {:ok, actor}
         else
@@ -494,9 +494,7 @@ defmodule ActivityPub.Actor do
   end
 
   def format_username(%URI{} = uri, nick) do
-    port = if uri.port not in [80, 443], do: ":#{uri.port}"
-
-    "#{nick}@#{uri.host}#{port}"
+    "#{nick}@#{ActivityPub.Utils.authority(uri)}"
   end
 
   def format_remote_actor(%Object{data: data} = object) do
@@ -594,7 +592,7 @@ defmodule ActivityPub.Actor do
     do: error(object, "Actor to update not recognised")
 
   defp maybe_extract_generator_from_actor(%{data: %{"id" => id, "generator" => _} = data}) do
-    host = URI.parse(id).host
+    host = URI.parse(id) |> ActivityPub.Utils.authority()
 
     if host && is_nil(ActivityPub.Safety.HTTP.Signatures.get_signature_format(host)) do
       ActivityPub.Safety.HTTP.Signatures.maybe_extract_generator_info(host, data)
@@ -604,7 +602,7 @@ defmodule ActivityPub.Actor do
   defp maybe_extract_generator_from_actor(_), do: :ok
 
   defp maybe_extract_generator_from_data(%{"id" => id, "generator" => _} = data) do
-    host = URI.parse(id).host
+    host = URI.parse(id) |> ActivityPub.Utils.authority()
 
     if host do
       ActivityPub.Safety.HTTP.Signatures.maybe_extract_generator_info(host, data)

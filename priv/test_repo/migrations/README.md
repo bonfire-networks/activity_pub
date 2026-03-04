@@ -1,0 +1,1 @@
+NOTE: any new migration added here should also be copied to your project's migrations (eg. for bonfire in the bonfire_federate_activitypub extension's priv/repo/migrations)

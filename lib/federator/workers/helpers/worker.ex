@@ -1,6 +1,7 @@
 defmodule ActivityPub.Federator.Worker do
   @moduledoc "Helpers for workers to `use`"
 
+  import Untangle
   alias ActivityPub.Config
 
   def worker_args(queue) do
@@ -102,12 +103,22 @@ defmodule ActivityPub.Federator.Worker do
         # (e.g. Oban.TestInstance for the test instance database)
         oban_name =
           case ActivityPub.Utils.repo() do
-            repo when is_atom(repo) and not is_nil(repo) ->
+            active_repo when is_atom(active_repo) and not is_nil(active_repo) ->
               configured_repo = ActivityPub.Config.get!(:repo)
 
-              if repo != configured_repo and Process.whereis(Oban.TestInstance),
-                do: Oban.TestInstance,
-                else: Oban
+              if active_repo != configured_repo and Oban.whereis(Oban.TestInstance) != nil do
+                info(
+                  "Routing Oban job to Oban.TestInstance (active_repo: #{active_repo}, configured: #{})"
+                )
+
+                Oban.TestInstance
+              else
+                info(
+                  "Routing Oban job to Oban (active_repo: #{active_repo}, configured: #{configured_repo}, test_instance_running?: #{Oban.whereis(Oban.TestInstance) != nil})"
+                )
+
+                Oban
+              end
 
             _ ->
               Oban

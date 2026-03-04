@@ -11,37 +11,41 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
   alias ActivityPub.Config
 
   @impl Tesla.Middleware
-  def call(env, next, opts) do
-    scale_ms =
-      Keyword.get(opts, :scale_ms) ||
-        Config.get([ActivityPub.Federator.HTTP.RateLimit, :scale_ms], 10_000)
+  if Mix.env() == :test and System.get_env("ENABLE_RATE_LIMIT") != "yes" do
+    def call(env, next, _opts), do: Tesla.run(env, next)
+  else
+    def call(env, next, opts) do
+      scale_ms =
+        Keyword.get(opts, :scale_ms) ||
+          Config.get([ActivityPub.Federator.HTTP.RateLimit, :scale_ms], 10_000)
 
-    limit =
-      Keyword.get(opts, :limit) ||
-        Config.get([ActivityPub.Federator.HTTP.RateLimit, :limit], 20)
+      limit =
+        Keyword.get(opts, :limit) ||
+          Config.get([ActivityPub.Federator.HTTP.RateLimit, :limit], 20)
 
-    %{host: host} = URI.parse(env.url)
+      host = ActivityPub.Utils.authority(env.url)
 
-    # Use Hammer 7 API via ActivityPub.RateLimit module
-    case ActivityPub.RateLimit.hit("http_client:#{host}", scale_ms, limit) do
-      {:allow, _count} ->
-        Tesla.run(env, next)
-
-      {:deny, retry_after} ->
-        # Wait for the retry period (but cap it at scale_ms to avoid excessive delays)
-        wait_ms = min(retry_after, scale_ms)
-
-        if ProcessTree.get(:ap_oban_worker) do
-          wait_sec = wait_ms * 1000
-          info(wait_sec, "HTTP client rate limit reached, snoozing (seconds)")
-
-          raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: wait_sec
-        else
-          info(wait_ms, "HTTP client rate limit reached, waiting (ms)")
-
-          :timer.sleep(wait_ms)
+      # Use Hammer 7 API via ActivityPub.RateLimit module
+      case ActivityPub.RateLimit.hit("http_client:#{host}", scale_ms, limit) do
+        {:allow, _count} ->
           Tesla.run(env, next)
-        end
+
+        {:deny, retry_after} ->
+          # Wait for the retry period (but cap it at scale_ms to avoid excessive delays)
+          wait_ms = min(retry_after, scale_ms)
+
+          if ProcessTree.get(:ap_oban_worker) do
+            wait_sec = wait_ms * 1000
+            info(wait_sec, "HTTP client rate limit reached, snoozing (seconds)")
+
+            raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: wait_sec
+          else
+            info(wait_ms, "HTTP client rate limit reached, waiting (ms)")
+
+            :timer.sleep(wait_ms)
+            Tesla.run(env, next)
+          end
+      end
     end
   end
 end

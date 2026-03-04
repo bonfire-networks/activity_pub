@@ -948,6 +948,8 @@ defmodule ActivityPub do
     actor
   end
 
+  defp actor_id_from_params(_), do: nil
+
   @doc """
   Generates and federates a QuoteRequest activity.
   """

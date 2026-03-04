@@ -7,8 +7,7 @@ defmodule ActivityPub.Safety.Containment do
   origins and determining those origins.  They previously lived in the
   ActivityPub `Transformer` module.
 
-  Object containment is an important step in validating remote objects to prevent
-  spoofing, therefore removal of object containment functions is NOT recommended.
+  Object containment is an important step in validating remote objects to preventspoofing, therefore removal of object containment functions is NOT recommended.
   """
   import Untangle
   require ActivityPub.Config
@@ -24,9 +23,19 @@ defmodule ActivityPub.Safety.Containment do
     nil
   end
 
-  defp compare_uris(%URI{host: host} = _id_uri, %URI{host: host} = _other_uri), do: true
+  defp compare_uris(%URI{} = id_uri, %URI{} = other_uri) when id_uri != other_uri do
+    if Utils.authority(id_uri) == Utils.authority(other_uri) do
+      true
+    else
+      compare_uris_error(id_uri, other_uri)
+    end
+  end
 
-  defp compare_uris(id_uri, other_uri) do
+  defp compare_uris(%URI{}, %URI{}), do: true
+
+  defp compare_uris(id_uri, other_uri), do: compare_uris_error(id_uri, other_uri)
+
+  defp compare_uris_error(id_uri, other_uri) do
     error(
       other_uri,
       "The object doesn't seem to come from the same instance as the actor: #{inspect(id_uri)}"

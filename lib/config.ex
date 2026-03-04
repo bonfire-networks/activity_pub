@@ -163,7 +163,6 @@ defmodule ActivityPub.Config do
     Enum.any?(List.wrap(types), fn type -> type in config_types end)
   end
 
-  # defdelegate repo, to: ActivityPub.Utils
   @compile_env Mix.env()
   def env, do: Application.get_env(:activity_pub, :env) || @compile_env
 

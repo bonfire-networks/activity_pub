@@ -140,15 +140,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
 
   defp get_scheme(_), do: "https"
 
-  defp get_authority(%URI{host: host, port: port, scheme: scheme}) do
-    cond do
-      is_nil(port) -> host
-      scheme == "https" and port == 443 -> host
-      scheme == "http" and port == 80 -> host
-      true -> "#{host}:#{port}"
-    end
-  end
-
+  defp get_authority(%URI{} = uri), do: ActivityPub.Utils.authority(uri) || "localhost"
   defp get_authority(_), do: "localhost"
 
   defp has_signature_header?(conn) do

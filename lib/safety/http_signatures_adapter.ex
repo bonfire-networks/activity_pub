@@ -259,15 +259,9 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
 
   def maybe_cache_accept_signature(_, _), do: :ok
 
-  defp extract_host(%URI{host: host}) when is_binary(host), do: host
+  defp extract_host(%URI{} = uri), do: ActivityPub.Utils.authority(uri)
 
-  defp extract_host(url) when is_binary(url) do
-    case URI.parse(url) do
-      %URI{host: host} when is_binary(host) -> host
-      # Plain hostname without scheme (e.g. "example.com")
-      _ -> url
-    end
-  end
+  defp extract_host(url) when is_binary(url), do: ActivityPub.Utils.authority(url)
 
   defp extract_host(_), do: nil
 end

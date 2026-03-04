@@ -20,55 +20,59 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
     delay: 1000,
     max_retries: 5,
     max_delay: 10_000,
-    should_retry: fn
-      {:ok, %{status: status}}
-      when status in [
-             # Request timeout
-             408,
-             # Too many requests
-             429,
-             # Client Closed Request
-             499,
-             # Internal server error
-             500,
-             # Bad gateway
-             502,
-             # Service unavailable
-             503,
-             # Gateway timeout
-             504,
-             # Web Server Is Down
-             521,
-             # Connection Timed Out
-             522,
-             # Origin Is Unreachable
-             523,
-             # A Timeout Occurred
-             524,
-             # Connection Timed Out
-             522
-           ] ->
-        info(status, "Tesla.Middleware.Retry will retry after matching on HTTP code")
-        true
+    should_retry: fn result ->
+      # Only retry for actual delivery, not during discovery or other inline/background calls
+      if ProcessTree.get(:ap_oban_worker) && !ProcessTree.get(:ap_discovery_in_progress) do
+        case result do
+          {:ok, %{status: status}}
+          when status in [
+                 # Request timeout
+                 408,
+                 # Too many requests
+                 429,
+                 # Client Closed Request
+                 499,
+                 # Internal server error
+                 500,
+                 # Bad gateway
+                 502,
+                 # Service unavailable
+                 503,
+                 # Gateway timeout
+                 504,
+                 # Web Server Is Down
+                 521,
+                 # Connection Timed Out
+                 522,
+                 # Origin Is Unreachable
+                 523,
+                 # A Timeout Occurred
+                 524,
+                 # Connection Timed Out
+                 522
+               ] ->
+            info(status, "Tesla.Middleware.Retry will retry after matching on HTTP code")
+            true
 
-      {:ok, _} ->
+          {:ok, _} ->
+            false
+
+          {:error, "non-existing domain"} ->
+            false
+
+          {:error, :nxdomain} ->
+            false
+
+          {:error, {:tls_alert, {:certificate_expired, _}}} ->
+            false
+
+          {:error, e} ->
+            warn(e, "Tesla.Middleware.Retry will retry after connection error")
+            true
+        end
+      else
         false
-
-      {:error, "non-existing domain"} ->
-        warn("Tesla.Middleware.Retry will NOT retry due to non-existing domain")
-        false
-
-      {:error, :nxdomain} ->
-        warn("Tesla.Middleware.Retry will NOT retry due to non-existing domain")
-        false
-
-      {:error, {:tls_alert, {:certificate_expired, _}}} ->
-        warn("Tesla.Middleware.Retry will NOT retry due to expired TLS certificate")
-        false
-
-      {:error, e} ->
-        warn(e, "Tesla.Middleware.Retry will retry after connection error")
-        true
+      end
     end
 
   # end

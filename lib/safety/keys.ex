@@ -256,8 +256,8 @@ defmodule ActivityPub.Safety.Keys do
     end
   end
 
-  defp id_host(%URI{host: host}), do: host
-  defp id_host(url) when is_binary(url), do: URI.parse(url).host
+  defp id_host(%URI{} = uri), do: ActivityPub.Utils.authority(uri)
+  defp id_host(url) when is_binary(url), do: ActivityPub.Utils.authority(url)
   defp id_host(_), do: nil
 
   defp make_fetch_signature(%URI{} = uri, :rfc9421, options) do
@@ -303,11 +303,5 @@ defmodule ActivityPub.Safety.Keys do
     make_fetch_signature(URI.parse(id), format, options)
   end
 
-  def http_host(%{host: host, port: port}) when port in [80, 443] do
-    host
-  end
-
-  def http_host(%{host: host, port: port}) when is_integer(port) or is_binary(port) do
-    "#{host}:#{port}"
-  end
+  def http_host(uri), do: ActivityPub.Utils.authority(uri)
 end

@@ -14,6 +14,9 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
     Fetcher.fetch_object_from_id(id,
       depth: args["depth"],
       max_depth: args["max_depth"],
+      # don't fetch pages async when we are already in a background job, to avoid too much nesting of jobs
+      mode: true,
+      fetch_collection: true,
       fetch_collection_entries: ActivityPub.Utils.maybe_to_atom(args["fetch_collection_entries"]),
       user_id: args["user_id"],
       triggered_by: args["context"] || "remote_fetcher_worker"

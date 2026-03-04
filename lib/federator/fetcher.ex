@@ -77,6 +77,7 @@ defmodule ActivityPub.Federator.Fetcher do
               id,
               Enum.into(opts[:worker_attrs] || %{}, %{
                 "depth" => opts[:depth],
+                "fetch_collection" => opts[:fetch_collection],
                 "fetch_collection_entries" => opts[:fetch_collection_entries],
                 "user_id" => opts[:user_id],
                 "context" => opts[:triggered_by] || "get_cached_or_maybe_fetch_json"
@@ -109,10 +110,10 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def fetch_object_from_id(id, opts \\ [])
 
-  def fetch_object_from_id("http" <> _ = id, opts) do
+  def fetch_object_from_id(id_or_object, opts) do
     opts = opts |> Keyword.put(:triggered_by, "fetch_object_from_id")
 
-    case cached_or_handle_incoming(id, opts)
+    case cached_or_handle_incoming(id_or_object, opts)
          |> debug("fetch_object_from_id -> cached_or_handled_incoming") do
       {:ok, object} ->
         {:ok, object}
@@ -125,25 +126,39 @@ defmodule ActivityPub.Federator.Fetcher do
         error(:reject, e)
         {:reject, e}
 
-      _ ->
-        fetch_fresh_object_from_id(id, opts)
-    end
-  end
+      _ when is_binary(id_or_object) ->
+        fetch_fresh_object_from_id(id_or_object, opts)
 
-  def fetch_object_from_id(id, opts) do
-    error(id, "Invalid url, cannot fetch object")
+      other ->
+        error(other, "Could not process or fetch object")
+    end
   end
 
   def fetch_objects_from_id(ids, opts \\ []) when is_list(ids) do
     Enum.take(ids, max_recursion())
-    |> Enum.map(fn id ->
-      with {:ok, object} <- fetch_object_from_id(id, opts) do
-        object
-      else
-        e ->
-          error(e)
-          nil
-      end
+    |> Enum.map(fn
+      %{"id" => _} = inline_object ->
+        # already have the content inline, process it directly
+        with {:ok, object} <- cached_or_handle_incoming(inline_object, opts) do
+          object
+        else
+          e ->
+            error(e, "Could not process inline object")
+            nil
+        end
+
+      id when is_binary(id) ->
+        with {:ok, object} <- fetch_object_from_id(id, opts) do
+          object
+        else
+          e ->
+            error(e, "Could not fetch object for id #{id}")
+            nil
+        end
+
+      other ->
+        error(other, "Invalid object/ID in list")
+        nil
     end)
   end
 
@@ -187,6 +202,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 Enum.into(opts[:worker_attrs] || %{}, %{
                   "depth" => entry_depth,
                   "max_depth" => max_items,
+                  "fetch_collection" => opts[:fetch_collection],
                   "fetch_collection_entries" => opts[:fetch_collection_entries],
                   #  just to keep track of who made the request
                   "user_id" => opts[:user_id],
@@ -462,7 +478,7 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  def fetch_outbox(actor, opts \\ [fetch_collection: :async])
+  def fetch_outbox(actor, opts \\ [])
 
   def fetch_outbox(%{data: %{"outbox" => outbox}}, opts) do
     fetch_outbox(%{"outbox" => outbox}, opts)
@@ -474,9 +490,11 @@ defmodule ActivityPub.Federator.Fetcher do
       "fetch outbox collection (and maybe queue a fetch of entries as well)"
     )
 
-    fetch_collection(outbox,
-      mode: opts[:fetch_collection],
-      triggered_by: opts[:triggered_by] || "fetch_outbox"
+    fetch_collection(
+      outbox,
+      opts
+      |> Keyword.put(:mode, opts[:fetch_collection] || opts[:mode] || :async)
+      |> Keyword.put(:triggered_by, opts[:triggered_by] || "fetch_outbox")
     )
   end
 
@@ -872,11 +890,15 @@ defmodule ActivityPub.Federator.Fetcher do
       end)
       |> debug("filtered objects_from_collection")
 
-      case opts[:mode] do
+      case opts[:fetch_collection_entries] || opts[:mode] do
         mode when mode in [:entries_async, :async] and entries != [] ->
-          debug("queue objects to be fetched async")
+          debug("process/fetch collection entries")
 
-          maybe_fetch(entries, opts) || entries
+          # process inline objects directly, enqueue URL strings
+          {inline, urls} = Enum.split_with(entries, &is_map/1)
+          fetch_objects_from_id(inline, opts)
+          maybe_fetch(urls, Keyword.put(opts, :mode, :async))
+          entries
 
         true when entries != [] ->
           debug("fetch objects as well")
@@ -891,6 +913,7 @@ defmodule ActivityPub.Federator.Fetcher do
           debug(other, "do not fetch collection entries")
           entries
       end
+      |> Enum.reject(&is_nil/1)
     else
       other ->
         error(other, "no valid collection")

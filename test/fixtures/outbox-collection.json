@@ -1,0 +1,49 @@
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "id": "https://mocked.local/users/karen/outbox?page=1",
+  "type": "OrderedCollectionPage",
+  "partOf": "https://mocked.local/users/karen/outbox",
+  "orderedItems": [
+    {
+      "id": "https://mocked.local/activities/outbox-1",
+      "type": "Create",
+      "actor": "https://mocked.local/users/karen",
+      "published": "2025-01-15T10:00:00Z",
+      "to": ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc": ["https://mocked.local/users/karen/followers"],
+      "object": {
+        "id": "https://mocked.local/objects/outbox-note-1",
+        "type": "Note",
+        "attributedTo": "https://mocked.local/users/karen",
+        "content": "<p>First post from outbox</p>",
+        "to": ["https://www.w3.org/ns/activitystreams#Public"],
+        "cc": ["https://mocked.local/users/karen/followers"],
+        "published": "2025-01-15T10:00:00Z"
+      }
+    },
+    {
+      "id": "https://mocked.local/activities/outbox-2",
+      "type": "Create",
+      "actor": "https://mocked.local/users/karen",
+      "published": "2025-01-15T11:00:00Z",
+      "to": ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc": ["https://mocked.local/users/karen/followers"],
+      "object": {
+        "id": "https://mocked.local/objects/outbox-note-2",
+        "type": "Note",
+        "attributedTo": "https://mocked.local/users/karen",
+        "content": "<p>Second post from outbox</p>",
+        "to": ["https://www.w3.org/ns/activitystreams#Public"],
+        "cc": ["https://mocked.local/users/karen/followers"],
+        "published": "2025-01-15T11:00:00Z",
+        "inReplyTo": "https://mocked.local/objects/outbox-note-1",
+        "replies": {
+          "id": "https://mocked.local/objects/outbox-note-2/replies",
+          "type": "OrderedCollection",
+          "totalItems": 0,
+          "first": "https://mocked.local/objects/outbox-note-2/replies?page=1"
+        }
+      }
+    }
+  ]
+}

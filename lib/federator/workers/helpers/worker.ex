@@ -19,6 +19,7 @@ defmodule ActivityPub.Federator.Worker do
     quote do
       # Note: `max_attempts` is intended to be overridden in `new/2` call
       use Oban.Worker, unquote(opts)
+      import Untangle
 
       @doc """
       Default perform/1 implementation. Calls perform_job/1, handling rate limiting by snoozing the job.

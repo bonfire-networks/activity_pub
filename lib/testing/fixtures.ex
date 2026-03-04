@@ -1562,6 +1562,24 @@ defmodule ActivityPub.Fixtures do
       "https://developer.mozilla.org/en-US/docs/Web/API/" =>
         fn "https://developer.mozilla.org/en-US/docs/Web/API/", _, _, _ ->
           %Tesla.Env{status: 200, body: "<title>Web API</title>"}
+        end,
+      "https://mocked.local/users/karen/outbox" => fn "https://mocked.local/users/karen/outbox",
+                                                      _,
+                                                      _,
+                                                      _ ->
+        %Tesla.Env{
+          status: 200,
+          body: file("fixtures/outbox-collection.json"),
+          headers: ActivityPub.Utils.activitypub_object_headers()
+        }
+      end,
+      "https://mocked.local/users/karen/outbox?page=1" =>
+        fn "https://mocked.local/users/karen/outbox?page=1", _, _, _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/outbox-collection.json"),
+            headers: ActivityPub.Utils.activitypub_object_headers()
+          }
         end
     }
 

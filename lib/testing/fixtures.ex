@@ -1580,6 +1580,22 @@ defmodule ActivityPub.Fixtures do
             body: file("fixtures/outbox-collection.json"),
             headers: ActivityPub.Utils.activitypub_object_headers()
           }
+        end,
+      "https://mocked.local/users/karen/outbox_ids" =>
+        fn "https://mocked.local/users/karen/outbox_ids", _, _, _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/outbox-collection-ids-only.json"),
+            headers: ActivityPub.Utils.activitypub_object_headers()
+          }
+        end,
+      "https://mocked.local/users/karen/outbox_ids?page=1" =>
+        fn "https://mocked.local/users/karen/outbox_ids?page=1", _, _, _ ->
+          %Tesla.Env{
+            status: 200,
+            body: file("fixtures/outbox-collection-ids-only.json"),
+            headers: ActivityPub.Utils.activitypub_object_headers()
+          }
         end
     }
 

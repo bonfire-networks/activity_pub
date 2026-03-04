@@ -1,0 +1,18 @@
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "id": "https://mocked.local/users/karen/outbox_ids?page=1",
+  "type": "OrderedCollectionPage",
+  "partOf": "https://mocked.local/users/karen/outbox_ids",
+  "orderedItems": [
+    "https://mocked.local/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779",
+    {
+      "id": "https://mocked.local/activities/create-no-inline-object",
+      "type": "Create",
+      "actor": "https://mocked.local/users/karen",
+      "published": "2025-01-15T11:00:00Z",
+      "to": ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc": ["https://mocked.local/users/karen/followers"],
+      "object": "https://testing.local/objects/d953809b-d968-49c8-aa8f-7545b9480a12"
+    }
+  ]
+}

@@ -110,6 +110,12 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def fetch_object_from_id(id, opts \\ [])
 
+  def fetch_object_from_id(%{"type" => type, "object" => object}, opts)
+      when type in ["Create", "Update"] do
+    # unwrap the activity and handle the inner object
+    fetch_object_from_id(object, opts)
+  end
+
   def fetch_object_from_id(id_or_object, opts) do
     opts = opts |> Keyword.put(:triggered_by, "fetch_object_from_id")
 
@@ -136,29 +142,14 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_objects_from_id(ids, opts \\ []) when is_list(ids) do
     Enum.take(ids, max_recursion())
-    |> Enum.map(fn
-      %{"id" => _} = inline_object ->
-        # already have the content inline, process it directly
-        with {:ok, object} <- cached_or_handle_incoming(inline_object, opts) do
-          object
-        else
-          e ->
-            error(e, "Could not process inline object")
-            nil
-        end
-
-      id when is_binary(id) ->
-        with {:ok, object} <- fetch_object_from_id(id, opts) do
-          object
-        else
-          e ->
-            error(e, "Could not fetch object for id #{id}")
-            nil
-        end
-
-      other ->
-        error(other, "Invalid object/ID in list")
-        nil
+    |> Enum.map(fn entry ->
+      with {:ok, object} <- fetch_object_from_id(entry, opts) do
+        object
+      else
+        e ->
+          error(e, "Could not fetch or process object")
+          nil
+      end
     end)
   end
 
@@ -894,10 +885,22 @@ defmodule ActivityPub.Federator.Fetcher do
         mode when mode in [:entries_async, :async] and entries != [] ->
           debug("process/fetch collection entries")
 
-          # process inline objects directly, enqueue URL strings
-          {inline, urls} = Enum.split_with(entries, &is_map/1)
-          fetch_objects_from_id(inline, opts)
+          # extract object URLs/IDs from entries (unwrapping Create/Update activities)
+          objects =
+            Enum.map(entries, fn
+              %{"type" => type, "object" => object} when type in ["Create", "Update"] -> object
+              other -> other
+            end)
+
+          # process inline objects directly, enqueue URL strings for async fetch
+          {objects, urls} = Enum.split_with(objects, &is_map/1)
+
+          # this will usually use inline objects directly (but process and save them in DB and cache)
+          fetch_objects_from_id(objects, opts)
+
+          # fetch objects from URLs asynchronously
           maybe_fetch(urls, Keyword.put(opts, :mode, :async))
+
           entries
 
         true when entries != [] ->

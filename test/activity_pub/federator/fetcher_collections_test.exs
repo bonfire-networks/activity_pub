@@ -13,6 +13,7 @@ defmodule ActivityPub.Federator.FetcherCollectionsTest do
 
   @karen_ap_id "https://mocked.local/users/karen"
   @outbox_url "https://mocked.local/users/karen/outbox"
+  @outbox_ids_url "https://mocked.local/users/karen/outbox_ids"
 
   setup_all do
     mock_global(fn env -> HttpRequestMock.request(env) end)
@@ -30,6 +31,40 @@ defmodule ActivityPub.Federator.FetcherCollectionsTest do
       assert Enum.any?(entries, fn
                %Object{data: %{"id" => "https://mocked.local/objects/outbox-note-1"}} -> true
                _ -> false
+             end)
+    end
+
+    test "fetches outbox with IDs-only entries (no inline objects)" do
+      {:ok, entries} =
+        Fetcher.fetch_outbox(%{"outbox" => @outbox_ids_url}, fetch_collection: true)
+
+      assert is_list(entries)
+      assert length(entries) == 2
+
+      # a bare object URL should be fetched
+      assert Enum.any?(entries, fn
+               %Object{
+                 data: %{
+                   "id" => "https://mocked.local/objects/eb3b1181-38cc-4eaf-ba1b-3f5431fa9779"
+                 }
+               } ->
+                 true
+
+               _ ->
+                 false
+             end)
+
+      # a Create activity wrapping an object ID (not inline) should also be fetched
+      assert Enum.any?(entries, fn
+               %Object{
+                 data: %{
+                   "id" => "https://testing.local/objects/d953809b-d968-49c8-aa8f-7545b9480a12"
+                 }
+               } ->
+                 true
+
+               _ ->
+                 false
              end)
     end
 

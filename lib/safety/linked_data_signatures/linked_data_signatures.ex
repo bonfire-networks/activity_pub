@@ -2,12 +2,9 @@ defmodule ActivityPub.Safety.LinkedDataSignatures do
   @moduledoc """
   Verify incoming Linked Data Signatures (RsaSignature2017) on ActivityPub activities.
 
-  LD signatures attach a cryptographic signature to the JSON-LD activity body itself,
-  unlike HTTP signatures which sign the HTTP request. This allows verification of
-  activities forwarded via relays or from servers that have shut down.
+  LD signatures attach a cryptographic signature to the JSON-LD activity body itself, unlike HTTP signatures which sign the HTTP request. This allows verification of activities forwarded via relays or from servers that have shut down.
 
-  This module implements verify-only — we verify incoming LD signatures but do not
-  sign outgoing activities with them (HTTP signatures cover that).
+  This module implements verify-only — we verify incoming LD signatures but do not sign outgoing activities with them (HTTP signatures cover that).
 
   The verification algorithm matches Mastodon's implementation:
   1. Extract the `signature` field and validate it's RsaSignature2017

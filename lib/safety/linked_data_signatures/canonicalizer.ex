@@ -2,9 +2,7 @@ defmodule ActivityPub.Safety.LinkedDataSignatures.Canonicalizer do
   @moduledoc """
   JSON-LD canonicalization (URDNA2015/RDFC-1.0) for Linked Data Signature verification.
 
-  Expands a JSON-LD map, converts to RDF, canonicalizes the dataset, serializes
-  to N-Quads, and returns a SHA-256 hex digest. This matches Mastodon's approach
-  for RsaSignature2017.
+  Expands a JSON-LD map, converts to RDF, canonicalizes the dataset, serializes to N-Quads, and returns a SHA-256 hex digest. This matches Mastodon's approach for RsaSignature2017.
   """
 
   alias ActivityPub.Safety.LinkedDataSignatures.DocumentLoader

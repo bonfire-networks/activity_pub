@@ -1,7 +1,6 @@
 defmodule ActivityPub.Safety.LinkedDataSignatures.DocumentLoader do
   @moduledoc """
-  Custom JSON-LD document loader that serves bundled context files for common
-  fediverse contexts, avoiding network requests during signature verification.
+  Custom JSON-LD document loader that serves bundled context files for common fediverse contexts, avoiding network requests during signature verification.
 
   Falls back to HTTP fetching for unknown contexts.
   """

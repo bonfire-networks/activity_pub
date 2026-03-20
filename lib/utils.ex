@@ -3,7 +3,7 @@ defmodule ActivityPub.Utils do
   Misc functions used for federation
   """
   alias ActivityPub.Config
-  require ActivityPub.Config
+  import ActivityPub.Config
   # alias ActivityPub.Actor
   # alias ActivityPub.Object
   alias ActivityPub.Federator.Adapter

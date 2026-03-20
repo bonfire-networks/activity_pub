@@ -5,6 +5,7 @@
 defmodule ActivityPub.MRF.KeywordPolicy do
   alias ActivityPub.MRF
   alias ActivityPub.Config
+  import ActivityPub.Config
   alias ActivityPub.Object
   import Untangle
 
@@ -245,7 +246,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
 
   @impl true
   def filter(%{"type" => type, "object" => %{"content" => _content}} = message)
-      when type in ["Create", "Update"] do
+      when is_in(type, ["Create", "Update"]) do
     with {:ok, message} <- check_reject(message),
          {:ok, message} <- check_ftl_removal(message),
          {:ok, message} <- check_replace(message) do

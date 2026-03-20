@@ -138,20 +138,58 @@ defmodule ActivityPub.Config do
 
   def actors_and_collections, do: supported_actor_types() ++ collection_types()
 
-  @doc "For matching against the above list in guards TODO: use runtime config"
-  defmacro is_in(type, fun) do
-    quote do: unquote(type) in unquote(apply(ActivityPub.Config, fun, []))
+  @doc """
+  For matching against the above list in guards 
+
+  e.g.: `def handle_incoming(%{"type" => type} = data, opts) when is_in(type, :supported_actor_types)`
+
+  or: `def handle_incoming(%{"type" => ["Object", "Video"]} = data, opts) when is_in(type, :known_object_extra_types)`
+
+  TODO: use runtime config
+  """
+  defmacro is_in(types, fun_or_list) when is_list(types) do
+    # handles a compile-time literal list as the first arg, e.g. is_in(["Create", "Update"], :supported_activity_types)
+    in_list =
+      if is_atom(fun_or_list), do: apply(ActivityPub.Config, fun_or_list, []), else: fun_or_list
+
+    types
+    |> Enum.map(fn type -> quote do: unquote(type) in unquote(in_list) end)
+    |> Enum.reduce(fn check, acc -> quote do: unquote(acc) or unquote(check) end)
   end
 
-  @doc "For matching a type or list of types against configured types"
-  def type_in?(type, fun) when is_binary(type) do
-    type in apply(ActivityPub.Config, fun, [])
+  defmacro is_in(type, fun) when is_atom(fun) do
+    list = apply(ActivityPub.Config, fun, [])
+    is_in_guard(type, list)
   end
 
-  def type_in?(types, fun) when is_list(types) do
-    config_types = apply(ActivityPub.Config, fun, [])
-    Enum.any?(types, fn type -> type in config_types end)
+  defmacro is_in(type, list) when is_list(list) do
+    is_in_guard(type, list)
   end
+
+  defp is_in_guard(type, list) do
+    # handles list of types privided at runtime (only supports list of 1 or 2 types)
+    quote do
+      unquote(type) in unquote(list) or
+        (is_list(unquote(type)) and
+           (hd(unquote(type)) in unquote(list) or
+              (length(unquote(type)) > 1 and hd(tl(unquote(type))) in unquote(list))))
+    end
+  end
+
+  @doc "For matching a type or list of types against configured types (atom fun name) or an explicit list"
+  def type_in?(types, fun) when is_list(types) and is_atom(fun) do
+    config_list = apply(ActivityPub.Config, fun, [])
+    Enum.any?(types, &(&1 in config_list))
+  end
+
+  def type_in?(types, list) when is_list(types) and is_list(list),
+    do: Enum.any?(types, &(&1 in list))
+
+  def type_in?(type, fun) when is_atom(fun),
+    do: type in apply(ActivityPub.Config, fun, [])
+
+  def type_in?(type, list) when is_list(list),
+    do: type in list
 
   @doc """
   Checks if the given type (or any of list of types) is known, i.e. supported by the instance. Does not include collections.
@@ -160,7 +198,7 @@ defmodule ActivityPub.Config do
     config_types =
       supported_actor_types() ++ supported_activity_types() ++ known_object_fetchable_types()
 
-    Enum.any?(List.wrap(types), fn type -> type in config_types end)
+    Enum.any?(List.wrap(types), fn type -> type_in?(type, config_types) end)
   end
 
   @compile_env Mix.env()

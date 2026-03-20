@@ -12,7 +12,7 @@ defmodule ActivityPub.Actor do
   # import Ecto.Query
 
   alias ActivityPub.Config
-  require Config
+  import ActivityPub.Config, only: [is_in: 2]
 
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
@@ -225,7 +225,7 @@ defmodule ActivityPub.Actor do
       {:error, :not_an_actor}
     else
       with {:ok, %{data: %{"type" => type}} = actor}
-           when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
+           when is_in(type, :supported_actor_types) or type == "Tombstone" <-
              ActivityPub.Object.get_cached(ap_id: id) do
         {:ok, format_remote_actor(actor)}
       else
@@ -345,7 +345,7 @@ defmodule ActivityPub.Actor do
   #   # raise "STOOOP"
 
   #   with {:ok, %{data: %{"type" => type}} = actor_object}
-  #        when ActivityPub.Config.is_in(type, :supported_actor_types) or type == "Tombstone" <-
+  #        when is_in(type, :supported_actor_types) or type == "Tombstone" <-
   #          Object.get_cached(ap_id: ap_id) |> debug("gct"),
   #        false <- check_if_time_to_update(actor_object),
   #        actor <- format_remote_actor(actor_object),
@@ -550,7 +550,7 @@ defmodule ActivityPub.Actor do
   end
 
   defp do_maybe_create_or_update_actor_from_object(%{"type" => type} = data, opts)
-       when ActivityPub.Config.is_in(type, :supported_actor_types) do
+       when is_in(type, :supported_actor_types) do
     debug("create from AP JSON data")
     maybe_extract_generator_from_data(data)
 
@@ -569,7 +569,7 @@ defmodule ActivityPub.Actor do
   end
 
   defp do_maybe_create_or_update_actor_from_object(%{data: %{"type" => type}} = actor, opts)
-       when ActivityPub.Config.is_in(type, :supported_actor_types) do
+       when is_in(type, :supported_actor_types) do
     debug("create actor from AP Object")
 
     with actor <- format_remote_actor(actor),
@@ -670,7 +670,7 @@ defmodule ActivityPub.Actor do
   end
 
   def set_cache(%{data: %{"type" => type}} = actor)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+      when is_in(type, :supported_actor_types) do
     format_remote_actor(actor)
     |> set_cache()
   end
@@ -928,11 +928,11 @@ defmodule ActivityPub.Actor do
   def actor?(%{data: data}), do: actor?(data)
 
   def actor?(%{"type" => type})
-      when ActivityPub.Config.is_in(type, :supported_actor_types),
+      when is_in(type, :supported_actor_types),
       do: true
 
   def actor?(%{"formerType" => type})
-      when ActivityPub.Config.is_in(type, :supported_actor_types),
+      when is_in(type, :supported_actor_types),
       do: true
 
   def actor?(_), do: false

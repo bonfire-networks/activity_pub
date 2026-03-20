@@ -8,7 +8,7 @@ defmodule ActivityPub.C2S do
   """
 
   use Untangle
-  require ActivityPub.Config
+  import ActivityPub.Config
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Utils
 
@@ -97,8 +97,8 @@ defmodule ActivityPub.C2S do
   Wraps a bare object (like a Note) in a Create activity if needed.
   """
   def maybe_wrap_object_in_create(%{"type" => type} = params)
-      when not ActivityPub.Config.is_in(type, :supported_activity_types) and
-             not ActivityPub.Config.is_in(type, :supported_intransitive_types) do
+      when not is_in(type, :supported_activity_types) and
+             not is_in(type, :supported_intransitive_types) do
     %{
       "type" => "Create",
       "object" => params

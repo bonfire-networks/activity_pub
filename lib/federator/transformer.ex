@@ -6,7 +6,7 @@ defmodule ActivityPub.Federator.Transformer do
   import Untangle
   use Arrows
 
-  require ActivityPub.Config
+  import ActivityPub.Config
 
   alias ActivityPub.Config
   alias ActivityPub.Actor
@@ -1215,7 +1215,7 @@ defmodule ActivityPub.Federator.Transformer do
         } = data,
         opts
       )
-      when ActivityPub.Config.is_in(type, :supported_actor_types) and actor_id == update_actor_id do
+      when is_in(type, :supported_actor_types) and actor_id == update_actor_id do
     # TODO: should a Person be able to update a Group or the like?
 
     debug(actor_id, "update an Actor")
@@ -1688,8 +1688,8 @@ defmodule ActivityPub.Federator.Transformer do
 
   # Handle other activity types (and their object)
   def handle_incoming(%{"type" => type} = data, opts)
-      when ActivityPub.Config.is_in(type, :supported_activity_types) or
-             ActivityPub.Config.is_in(type, :supported_intransitive_types) do
+      when is_in(type, :supported_activity_types) or
+             is_in(type, :supported_intransitive_types) do
     info(
       type,
       "ActivityPub - some other Activity or Intransitive type - store it and pass to adapter..."
@@ -1699,14 +1699,14 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def handle_incoming(%{"type" => type} = data, opts)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) or type in ["Author"] do
+      when is_in(type, :supported_actor_types) or is_in(type, ["Author"]) do
     info(type, "Save actor or collection without an activity")
 
     ActivityPub.Actor.create_or_update_actor_from_object(data, opts)
   end
 
   def handle_incoming(%{"type" => type} = data, _opts)
-      when ActivityPub.Config.is_in(type, :collection_types) do
+      when is_in(type, :collection_types) do
     debug(type, "don't store Collections")
 
     # with {:ok, data} <- Object.prepare_data(data) do

@@ -4,7 +4,7 @@ defmodule ActivityPub.Object do
   import Ecto.Query
   import Untangle
   use Arrows
-  require ActivityPub.Config
+  import ActivityPub.Config, only: [is_in: 2]
 
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Actor
@@ -303,8 +303,8 @@ defmodule ActivityPub.Object do
          pointer,
          upsert?
        )
-       when ActivityPub.Config.is_in(type, :supported_actor_types) == false and
-              ActivityPub.Config.is_in(type, :supported_activity_types) == false do
+       when is_in(type, :supported_actor_types) == false and
+              is_in(type, :supported_activity_types) == false do
     # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
 
     with {:ok, object} <-
@@ -320,7 +320,7 @@ defmodule ActivityPub.Object do
          pointer,
          upsert?
        )
-       when ActivityPub.Config.is_in(type, :supported_intransitive_types) == true do
+       when is_in(type, :supported_intransitive_types) == true do
     # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
 
     with {:ok, object} <-
@@ -663,7 +663,7 @@ defmodule ActivityPub.Object do
     do: actor_from_data(actor)
 
   def actor_from_data(%{"id" => _, "type" => type} = actor)
-      when ActivityPub.Config.is_in(type, :supported_actor_types),
+      when is_in(type, :supported_actor_types),
       do: actor
 
   def actor_from_data(actors) when is_list(actors) do

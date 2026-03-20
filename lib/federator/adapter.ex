@@ -3,6 +3,7 @@ defmodule ActivityPub.Federator.Adapter do
   Contract for ActivityPub module adapters
   """
   import Untangle
+  import ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Object
 
@@ -104,7 +105,8 @@ defmodule ActivityPub.Federator.Adapter do
     end
   end
 
-  def maybe_handle_activity(%{data: %{"type" => verb}} = activity, opts) when verb in ["Move"] do
+  def maybe_handle_activity(%{data: %{"type" => verb}} = activity, opts)
+      when is_in(verb, ["Move"]) do
     if opts[:skip_adapter] == true do
       debug("skipping adapter for remote activity as requested")
       {:ok, :skipped}

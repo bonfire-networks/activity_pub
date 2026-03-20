@@ -9,7 +9,7 @@ defmodule ActivityPub do
   """
   use Arrows
   import Untangle
-  require ActivityPub.Config
+  import ActivityPub.Config
 
   alias ActivityPub.Utils
   alias ActivityPub.Config
@@ -511,7 +511,7 @@ defmodule ActivityPub do
         is_local?,
         opts
       )
-      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+      when is_in(type, :supported_actor_types) do
     subject = opts[:subject]
 
     to = [
@@ -547,7 +547,7 @@ defmodule ActivityPub do
         is_local?,
         opts
       )
-      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+      when is_in(type, :supported_actor_types) do
     delete(
       Map.update(delete_actor, :data, %{}, fn data -> Map.merge(data, %{"type" => type}) end),
       is_local?,

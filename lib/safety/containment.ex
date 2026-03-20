@@ -10,7 +10,7 @@ defmodule ActivityPub.Safety.Containment do
   Object containment is an important step in validating remote objects to preventspoofing, therefore removal of object containment functions is NOT recommended.
   """
   import Untangle
-  require ActivityPub.Config
+  import ActivityPub.Config
   alias ActivityPub.Object
   alias ActivityPub.Config
   alias ActivityPub.Utils
@@ -49,9 +49,9 @@ defmodule ActivityPub.Safety.Containment do
   """
 
   def contain_origin(_id, %{"type" => type} = _params)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) or
-             ActivityPub.Config.is_in(type, :collection_types) or
-             type in ["Author", "Tombstone", "Place"],
+      when is_in(type, :supported_actor_types) or
+             is_in(type, :collection_types) or
+             is_in(type, ["Author", "Tombstone", "Place"]),
       do: true
 
   def contain_origin(id, %{"type" => types} = params) when is_list(types),

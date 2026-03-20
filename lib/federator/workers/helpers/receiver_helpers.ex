@@ -25,6 +25,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
   """
 
+  import ActivityPub.Config
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Safety.LinkedDataSignatures
@@ -133,7 +134,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
     # but can be safely validated against our local Follow activity records.
     # This mirrors how Mastodon handles it: https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/accept.rb
     is_follow_response? =
-      params["type"] in ["Accept", "Reject"] and
+      is_in(params["type"], ["Accept", "Reject"]) and
         is_map(params["object"]) and params["object"]["type"] == "Follow"
 
     if is_follow_response? do
@@ -145,8 +146,8 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
     else
       is_deleted? =
         Untangle.debug(
-          params["type"] in ["Delete", "Tombstone"] or
-            (is_map(params["object"]) and params["object"]["type"] == "Tombstone"),
+          is_in(params["type"], ["Delete", "Tombstone"]) or
+            (is_map(params["object"]) and is_in(params["object"]["type"], ["Tombstone"])),
           "is_deleted?"
         )
 

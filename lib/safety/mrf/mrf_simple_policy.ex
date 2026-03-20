@@ -41,7 +41,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
   ```
   """
   @behaviour MRF
-  require ActivityPub.Config
+  import ActivityPub.Config
 
   @impl true
   def filter(%{"actor" => actor} = object, _opts) do
@@ -60,7 +60,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
   end
 
   def filter(%{"id" => actor, "type" => type} = object, _opts)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+      when is_in(type, :supported_actor_types) do
     actor_info = URI.parse(actor)
 
     with {:ok, object} <- check_avatar_removal(actor_info, object),

@@ -3,7 +3,7 @@ defmodule ActivityPub.Federator.Fetcher do
   Handles fetching AS2 objects from remote instances.
   """
 
-  require ActivityPub.Config
+  import ActivityPub.Config
 
   alias ActivityPub.Config
   alias ActivityPub.Utils
@@ -111,7 +111,7 @@ defmodule ActivityPub.Federator.Fetcher do
   def fetch_object_from_id(id, opts \\ [])
 
   def fetch_object_from_id(%{"type" => type, "object" => object}, opts)
-      when type in ["Create", "Update"] do
+      when is_in(type, ["Create", "Update"]) do
     # unwrap the activity and handle the inner object
     fetch_object_from_id(object, opts)
   end
@@ -286,7 +286,7 @@ defmodule ActivityPub.Federator.Fetcher do
   def cached_or_handle_incoming(id_or_data, opts \\ [])
 
   def cached_or_handle_incoming(%{"type" => type} = id_or_data, opts)
-      when ActivityPub.Config.is_in(type, :supported_actor_types) do
+      when is_in(type, :supported_actor_types) do
     debug("create/update an Actor")
     |> debug("opts")
 
@@ -343,7 +343,7 @@ defmodule ActivityPub.Federator.Fetcher do
         |> debug("re-handled")
 
       {:ok, %Object{data: %{"type" => type}} = object}
-      when ActivityPub.Config.is_in(type, :supported_actor_types) ->
+      when is_in(type, :supported_actor_types) ->
         debug("Object is an actor, so should be formatted")
         {:ok, Actor.format_remote_actor(object)}
 
@@ -418,7 +418,7 @@ defmodule ActivityPub.Federator.Fetcher do
           {:ok, object}
 
         # %{data: %{"type" => type} = collection}
-        # when ActivityPub.Config.is_in(type, :collection_types)
+        # when is_in(type, :collection_types)
         # and skip_fetch_collection_entries? == false ->
         #   debug(
         #     fetch_collection_entries,
@@ -433,7 +433,7 @@ defmodule ActivityPub.Federator.Fetcher do
         #   {:ok, object}
 
         %{"type" => type} = collection
-        when ActivityPub.Config.is_in(type, :collection_types) and
+        when is_in(type, :collection_types) and
                fetch_collection_entries != false ->
           debug(
             fetch_collection_entries,
@@ -849,12 +849,22 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def fetch_collection(%{"type" => type} = page, opts)
-      when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
+      when is_in(type, [
+             "Collection",
+             "OrderedCollection",
+             "CollectionPage",
+             "OrderedCollectionPage"
+           ]) do
     {:ok, handle_collection(page, opts |> Keyword.put(:triggered_by, "fetch_collection"))}
   end
 
   def fetch_collection(%{data: %{"type" => type} = page}, opts)
-      when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
+      when is_in(type, [
+             "Collection",
+             "OrderedCollection",
+             "CollectionPage",
+             "OrderedCollectionPage"
+           ]) do
     {:ok, handle_collection(page, opts |> Keyword.put(:triggered_by, "fetch_collection"))}
   end
 
@@ -876,7 +886,7 @@ defmodule ActivityPub.Federator.Fetcher do
       |> debug("objects_from_collection")
       |> Enum.reject(fn
         # TODO: configurable
-        %{"type" => type} when type in ["Announce", "Like"] -> true
+        %{"type" => type} when is_in(type, ["Announce", "Like"]) -> true
         _ -> false
       end)
       |> debug("filtered objects_from_collection")
@@ -888,8 +898,11 @@ defmodule ActivityPub.Federator.Fetcher do
           # extract object URLs/IDs from entries (unwrapping Create/Update activities)
           objects =
             Enum.map(entries, fn
-              %{"type" => type, "object" => object} when type in ["Create", "Update"] -> object
-              other -> other
+              %{"type" => type, "object" => object} when is_in(type, ["Create", "Update"]) ->
+                object
+
+              other ->
+                other
             end)
 
           # process inline objects directly, enqueue URL strings for async fetch
@@ -984,7 +997,7 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
        when is_list(items) and items != [] and
-              type in ["OrderedCollection", "OrderedCollectionPage"],
+              is_in(type, ["OrderedCollection", "OrderedCollectionPage"]),
        do:
          maybe_next_page(
            page,
@@ -994,7 +1007,7 @@ defmodule ActivityPub.Federator.Fetcher do
          )
 
   defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
-       when is_list(items) and items != [] and type in ["Collection", "CollectionPage"],
+       when is_list(items) and items != [] and is_in(type, ["Collection", "CollectionPage"]),
        do:
          maybe_next_page(
            page,
@@ -1004,7 +1017,7 @@ defmodule ActivityPub.Federator.Fetcher do
          )
 
   defp objects_from_collection(%{"type" => type, "first" => first}, opts)
-       when is_binary(first) and type in ["Collection", "OrderedCollection"] do
+       when is_binary(first) and is_in(type, ["Collection", "OrderedCollection"]) do
     fetch_page(
       first,
       [],
@@ -1014,7 +1027,7 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}}, opts)
-       when is_binary(id) and type in ["Collection", "OrderedCollection"] do
+       when is_binary(id) and is_in(type, ["Collection", "OrderedCollection"]) do
     fetch_page(
       id,
       [],
@@ -1024,7 +1037,7 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp objects_from_collection(%{"type" => type, "next" => next}, opts)
-       when is_binary(next) and type in ["CollectionPage"] do
+       when is_binary(next) and is_in(type, ["CollectionPage"]) do
     # needed for GtS
     fetch_page(
       next,

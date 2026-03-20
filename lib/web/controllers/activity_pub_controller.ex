@@ -9,6 +9,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   use ActivityPub.Web, :controller
 
   import Untangle
+  import ActivityPub.Config
 
   alias ActivityPub.Config
   alias ActivityPub.Actor
@@ -65,7 +66,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   defp maybe_return_json(conn, meta, json, opts) do
     # debug(json)
 
-    is_deletion? = json["type"] in ["Delete", "Tombstone"]
+    is_deletion? = is_in(json["type"], ["Delete", "Tombstone"])
 
     if is_deletion? || opts[:exporting] == true ||
          federate_actor?(Map.get(json, "actor"), conn) do
@@ -140,7 +141,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp maybe_object_json(%{data: %{"type" => type}} = object, opts)
-       when type in ["Accept", "Undo", "Delete", "Tombstone"] do
+       when is_in(type, ["Accept", "Undo", "Delete", "Tombstone"]) do
     debug(
       "workaround for being able to delete, and accept follow and unfollow without HTTP Signatures"
     )

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.APPublisher do
+  import ActivityPub.Config
   alias ActivityPub.Config
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
@@ -76,7 +77,7 @@ defmodule ActivityPub.Federator.APPublisher do
                _ -> nil
              end)
 
-           if type in ["Flag", "Delete"] or length(ids) > 1 do
+           if is_in(type, ["Flag", "Delete"]) or length(ids) > 1 do
              {inbox, %{ids: ids}}
            else
              {List.first(recipients).data["inbox"], %{ids: ids}}
@@ -319,7 +320,7 @@ defmodule ActivityPub.Federator.APPublisher do
     followers =
       cond do
         # Accept/Reject should only go to addressed recipients, not fan out to followers
-        activity_data["type"] in ["Accept", "Reject"] ->
+        is_in(activity_data["type"], ["Accept", "Reject"]) ->
           []
 
         # When handling Flag activities, we need special recipient handling
@@ -456,7 +457,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
     if index !== "false" and
          activity.public and
-         activity.data["type"] in ["Create", "Update", "Delete"] do
+         is_in(activity.data["type"], ["Create", "Update", "Delete"]) do
       recipients ++
         [
           index

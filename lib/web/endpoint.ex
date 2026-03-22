@@ -37,6 +37,8 @@ defmodule ActivityPub.Web.Endpoint do
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library(),
+    # Allow large MLS messages (attachments embedded as base64 ciphertext)
+    length: 64 * 1024 * 1024,
     body_reader: {ActivityPub.Web.Plugs.DigestPlug, :read_body, []}
   )
 

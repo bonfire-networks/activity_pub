@@ -6,7 +6,7 @@ defmodule ActivityPub.Web.Plugs.DigestPlug do
   import Untangle
 
   def read_body(conn, opts) do
-    {:ok, body, conn} = Conn.read_body(conn, opts)
+    {:ok, body, conn} = read_full_body(conn, opts, [])
 
     conn =
       conn
@@ -14,6 +14,16 @@ defmodule ActivityPub.Web.Plugs.DigestPlug do
       |> maybe_compute_content_digest(body)
 
     {:ok, body, conn}
+  end
+
+  # Read body in chunks to support large payloads (e.g. MLS messages with attachments).
+  # Plug.Parsers passes :length as the per-chunk read limit, not a total body limit.
+  defp read_full_body(conn, opts, acc) do
+    case Conn.read_body(conn, opts) do
+      {:ok, chunk, conn} -> {:ok, IO.iodata_to_binary([acc, chunk]), conn}
+      {:more, chunk, conn} -> read_full_body(conn, opts, [acc, chunk])
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   # Legacy Digest header (draft-cavage / RFC 3230)

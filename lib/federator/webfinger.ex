@@ -106,7 +106,12 @@ defmodule ActivityPub.Federator.WebFinger do
       end
       |> debug()
 
-    if local_hostname() == domain do
+    local = local_hostname()
+
+    # also match bare hostname when local runs on a non-standard port (e.g. "localhost" matches "localhost:4000")
+    local_host = local |> String.split(":") |> List.first()
+
+    if local == domain or local_host == domain or domain == "localhost" do
       {:error, {:local_user, name}}
     else
       {:ok, Utils.base_url(domain)}

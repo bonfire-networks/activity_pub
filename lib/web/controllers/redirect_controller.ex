@@ -71,40 +71,59 @@ defmodule ActivityPub.Web.RedirectController do
       Map.get(params, "object") || Map.get(outgoing, "object") ||
         Map.get(outgoing, "follow")
 
-    with {:ok, fingered} <-
-           ActivityPub.Federator.WebFinger.finger(me) |> debug("fingered"),
-         %{"subscribe_address" => subscribe_address}
-         when is_binary(subscribe_address) <- fingered,
-         true <- String.contains?(subscribe_address, "{uri}"),
-         url <- String.replace(subscribe_address, "{uri}", object) do
-      case url do
-        "http" <> _ = url ->
+    local_hostname = ActivityPub.Federator.WebFinger.local_hostname()
+    local_host = local_hostname |> String.split(":") |> List.first()
+
+    me_domain =
+      case String.split(me || "", "@") do
+        [_, domain] -> domain
+        ["", _, domain] -> domain
+        _ -> nil
+      end
+
+    if me_domain &&
+         (me_domain == local_hostname or me_domain == local_host or me_domain == "localhost") do
+      debug(me, "Local user on remote interaction form, redirecting to sign in")
+      login_path = ActivityPub.Config.get([:instance, :local_login_redirect_uri], "/login?go=")
+      go = if is_binary(object), do: "#{URI.encode_www_form(object)}", else: ""
+
+      conn |> redirect(to: "#{login_path}#{go}") |> halt()
+    else
+      with {:ok, fingered} <-
+             ActivityPub.Federator.WebFinger.finger(me) |> debug("fingered"),
+           %{"subscribe_address" => subscribe_address}
+           when is_binary(subscribe_address) <- fingered,
+           true <- String.contains?(subscribe_address, "{uri}"),
+           url <- String.replace(subscribe_address, "{uri}", object) do
+        case url do
+          "http" <> _ = url ->
+            conn
+            |> redirect(external: url)
+
+          url ->
+            conn
+            |> redirect(to: url)
+        end
+      else
+        %{"id" => url} ->
+          error(
+            url,
+            "Remote didn't provide a `subscribe_address` in WebFinger, redirecting to profile instead"
+          )
+
           conn
           |> redirect(external: url)
 
-        url ->
+        other ->
+          error(other)
+
           conn
-          |> redirect(to: url)
+          |> send_resp(
+            404,
+            "Sorry, your actor or remote interaction URL was not found"
+          )
+          |> halt
       end
-    else
-      %{"id" => url} ->
-        error(
-          url,
-          "Remote didn't provide a `subscribe_address` in WebFinger, redirecting to profile instead"
-        )
-
-        conn
-        |> redirect(external: url)
-
-      other ->
-        error(other)
-
-        conn
-        |> send_resp(
-          404,
-          "Sorry, your actor or remote interaction URL was not found"
-        )
-        |> halt
     end
   end
 

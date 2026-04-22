@@ -44,6 +44,8 @@ defmodule ActivityPub.MRF.SimplePolicy do
   import ActivityPub.Config
 
   @impl true
+  def filter(object, opts \\ [])
+
   def filter(%{"actor" => actor} = object, _opts) do
     actor_info = URI.parse(actor)
     # |> info()

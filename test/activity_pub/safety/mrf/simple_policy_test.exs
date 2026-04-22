@@ -9,7 +9,7 @@ defmodule ActivityPub.Web.MRF.SimplePolicyTest do
     Config.put(:mrf_simple,
       media_removal: [],
       media_nsfw: [],
-      federated_timeline_removal: [],
+      unlisted_from_feeds: [],
       report_removal: [],
       reject: [],
       accept: [],

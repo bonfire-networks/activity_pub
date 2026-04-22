@@ -10,7 +10,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
   setup do: clear_config(:mrf_keyword)
 
   setup do
-    clear_config([:mrf_keyword], %{reject: [], federated_timeline_removal: [], replace: []})
+    clear_config([:mrf_keyword], %{reject: [], unlisted_from_feeds: [], replace: []})
   end
 
   describe "rejecting based on keywords" do
@@ -131,7 +131,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
 
   describe "delisting from ftl based on keywords" do
     test "delists if string matches in content" do
-      clear_config([:mrf_keyword, :federated_timeline_removal], ["pun"])
+      clear_config([:mrf_keyword, :unlisted_from_feeds], ["pun"])
 
       message = %{
         "to" => ["https://www.w3.org/ns/activitystreams#Public"],
@@ -148,7 +148,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
     end
 
     test "delists if string matches in summary" do
-      clear_config([:mrf_keyword, :federated_timeline_removal], ["pun"])
+      clear_config([:mrf_keyword, :unlisted_from_feeds], ["pun"])
 
       message = %{
         "to" => ["https://www.w3.org/ns/activitystreams#Public"],
@@ -165,7 +165,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
     end
 
     test "delists if regex matches in content" do
-      clear_config([:mrf_keyword, :federated_timeline_removal], [~r/comp[lL][aA][iI][nN]er/])
+      clear_config([:mrf_keyword, :unlisted_from_feeds], [~r/comp[lL][aA][iI][nN]er/])
 
       assert true ==
                Enum.all?(["complainer", "compLainer", "compLAiNer", "compLAINer"], fn content ->
@@ -186,7 +186,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
     end
 
     test "delists if regex matches in summary" do
-      clear_config([:mrf_keyword, :federated_timeline_removal], [~r/comp[lL][aA][iI][nN]er/])
+      clear_config([:mrf_keyword, :unlisted_from_feeds], [~r/comp[lL][aA][iI][nN]er/])
 
       assert true ==
                Enum.all?(["complainer", "compLainer", "compLAiNer", "compLAINer"], fn content ->
@@ -207,7 +207,7 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
     end
 
     test "delists if string matches in history" do
-      clear_config([:mrf_keyword, :federated_timeline_removal], ["pun"])
+      clear_config([:mrf_keyword, :unlisted_from_feeds], ["pun"])
 
       message = %{
         "to" => ["https://www.w3.org/ns/activitystreams#Public"],

@@ -344,6 +344,7 @@ end
 config :activity_pub, :instance,
   rewrite_policy: [
     ActivityPub.MRF.SimplePolicy,
+    ActivityPub.MRF.KeywordPolicy,
     MyApp.CustomMRFPolicy
   ]
 
@@ -998,6 +999,7 @@ end
 config :activity_pub, :instance,
   rewrite_policy: [
     ActivityPub.MRF.SimplePolicy,
+    ActivityPub.MRF.KeywordPolicy,
     MyApp.SpamFilterMRF,
     MyApp.CustomMRF
   ]

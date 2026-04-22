@@ -10,7 +10,7 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
   setup do: clear_config(:mrf_keyword)
 
   setup do
-    clear_config([:mrf_keyword], %{reject: [], federated_timeline_removal: [], replace: []})
+    clear_config([:mrf_keyword], %{reject: [], unlisted_from_feeds: [], replace: []})
   end
 
   describe "rejecting homoglyphs/confusables (Unicode evasion)" do
@@ -192,7 +192,7 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     end
 
     test "delists homoglyph content from federated timeline" do
-      clear_config([:mrf_keyword, :federated_timeline_removal], ["crypto"])
+      clear_config([:mrf_keyword, :unlisted_from_feeds], ["crypto"])
 
       message = %{
         "to" => ["https://www.w3.org/ns/activitystreams#Public"],

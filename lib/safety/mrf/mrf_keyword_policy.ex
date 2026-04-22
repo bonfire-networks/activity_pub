@@ -33,7 +33,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   #         suggestions: ["foo", ~r/foo/iu]
   #       },
   #       %{
-  #         key: :federated_timeline_removal,
+  #         key: :unlisted_from_feeds,
   #         type: {:list, :string},
   #         description: """
   #           A list of patterns which result in message being removed from federated timelines (a.k.a unlisted).
@@ -70,7 +70,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   defp strip_zero_width_chars(string) do
     # U+200B Zero Width Space, U+200C Zero Width Non-Joiner,
     # U+200D Zero Width Joiner, U+FEFF Byte Order Mark/Zero Width No-Break Space
-    String.replace(string, ~r/[\x{200B}\x{200C}\x{200D}\x{FEFF}]/u, "")
+    String.replace(string || "", ~r/[\x{200B}\x{200C}\x{200D}\x{FEFF}]/u, "")
   end
 
   # NFKC normalization decomposes compatibility characters:
@@ -89,10 +89,6 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     |> String.replace(~r/[\x{0300}-\x{036F}]/u, "")
   end
 
-  defp confusables_enabled? do
-    Config.get([:mrf_keyword, :detect_confusables], true)
-  end
-
   defp match_type_message(:exact), do: "[KeywordPolicy] Matches rejected keyword"
 
   defp match_type_message(:confusable),
@@ -104,12 +100,12 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     |> Enum.join("\n")
   end
 
-  defp check_reject(%{"object" => %{} = object} = message) do
+  defp check_reject(%{"object" => %{} = object} = message, mrf_keyword, confusables_enabled) do
     with {:ok, _new_object} <-
            Object.apply_to_object_and_history(object, fn object ->
              payload = object_payload(object)
 
-             case find_matching_pattern(payload, Config.get([:mrf_keyword, :reject])) do
+             case find_matching_pattern(payload, mrf_keyword[:reject] || [], confusables_enabled) do
                {:reject, match_type} ->
                  {:reject, match_type_message(match_type)}
 
@@ -123,20 +119,20 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp find_matching_pattern(string, patterns) when is_list(patterns) do
+  defp find_matching_pattern(string, patterns, confusables_enabled) when is_list(patterns) do
     # TODO: optimise by splitting patterns when set in config
     {string_patterns, regex_patterns} = Enum.split_with(patterns, &is_binary/1)
 
-    check_string_patterns(string, string_patterns) ||
-      check_regex_patterns(string, regex_patterns) ||
+    check_string_patterns(string, string_patterns, confusables_enabled) ||
+      check_regex_patterns(string, regex_patterns, confusables_enabled) ||
       false
   end
 
-  defp find_matching_pattern(_string, _), do: false
+  defp find_matching_pattern(_string, _, _confusables_enabled), do: false
 
-  defp check_string_patterns(_string, []), do: nil
+  defp check_string_patterns(_string, [], _confusables_enabled), do: nil
 
-  defp check_string_patterns(string, string_patterns) do
+  defp check_string_patterns(string, string_patterns, confusables_enabled) do
     downcased_string = String.downcase(string)
     # TODO: optimise by downcasing patterns when set in config
     downcased_patterns = Enum.map(string_patterns, &String.downcase/1)
@@ -145,12 +141,12 @@ defmodule ActivityPub.MRF.KeywordPolicy do
       String.contains?(downcased_string, downcased_patterns) ->
         {:reject, :exact}
 
-      confusables_enabled?() ->
+      confusables_enabled ->
         normalized = string |> normalize_for_matching() |> String.downcase()
 
         # Also check "rn" → "m" reverse homoglyph
         if String.contains?(normalized, downcased_patterns) or
-             String.contains?(String.replace(normalized, "rn", "m"), downcased_patterns) do
+             String.contains?(String.replace(normalized || "", "rn", "m"), downcased_patterns) do
           {:reject, :confusable}
         end
 
@@ -159,19 +155,22 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp check_regex_patterns(_string, []), do: nil
+  defp check_regex_patterns(_string, [], _confusables_enabled), do: nil
 
-  defp check_regex_patterns(string, regex_patterns) do
+  defp check_regex_patterns(string, regex_patterns, confusables_enabled) do
     # NOTE: we don't downcase here since regexes may have their own i flag
     cond do
       Enum.any?(regex_patterns, &String.match?(string, &1)) ->
         {:reject, :exact}
 
-      confusables_enabled?() ->
+      confusables_enabled ->
         normalized = normalize_for_matching(string)
 
         if Enum.any?(regex_patterns, &String.match?(normalized, &1)) or
-             Enum.any?(regex_patterns, &String.match?(String.replace(normalized, "rn", "m"), &1)) do
+             Enum.any?(
+               regex_patterns,
+               &String.match?(String.replace(normalized || "", "rn", "m"), &1)
+             ) do
           {:reject, :confusable}
         end
 
@@ -180,11 +179,15 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp check_ftl_removal(%{"type" => "Create", "to" => to, "object" => %{} = object} = message) do
+  defp check_ftl_removal(
+         %{"type" => "Create", "to" => to, "object" => %{} = object} = message,
+         mrf_keyword,
+         confusables_enabled
+       ) do
     check_keyword = fn object ->
       payload = object_payload(object)
 
-      case find_matching_pattern(payload, Config.get([:mrf_keyword, :federated_timeline_removal])) do
+      case find_matching_pattern(payload, mrf_keyword[:unlisted_from_feeds], confusables_enabled) do
         {:reject, match_type} ->
           {:should_delist, match_type}
 
@@ -216,18 +219,18 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp check_ftl_removal(message) do
+  defp check_ftl_removal(message, _mrf_keyword, _confusables_enabled) do
     {:ok, message}
   end
 
-  defp check_replace(%{"object" => %{} = object} = message) do
+  defp check_replace(%{"object" => %{} = object} = message, mrf_keyword) do
     replace_kw = fn object ->
       ["content", "name", "summary"]
       |> Enum.filter(fn field -> Map.has_key?(object, field) && object[field] end)
       |> Enum.reduce(object, fn field, object ->
         data =
           Enum.reduce(
-            Config.get([:mrf_keyword, :replace]),
+            mrf_keyword[:replace] || [],
             object[field],
             fn {pat, repl}, acc -> String.replace(acc, pat, repl) end
           )
@@ -245,12 +248,24 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   end
 
   @impl true
-  def filter(%{"type" => type, "object" => %{"content" => _content}} = message)
-      when is_in(type, ["Create", "Update"]) do
-    with {:ok, message} <- check_reject(message),
-         {:ok, message} <- check_ftl_removal(message),
-         {:ok, message} <- check_replace(message) do
-      {:ok, message}
+  def filter(activity, opts \\ [])
+
+  def filter(%{"type" => type, "object" => object} = activity, _opts)
+      when is_in(type, ["Create", "Update"]) and
+             (is_map_key(object, "content") or is_map_key(object, "name") or
+                is_map_key(object, "summary")) do
+    mrf_keyword = Config.get(:mrf_keyword, [])
+
+    confusables_enabled =
+      case mrf_keyword[:detect_confusables] do
+        nil -> true
+        bool -> bool
+      end
+
+    with {:ok, activity} <- check_reject(activity, mrf_keyword, confusables_enabled),
+         {:ok, activity} <- check_ftl_removal(activity, mrf_keyword, confusables_enabled),
+         {:ok, activity} <- check_replace(activity, mrf_keyword) do
+      {:ok, activity}
     else
       {:reject, nil} -> {:reject, "[KeywordPolicy] "}
       {:reject, _} = e -> e
@@ -259,7 +274,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   end
 
   @impl true
-  def filter(message), do: {:ok, message}
+  def filter(activity, _opts), do: {:ok, activity}
 
   @impl true
   def describe do

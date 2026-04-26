@@ -200,7 +200,9 @@ defmodule ActivityPub.Actor do
   end
 
   defp get(pointer: id) when not is_nil(id) do
-    with {:ok, actor} <- ActivityPub.Object.get_cached(pointer: id) do
+    with {:ok, %{data: %{"type" => type}} = actor}
+         when is_in(type, :supported_actor_types) or type == "Tombstone" <-
+           ActivityPub.Object.get_cached(pointer: id) do
       {:ok, format_remote_actor(actor)}
     else
       _ ->

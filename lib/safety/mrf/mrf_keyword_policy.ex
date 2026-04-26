@@ -180,10 +180,12 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   end
 
   defp check_ftl_removal(
-         %{"type" => "Create", "to" => to, "object" => %{} = object} = message,
+         %{"type" => "Create", "to" => to_raw, "object" => %{} = object} = message,
          mrf_keyword,
          confusables_enabled
        ) do
+    to = normalize_recipients(to_raw)
+
     check_keyword = fn object ->
       payload = object_payload(object)
 
@@ -271,6 +273,18 @@ defmodule ActivityPub.MRF.KeywordPolicy do
       {:reject, _} = e -> e
       _e -> {:reject, "[KeywordPolicy] "}
     end
+  end
+
+  defp normalize_recipients(recipients) do
+    recipients
+    |> List.wrap()
+    |> Enum.map(fn
+      %{ap_id: ap_id} when is_binary(ap_id) -> ap_id
+      %{"id" => id} when is_binary(id) -> id
+      s when is_binary(s) -> s
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
   end
 
   @impl true

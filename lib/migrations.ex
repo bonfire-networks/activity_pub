@@ -119,4 +119,23 @@ defmodule ActivityPub.Migrations do
   def drop_object_in_reply_to_index do
     drop(index(:ap_object, ["(data->>'inReplyTo')"]))
   end
+
+  @doc """
+  Adds a functional index on coalesce((data)->'object'->>'id', (data)->>'object') for ap_object.
+  Used by the "find Create activity wrapping a given object" lookup in Object.normalize/3.
+  """
+  def add_object_coalesce_index(concurrently? \\ concurrently?()) do
+    create(
+      index(:ap_object, ["(coalesce((data)->'object'->>'id', data->>'object'))"],
+        concurrently: concurrently?
+      )
+    )
+  end
+
+  @doc """
+  Drops the coalesce index on ap_object.
+  """
+  def drop_object_coalesce_index do
+    drop(index(:ap_object, ["(coalesce((data)->'object'->>'id', data->>'object'))"]))
+  end
 end

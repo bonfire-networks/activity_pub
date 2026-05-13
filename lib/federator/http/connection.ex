@@ -10,7 +10,8 @@ defmodule ActivityPub.Federator.HTTP.Connection do
 
     Tesla.client(
       [],
-      adapter_options(adapter, Keyword.get(opts, :adapter, [])) |> debug("adapter_options")
+      adapter_options(adapter, Keyword.get(opts, :adapter, []))
+      # |> debug("adapter_options")
     )
   end
 

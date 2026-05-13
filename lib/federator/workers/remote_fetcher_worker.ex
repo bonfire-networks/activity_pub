@@ -11,7 +11,12 @@ defmodule ActivityPub.Federator.Workers.RemoteFetcherWorker do
 
   @impl true
   def perform_job(%Job{args: %{"op" => "fetch_remote", "id" => id} = args}) do
-    Fetcher.fetch_object_from_id(id,
+    fetch_fn =
+      if args["fresh"],
+        do: &Fetcher.fetch_fresh_object_from_id/2,
+        else: &Fetcher.fetch_object_from_id/2
+
+    fetch_fn.(id,
       depth: args["depth"],
       max_depth: args["max_depth"],
       # don't fetch pages async when we are already in a background job, to avoid too much nesting of jobs

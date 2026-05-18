@@ -113,21 +113,45 @@ defmodule ActivityPub.Web do
   def apply_rate_limit(conn, opts) do
     key_prefix = Keyword.fetch!(opts, :key_prefix)
 
-    # Read from config, falling back to defaults
-    config = Application.get_env(:activity_pub, :rate_limit, [])[key_prefix] || []
-    scale_ms = Keyword.get(config, :scale_ms) || Keyword.get(opts, :scale_ms, 60_000)
-    limit = Keyword.get(config, :limit) || Keyword.get(opts, :limit, 200)
+    rate_limit_config = Application.get_env(:activity_pub, :rate_limit, [])
+    config = rate_limit_config[key_prefix] || []
 
-    # Build rate limit key from IP
-    ip = conn.remote_ip |> :inet.ntoa() |> to_string()
-    key = "#{key_prefix}:#{ip}"
+    global_disabled =
+      rate_limit_config[:disabled] || System.get_env("ENABLE_RATE_LIMIT") == "no"
 
-    case ActivityPub.RateLimit.hit(key, scale_ms, limit) do
-      {:allow, _count} ->
-        conn
+    if global_disabled or Keyword.get(config, :disabled, false) do
+      conn
+    else
+      env_prefix = "RATE_LIMIT_AP_#{key_prefix |> to_string() |> String.upcase()}"
 
-      {:deny, retry_after} ->
-        rate_limit_reached(conn, retry_after)
+      scale_ms =
+        Keyword.get(config, :scale_ms) ||
+          System.get_env("#{env_prefix}_WINDOW_MS")
+          |> then(fn
+            nil -> nil
+            v -> String.to_integer(v)
+          end) ||
+          Keyword.get(opts, :scale_ms, 60_000)
+
+      limit =
+        Keyword.get(config, :limit) ||
+          System.get_env("#{env_prefix}_MAX")
+          |> then(fn
+            nil -> nil
+            v -> String.to_integer(v)
+          end) ||
+          Keyword.get(opts, :limit, 200)
+
+      ip = conn.remote_ip |> :inet.ntoa() |> to_string()
+      key = "#{key_prefix}:#{ip}"
+
+      case ActivityPub.RateLimit.hit(key, scale_ms, limit) do
+        {:allow, _count} ->
+          conn
+
+        {:deny, retry_after} ->
+          rate_limit_reached(conn, retry_after)
+      end
     end
   end
 

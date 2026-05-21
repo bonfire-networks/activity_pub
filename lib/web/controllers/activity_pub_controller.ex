@@ -109,6 +109,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       # || Containment.visible_for_user?(object, current_user)) |> debug("public or visible for current_user?") 
       maybe_object_json(
         Object.get_cached!(pointer: id) ||
+          Object.get_cached!(ap_id: ap_route_helper(id)) ||
           Adapter.maybe_publish_object(id, opts |> Keyword.put(:manually_fetching?, true)),
         opts
       )

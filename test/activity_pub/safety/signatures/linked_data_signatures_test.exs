@@ -215,6 +215,109 @@ defmodule ActivityPub.Safety.LinkedDataSignaturesTest do
     end
   end
 
+  describe "input sanitization against may-2026 LD-signature vulnerability" do
+    # Activities using @graph, @included, or @reverse can be crafted so that
+    # JSON-LD processing re-orders or substitutes objects while the RDF-level
+    # signature still validates. Reject these at the gate.
+
+    defp signed_activity_with(extra_fields) do
+      base = %{
+        "@context" => ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
+        "type" => "Create",
+        "id" => "https://attacker.example/activities/1",
+        "actor" => "https://attacker.example/users/eve",
+        "object" => %{
+          "type" => "Note",
+          "content" => "benign content"
+        },
+        "signature" => %{
+          "type" => "RsaSignature2017",
+          "creator" => "https://attacker.example/users/eve#main-key",
+          "created" => "2026-05-01T00:00:00Z",
+          "signatureValue" => "c2lnbmF0dXJl"
+        }
+      }
+
+      Map.merge(base, extra_fields)
+    end
+
+    test "rejects activity with @graph at root" do
+      json =
+        signed_activity_with(%{
+          "@graph" => [%{"type" => "Note", "content" => "injected"}]
+        })
+
+      assert {:error, :forbidden_jsonld_keyword} = LinkedDataSignatures.verify(json)
+    end
+
+    test "rejects activity with @included at root" do
+      json =
+        signed_activity_with(%{
+          "@included" => [%{"type" => "Note", "content" => "injected"}]
+        })
+
+      assert {:error, :forbidden_jsonld_keyword} = LinkedDataSignatures.verify(json)
+    end
+
+    test "rejects activity with @reverse at root" do
+      json =
+        signed_activity_with(%{
+          "@reverse" => %{"inReplyTo" => "https://victim.example/notes/1"}
+        })
+
+      assert {:error, :forbidden_jsonld_keyword} = LinkedDataSignatures.verify(json)
+    end
+
+    test "rejects activity with @graph nested inside object" do
+      json =
+        signed_activity_with(%{
+          "object" => %{
+            "type" => "Note",
+            "content" => "benign",
+            "@graph" => [%{"type" => "Note", "content" => "injected"}]
+          }
+        })
+
+      assert {:error, :forbidden_jsonld_keyword} = LinkedDataSignatures.verify(json)
+    end
+
+    test "rejects activity with @included nested inside object" do
+      json =
+        signed_activity_with(%{
+          "object" => %{
+            "type" => "Note",
+            "content" => "benign",
+            "@included" => [
+              %{"type" => "Create", "actor" => "https://attacker.example/users/eve"}
+            ]
+          }
+        })
+
+      assert {:error, :forbidden_jsonld_keyword} = LinkedDataSignatures.verify(json)
+    end
+
+    test "rejects activity with @graph deeply nested in a list" do
+      json =
+        signed_activity_with(%{
+          "tag" => [
+            %{"type" => "Mention", "@graph" => [%{"type" => "Note", "content" => "injected"}]}
+          ]
+        })
+
+      assert {:error, :forbidden_jsonld_keyword} = LinkedDataSignatures.verify(json)
+    end
+
+    test "clean activity without forbidden keywords is not rejected by sanitization" do
+      # This should proceed past the sanitization check (will fail on key resolution,
+      # not on the forbidden-keywords guard)
+      json =
+        signed_activity_with(%{})
+
+      result = LinkedDataSignatures.verify(json)
+      refute result == {:error, :forbidden_jsonld_keyword}
+    end
+  end
+
   describe "has_verifiable_signature?/1" do
     test "returns true for RsaSignature2017" do
       json = %{

@@ -21,6 +21,9 @@ defmodule ActivityPub.Safety.LinkedDataSignatures do
 
   @identity_context "https://w3id.org/identity/v1"
   @signature_type "RsaSignature2017"
+  # These keywords can be used to substitute or re-order objects in JSON-LD
+  # expansion while leaving the RDF-level signature intact (may-2026 vuln).
+  @forbidden_keywords ~w(@graph @included @reverse)
 
   @doc """
   Verify a Linked Data Signature on an activity.
@@ -29,7 +32,17 @@ defmodule ActivityPub.Safety.LinkedDataSignatures do
   or `{:error, reason}` if verification fails.
   """
   @spec verify(map()) :: {:ok, String.t()} | {:error, term()}
-  def verify(%{"signature" => %{"type" => @signature_type} = signature} = json) do
+  def verify(json) when is_map(json) do
+    if contains_forbidden_keywords?(json) do
+      {:error, :forbidden_jsonld_keyword}
+    else
+      do_verify(json)
+    end
+  end
+
+  def verify(_), do: {:error, :no_signature}
+
+  defp do_verify(%{"signature" => %{"type" => @signature_type} = signature} = json) do
     creator_uri = signature["creator"]
     signature_value = signature["signatureValue"]
 
@@ -57,18 +70,24 @@ defmodule ActivityPub.Safety.LinkedDataSignatures do
     end
   end
 
-  def verify(%{"signature" => %{"type" => type}}) do
+  defp do_verify(%{"signature" => %{"type" => type}}) do
     debug(type, "Unsupported LD Signature type")
     {:error, :unsupported_signature_type}
   end
 
-  def verify(%{"signature" => _}) do
-    {:error, :malformed_signature}
+  defp do_verify(%{"signature" => _}), do: {:error, :malformed_signature}
+  defp do_verify(_), do: {:error, :no_signature}
+
+  defp contains_forbidden_keywords?(map) when is_map(map) do
+    Enum.any?(@forbidden_keywords, &Map.has_key?(map, &1)) or
+      Enum.any?(Map.values(map), &contains_forbidden_keywords?/1)
   end
 
-  def verify(_) do
-    {:error, :no_signature}
+  defp contains_forbidden_keywords?(list) when is_list(list) do
+    Enum.any?(list, &contains_forbidden_keywords?/1)
   end
+
+  defp contains_forbidden_keywords?(_), do: false
 
   @doc """
   Check whether an activity JSON contains an LD signature that we can verify.

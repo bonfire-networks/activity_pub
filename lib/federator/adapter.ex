@@ -265,8 +265,28 @@ defmodule ActivityPub.Federator.Adapter do
     end
   end
 
+  @doc """
+  Checks whether federation with a given URI is allowed.
+  Called before fetching remote objects/actors to prevent HTTP requests to disallowed hosts.
+  Subsumes the config-based `SimplePolicy.check_reject/1` check.
+  Return `true` to allow, `false` to deny.
+  """
+  @callback federation_allowed?(URI.t() | term(), opts :: keyword()) :: boolean()
+  def federation_allowed?(uri, opts \\ []) do
+    if function_exported?(adapter(), :federation_allowed?, 2) do
+      adapter().federation_allowed?(uri, opts)
+    else
+      # default: preserve existing check_reject behaviour
+      case ActivityPub.MRF.SimplePolicy.check_reject(uri) do
+        {:ok, _} -> true
+        {:reject, _} -> false
+      end
+    end
+  end
+
   @optional_callbacks external_followers_for_activity: 2,
                       external_followers_for_activity: 3,
                       get_multi_tenant_context: 0,
-                      set_multi_tenant_context: 1
+                      set_multi_tenant_context: 1,
+                      federation_allowed?: 2
 end

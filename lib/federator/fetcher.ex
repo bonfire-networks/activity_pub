@@ -569,7 +569,9 @@ defmodule ActivityPub.Federator.Fetcher do
            options[:force_instance_reachable] || Instances.reachable?(uri) ||
              error("Instance was recently not reachable"),
          # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
-         {:ok, nil} <- ActivityPub.MRF.SimplePolicy.check_reject(uri),
+         true <-
+           Adapter.federation_allowed?(uri, Keyword.put(options, :direction, :in)) ||
+             {:error, :not_allowed},
          true <-
            not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :is_local},
          format <- options[:signature_format] || Instances.get_or_discover_signature_format(uri),

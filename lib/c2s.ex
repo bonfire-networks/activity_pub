@@ -74,21 +74,18 @@ defmodule ActivityPub.C2S do
 
   defp ensure_object_id(params), do: params
 
-  @doc """
-  Per spec: copy addressing between activity and nested object bidirectionally.
-  Uses put_new so existing values are preserved.
-  """
+  # Copy addressing between activity and nested object, unioning both lists.
   defp copy_addressing(%{"type" => "Create", "object" => object} = params) when is_map(object) do
-    # Build merged addressing (activity values take precedence, then object values)
     merged =
       @addressing_fields
-      |> Enum.map(fn field -> {field, params[field] || object[field]} end)
-      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Enum.map(fn field ->
+        v = List.wrap(params[field]) ++ List.wrap(object[field])
+        {field, v |> Enum.uniq() |> Enum.reject(&is_nil/1)}
+      end)
+      |> Enum.reject(fn {_k, v} -> v == [] end)
       |> Map.new()
 
-    params
-    |> Map.merge(merged)
-    |> Map.update!("object", &Map.merge(&1, merged))
+    params |> Map.merge(merged) |> Map.update!("object", &Map.merge(&1, merged))
   end
 
   defp copy_addressing(params), do: params

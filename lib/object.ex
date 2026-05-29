@@ -281,7 +281,7 @@ defmodule ActivityPub.Object do
         end
 
       error ->
-        debug(params, "Error while trying to insert these params")
+        info(params, "Error while trying to insert these params")
         err(error, "Error while trying to save the object for federation on repo #{repo()}")
         {:error, "Error while trying to save the object for federation"}
     end

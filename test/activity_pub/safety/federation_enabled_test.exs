@@ -22,6 +22,10 @@ defmodule ActivityPub.Web.FederationEnabledTest do
     Config.put([:instance, :federating], nil)
 
     assert nil == Config.federating?()
+
+    Config.put([:instance, :federating], :manual)
+
+    assert nil == Config.federating?()
   end
 
   test "can enable federation" do

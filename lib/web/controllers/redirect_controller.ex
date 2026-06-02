@@ -90,7 +90,14 @@ defmodule ActivityPub.Web.RedirectController do
       conn |> redirect(to: "#{login_path}#{go}") |> halt()
     else
       with {:ok, fingered} <-
-             ActivityPub.Federator.WebFinger.finger(me) |> debug("fingered"),
+             ActivityPub.Federator.WebFinger.finger(me,
+               # local user reaching out: check outgoing (:ghost) blocks, scoped to the acting
+               # user/actor so per-user blocks apply
+               direction: :out,
+               current_user: conn.assigns[:current_user],
+               by_actor: conn.assigns[:current_actor]
+             )
+             |> debug("fingered"),
            %{"subscribe_address" => subscribe_address}
            when is_binary(subscribe_address) <- fingered,
            true <- String.contains?(subscribe_address, "{uri}"),

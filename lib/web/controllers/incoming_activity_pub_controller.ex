@@ -62,7 +62,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     else
       "this instance is not currently federating"
     end
-    |> debug()
+    # |> debug()
     |> Utils.error_json(conn, ..., 403)
   end
 

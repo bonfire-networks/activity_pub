@@ -388,7 +388,7 @@ defmodule ActivityPub.Actor do
   def fetch_by_username(username, opts) do
     with federating? when federating? != false <- Config.federating?(),
          {:ok, %{"id" => ap_id}} when not is_nil(ap_id) <-
-           WebFinger.finger(username) do
+           WebFinger.finger(username, opts) do
       Fetcher.fetch_object_from_id(
         ap_id,
         opts |> Keyword.put(:triggered_by, "Actor.fetch_by_username")

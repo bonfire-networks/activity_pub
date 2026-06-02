@@ -8,17 +8,28 @@ defmodule ActivityPub.Federator.WebFinger do
   import Untangle
 
   alias ActivityPub.Actor
+  alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.HTTP
   alias ActivityPub.Federator.Publisher
   alias ActivityPub.Utils
 
   @doc """
   Fetches webfinger data for an account given in "@username@domain.tld" format.
+
+  Pass `opts` to scope the instance-restriction check. The caller owns directionality and context:
+  `direction: :out` for an outgoing interaction the local user initiates, plus `by_actor:` (an AP
+  `Actor`) or `current_user:` (a local user) so per-user blocks apply. With no `direction`, the
+  check falls back to blocking on *any* block type (a safe default for neutral/inbound lookups).
   """
-  def finger(account) do
+  def finger(account, opts \\ []) do
     account = String.trim_leading(account, "@")
 
     with {:ok, base_url} <- remote_base_url(account),
+         # apply instance restrictions here too, so we don't even attempt to discover (and thus leak  interest in / reach out to) an actor on a blocked/disallowed instance, honouring the direction and per-user/actor context the caller passes via opts
+         # TODO: need to make sure all callers pass current actor/user in opts for this to also take into account user-level allows & blocks
+         true <-
+           Adapter.federation_allowed?(URI.parse(base_url), opts) ||
+             {:error, :not_allowed},
          response <-
            HTTP.get(
              "#{base_url}/.well-known/webfinger?#{URI.encode_query(%{"resource" => "acct:#{account}"})}",
@@ -30,6 +41,10 @@ defmodule ActivityPub.Federator.WebFinger do
          {:ok, doc} <- Jason.decode(body) do
       webfinger_from_json(doc)
     else
+      {:error, :not_allowed} = e ->
+        debug(account, "WebFinger lookup blocked: instance is not allowed")
+        e
+
       {:error, {:local_user, name}} ->
         output(name || account)
         ~> webfinger_from_json()

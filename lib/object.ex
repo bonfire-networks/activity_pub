@@ -165,6 +165,13 @@ defmodule ActivityPub.Object do
     )
   end
 
+  def query(ap_ids: ap_ids) when is_list(ap_ids) do
+    # batch lookup by canonical `id` (to pre-resolve many actors/objects at once, avoiding n+1)
+    from(object in Object,
+      where: fragment("(?)->>'id'", object.data) in ^ap_ids
+    )
+  end
+
   def query(username: username) when is_binary(username) do
     from(object in Object,
       # support for looking up by non-canonical URL

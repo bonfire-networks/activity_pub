@@ -358,6 +358,9 @@ defmodule ActivityPub.Federator.APPublisher do
     |> Enum.map(&Actor.get_cached!(pointer: &1))
     |> Enum.reject(&is_nil/1)
     |> Enum.filter(fn x -> !x.local end)
+    # apply the same outgoing federation gate as the addressed/non-public path, so e.g. an
+    # allowlist-only instance doesn't fan a public post out to non-allowlisted remote followers
+    |> Enum.filter(&Adapter.federation_allowed?(&1, direction: :out, by_actor: actor))
     |> debug("external_followers (excluding already addressed)")
   end
 

@@ -149,6 +149,8 @@ defmodule ActivityPub.Test.Helpers do
     case activity do
       {:reject, _} -> true
       {:error, {:reject, _}} -> true
+      # canonical "instance not allowed/blocked" return from the fetcher (see `Fetcher` + `federation_allowed?`)
+      {:error, :not_allowed} -> true
       {:ok, %{to: []}} -> true
       {:ok, %{"to" => []}} -> true
       _ -> false

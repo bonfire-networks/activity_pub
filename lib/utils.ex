@@ -243,6 +243,12 @@ defmodule ActivityPub.Utils do
       raise("Could not determine ap_id")
   end
 
+  @doc "Normalise a subject (URI, ap_id string, or actor/object) to a `%URI{}`, or `nil` if undeterminable."
+  def ap_uri(%URI{} = uri), do: uri
+  def ap_uri(subject) when is_binary(subject), do: URI.parse(subject)
+  def ap_uri(nil), do: nil
+  def ap_uri(subject), do: subject |> ap_id() |> ap_uri()
+
   def some_identifier(_, id) when is_binary(id) do
     id
   end

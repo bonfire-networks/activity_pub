@@ -7,6 +7,14 @@ defmodule ActivityPub.Federator.Adapter do
   alias ActivityPub.Actor
   alias ActivityPub.Object
 
+  # When enabled (e.g. in `:test`), `federation_allowed?`/`federate_actor?` *also* apply the lib's
+  # own config-based `SimplePolicy` (`:mrf_simple`) reject on top of the host adapter's decision.
+  @also_apply_simple_policy Application.compile_env(
+                              :activity_pub,
+                              :also_apply_simple_policy,
+                              false
+                            )
+
   def adapter,
     do:
       Application.get_env(:activity_pub, :adapter) ||
@@ -225,7 +233,20 @@ defmodule ActivityPub.Federator.Adapter do
         direction \\ nil,
         by_actor \\ nil
       ) do
-    adapter().federate_actor?(actor, direction, by_actor)
+    if function_exported?(adapter(), :federate_actor?, 3) do
+      adapter_allows? = adapter().federate_actor?(actor, direction, by_actor)
+
+      # when enabled (e.g. in `:test`), *also* apply the lib's own config-based `SimplePolicy` reject
+      if @also_apply_simple_policy,
+        do: adapter_allows? and simple_policy_allows?(ActivityPub.Utils.ap_id(actor)),
+        else: adapter_allows?
+    else
+      # adapter doesn't implement `federate_actor?/3`: derive from `federation_allowed?/2`
+      # (which already applies `SimplePolicy` itself, so no double-check here)
+      actor
+      |> ActivityPub.Utils.ap_id()
+      |> federation_allowed?(direction: direction, by_actor: by_actor)
+    end
   end
 
   def transform_outgoing(data, target_host \\ nil, target_actor_ids \\ nil) do
@@ -274,13 +295,28 @@ defmodule ActivityPub.Federator.Adapter do
   @callback federation_allowed?(URI.t() | term(), opts :: keyword()) :: boolean()
   def federation_allowed?(uri, opts \\ []) do
     if function_exported?(adapter(), :federation_allowed?, 2) do
-      adapter().federation_allowed?(uri, opts)
+      adapter_allows? = adapter().federation_allowed?(uri, opts)
+
+      # when enabled (e.g. in `:test`), *also* apply the lib's own config-based `SimplePolicy`
+      # reject on top of the adapter's decision (whose gating doesn't include SimplePolicy)
+      if @also_apply_simple_policy,
+        do: adapter_allows? and simple_policy_allows?(uri),
+        else: adapter_allows?
     else
-      # default: preserve existing check_reject behaviour
-      case ActivityPub.MRF.SimplePolicy.check_reject(uri) do
-        {:ok, _} -> true
-        {:reject, _} -> false
-      end
+      # adapter has no gating of its own: the lib's `SimplePolicy` is the only gate
+      simple_policy_allows?(uri)
+    end
+  end
+
+  defp simple_policy_allows?(subject) do
+    # `SimplePolicy.check_reject/2` matches on a `%URI{}` (`%{host: ...}`), so normalise the subject
+    # (URI, ap_id string, or actor/object struct) first; allow when no host can be determined
+    case ActivityPub.Utils.ap_uri(subject) do
+      %URI{host: host} = uri when is_binary(host) ->
+        match?({:ok, _}, ActivityPub.MRF.SimplePolicy.check_reject(uri))
+
+      _ ->
+        true
     end
   end
 

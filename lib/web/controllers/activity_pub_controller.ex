@@ -69,7 +69,7 @@ defmodule ActivityPub.Web.ActivityPubController do
     is_deletion? = is_in(json["type"], ["Delete", "Tombstone"])
 
     if is_deletion? || opts[:exporting] == true ||
-         federate_actor?(Map.get(json, "actor"), conn) do
+         may_serve_actor?(Map.get(json, "actor"), conn) do
       # If published date is in the future, do not return the object
       published_in_future? =
         case is_deletion? || json["published"] do
@@ -177,7 +177,7 @@ defmodule ActivityPub.Web.ActivityPubController do
       get_format(conn) == "html" ->
         ActivityPub.Web.RedirectController.actor(conn, %{"username" => username})
 
-      federate_actor?(username, conn) ->
+      may_serve_actor?(username, conn) ->
         actor_with_cache(conn, username)
 
       true ->
@@ -213,7 +213,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def following(conn, %{"username" => username} = params) do
-    with true <- federate_actor?(username, conn),
+    with true <- may_serve_actor?(username, conn),
          {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
@@ -223,7 +223,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def followers(conn, %{"username" => username} = params) do
-    with true <- federate_actor?(username, conn),
+    with true <- may_serve_actor?(username, conn),
          {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
@@ -233,7 +233,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def outbox(conn, %{"username" => username} = params) do
-    with true <- federate_actor?(username, conn),
+    with true <- may_serve_actor?(username, conn),
          {:ok, actor} <- Actor.get_cached(username: username) do
       conn
       |> put_resp_content_type("application/activity+json")
@@ -306,8 +306,16 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
-  defp federate_actor?(username, conn) do
-    Adapter.federate_actor?(username, :out, Map.get(conn.assigns, :current_actor)) != false
+  defp may_serve_actor?(local_actor, conn) do
+    # the local actor whose data is being served is the LOCAL party (`by_actor`); the requesting
+    # actor (from the HTTP signature, may be nil) is the `subject` checked against. This honors the
+    # served actor's own per-user federation setting (e.g. `user_federating: false`) and "does this
+    # actor allow the requester", matching the by_actor=local / subject=remote convention elsewhere.
+    Adapter.federate_actor?(
+      Map.get(conn.assigns, :current_user) || Map.get(conn.assigns, :current_actor),
+      :out,
+      local_actor
+    ) != false
   end
 
   defp page_number("true"), do: 1

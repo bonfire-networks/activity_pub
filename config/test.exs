@@ -3,6 +3,11 @@ import Config
 config :activity_pub, :repo, ActivityPub.TestRepo
 config :activity_pub, :endpoint_module, ActivityPub.Web.Endpoint
 
+# in tests, *also* apply the lib's own config-based `SimplePolicy` (`:mrf_simple`) reject on top of
+# the boundary-based gating in `Bonfire.Federate.ActivityPub.Adapter`, so AP-lib tests that rely on
+# `:mrf_simple` (which the host adapter doesn't consult) behave as the lib expects
+config :activity_pub, :also_apply_simple_policy, true
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

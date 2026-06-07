@@ -99,7 +99,6 @@ defmodule ActivityPub.Federator.Worker do
 
       def enqueue(op, params, worker_args \\ []) do
         changeset = enqueueable(op, params, worker_args || [])
-
         # Route to the correct Oban instance based on current repo context
         # (e.g. Oban.TestInstance for the test instance database)
         oban_name =

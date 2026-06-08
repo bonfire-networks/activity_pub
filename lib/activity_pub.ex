@@ -636,7 +636,9 @@ defmodule ActivityPub do
       "to" => Map.get(origin_data, "followers", [])
     }
 
-    with true <- Actor.also_known_as?(origin_ap_id, target.data),
+    with true <-
+           Actor.also_known_as?(origin_ap_id, target.data) or
+             Actor.valid_move_chain?(origin_ap_id, target.ap_id),
          {:ok, activity} <- Object.insert(params, local, nil, opts),
          # TODO: which one to use as actor
          :ok <- maybe_federate(nil, activity),

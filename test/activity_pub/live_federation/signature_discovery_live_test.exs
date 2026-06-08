@@ -233,6 +233,74 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     end
   end
 
+  describe "Mastodon with AUTHORIZED_FETCH enabled (scholar.social) — repro issue #2029" do
+    # scholar.social runs Mastodon with AUTHORIZED_FETCH=true.
+    # Bonfire selects RFC 9421 for Mastodon >= 4.5.0, but the signed GETs are rejected
+    # with 401. This block reproduces the failure and confirms cavage works as a control.
+
+    setup do
+      host = "scholar.social"
+
+      Cachex.del(:ap_sig_format_cache, host)
+      Cachex.del(:ap_sig_format_cache, "discovery:#{host}")
+
+      {:ok, host: host}
+    end
+
+    test "discovery selects rfc9421 for Mastodon >= 4.5.0", %{host: host} do
+      Instances.get_or_discover_signature_format(host)
+      format = SignaturesAdapter.get_signature_format(host)
+      IO.puts("#{host} — discover_signature_format result: #{inspect(format)}")
+      assert format == :rfc9421
+    end
+
+    test "signed GET with RFC 9421 is accepted (repro: expect 401 before fix)", %{host: host} do
+      SignaturesAdapter.put_signature_format(host, :rfc9421)
+
+      uri = URI.parse("https://#{host}/users/socrates")
+
+      headers =
+        [{"Accept", "application/activity+json"}]
+        |> ActivityPub.Safety.Keys.maybe_add_fetch_signature_headers(uri,
+          signature_format: :rfc9421
+        )
+
+      IO.puts("#{host} — RFC 9421 outbound headers: #{inspect(headers)}")
+
+      result =
+        Fetcher.fetch_remote_object_from_id("https://#{host}/users/socrates",
+          force_instance_reachable: true,
+          signature_format: :rfc9421
+        )
+
+      IO.puts("#{host} — RFC 9421 fetch result: #{inspect(result)}")
+      assert {:ok, _} = result
+    end
+
+    test "signed GET with cavage succeeds (control)", %{host: host} do
+      SignaturesAdapter.put_signature_format(host, :cavage)
+
+      uri = URI.parse("https://#{host}/users/socrates")
+
+      headers =
+        [{"Accept", "application/activity+json"}]
+        |> ActivityPub.Safety.Keys.maybe_add_fetch_signature_headers(uri,
+          signature_format: :cavage
+        )
+
+      IO.puts("#{host} — cavage outbound headers: #{inspect(headers)}")
+
+      result =
+        Fetcher.fetch_remote_object_from_id("https://#{host}/users/socrates",
+          force_instance_reachable: true,
+          signature_format: :cavage
+        )
+
+      IO.puts("#{host} — cavage fetch result: #{inspect(result)}")
+      assert {:ok, _} = result
+    end
+  end
+
   describe "Akkoma instance (seafoam.space) — draft-cavage only" do
     setup do
       host = "seafoam.space"

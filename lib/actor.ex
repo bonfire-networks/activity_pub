@@ -952,6 +952,62 @@ defmodule ActivityPub.Actor do
     warn(actor, "Could not match #{ap_id} in any alsoKnownAs for this actor")
     false
   end
+
+  @doc "Returns true if the origin actor's `movedTo` points to the given target AP ID."
+  def moved_to?(%{data: %{"movedTo" => moved_to}}, target_ap_id)
+      when is_binary(moved_to) and is_binary(target_ap_id),
+      do: moved_to == target_ap_id
+
+  def moved_to?(%{"movedTo" => moved_to}, target_ap_id)
+      when is_binary(moved_to) and is_binary(target_ap_id),
+      do: moved_to == target_ap_id
+
+  def moved_to?(_, _), do: false
+
+  @doc """
+  Returns true if there is a validated transitive migration chain from `origin_ap_id` to
+  `target_ap_id` using only cached actor data.
+
+  Each hop requires two-sided consent: the previous actor's `movedTo` must point forward,
+  and the next actor's `alsoKnownAs` must include the previous actor (consent from the
+  receiving side). Depth-limited to 5 hops to prevent loops.
+  """
+  def valid_move_chain?(origin, target, depth \\ 5)
+  def valid_move_chain?(_, _, 0), do: false
+
+  def valid_move_chain?(%{ap_id: origin_ap_id}, target, depth),
+    do: valid_move_chain?(origin_ap_id, target, depth)
+
+  def valid_move_chain?(origin_ap_id, %{ap_id: target_ap_id}, depth),
+    do: valid_move_chain?(origin_ap_id, target_ap_id, depth)
+
+  def valid_move_chain?(origin_ap_id, target_ap_id, depth)
+      when is_binary(origin_ap_id) and is_binary(target_ap_id) do
+    with {:ok, origin_actor} <- get_cached(ap_id: origin_ap_id),
+         moved_to when is_binary(moved_to) <- origin_actor.data["movedTo"] do
+      if moved_to == target_ap_id do
+        # Direct hop — verify target consents via alsoKnownAs
+        case get_cached(ap_id: target_ap_id) do
+          {:ok, target_actor} -> also_known_as?(origin_ap_id, target_actor)
+          _ -> false
+        end
+      else
+        # Multi-hop — verify intermediate consents, then recurse
+        case get_cached(ap_id: moved_to) do
+          {:ok, intermediate} ->
+            also_known_as?(origin_ap_id, intermediate) and
+              valid_move_chain?(moved_to, target_ap_id, depth - 1)
+
+          _ ->
+            false
+        end
+      end
+    else
+      _ -> false
+    end
+  end
+
+  def valid_move_chain?(_, _, _), do: false
 end
 
 defimpl Jason.Encoder, for: ActivityPub.Actor do

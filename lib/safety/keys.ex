@@ -261,15 +261,16 @@ defmodule ActivityPub.Safety.Keys do
   defp id_host(_), do: nil
 
   defp make_fetch_signature(%URI{} = uri, :rfc9421, options) do
-    target_uri = URI.to_string(uri)
-
     with {:ok, request_actor} <- options[:current_actor] || Utils.service_actor(),
          {:ok, {sig_input, sig}} <-
            Keys.sign(
              request_actor,
              %{
                "@method" => "GET",
-               "@target-uri" => target_uri
+               "@scheme" => uri.scheme || "https",
+               "@authority" => http_host(uri),
+               "@path" => uri.path || "/",
+               "@query" => uri.query
              },
              format: :rfc9421,
              components: ["@method", "@target-uri"]

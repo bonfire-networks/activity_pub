@@ -78,6 +78,30 @@ defmodule ActivityPub.Utils do
 
   def activitypub_object_headers, do: [{"content-type", "application/activity+json"}]
 
+  @collections_segment "/collections/"
+
+  @doc """
+  The stable, dereferenceable id for a collection: `{base}/collections/{type}/{uuid}`. A neutral URL
+  helper — used for both store-backed (e.g. keyPackages) and adapter/extension-owned (e.g. featured)
+  collections. `type` lets serving dispatch by pure path-parse; `uuid` identifies *which* collection
+  (the owner actor's id for singleton-per-actor collections, or the collection's own id otherwise).
+  """
+  def collection_ap_id(type, uuid) when is_binary(type) and is_binary(uuid),
+    do: "#{ap_base_url()}#{@collections_segment}#{type}/#{uuid}"
+
+  @doc "Inverse of `collection_ap_id/2`: parse a collection id into `{:ok, type, uuid}`, or `:error`."
+  def parse_collection_ap_id(ap_id) when is_binary(ap_id) do
+    with [_base, rest] <- String.split(ap_id, @collections_segment, parts: 2),
+         [type, uuid] <- String.split(rest, "/", parts: 2),
+         true <- type != "" and uuid != "" and not String.contains?(uuid, ["/", "?", "#"]) do
+      {:ok, type, uuid}
+    else
+      _ -> :error
+    end
+  end
+
+  def parse_collection_ap_id(_), do: :error
+
   def make_json_ld_header(type \\ :object) do
     %{
       "@context" => make_json_ld_context_list(type)

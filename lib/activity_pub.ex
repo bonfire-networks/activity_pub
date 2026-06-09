@@ -18,6 +18,7 @@ defmodule ActivityPub do
   alias ActivityPub.Federator.Transformer
   # alias ActivityPub.Utils
   alias ActivityPub.Object
+  alias ActivityPub.GenericCollectionStore
   # alias ActivityPub.MRF
 
   @doc """
@@ -496,6 +497,103 @@ defmodule ActivityPub do
     end
   end
 
+  @doc """
+  Generates and federates an `Add` activity adding `object` to the collection `target`.
+
+  When `target` resolves to a collection this lib owns (per the minted
+  `{owner}/collections/{type}` convention, see `ActivityPub.GenericCollectionStore`), the
+  membership is recorded in the fallback store. Otherwise the side-effect is left to the host
+  via `Adapter.maybe_handle_activity/2` (e.g. a future Pins extension).
+  """
+  def add(%{actor: actor, object: object, target: _target} = params, opts \\ []) do
+    apply_collection_activity("Add", :add, params, actor, object, opts)
+  end
+
+  @doc """
+  Generates and federates a `Remove` activity removing `object` from the collection `target`.
+  See `add/2`.
+  """
+  def remove(%{actor: actor, object: object, target: _target} = params, opts \\ []) do
+    apply_collection_activity("Remove", :remove, params, actor, object, opts)
+  end
+
+  defp apply_collection_activity(type, op, %{target: target} = params, actor, object, opts) do
+    with data <-
+           make_add_remove_data(type, actor, object, target, Map.get(params, :activity_id)),
+         {:ok, activity} <-
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
+         # C2S activities are federated by the adapter's outgoing path (as in `do_create/3`)
+         :ok <- if(opts[:from_c2s], do: :ok, else: maybe_federate(actor, activity, opts)),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
+         activity <- Map.put(activity, :pointer, adapter_object),
+         _ <- apply_to_collection_store(op, target, object, opts) do
+      {:ok, activity}
+    end
+  end
+
+  defp make_add_remove_data(type, actor, object, target, activity_id) do
+    data = %{
+      "type" => type,
+      "actor" => Utils.ap_id(actor),
+      "object" => Utils.ap_id(object),
+      "target" => Utils.ap_id(target),
+      # TODO: FEP-400e — on an accepted Add, fan out the Add to the collection owner's followers
+      "to" => [Config.public_uri()] ++ List.wrap(followers_ap_id(actor))
+    }
+
+    if activity_id, do: Map.put(data, "id", activity_id), else: data
+  end
+
+  defp followers_ap_id(%{data: %{"followers" => followers}}) when is_binary(followers),
+    do: followers
+
+  defp followers_ap_id(_), do: []
+
+  defp apply_to_collection_store(op, target, object, opts) do
+    case resolve_collection(target) do
+      {:store, collection} ->
+        case op do
+          :add -> GenericCollectionStore.add_member(collection, object, opts)
+          :remove -> GenericCollectionStore.remove_member(collection, object)
+        end
+
+      _ ->
+        # the adapter side-effect already ran via `maybe_handle_activity`, or target is unknown
+        {:ok, :delegated}
+    end
+  end
+
+  @doc """
+  Resolves a collection `target` (an `%Object{}`, ap_id, or map) to how its membership is handled:
+  `{:store, collection}` for a lib-owned collection, `{:adapter, ap_id}` when an extension owns it,
+  or `:unknown`.
+  """
+  def resolve_collection(target) do
+    ap_id = Utils.ap_id(target)
+
+    # Store-backed iff it's a singleton-per-actor collection owned by a local actor that *no adapter
+    # handles* (a cheap registry check — no member queries). Adapter-owned ones (e.g. Pins/featured)
+    # → `{:adapter}` so the host handles membership.
+    with true <- is_binary(ap_id),
+         {:ok, type, uuid} <- Utils.parse_collection_ap_id(ap_id),
+         true <- is_in(type, :singleton_collection_types),
+         false <- Adapter.adapter_handles?({:collection, type}),
+         {:ok, owner_ap_id} <- local_actor_ap_id(uuid),
+         {:ok, collection} <-
+           GenericCollectionStore.get_or_create_collection(type, uuid, owner_ap_id) do
+      {:store, collection}
+    else
+      _ -> if is_binary(ap_id), do: {:adapter, ap_id}, else: :unknown
+    end
+  end
+
+  defp local_actor_ap_id(uuid) do
+    case Actor.get_cached(pointer: uuid) do
+      {:ok, %{local: true} = actor} -> {:ok, actor.ap_id}
+      _ -> :error
+    end
+  end
+
   def delete(object, is_local? \\ nil, opts \\ [])
 
   def delete(%{local: is_local?} = object, nil, []) do
@@ -564,6 +662,8 @@ defmodule ActivityPub do
       (object.data["to"] || []) ++ (object.data["cc"] || []) ++ [ActivityPub.Config.public_uri()]
 
     with {:ok, _object} <- Object.delete(object) |> debug("dellll"),
+         # prune lib-owned collection memberships (tombstone keeps the row, so cascade won't fire)
+         _ <- GenericCollectionStore.remove_object_everywhere(id),
          data <- %{
            "type" => "Delete",
            "actor" => opts[:subject] || actor,

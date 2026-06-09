@@ -160,6 +160,68 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   @doc """
+  Read API for a collection's membership, returning a list of member **ap_ids (URIs)** (wire format).
+
+  `collection` is a Collection `%Object{}`. When the host adapter implements `collection_items/2`
+  it is used (so an extension that owns the data — e.g. a future Pins — supplies items without
+  duplication); otherwise it falls back to the lib's `ActivityPub.GenericCollectionStore`.
+
+  Note this is distinct from `get_follower_local_ids/2` / `get_following_local_ids/2`, which return
+  local host *pointer ids* for delivery targeting — a different shape and purpose.
+
+  The host adapter's `collection_items/2` only returns a list of items for collections **it** owns (e.g. a Pins extension serving `featured`); for any collection it doesn't own it returns nil, so this **defers per-collection** to the lib's `ActivityPub.GenericCollectionStore` fallback (eg. used by keyPackages). So an adapter implementing this never has to reimplement the store path.
+
+  TODO: FEP-6606 — pass query-param filters (type=, maxItems=, after/before) through `opts`.
+  """
+  @callback collection_items(Object.t(), keyword()) :: [binary()] | nil
+  def collection_items(collection, opts \\ []) do
+    case function_exported?(adapter(), :collection_items, 2) &&
+           adapter().collection_items(collection, opts) do
+      items when is_list(items) -> items
+      # adapter doesn't own this collection (nil/:default) → lib store fallback
+      _ -> default_collection_items(collection, opts)
+    end
+  end
+
+  # only a *persisted* Collection object (with an id) is store-backed; a synthesized envelope (no id)
+  # that no adapter claimed means nobody owns it → `nil` (so serving can 404)
+  defp default_collection_items(%Object{id: id} = collection, opts) when is_binary(id) do
+    case opts[:return] do
+      :ap_objects -> ActivityPub.GenericCollectionStore.member_objects(collection, opts)
+      _ -> ActivityPub.GenericCollectionStore.member_ap_ids(collection, opts)
+    end
+  end
+
+  defp default_collection_items(_collection, _opts), do: nil
+
+  @doc """
+  `totalItems` companion to `collection_items/2`: the host adapter returns an integer for a
+  collection it owns, or `nil` to defer to the lib's `GenericCollectionStore.member_count/1`.
+  """
+  @callback collection_total(Object.t(), keyword()) :: non_neg_integer() | nil
+  def collection_total(collection, opts \\ []) do
+    case function_exported?(adapter(), :collection_total, 2) &&
+           adapter().collection_total(collection, opts) do
+      n when is_integer(n) -> n
+      _ -> default_collection_total(collection)
+    end
+  end
+
+  defp default_collection_total(%Object{} = collection),
+    do: ActivityPub.GenericCollectionStore.member_count(collection)
+
+  defp default_collection_total(_collection), do: 0
+
+  @doc """
+  Whether the host adapter has a handler registered for the given `query` — a cheap registry lookup
+  (no fetching). `query` can be a verb/object type string, a `{verb, object_type}` tuple, a
+  `{:collection, type}` tuple, etc. Lets the lib infer routing without querying members — e.g.
+  store-backed collections are those *no* adapter handles (`not adapter_handles?({:collection, type})`).
+  """
+  @callback adapter_handles?(term()) :: boolean()
+  def adapter_handles?(query), do: call_or(:adapter_handles?, [query], false) == true
+
+  @doc """
   The base URL of the application serving `ActivityPub.Web.Endpoint`.
   """
   @callback base_url() :: String.t()
@@ -324,5 +386,8 @@ defmodule ActivityPub.Federator.Adapter do
                       external_followers_for_activity: 3,
                       get_multi_tenant_context: 0,
                       set_multi_tenant_context: 1,
-                      federation_allowed?: 2
+                      federation_allowed?: 2,
+                      collection_items: 2,
+                      collection_total: 2,
+                      adapter_handles?: 1
 end

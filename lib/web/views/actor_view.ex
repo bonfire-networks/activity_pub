@@ -7,6 +7,7 @@ defmodule ActivityPub.Web.ActorView do
   alias ActivityPub.Config
   alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
+  alias ActivityPub.Web.Collections
 
   def actor_json(username) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
@@ -125,23 +126,15 @@ defmodule ActivityPub.Web.ActorView do
   end
 
   def collection(collection, iri, page, total \\ nil) do
-    offset = (page - 1) * 10
-    items = Enum.slice(collection, offset, 10)
-    items = Enum.map(items, fn actor -> actor.ap_id end)
+    offset = (page - 1) * Collections.page_size()
+
+    items =
+      collection
+      |> Enum.slice(offset, Collections.page_size())
+      |> Enum.map(fn actor -> actor.ap_id end)
+
     total = total || length(collection)
 
-    map = %{
-      "id" => "#{iri}?page=#{page}",
-      "type" => "CollectionPage",
-      "partOf" => iri,
-      "totalItems" => total,
-      "orderedItems" => items
-    }
-
-    if offset < total do
-      Map.put(map, "next", "#{iri}?page=#{page + 1}")
-    else
-      map
-    end
+    Collections.page(iri, page, total, items, next?: offset < total)
   end
 end

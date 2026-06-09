@@ -138,4 +138,46 @@ defmodule ActivityPub.Migrations do
   def drop_object_coalesce_index do
     drop(index(:ap_object, ["(coalesce((data)->'object'->>'id', data->>'object'))"]))
   end
+
+  @doc """
+  Membership table backing `ActivityPub.GenericCollectionStore` (the fallback store for
+  collections the lib itself owns, e.g. `keyPackages`). One row per member of a collection.
+
+  Identity (the Collection itself) lives as a normal `ap_object` row and is cached; membership
+  is read fresh from this table so single-use consumption is reflected immediately.
+  """
+  def add_collection_member_table(concurrently? \\ concurrently?()) do
+    # natural composite primary key (collection_id, object_ap_id) — no surrogate id; it also
+    # enforces one membership per (collection, object)
+    create_if_not_exists table("ap_collection_member", primary_key: false) do
+      # the Collection ap_object this membership belongs to
+      add(:collection_id, references("ap_object", type: :uuid, on_delete: :delete_all),
+        null: false,
+        primary_key: true
+      )
+
+      # the member's local ap_object (when materialised); nullable so an Add can reference a
+      # remote object before it's fetched+stored
+      # TODO: FEP-400e — object_id may be null for unresolved-remote members (appendable walls/forums)
+      add(:object_id, references("ap_object", type: :uuid, on_delete: :delete_all))
+
+      # the member's AP id (URI) — always set; immutable, so safe to denormalise.
+      # enables URI-only rendering straight from this table (no object loads)
+      add(:object_ap_id, :text, null: false, primary_key: true)
+
+      timestamps(type: :utc_datetime_usec, updated_at: false)
+    end
+
+    # ordered paging within a collection (FEP-1985 orderType drives ASC/DESC at query time)
+    create_if_not_exists(
+      index(:ap_collection_member, [:collection_id, :inserted_at, :object_ap_id],
+        concurrently: concurrently?
+      )
+    )
+  end
+
+  @doc "Drops the `ap_collection_member` table."
+  def drop_collection_member_table do
+    drop_if_exists(table("ap_collection_member"))
+  end
 end

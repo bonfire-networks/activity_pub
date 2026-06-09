@@ -61,6 +61,9 @@ defmodule ActivityPub.Web.Router do
         get("/actors/:username/followers", ActivityPubController, :followers)
         get("/actors/:username/following", ActivityPubController, :following)
         get("/actors/:username/outbox", ActivityPubController, :outbox)
+        # lib-owned generic collections (e.g. keyPackages per MLS-over-AP). `uuid` is the owner
+        # actor's id for singleton-per-actor collections, or the collection's own id otherwise.
+        get("/collections/:type/:uuid", ActivityPubController, :collection)
         # maybe return inbox, or error saying only POST supported
         get("/actors/:username/inbox", ActivityPubController, :maybe_inbox)
       end

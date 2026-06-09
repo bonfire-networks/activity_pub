@@ -9,7 +9,7 @@ defmodule ActivityPub.Federator.ActorMigrationTest do
   Mastodon ignores dangling aliases; this will affect anyone who ever migrated accounts.
   """
 
-  use ActivityPub.Web.ConnCase, async: true
+  use ActivityPub.Web.ConnCase, async: false
 
   import ActivityPub.Factory
   import Tesla.Mock

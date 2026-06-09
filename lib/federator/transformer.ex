@@ -1656,6 +1656,67 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # FEP-400e: adding/removing an object to/from a collection (e.g. keyPackages per MLS-over-AP).
+  # Explicit clause so the side-effect runs regardless of the `handle_unknown_activities` flag.
+  # TODO: FEP-400e — on an accepted Add to a local collection, fan out the Add to the owner's followers
+  # TODO: FEP-2931 — consume/produce `context` as a Collection
+  def handle_incoming(
+        %{"type" => type, "object" => object, "target" => target} = data,
+        opts
+      )
+      when type in ["Add", "Remove"] do
+    info(type, "Handle incoming collection #{type}")
+
+    case ActivityPub.resolve_collection(target) do
+      {:store, _collection} ->
+        # a collection this lib owns (e.g. a local actor's keyPackages): apply real semantics,
+        # gated by the FEP-400e authority check
+        with actor_ap <- Object.actor_from_data(data),
+             {:ok, actor} <- Actor.get_cached(ap_id: actor_ap),
+             :ok <- validate_collection_authority(actor, target) do
+          # for Add we materialise the member object locally (so the FK resolves); for Remove the
+          # object may already be gone, so the ap_id is enough
+          member =
+            case type do
+              "Add" ->
+                case object_normalize_and_maybe_fetch(object, opts) do
+                  {:ok, %{} = obj} -> obj
+                  _ -> Utils.ap_id(object)
+                end
+
+              "Remove" ->
+                Utils.ap_id(object)
+            end
+
+          params = %{
+            actor: actor,
+            object: member,
+            target: target,
+            activity_id: data["id"],
+            local: local?(opts)
+          }
+
+          case type do
+            "Add" -> ActivityPub.add(params, opts)
+            "Remove" -> ActivityPub.remove(params, opts)
+          end
+        else
+          {:error, :forbidden} = e ->
+            warn(data, "Rejected collection #{type}: actor does not own the target collection")
+            e
+
+          e ->
+            error(e)
+        end
+
+      _ ->
+        # a foreign collection (e.g. a remote actor's featured/wall): preserve prior generic
+        # handling (store + pass to adapter) rather than rejecting.
+        # TODO: FEP-400e — snapshot remote appendable collections so local users can read them
+        maybe_handle_other_activity(data, opts)
+    end
+  end
+
   def handle_incoming(
         %{
           "type" => "Move",
@@ -1749,6 +1810,46 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp local?(opts), do: Keyword.get(opts, :local, false)
+
+  # FEP-400e: the activity `actor` must own the `target` collection. Owner is derived from the
+  # collection's `attributedTo` (when embedded), from a materialised collection object, or from
+  # our minted `{owner}/collections/{type}` URI convention.
+  defp validate_collection_authority(actor, target) do
+    actor_ap = Utils.ap_id(actor)
+    target_ap = Utils.ap_id(target)
+
+    owner =
+      cond do
+        is_map(target) and is_binary(target["attributedTo"]) ->
+          target["attributedTo"]
+
+        is_binary(target_ap) ->
+          case Object.get_cached(ap_id: target_ap) do
+            {:ok, %{data: %{"attributedTo" => owner}}} when is_binary(owner) ->
+              owner
+
+            _ ->
+              fallback_collection_owner_ap_id(target_ap)
+          end
+
+        true ->
+          nil
+      end
+
+    if is_binary(owner) and owner == actor_ap, do: :ok, else: {:error, :forbidden}
+  end
+
+  # For a not-yet-materialised singleton collection (e.g. keyPackages), the uuid in
+  # `{base}/collections/{type}/{uuid}` is the owner actor's id → resolve it to the owner's ap_id.
+  defp fallback_collection_owner_ap_id(target_ap) do
+    with {:ok, type, uuid} <- ActivityPub.Utils.parse_collection_ap_id(target_ap),
+         true <- type_in?(type, :singleton_collection_types),
+         {:ok, %{ap_id: ap_id}} <- Actor.get_cached(pointer: uuid) do
+      ap_id
+    else
+      _ -> nil
+    end
+  end
 
   def maybe_handle_other_activity(data, opts) do
     # Process nested objects for all activity types

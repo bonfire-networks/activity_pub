@@ -770,50 +770,83 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
   end
 
   describe "POST /actors/:username/outbox - Add/Remove activities" do
-    @tag :todo
     test "Add activity adds object to target collection", %{conn: conn} do
       actor = local_actor()
       user = user_by_ap_id(actor)
       note = insert(:note, %{actor: actor})
-      # Assuming we have a collection the actor owns
-      collection_id = ap_id(actor) <> "/collections/favorites"
-
-      activity_data = %{
-        "type" => "Add",
-        "object" => note.data["id"],
-        "target" => collection_id
-      }
+      target = Utils.collection_ap_id("keyPackages", actor.actor.id)
 
       conn =
         conn
         |> assign(:current_user, user)
         |> put_req_header("content-type", @content_type)
-        |> post(outbox_endpoint(actor), activity_data)
+        |> post(outbox_endpoint(actor), %{
+          "type" => "Add",
+          "object" => note.data["id"],
+          "target" => target
+        })
 
-      # May succeed or fail depending on collection support
-      assert conn.status in [201, 422, 501]
+      assert conn.status == 201
     end
 
-    @tag :todo
     test "Remove activity removes object from target collection", %{conn: conn} do
       actor = local_actor()
       user = user_by_ap_id(actor)
       note = insert(:note, %{actor: actor})
-      collection_id = ap_id(actor) <> "/collections/favorites"
-
-      activity_data = %{
-        "type" => "Remove",
-        "object" => note.data["id"],
-        "target" => collection_id
-      }
+      target = Utils.collection_ap_id("keyPackages", actor.actor.id)
 
       conn =
         conn
         |> assign(:current_user, user)
         |> put_req_header("content-type", @content_type)
-        |> post(outbox_endpoint(actor), activity_data)
+        |> post(outbox_endpoint(actor), %{
+          "type" => "Remove",
+          "object" => note.data["id"],
+          "target" => target
+        })
 
-      assert conn.status in [201, 422, 501]
+      assert conn.status == 201
+    end
+
+    # TODO: editing one's *own* adapter-owned collection (e.g. `featured`/pins) via C2S currently
+    # 404s: the local post and the local `featured` collection have no `ap_object` row, and the
+    # incoming pipeline (`Incoming.fetch_final_object`) refuses to HTTP-fetch our own URLs
+    # (`:is_local`) without resolving them locally. Needs a local-ref resolver (see plan). keyPackages
+    # works because it's store-backed and handled directly by the lib, not via the adapter pipeline.
+    @tag :todo
+    test "Add/Remove to the actor's own featured collection (pins)", %{conn: conn} do
+      actor = local_actor()
+      user = actor.user
+
+      {:ok, post} =
+        Bonfire.Posts.publish(
+          current_user: user,
+          post_attrs: %{post_content: %{html_body: "<p>feature via c2s</p>"}},
+          boundary: "public"
+        )
+
+      object = Bonfire.Common.URIs.canonical_url(post)
+      target = Utils.collection_ap_id("featured", actor.actor.id)
+
+      add =
+        conn
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), %{"type" => "Add", "object" => object, "target" => target})
+
+      assert add.status == 201
+
+      remove =
+        build_conn()
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), %{
+          "type" => "Remove",
+          "object" => object,
+          "target" => target
+        })
+
+      assert remove.status == 201
     end
   end
 end

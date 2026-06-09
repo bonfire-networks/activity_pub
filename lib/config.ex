@@ -138,6 +138,19 @@ defmodule ActivityPub.Config do
 
   def actors_and_collections, do: supported_actor_types() ++ collection_types()
 
+  # Collection-type properties (orthogonal lists, overridable via `config :activity_pub, :instance, …`):
+
+  @doc "Collection types that are singleton-per-actor — addressed by the owner actor's id (uuid). e.g. keyPackages, featured."
+  def singleton_collection_types,
+    do: get([:instance, :singleton_collection_types]) || ["keyPackages", "featured"]
+
+  @doc "Collection types served as `OrderedCollection` rather than `Collection` (order is significant — e.g. MLS keyPackages, Mastodon featured)."
+  def ordered_collection_types,
+    do: get([:instance, :ordered_collection_types]) || ["keyPackages", "featured"]
+
+  # whether a collection is store-backed (vs adapter/extension-provided) is *inferred* —
+  # store-backed iff no adapter owns it (see `ActivityPub.Federator.Adapter.adapter_handles?/1`)
+
   @doc """
   For matching against the above list in guards 
 

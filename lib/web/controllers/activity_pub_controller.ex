@@ -246,6 +246,73 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
+  def collection(conn, %{"type" => type, "uuid" => uuid} = params) do
+    with {:ok, collection} <- get_servable_collection(type, uuid, conn) do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("collection.json", %{
+        collection: collection,
+        page: page_number(params["page"]),
+        embed: params["embed"] == "true"
+      })
+    else
+      e ->
+        error(e, "Invalid collection")
+        Utils.error_json(conn, "Not found", 404)
+    end
+  end
+
+  # Serve an already-persisted collection by id, or build one for a servable singleton-per-actor
+  # collection of a local actor. Store-vs-adapter ownership is inferred cheaply (no member queries).
+  defp get_servable_collection(type, uuid, conn) do
+    id = ActivityPub.Utils.collection_ap_id(type, uuid)
+
+    case Object.get_cached(ap_id: id) do
+      {:ok, %Object{} = collection} ->
+        {:ok, collection}
+
+      _ ->
+        case build_servable_collection(type, uuid, conn) do
+          %Object{} = collection -> {:ok, collection}
+          _ -> {:error, :not_found}
+        end
+    end
+  end
+
+  defp build_servable_collection(type, uuid, conn) do
+    # only singleton-per-actor collections (uuid = owner actor id) are served here; non-singleton
+    # types fall through to 404
+    with true <- Config.type_in?(type, :singleton_collection_types),
+         {:ok, %{local: true} = actor} <- Actor.get_cached(pointer: uuid),
+         true <- may_serve_actor?(actor.username, conn) do
+      if ActivityPub.Federator.Adapter.adapter_handles?({:collection, type}) do
+        # adapter/extension-owned (e.g. Pins/featured): synthesise an envelope; membership comes
+        # from the adapter (no persisted store object needed)
+        coll_type =
+          if Config.type_in?(type, :ordered_collection_types),
+            do: "OrderedCollection",
+            else: "Collection"
+
+        %Object{
+          data: %{
+            "id" => ActivityPub.Utils.collection_ap_id(type, uuid),
+            "type" => coll_type,
+            "attributedTo" => actor.ap_id
+          }
+        }
+      else
+        # store-backed (e.g. keyPackages): persist a metadata object (anchors membership FK)
+        case ActivityPub.GenericCollectionStore.get_or_create_collection(type, uuid, actor.ap_id) do
+          {:ok, collection} -> collection
+          _ -> nil
+        end
+      end
+    else
+      _ -> nil
+    end
+  end
+
   def shared_outbox(conn, params) do
     if Config.env() != :prod and Config.federating?() do
       conn

@@ -78,15 +78,8 @@ defmodule ActivityPub.Queries do
 
   @spec by_object_in_reply_to_id(query, String.t(), keyword()) :: query
   def by_object_in_reply_to_id(query, in_reply_to_id, opts \\ []) do
-    query =
-      if opts[:skip_preloading] do
-        with_joined_object(query)
-      else
-        with_preloaded_object(query)
-      end
-
-    where(
-      query,
+    with_object(query, :inner, opts[:load_object])
+    |> where(
       [a, object: o],
       fragment("(?)->>'inReplyTo' = ?", o.data, ^to_string(in_reply_to_id))
     )
@@ -120,7 +113,23 @@ defmodule ActivityPub.Queries do
     )
   end
 
-  def with_preloaded_object(query, join_type \\ :left) do
+  def with_object(query, join_type \\ :left, load_object \\ :preload)
+
+  def with_object(query, _join_type, :skip) do
+    query
+  end
+
+  # skip the SQL join; objects are resolved from cache (`Object.list_cached`) after the query runs —
+  # the caller stitches them onto `:object`. Only valid when not filtering/ordering by object fields.
+  def with_object(query, _join_type, :cache) do
+    query
+  end
+
+  def with_object(query, join_type, :join) do
+    with_joined_object(query, join_type)
+  end
+
+  def with_object(query, join_type, _preload) do
     query
     |> has_named_binding?(:object)
     |> if(do: query, else: with_joined_object(query, join_type))

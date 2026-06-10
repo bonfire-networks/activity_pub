@@ -267,6 +267,10 @@ defmodule ActivityPub.Utils do
       raise("Could not determine ap_id")
   end
 
+  @doc "The ap_id of an activity's wrapped object (`data->'object'`, a map or string), or `nil`."
+  def object_ap_id_of(%{data: %{"object" => object}}) when not is_nil(object), do: ap_id(object)
+  def object_ap_id_of(_), do: nil
+
   @doc "Normalise a subject (URI, ap_id string, or actor/object) to a `%URI{}`, or `nil` if undeterminable."
   def ap_uri(%URI{} = uri), do: uri
   def ap_uri(subject) when is_binary(subject), do: URI.parse(subject)
@@ -347,9 +351,149 @@ defmodule ActivityPub.Utils do
 
   # def maybe_forward_activity(_), do: :ok
 
+  @doc """
+  Whether the AP caches are live. They're bypassed by default in the test env (Ecto sandbox / ExUnit
+  workaround); a test opts its process in via `Process.put(:activity_pub_enable_cache, true)`.
+  """
+  def cache_enabled?,
+    do: Config.env() != :test or Process.get(:activity_pub_enable_cache) == true
+
+  @doc """
+  Classify a `ref` into `{kind, normalised_id}` for cache/query dispatch: `:pointer` (ULID/UID) |
+  `:ap_id` (URI) | `:id` (uuid) | `:username`, or `{nil, nil}` if unresolvable. Accepts a binary id
+  **or** a struct/map — the matched field tells us the kind directly (no re-classification), like
+  `get_cached/1`. Shared by `get_cached/1` and `list_with_cache/4` so they never drift.
+  """
+  def classify_ref(ref) when is_binary(ref) do
+    cond do
+      String.starts_with?(ref, "http") -> {:ap_id, ref}
+      is_ulid?(ref) -> {:pointer, uid(ref)}
+      is_uuid?(ref) -> {:id, ref}
+      true -> {:username, ref}
+    end
+  end
+
+  # struct/map ref — the field we match tells us the kind directly
+  def classify_ref(%{pointer_id: id}) when is_binary(id), do: {:pointer, uid(id)}
+  def classify_ref(%{ap_id: ap_id}) when is_binary(ap_id), do: {:ap_id, ap_id}
+  def classify_ref(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: {:ap_id, ap_id}
+  def classify_ref(%{"id" => ap_id}) when is_binary(ap_id), do: {:ap_id, ap_id}
+  def classify_ref(%{username: username}) when is_binary(username), do: {:username, username}
+  def classify_ref(%{id: id}) when is_binary(id), do: classify_ref(id)
+  def classify_ref(_), do: {nil, nil}
+
+  @doc """
+  Batched, cache-aware sibling of `get_with_cache/5`: resolves many `refs` with **one query per
+  kind** for the cache misses (no N+1), populating the cache the same way `get_with_cache` does, and
+  returning results **in input order** (missing dropped unless `opts[:keep_nil]`).
+
+  `funs` carries the schema specifics; sensible defaults are used for any `ap_object`-backed schema,
+  so a caller usually only passes `%{query_module: MySchema}`:
+  - `query_module` — its `query/1` accepts `[{:ap_id|:pointer_id|:id|:username, value_or_list}]`
+  - `classify.(ref) -> {kind, id}` — default `classify_ref/1`
+  - `fetch.(kind, ids) -> [row]` — default: `repo().all(query_module.query([{query_key(kind), ids}]))`
+  - `kind_key.(kind, row) -> id` — default keys a row back by its `:ap_id`/`:pointer`/`:id`/`:username`
+  - `cache_keys.(row) -> [cache_key]` — default: the `id`/`ap_id`/`pointer` alias keys (mirrors `set_cache`)
+  """
+  def list_with_cache(refs, bucket, funs, opts \\ []) when is_list(refs) and is_map(funs) do
+    enabled? = cache_enabled?()
+
+    classify = funs[:classify] || (&classify_ref/1)
+    fetch = funs[:fetch] || default_fetch(funs[:query_module])
+    kind_key = funs[:kind_key] || (&default_kind_key/2)
+    cache_keys = funs[:cache_keys] || (&default_cache_keys/1)
+
+    # classify each ref (binary id or struct/map); unresolvable refs get `kind: nil` and resolve to
+    # `nil` (no cache read, no query) rather than crashing.
+    entries =
+      Enum.map(refs, fn ref ->
+        {kind, id} = classify.(ref)
+        %{ref: ref, kind: kind, id: id}
+      end)
+
+    # cache pass: in-memory reads only (no DB). Track positive hits and negatively-cached absences.
+    # Skipped entirely when caching is off (every ref is a miss → batched query below).
+    {cached, absent} =
+      if enabled? do
+        Enum.reduce(entries, {%{}, MapSet.new()}, fn
+          %{kind: nil}, acc ->
+            acc
+
+          e, {hits, absent} ->
+            case Cachex.get(bucket, ap_cache_key(e.kind, e.id)) do
+              {:ok, :not_found} -> {hits, MapSet.put(absent, e.ref)}
+              {:ok, row} when is_struct(row) -> {Map.put(hits, e.ref, row), absent}
+              _ -> {hits, absent}
+            end
+        end)
+      else
+        {%{}, MapSet.new()}
+      end
+
+    # miss pass: one batched query per kind → %{kind => %{id => row}}. When caching is off every
+    # entry is a miss (nothing to reject). `kind: nil` entries are never queried.
+    misses =
+      if(enabled?,
+        do:
+          Enum.reject(entries, fn e ->
+            Map.has_key?(cached, e.ref) or MapSet.member?(absent, e.ref)
+          end),
+        else: entries
+      )
+      |> Enum.reject(&is_nil(&1.kind))
+
+    fetched_by_kind =
+      misses
+      |> Enum.group_by(& &1.kind, & &1.id)
+      |> Map.new(fn {kind, ids} ->
+        rows = fetch.(kind, Enum.uniq(ids))
+        {kind, Map.new(rows, &{kind_key.(kind, &1), &1})}
+      end)
+
+    if enabled? do
+      fetched = Enum.flat_map(fetched_by_kind, fn {_kind, m} -> Map.values(m) end)
+      pairs = Enum.flat_map(fetched, fn row -> Enum.map(cache_keys.(row), &{&1, row}) end)
+      if pairs != [], do: Cachex.put_many(bucket, pairs)
+    end
+
+    results =
+      Enum.map(entries, fn e -> cached[e.ref] || get_in(fetched_by_kind, [e.kind, e.id]) end)
+
+    if opts[:keep_nil], do: results, else: Enum.reject(results, &is_nil/1)
+  end
+
+  @doc "Run a query expecting at most one row: `{:ok, row}` or `{:error, :not_found}`."
+  def one(query) do
+    case repo().one(query) do
+      nil -> {:error, :not_found}
+      row -> {:ok, row}
+    end
+  end
+
+  # default `funs` for an `ap_object`-backed schema (Object/Actor) — overridable per call
+  defp default_fetch(query_module) when not is_nil(query_module),
+    do: fn kind, ids -> repo().all(query_module.query([{query_key(kind), ids}])) end
+
+  defp query_key(:pointer), do: :pointer_id
+  defp query_key(:ap_id), do: :ap_id
+  defp query_key(:id), do: :id
+  defp query_key(:username), do: :username
+
+  defp default_kind_key(:ap_id, %{data: %{"id" => ap_id}}), do: ap_id
+  defp default_kind_key(:pointer, %{pointer_id: pid}), do: pid
+  defp default_kind_key(:id, %{id: id}), do: id
+  defp default_kind_key(:username, %{data: %{"preferredUsername" => u}}), do: u
+
+  # the alias cache keys for one row (mirrors `set_cache`/`maybe_multi_cache`)
+  defp default_cache_keys(%{id: id, data: %{"id" => ap_id}, pointer_id: pid}) do
+    base = [ap_cache_key(:id, id), ap_cache_key(:ap_id, ap_id)]
+    if pid, do: [ap_cache_key(:pointer, pid) | base], else: base
+  end
+
   def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
-    if Config.env() == :test do
-      # FIXME: temporary workaround for Ecto sandbox / ExUnit issues
+    if not cache_enabled?() do
+      # bypassed in the test env by default (Ecto sandbox / ExUnit workaround); opt in per-process
+      # via `Process.put(:activity_pub_enable_cache, true)`.
       fallback.()
     else
       {context, options} = Keyword.pop(options, :multi_tenant_context)

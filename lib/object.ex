@@ -31,7 +31,7 @@ defmodule ActivityPub.Object do
 
     # Attention: these is are fake relations, don't try to join them blindly and expect it to work!
     # The foreign keys are embedded in a jsonb field.
-    # You probably want to do an inner join and a preload, as in `Queries.with_preloaded_object/2` or `Queries.with_joined_activity/3`
+    # You probably want to do an inner join and a preload, as in `Queries.with_object/2`
     has_one(:object, Object, on_delete: :nothing, foreign_key: :id)
     has_one(:activity, Object, on_delete: :nothing, foreign_key: :id)
 
@@ -54,15 +54,8 @@ defmodule ActivityPub.Object do
     do: get_cached(ap_id: ap_id)
 
   def get_cached(id) when is_binary(id) do
-    if Utils.is_uid?(id) do
-      get_cached(pointer: id)
-    else
-      if String.starts_with?(id, "http") do
-        get_cached(ap_id: id)
-      else
-        get_cached(id: id)
-      end
-    end
+    {kind, _id} = Utils.classify_ref(id)
+    get_cached([{kind, id}])
   end
 
   # def get_cached(opts) do
@@ -85,11 +78,23 @@ defmodule ActivityPub.Object do
 
   def get_uncached(opts), do: get(opts)
 
+  @doc """
+  Batched sibling of `get_cached/1`: resolves many binary refs (ap_id URIs / pointer ULIDs / uuid
+  ids) with **one query per kind** for the cache misses (no N+1), populating the cache the same way
+  `get_with_cache` does (so later `get_cached` calls hit), and returning results **in input order**.
+  Missing refs are dropped unless `opts[:keep_nil]` is true.
+  """
+  # the generic batching + per-kind query/key/cache-key handling all live in `Utils.list_with_cache`
+  # (overridable defaults); for the `ap_object` schema we only need to point it at our `query/1`.
+  def list_cached(refs, opts \\ []) when is_list(refs),
+    do: Utils.list_with_cache(refs, :ap_object_cache, %{query_module: __MODULE__}, opts)
+
   defp get(id) when is_binary(id) do
     get(pointer: id)
   end
 
   defp get(id: id) when is_binary(id) and byte_size(id) == 26 do
+    # assume pointer ULID/UID
     get(id)
   end
 
@@ -97,41 +102,23 @@ defmodule ActivityPub.Object do
     get(uuid: id)
   end
 
-  defp get(uuid: id) when is_binary(id) do
-    case repo().get(Object, id) do
-      %Object{} = object -> {:ok, object}
-      _ -> {:error, :not_found}
-    end
-  end
+  defp get(uuid: id) when is_binary(id), do: one(query(id: id))
 
   defp get(pointer: id) when is_binary(id) do
     # TODO: support prefixed UUIDs?
     if Utils.is_ulid?(id) do
-      case repo().get_by(Object, pointer_id: id) do
-        %Object{} = object -> {:ok, object}
-        _ -> {:error, :not_found}
-      end
+      one(query(pointer_id: id))
     else
       debug(id, "Expected a valid UID pointer ID, trying as UUID AP object ID instead")
       get(uuid: id)
     end
   end
 
-  defp get(ap_id: ap_id) when is_binary(ap_id) do
-    case repo().one(query(ap_id: ap_id) |> debug()) |> debug() do
-      %Object{} = object -> {:ok, object}
-      _ -> {:error, :not_found}
-    end
-  end
+  defp get(ap_id: ap_id) when is_binary(ap_id), do: one(query(ap_id: ap_id))
 
   defp get(ap_id: ap_id), do: get(ap_id)
 
-  defp get(username: username) when is_binary(username) do
-    case repo().one(query(username: username)) do
-      %Object{} = object -> {:ok, object}
-      _ -> {:error, :not_found}
-    end
-  end
+  defp get(username: username) when is_binary(username), do: one(query(username: username))
 
   defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
@@ -140,12 +127,7 @@ defmodule ActivityPub.Object do
     get(pointer: id)
   end
 
-  defp get(filters) when is_list(filters) do
-    case repo().one(query(filters)) do
-      %Object{} = object -> {:ok, object}
-      _ -> {:error, :not_found}
-    end
-  end
+  defp get(filters) when is_list(filters), do: one(query(filters))
 
   defp get(nil) do
     raise "Cannot get an AP object without an ID"
@@ -155,29 +137,52 @@ defmodule ActivityPub.Object do
     err(opts, "Unexpected args when attempting to get an AP object")
   end
 
+  # Each lookup key has a single-value head (optimal `=`) and a list head (batched `IN`),
+  # pattern-matched — `get_cached/1` uses the former, the batched `list_cached/2` uses the latter.
   def query(ap_id: ap_id) when is_binary(ap_id) do
+    # lookup by canonical `id` *or* non-canonical `url` (md5-of-url hash index)
     from(object in Object,
-      # support for looking up by non-canonical URL as well
-      # use MD5 hash for URL comparison to leverage the hash index
       where:
         fragment("(?)->>'id' = ?", object.data, ^ap_id) or
           fragment("md5(?->>'url') = md5(?)", object.data, ^ap_id)
     )
   end
 
-  def query(ap_ids: ap_ids) when is_list(ap_ids) do
-    # batch lookup by canonical `id` (to pre-resolve many actors/objects at once, avoiding n+1)
+  def query(ap_id: ap_ids) when is_list(ap_ids) do
+    # batch form of the above. The input MD5s are precomputed (same lowercase hex Postgres' `md5()`
+    # produces), so the comparison still hits the `md5(url)` hash index — only the *input* hash is
+    # computed app-side (a SQL `unnest(?::text[])` subquery does not bind the list correctly here).
+    url_md5s = Enum.map(ap_ids, &(:crypto.hash(:md5, &1) |> Base.encode16(case: :lower)))
+
     from(object in Object,
-      where: fragment("(?)->>'id'", object.data) in ^ap_ids
+      where:
+        fragment("(?)->>'id'", object.data) in ^ap_ids or
+          fragment("md5(?->>'url')", object.data) in ^url_md5s
     )
   end
 
-  def query(username: username) when is_binary(username) do
-    from(object in Object,
-      # support for looking up by non-canonical URL
-      where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
-    )
-  end
+  # lookup by local pointer id (indexed: `ap_object_pointer_id_index`)
+  def query(pointer_id: id) when is_binary(id),
+    do: from(object in Object, where: object.pointer_id == ^id)
+
+  def query(pointer_id: ids) when is_list(ids),
+    do: from(object in Object, where: object.pointer_id in ^ids)
+
+  # lookup by ap_object uuid PK
+  def query(id: id) when is_binary(id), do: from(object in Object, where: object.id == ^id)
+  def query(id: ids) when is_list(ids), do: from(object in Object, where: object.id in ^ids)
+
+  def query(username: username) when is_binary(username),
+    do:
+      from(object in Object,
+        where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
+      )
+
+  def query(username: usernames) when is_list(usernames),
+    do:
+      from(object in Object,
+        where: fragment("(?)->>'preferredUsername'", object.data) in ^usernames
+      )
 
   def query(username: username, local: local?) when is_binary(username) do
     from(object in Object,
@@ -817,11 +822,15 @@ defmodule ActivityPub.Object do
 
   # TODO: move queries in Queries module
 
-  def get_outbox_for_actor(ap_id, page \\ 1)
-  def get_outbox_for_actor(%{ap_id: ap_id}, page), do: get_outbox_for_actor(ap_id, page)
-  def get_outbox_for_actor(%{"id" => ap_id}, page), do: get_outbox_for_actor(ap_id, page)
+  def get_outbox_for_actor(ap_id, page \\ 1, opts \\ [])
 
-  def get_outbox_for_actor(ap_id, page) when is_binary(ap_id) do
+  def get_outbox_for_actor(%{ap_id: ap_id}, page, opts),
+    do: get_outbox_for_actor(ap_id, page, opts)
+
+  def get_outbox_for_actor(%{"id" => ap_id}, page, opts),
+    do: get_outbox_for_actor(ap_id, page, opts)
+
+  def get_outbox_for_actor(ap_id, page, opts) when is_binary(ap_id) do
     now = DateTime.utc_now()
 
     from(object in Object,
@@ -832,10 +841,10 @@ defmodule ActivityPub.Object do
              fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
     |> Queries.by_actor(ap_id)
-    |> do_list_page(page)
+    |> do_list_page(page, opts)
   end
 
-  def get_outbox_for_instance(page \\ 1) do
+  def get_outbox_for_instance(page \\ 1, opts \\ []) do
     now = DateTime.utc_now()
 
     from(object in Object,
@@ -846,10 +855,10 @@ defmodule ActivityPub.Object do
           (fragment("(?->>'published') IS NULL", object.data) or
              fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
-    |> do_list_page(page)
+    |> do_list_page(page, opts)
   end
 
-  def get_inbox_for_instance(page \\ 1) do
+  def get_inbox_for_instance(page \\ 1, opts \\ []) do
     now = DateTime.utc_now()
 
     from(object in Object,
@@ -860,14 +869,16 @@ defmodule ActivityPub.Object do
           (fragment("(?->>'published') IS NULL", object.data) or
              fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
-    |> do_list_page(page)
+    |> do_list_page(page, opts)
   end
 
-  def get_inbox_for_actor(ap_id, page \\ 1)
-  def get_inbox_for_actor(%{ap_id: ap_id}, page), do: get_inbox_for_actor(ap_id, page)
-  def get_inbox_for_actor(%{"id" => ap_id}, page), do: get_inbox_for_actor(ap_id, page)
+  def get_inbox_for_actor(ap_id, page \\ 1, opts \\ [])
+  def get_inbox_for_actor(%{ap_id: ap_id}, page, opts), do: get_inbox_for_actor(ap_id, page, opts)
 
-  def get_inbox_for_actor(ap_id, page) when is_binary(ap_id) do
+  def get_inbox_for_actor(%{"id" => ap_id}, page, opts),
+    do: get_inbox_for_actor(ap_id, page, opts)
+
+  def get_inbox_for_actor(ap_id, page, opts) when is_binary(ap_id) do
     from(object in Object,
       where: object.is_object != true,
       where:
@@ -875,10 +886,10 @@ defmodule ActivityPub.Object do
            fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id)) and
           fragment("(?->>'published')::timestamptz <= now()", object.data)
     )
-    |> do_list_page(page)
+    |> do_list_page(page, opts)
   end
 
-  def get_inbox_for_actor(_, _page), do: []
+  def get_inbox_for_actor(_, _page, _opts), do: []
 
   # def get_inbox(instance_or_actor_url, page) do
   #   instance_or_actor_filter = "#{instance_or_actor_url}%"
@@ -893,16 +904,34 @@ defmodule ActivityPub.Object do
   #   |> do_list_page(page)
   # end
 
-  defp do_list_page(query, page) do
+  defp do_list_page(query, page, opts \\ []) do
     offset = (page - 1) * 10
+
+    load_object = opts[:load_object] || :cache
 
     query
     |> Queries.ordered()
     |> limit(10)
     |> offset(^offset)
-    |> Queries.with_preloaded_object()
+    |> Queries.with_object(:left, load_object)
     |> repo().all()
+    |> maybe_load_objects_from_cache(load_object)
   end
+
+  # `load_object: :cache` skips the SQL join (see `Queries.with_object/3`); resolve each activity's
+  # object from cache in one batched `list_cached`, then stitch onto `:object`.
+  defp maybe_load_objects_from_cache(activities, :cache) do
+    by_ap_id =
+      activities
+      |> Enum.map(&Utils.object_ap_id_of/1)
+      |> Enum.reject(&is_nil/1)
+      |> list_cached()
+      |> Map.new(&{&1.data["id"], &1})
+
+    Enum.map(activities, &%{&1 | object: by_ap_id[Utils.object_ap_id_of(&1)]})
+  end
+
+  defp maybe_load_objects_from_cache(activities, _), do: activities
 
   def object_url(%{pointer_id: id}) when is_binary(id), do: object_url(id)
   def object_url(%{id: id}) when is_binary(id), do: object_url(id)

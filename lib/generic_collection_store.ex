@@ -110,15 +110,10 @@ defmodule ActivityPub.GenericCollectionStore do
     |> repo().all()
   end
 
-  @doc "Fresh, ordered list of member objects (embedded rendering): member ap_ids then `Object.get_cached/1` each."
+  @doc "Fresh, ordered list of member objects (embedded rendering): member ap_ids then a single batched `Object.list_cached/2` (no n+1)."
   def member_objects(%Object{} = collection, opts \\ []) do
     member_ap_ids(collection, opts)
-    |> Enum.flat_map(fn ap_id ->
-      case Object.get_cached(ap_id: ap_id) do
-        {:ok, %Object{} = object} -> [object]
-        _ -> []
-      end
-    end)
+    |> Object.list_cached()
   end
 
   @doc "Count of members (for `totalItems`)."

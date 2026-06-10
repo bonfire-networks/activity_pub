@@ -70,6 +70,26 @@ defmodule ActivityPub.Federator.Adapter do
     validate_actor(adapter().get_actor_by_id(id))
   end
 
+  @doc """
+  Batch-fetch `Actor`s by their host-app ids (for `Actor.list_cached/2`, avoiding n+1). Optional
+  adapter callback — **polyfilled** here to per-id `get_actor_by_id/1` when the host adapter doesn't
+  implement a batch version (so it always works; adapters override for a true single-query batch).
+  Returns a list of `%Actor{}` (order/coverage not guaranteed — callers map back by id).
+  """
+  @callback get_actors_by_ids([String.t()]) :: [Actor.t()]
+  def get_actors_by_ids(ids) when is_list(ids) do
+    if function_exported?(adapter(), :get_actors_by_ids, 1) do
+      adapter().get_actors_by_ids(ids)
+    else
+      Enum.flat_map(ids, fn id ->
+        case get_actor_by_id(id) do
+          {:ok, actor} -> [actor]
+          _ -> []
+        end
+      end)
+    end
+  end
+
   @callback maybe_create_remote_actor(Actor.t()) :: :ok
   def maybe_create_remote_actor(actor) do
     adapter().maybe_create_remote_actor(actor)

@@ -146,19 +146,8 @@ defmodule ActivityPub.Actor do
   def get_cached(username: "@" <> username), do: get_cached(username: username)
 
   def get_cached(id) when is_binary(id) do
-    if Utils.is_ulid?(id) do
-      get_cached(pointer: id)
-    else
-      if String.starts_with?(id, "http") do
-        get_cached(ap_id: id)
-      else
-        if Utils.is_uuid?(id) do
-          get_cached(id: id)
-        else
-          get_cached(username: id)
-        end
-      end
-    end
+    {kind, _id} = Utils.classify_ref(id)
+    get_cached([{kind, id}])
   end
 
   def get_cached(opts), do: get(opts)
@@ -171,6 +160,88 @@ defmodule ActivityPub.Actor do
     else
       {:error, _e} -> nil
     end
+  end
+
+  @doc """
+  Batched sibling of `get_cached/1` (avoids n+1): resolves many actor refs in one pass — **remote**
+  actors via a single `ap_object` query, **local** actors via the Adapter's batch `get_actors_by_ids/1`
+  — caching each as `%Actor{}` and returning in input order (missing dropped unless `opts[:keep_nil]`).
+  Primarily used with pointer-id refs (followers/following/recipients).
+  """
+  def list_cached(refs, opts \\ []) when is_list(refs) do
+    Utils.list_with_cache(
+      refs,
+      :ap_actor_cache,
+      %{fetch: &list_fetch/2, kind_key: &list_kind_key/2, cache_keys: &list_cache_keys/1},
+      opts
+    )
+  end
+
+  # remote actors live in `ap_object`; local actors come from the Adapter's batch getter. A `:pointer`
+  # ref can be either, so query ap_object first and ask the Adapter for the (local) misses.
+  # remote actors live in `ap_object`; local actors resolve via the Adapter. So each kind queries
+  # ap_object first, then falls back to the Adapter for the (local) misses — `:pointer` via the batch
+  # `get_actors_by_ids`, others per-item via the existing single getters (no batch by ap_id/username).
+  defp list_fetch(:pointer, ids) do
+    remote = actors_from_objects(ActivityPub.Object.query(pointer_id: ids))
+    found = MapSet.new(remote, & &1.pointer_id)
+    remote ++ Adapter.get_actors_by_ids(Enum.reject(ids, &MapSet.member?(found, &1)))
+  end
+
+  defp list_fetch(:ap_id, ids) do
+    ActivityPub.Object.query(ap_id: ids)
+    |> actors_from_objects()
+    |> with_local_fallback(ids, & &1.ap_id, &Adapter.get_actor_by_ap_id/1)
+  end
+
+  defp list_fetch(:username, ids) do
+    ActivityPub.Object.query(username: ids)
+    |> actors_from_objects()
+    |> with_local_fallback(ids, & &1.username, &Adapter.get_actor_by_username/1)
+  end
+
+  # uuid is the `ap_object` PK (remote actors only; local actors aren't keyed by it)
+  defp list_fetch(:id, ids), do: actors_from_objects(ActivityPub.Object.query(id: ids))
+
+  defp with_local_fallback(remote, ids, key_fun, adapter_fun) do
+    found = MapSet.new(remote, key_fun)
+
+    locals =
+      ids
+      |> Enum.reject(&MapSet.member?(found, &1))
+      |> Enum.flat_map(fn id ->
+        case adapter_fun.(id) do
+          {:ok, %Actor{} = actor} -> [actor]
+          _ -> []
+        end
+      end)
+
+    remote ++ locals
+  end
+
+  defp actors_from_objects(query) do
+    query
+    |> repo().all()
+    |> Enum.flat_map(fn
+      %{data: %{"type" => type}} = object
+      when is_in(type, :supported_actor_types) or type == "Tombstone" ->
+        [format_remote_actor(object)]
+
+      _ ->
+        []
+    end)
+  end
+
+  defp list_kind_key(:pointer, %Actor{pointer_id: pid}), do: pid
+  defp list_kind_key(:ap_id, %Actor{ap_id: ap_id}), do: ap_id
+  defp list_kind_key(:id, %Actor{id: id}), do: id
+  defp list_kind_key(:username, %Actor{username: u}), do: u
+
+  # alias keys matching `set_cache/1` (id/ap_id/username/pointer)
+  defp list_cache_keys(%Actor{} = actor) do
+    ([{:id, actor.id}, {:ap_id, actor.ap_id}, {:username, actor.username}] ++
+       if(actor.pointer_id, do: [{:pointer, actor.pointer_id}], else: []))
+    |> Enum.map(fn {k, v} -> Utils.ap_cache_key(k, v) end)
   end
 
   defp get(username: "@" <> username), do: get(username: username)
@@ -190,6 +261,7 @@ defmodule ActivityPub.Actor do
   end
 
   defp get(id: id) when not is_nil(id) do
+    # TODO: avoid also caching the Object?
     with {:ok, actor} <- ActivityPub.Object.get_cached(id: id) do
       {:ok, format_remote_actor(actor)}
     else
@@ -200,6 +272,7 @@ defmodule ActivityPub.Actor do
   end
 
   defp get(pointer: id) when not is_nil(id) do
+    # TODO: avoid also caching the Object?
     with {:ok, %{data: %{"type" => type}} = actor}
          when is_in(type, :supported_actor_types) or type == "Tombstone" <-
            ActivityPub.Object.get_cached(pointer: id) do
@@ -226,6 +299,7 @@ defmodule ActivityPub.Actor do
     if ActivityPub.Utils.has_as_public?(id) do
       {:error, :not_an_actor}
     else
+      # TODO: avoid also caching the Object?
       with {:ok, %{data: %{"type" => type}} = actor}
            when is_in(type, :supported_actor_types) or type == "Tombstone" <-
              ActivityPub.Object.get_cached(ap_id: id) do
@@ -702,24 +776,24 @@ defmodule ActivityPub.Actor do
   end
 
   def get_followings(actor, purpose_or_current_actor \\ nil) do
-    followings =
-      Adapter.get_following_local_ids(actor, purpose_or_current_actor)
-      |> debug("following_local_ids")
-      |> Enum.reject(&is_nil/1)
-      |> Enum.map(&get_cached!(pointer: &1))
-      |> Enum.reject(&is_nil/1)
-      |> debug("got_followings")
-
-    {:ok, followings}
+    actor
+    |> Adapter.get_following_local_ids(purpose_or_current_actor)
+    |> actors_for_local_ids()
+    |> ok()
   end
 
   def get_followers(actor, purpose_or_current_actor \\ nil) do
-    Adapter.get_follower_local_ids(actor, purpose_or_current_actor)
-    |> debug("follower_local_ids")
+    actor
+    |> Adapter.get_follower_local_ids(purpose_or_current_actor)
+    |> actors_for_local_ids()
+  end
+
+  # batch-resolve a list of local pointer ids to `%Actor{}`s (drops nils/unresolved), in one query
+  defp actors_for_local_ids(ids) do
+    ids
+    |> List.wrap()
     |> Enum.reject(&is_nil/1)
-    |> Enum.map(&get_cached!(pointer: &1))
-    |> Enum.reject(&is_nil/1)
-    |> debug("got_followers")
+    |> list_cached()
   end
 
   def get_external_followers(actor, purpose_or_current_actor \\ nil) do

@@ -17,7 +17,8 @@ defmodule ActivityPub.Web.ObjectView do
   end
 
   def render("outbox.json", %{actor: actor, page: page}) when is_integer(page) do
-    outbox = Object.get_outbox_for_actor(actor, page)
+    # embed each activity's object from cache (resolved in one batched list_cached), not a SQL join
+    outbox = Object.get_outbox_for_actor(actor, page, load_object: :cache)
 
     total = length(outbox)
 
@@ -26,7 +27,7 @@ defmodule ActivityPub.Web.ObjectView do
   end
 
   def render("outbox.json", %{actor: actor}) do
-    outbox = Object.get_outbox_for_actor(actor)
+    outbox = Object.get_outbox_for_actor(actor, 1, load_object: :cache)
 
     total = length(outbox)
     url = "#{actor.ap_id}/outbox"
@@ -44,7 +45,7 @@ defmodule ActivityPub.Web.ObjectView do
   def render("outbox.json", %{outbox: :shared_outbox} = params) do
     ap_base_url = Utils.ap_base_url()
     page = params[:page] || 1
-    outbox = Object.get_outbox_for_instance(page)
+    outbox = Object.get_outbox_for_instance(page, load_object: :cache)
 
     total = length(outbox)
 
@@ -60,7 +61,7 @@ defmodule ActivityPub.Web.ObjectView do
   def render("inbox.json", %{inbox: :shared_inbox} = params) do
     ap_base_url = Utils.ap_base_url()
     page = params[:page] || 1
-    outbox = Object.get_inbox_for_instance(page)
+    outbox = Object.get_inbox_for_instance(page, load_object: :cache)
 
     total = length(outbox)
 
@@ -76,7 +77,7 @@ defmodule ActivityPub.Web.ObjectView do
   def render("inbox.json", %{actor: actor} = params) do
     ap_base_url = Utils.ap_base_url()
     page = params[:page] || 1
-    outbox = Object.get_inbox_for_actor(actor, page)
+    outbox = Object.get_inbox_for_actor(actor, page, load_object: :cache)
 
     total = length(outbox)
 

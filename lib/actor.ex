@@ -717,7 +717,25 @@ defmodule ActivityPub.Actor do
 
   def set_cache({:ok, actor}), do: set_cache(actor)
 
+  # Guarded entry point for explicit write sites (create/update/fetch flows, which run in the
+  # originating process where `ProcessTree` can resolve a test's opt-in flag) — honours
+  # `cache_enabled?` so cache-off tests don't pollute the global cache.
   def set_cache(%Actor{} = actor) do
+    if Utils.cache_enabled?(), do: do_set_cache(actor), else: {:ok, actor}
+  end
+
+  def set_cache(%{data: %{"type" => type}} = actor)
+      when is_in(type, :supported_actor_types) do
+    format_remote_actor(actor)
+    |> set_cache()
+  end
+
+  def set_cache(e), do: error(e, "Not an actor")
+
+  # Unguarded write — used directly by `maybe_multi_cache` (alias population from inside the
+  # `get_with_cache` fallback, which runs in the Cachex Courier process where `ProcessTree` can't see
+  # the flag; the enable decision was already made upstream by `cachex_fetch`).
+  def do_set_cache(%Actor{} = actor) do
     # Clear JSON cache entries since we're not setting those
     Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.id))
     Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:json, actor.ap_id))
@@ -744,14 +762,6 @@ defmodule ActivityPub.Actor do
 
     {:ok, actor}
   end
-
-  def set_cache(%{data: %{"type" => type}} = actor)
-      when is_in(type, :supported_actor_types) do
-    format_remote_actor(actor)
-    |> set_cache()
-  end
-
-  def set_cache(e), do: error(e, "Not an actor")
 
   def invalidate_cache(%Actor{} = actor) do
     Cachex.del(:ap_actor_cache, Utils.ap_cache_key(:id, actor.id))

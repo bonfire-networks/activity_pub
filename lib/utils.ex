@@ -351,12 +351,17 @@ defmodule ActivityPub.Utils do
 
   # def maybe_forward_activity(_), do: :ok
 
+  # `env` can't change at runtime, so resolve it once at compile time to avoid a config read per call
+  @cache_always_on Config.env() != :test
+
   @doc """
   Whether the AP caches are live. They're bypassed by default in the test env (Ecto sandbox / ExUnit
-  workaround); a test opts its process in via `Process.put(:activity_pub_enable_cache, true)`.
+  workaround); a test opts in via `Process.put(:activity_pub_enable_cache, true)`. We resolve the flag
+  via `ProcessTree` (walking `$callers`/`$ancestors`) so it also reaches inline/in-process federation
+  and Oban-drained jobs spawned under the opted-in test process.
   """
   def cache_enabled?,
-    do: Config.env() != :test or Process.get(:activity_pub_enable_cache) == true
+    do: @cache_always_on or ProcessTree.get(:activity_pub_enable_cache) == true
 
   @doc """
   Classify a `ref` into `{kind, normalised_id}` for cache/query dispatch: `:pointer` (ULID/UID) |
@@ -659,12 +664,15 @@ defmodule ActivityPub.Utils do
 
   # FIXME: should we be caching the objects once, and just using the multiple keys to lookup a unique key?
   defp maybe_multi_cache(:ap_actor_cache, actor) do
-    ActivityPub.Actor.set_cache(actor)
+    # unguarded (see the object clause below): runs inside the cache fallback (Courier process)
+    ActivityPub.Actor.do_set_cache(actor)
     # |> debug()
   end
 
   defp maybe_multi_cache(:ap_object_cache, object) do
-    ActivityPub.Object.set_cache(object)
+    # unguarded: this runs inside the cache fallback (Courier process) where the enable decision was
+    # already made upstream and `ProcessTree` can't see a test's opt-in flag
+    ActivityPub.Object.do_set_cache(object)
   end
 
   defp maybe_multi_cache(_, _) do

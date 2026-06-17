@@ -113,4 +113,27 @@ defmodule ActivityPub.ObjectCacheTest do
 
     assert {:error, :not_found} = Object.get_cached(ap_id: ghost)
   end
+
+  test "Object.insert/4 busts a prior negative ap_id cache entry for an activity (no child object)" do
+    # regression: a Follow has no child object to carry `set_cache`, so a stale `:not_found` entry
+    # for its ap_id used to survive the insert — surfacing as `get_cached(ap_id:) => {:error, :not_found}`
+    # (and `get_cached!` => nil) later in the same request (auto-accept / `follow/2`).
+    ap_id = "https://nowhere.local/activities/#{System.unique_integer([:positive])}"
+
+    # prime the negative cache
+    assert {:error, :not_found} = Object.get_cached(ap_id: ap_id)
+
+    follow_data = %{
+      "id" => ap_id,
+      "type" => "Follow",
+      "actor" => "https://nowhere.local/actors/alice-#{System.unique_integer([:positive])}",
+      "object" => "https://nowhere.local/actors/bob-#{System.unique_integer([:positive])}"
+    }
+
+    assert {:ok, _activity} = Object.insert(follow_data, false)
+
+    # after insert the stale negative entry must be gone → resolves to the inserted object
+    assert {:ok, %Object{} = obj} = Object.get_cached(ap_id: ap_id)
+    assert obj.data["id"] == ap_id
+  end
 end

@@ -361,10 +361,9 @@ defmodule ActivityPub.Object do
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> debug("maybe_upserted") do
-      # Cache the newly inserted object to invalidate any negative cache entries
-      # (e.g. from the normalize/get_cached call above which caches :not_found before the insert)
-      set_cache(object)
-
+      # each `maybe_upsert` branch already caches its result (`do_insert` / `update_and_set_cache` /
+      # the "already exists" branch), which invalidates any negative `:not_found` entry from the
+      # `normalize`/`get_cached` call above — so no extra `set_cache` is needed here.
       {:ok, object}
     end
   end
@@ -373,9 +372,15 @@ defmodule ActivityPub.Object do
   defp actually_do_insert_object(activity, _local, _pointer, _), do: {:ok, activity, nil}
 
   def do_insert(attrs) do
-    attrs
-    |> changeset()
-    |> repo().insert()
+    with {:ok, %Object{data: %{"id" => _}} = object} <-
+           attrs
+           |> changeset()
+           |> repo().insert() do
+      # cache the freshly inserted row to invalidate any negative (`:not_found`) cache entry for its
+      # ap_id (otherwise an activity with no child object — e.g. a Follow — keeps a stale entry that
+      # later `get_cached(ap_id:)`/`get_cached!` calls in the same request resolve to nil/not_found)
+      set_cache(object)
+    end
   end
 
   def maybe_upsert(:update, %ActivityPub.Object{} = existing_object, attrs) do
@@ -405,7 +410,17 @@ defmodule ActivityPub.Object do
     do_insert(attrs)
   end
 
-  def set_cache(%{id: id, data: %{"id" => ap_id}, pointer_id: pointer_id} = object) do
+  # Guarded entry point for explicit write sites (`do_insert`, `update_and_set_cache`, `update_state`):
+  # honours `cache_enabled?` so cache-off tests don't pollute the global cache. These run in the
+  # originating process, where `ProcessTree` can resolve a test's opt-in flag.
+  def set_cache(object) do
+    if Utils.cache_enabled?(), do: do_set_cache(object), else: {:ok, object}
+  end
+
+  # Unguarded write — used directly by `maybe_multi_cache` (alias population from inside the
+  # `get_with_cache` fallback, which runs in the Cachex Courier process where `ProcessTree` can't see
+  # the flag; the enable decision was already made upstream by `cachex_fetch`).
+  def do_set_cache(%{id: id, data: %{"id" => ap_id}, pointer_id: pointer_id} = object) do
     debug(ap_id, "put_cache")
 
     # Clear JSON cache entries since we're not setting those

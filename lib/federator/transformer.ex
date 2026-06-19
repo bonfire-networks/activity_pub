@@ -1696,6 +1696,10 @@ defmodule ActivityPub.Federator.Transformer do
             local: local?(opts)
           }
 
+          # The lib owns this collection (GenericCollectionStore handles membership);
+          # skip the adapter to avoid it trying to persist the activity as a social post.
+          opts = Keyword.put(opts, :skip_adapter, true)
+
           case type do
             "Add" -> ActivityPub.add(params, opts)
             "Remove" -> ActivityPub.remove(params, opts)

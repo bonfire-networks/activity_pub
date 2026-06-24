@@ -256,6 +256,7 @@ defmodule ActivityPub.Utils do
   def ap_id(%{data: %{"id" => id}}), do: id
   def ap_id(%{"id" => id}), do: id
   def ap_id(id) when is_binary(id), do: id
+  def ap_id(%URI{} = uri), do: to_string(uri)
 
   def ap_id(other) do
     warn(other, "Could not determine ap_id")
@@ -915,22 +916,52 @@ defmodule ActivityPub.Utils do
     |> Enum.into(%{})
   end
 
-  @doc "Handles multiple cases where the input value is of a different type (atom, list, tuple, etc.) and returns a string representation of it."
+  @doc """
+  Handles multiple cases where the input value is of a different type (atom, list, tuple, etc.) and returns a string representation of it.
+
+  ## Examples
+      iex> maybe_to_string(:some_atom)
+      "some_atom"
+
+      iex> maybe_to_string([1, 2, 3])
+      "1, 2, 3"
+
+      iex> maybe_to_string({:a, :tuple})
+      "a: tuple"
+
+      iex> maybe_to_string([a: 1, b: 2])
+      "a: 1, b: 2" 
+
+      iex> maybe_to_string([a: 1, b: %{}])
+      "a: 1, b: "
+  """
+  def maybe_to_string(string) when is_binary(string) do
+    string
+  end
+
   def maybe_to_string(atom) when is_atom(atom) and not is_nil(atom) do
     Atom.to_string(atom)
   end
 
-  def maybe_to_string(list) when is_list(list) do
-    # IO.inspect(list, label: "list")
-    List.to_string(list)
+  def maybe_to_string(list) when is_list(list) or is_map(list) do
+    Enum.map_join(list, ", ", &maybe_to_string/1)
   end
 
   def maybe_to_string({key, val}) do
-    maybe_to_string(key) <> ": " <> maybe_to_string(val)
+    "#{maybe_to_string(key)}: #{maybe_to_string(val)}"
   end
 
   def maybe_to_string(other) do
     to_string(other)
+  rescue
+    _ -> nil
+  end
+
+  def to_string_or_inspect(other) do
+    case maybe_to_string(other) do
+      nil -> inspect(other)
+      str -> str
+    end
   end
 
   @doc "Format according to RFC 1123, which is the standard for HTTP dates. Example: `Mon, 15 Apr 2025 14:30:15 GMT`"

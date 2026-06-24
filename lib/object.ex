@@ -284,12 +284,18 @@ defmodule ActivityPub.Object do
            _data____id: {_, [constraint: :unique, constraint_name: "ap_object__data____id_index"]}
          ]
        } = e} ->
-        if id = params["id"] do
-          debug(e, "Already exists, try fetching from cache")
-          Object.get_cached(ap_id: id)
+        # The id that violated the unique constraint is the one on the FAILING changeset's data
+        # (could be the object's or the activity's insert), so read it from there to recover.
+        existing_id =
+          case Ecto.Changeset.get_field(e, :data) do
+            %{"id" => id} when is_binary(id) -> id
+            _ -> params["id"]
+          end
+
+        if existing_id do
+          error(e, "Object or activity already exists: #{existing_id}")
         else
-          error(e, "Constraint violation when trying to insert object without an ID")
-          {:error, "Cannot insert object without an ID"}
+          error(e, "Object or activity already exists (id unknown)")
         end
 
       error ->
@@ -477,8 +483,14 @@ defmodule ActivityPub.Object do
   end
 
   def update_changeset(object, attrs) do
+    # Merge the incoming (possibly partial, e.g. a C2S Update) object data ONTO the existing data,
+    # so fields not present in the update payload are preserved (e.g. `replies`, `attributedTo`,
+    # `published`). Without this a partial Update would replace `data` wholesale. See #1930.
+    new_data = Map.get(attrs, :data) || Map.get(attrs, "data") || %{}
+    merged = Map.merge(object.data || %{}, new_data)
+
     object
-    |> cast(attrs, [:data])
+    |> cast(%{data: merged}, [:data])
     |> common_changeset()
   end
 

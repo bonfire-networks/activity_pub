@@ -438,9 +438,51 @@ defmodule ActivityPub.Federator.Transformer do
     |> add_quote_tag(quote_url, options)
   end
 
+  # Bridgy Fed (atproto/Bluesky) and similar bridges express the quote ONLY as a FEP-e232 `tag`
+  # Link with an ld+json mediaType (and a `RE: <url>` name) but WITHOUT a recognised quote `rel`.
+  # Without this, the bare Link isn't seen as a quote and is rendered as a (broken) duplicate
+  # link-preview card. Promote it to a proper quote tag. (Objects that also carry a top-level
+  # quote field never reach here — those clauses match first.)
+  def fix_quote(%{"tag" => tags} = object, options) when is_list(tags) do
+    case Enum.find(tags, &bare_ld_json_quote_link?/1) do
+      %{"href" => quote_url} when is_binary(quote_url) ->
+        add_quote_tag(object, quote_url, options)
+
+      _ ->
+        object
+    end
+  end
+
   def fix_quote(object, _options), do: object
 
-  defp add_quote_tag(object, quote_url, options) when is_binary(quote_url) do
+  # rels used by the various quote conventions (FEP-044f, Misskey, Fedibird, Mastodon)
+  @quote_link_rels [
+    "https://w3id.org/fep/044f#quote",
+    "https://misskey-hub.net/ns#_misskey_quote",
+    "quote",
+    "http://fedibird.com/ns#quoteUri"
+  ]
+
+  defp ld_json_media_type?(media_type) when is_binary(media_type),
+    do: String.contains?(media_type, "ld+json")
+
+  defp ld_json_media_type?(_), do: false
+
+  # a `Link` that points to an AS2/ld+json object (i.e. a quote reference) but carries no
+  # recognised quote `rel` — e.g. Bridgy Fed's bare quote Link
+  defp bare_ld_json_quote_link?(%{"type" => "Link", "href" => href} = tag) when is_binary(href),
+    do: ld_json_media_type?(tag["mediaType"]) and tag["rel"] not in @quote_link_rels
+
+  defp bare_ld_json_quote_link?(_), do: false
+
+  # any `Link` (rel-tagged or bare ld+json) pointing at the same quoted object
+  defp quote_link_to?(%{"type" => "Link", "href" => href} = tag, quote_url)
+       when href == quote_url,
+       do: tag["rel"] in @quote_link_rels or ld_json_media_type?(tag["mediaType"])
+
+  defp quote_link_to?(_, _), do: false
+
+  defp add_quote_tag(object, quote_url, _options) when is_binary(quote_url) do
     quote_tag = %{
       "type" => "Link",
       "mediaType" => "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"",
@@ -450,22 +492,12 @@ defmodule ActivityPub.Federator.Transformer do
 
     object
     |> Map.update("tag", [quote_tag], fn existing_tags ->
-      # Remove any existing quote tags to avoid duplicates
+      # Drop any pre-existing quote Link to the same target — whether rel-tagged (avoid duplicate
+      # conventions) or a bare ld+json Link (e.g. Bridgy Fed's, which would otherwise be rendered
+      # as a broken duplicate link-preview) — then append the single canonical quote tag.
       List.wrap(existing_tags)
+      |> Enum.reject(&quote_link_to?(&1, quote_url))
       |> Kernel.++([quote_tag])
-      |> Enum.uniq_by(fn
-        %{"type" => "Link", "rel" => rel, "href" => href}
-        when rel in [
-               "https://w3id.org/fep/044f#quote",
-               "https://misskey-hub.net/ns#_misskey_quote",
-               "quote",
-               "http://fedibird.com/ns#quoteUri"
-             ] ->
-          href
-
-        other ->
-          other
-      end)
       |> debug("normalised tags with quote")
     end)
   end

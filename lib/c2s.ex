@@ -20,9 +20,7 @@ defmodule ActivityPub.C2S do
   Validates the authenticated user matches the actor, prepares the activity,
   and routes through `Transformer.handle_incoming` with `local: true`.
   """
-  def handle_c2s_activity(conn, %{"username" => username} = params) do
-    current_actor = conn.assigns[:current_actor]
-
+  def handle_c2s_activity(current_actor, %{"username" => username} = params) do
     with true <- not is_nil(current_actor) || {:error, :unauthorized},
          true <-
            validate_actor_match?(current_actor, username) ||

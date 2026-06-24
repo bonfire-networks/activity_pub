@@ -22,7 +22,7 @@ defmodule ActivityPub.Web.C2SOutboxController do
     # required_scopes = ["write:statuses"]
     # with true <- validate_authorized_scopes(conn, required_scopes) || {:error, :insufficient_scopes} do
 
-    with {:ok, activity} <- C2S.handle_c2s_activity(conn, params) do
+    with {:ok, activity} <- C2S.handle_c2s_activity(conn.assigns[:current_actor], params) do
       conn
       |> put_status(:created)
       |> maybe_put_location_header(activity)

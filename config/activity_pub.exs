@@ -138,8 +138,10 @@ config :activity_pub,
         "@id" => "https://w3id.org/fep/044f#quoteAuthorization",
         "@type" => "@id"
       },
-      # MLS-over-ActivityPub: KeyPackage object type
-      "KeyPackage" => "https://purl.archive.org/socialweb/mls#KeyPackage"
+      # MLS-over-ActivityPub: KeyPackage object type and endorsement fields
+      "KeyPackage" => "https://purl.archive.org/socialweb/mls#KeyPackage",
+      "mlsSignature" => "https://purl.archive.org/socialweb/mls#Signature",
+      "mlsSignerKeyId" => "https://purl.archive.org/socialweb/mls#SignerKeyId"
     }
   }
 

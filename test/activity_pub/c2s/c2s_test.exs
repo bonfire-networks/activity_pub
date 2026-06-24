@@ -560,6 +560,57 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
       # Should return not found error
       assert conn.status == 404
     end
+
+    test "an Update only changes fields present in the payload, preserving the rest (#1930)",
+         %{conn: conn} do
+      actor = local_actor()
+      user = user_by_ap_id(actor)
+
+      # create a Note with content + an extra field (summary) that the later Update won't mention
+      create_data = %{
+        "type" => "Create",
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => %{
+          "type" => "Note",
+          "content" => "original content",
+          "summary" => "a content warning",
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"]
+        }
+      }
+
+      create_conn =
+        conn
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), create_data)
+
+      assert create_conn.status == 201
+      {:ok, create_obj} = Object.get_cached(ap_id: get_object_id(json_response(create_conn, 201)))
+      note_id = get_object_id(create_obj.data["object"])
+
+      {:ok, note} = Object.get_cached(ap_id: note_id)
+      assert note.data["summary"] == "a content warning"
+
+      # partial Update: only content + id
+      update_data = %{
+        "type" => "Update",
+        "object" => %{"id" => note_id, "type" => "Note", "content" => "edited content"}
+      }
+
+      update_conn =
+        conn
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), update_data)
+
+      assert update_conn.status in [200, 201]
+
+      {:ok, updated} = Object.get_cached(ap_id: note_id)
+      assert updated.data["content"] =~ "edited content"
+
+      assert updated.data["summary"] == "a content warning",
+             "Update dropped the `summary` field that was not in the payload (#1930 merge-not-replace)"
+    end
   end
 
   describe "POST /actors/:username/outbox - attributedTo" do

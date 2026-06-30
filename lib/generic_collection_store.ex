@@ -94,13 +94,18 @@ defmodule ActivityPub.GenericCollectionStore do
   def remove_member(%Object{} = collection, object) do
     {_object_id, object_ap_id} = member_keys(object)
 
-    {count, _} =
-      from(m in CollectionMember,
-        where: m.collection_id == ^collection.id and m.object_ap_id == ^object_ap_id
-      )
-      |> repo().delete_all()
+    if is_nil(object_ap_id) do
+      warn(object, "remove_member: object has no resolvable ap_id, skipping")
+      {:ok, 0}
+    else
+      {count, _} =
+        from(m in CollectionMember,
+          where: m.collection_id == ^collection.id and m.object_ap_id == ^object_ap_id
+        )
+        |> repo().delete_all()
 
-    {:ok, count}
+      {:ok, count}
+    end
   end
 
   @doc "Fresh, ordered list of member ap_ids (URIs) — the URI-only fast path, no object loads. Supports `limit:`/`offset:`."
@@ -190,6 +195,9 @@ defmodule ActivityPub.GenericCollectionStore do
       _ -> {nil, ap_id}
     end
   end
+
+  # Inline objects without an id (e.g. Remove sent with a bare KeyPackage body) — no-op rather than crash.
+  defp member_keys(_), do: {nil, nil}
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)

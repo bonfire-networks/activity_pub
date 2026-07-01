@@ -66,6 +66,8 @@ defmodule ActivityPub.Web.Router do
         get("/collections/:type/:uuid", ActivityPubController, :collection)
         # maybe return inbox, or error saying only POST supported
         get("/actors/:username/inbox", ActivityPubController, :maybe_inbox)
+        # MLS-over-ActivityPub `mls:messages`: owner-only, the actor's received MLS activities
+        get("/actors/:username/mls_messages", ActivityPubController, :mls_messages)
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do

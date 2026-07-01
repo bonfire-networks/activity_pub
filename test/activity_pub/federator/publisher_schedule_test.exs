@@ -10,7 +10,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorkerTest do
       params = %{"activity" => %{"published" => future}}
       args = PublisherWorker.maybe_schedule_worker_args(params, [])
       assert Keyword.has_key?(args, :scheduled_at)
-      assert args[:scheduled_at] > now
+      assert DateTime.compare(args[:scheduled_at], now) == :gt
     end
 
     test "sets :scheduled_at for future published date in activity.object" do
@@ -19,7 +19,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorkerTest do
       params = %{"object" => %{"published" => future}}
       args = PublisherWorker.maybe_schedule_worker_args(params, [])
       assert Keyword.has_key?(args, :scheduled_at)
-      assert args[:scheduled_at] > now
+      assert DateTime.compare(args[:scheduled_at], now) == :gt
     end
 
     test "does not set :scheduled_at for published date in the past" do

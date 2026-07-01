@@ -362,6 +362,26 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
+  # MLS-over-ActivityPub `mls:messages`: the actor's received MLS activities, so an E2EE client can skip
+  # scanning the inbox. Owner-only (like the inbox), since the envelope metadata is private even though
+  # payloads are encrypted.
+  def mls_messages(conn, %{"username" => request_username} = params) do
+    with %{username: current_username} = current_actor <- conn.assigns[:current_actor],
+         true <- current_username == request_username do
+      conn
+      |> put_resp_content_type("application/activity+json")
+      |> put_view(ObjectView)
+      |> render("mls_messages.json", %{actor: current_actor, page: page_number(params["page"]), paged: Map.has_key?(params, "page")})
+    else
+      _ ->
+        Utils.error_json(
+          conn,
+          "this endpoint only accepts authenticated GET requests by the owner",
+          403
+        )
+    end
+  end
+
   def maybe_inbox(conn, params) do
     if Config.env() != :prod and Config.federating?() do
       conn

@@ -92,6 +92,31 @@ defmodule ActivityPub.Web.ObjectView do
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
+  # MLS-over-ActivityPub `mls:messages`: the actor's inbox filtered to MLS activity/object types, so an
+  # E2EE client can skip scanning the whole inbox. Owner-only (auth enforced in the controller).
+  def render("mls_messages.json", %{actor: actor} = params) do
+    page = params[:page] || 1
+    messages = Object.get_mls_messages_for_actor(actor, page, load_object: :cache)
+
+    total = length(messages)
+    url = "#{actor.ap_id}/mls_messages"
+
+    result =
+      if params[:paged] do
+        # Spec-compliant: ?page=N dereferences to an OrderedCollectionPage directly.
+        collection(messages, url, page, total)
+      else
+        %{
+          "id" => url,
+          "type" => "OrderedCollection",
+          "first" => collection(messages, url, page, total),
+          "totalItems" => total
+        }
+      end
+
+    Map.merge(result, Utils.make_json_ld_header(:object))
+  end
+
   # Serve a lib-owned generic collection (backed by `GenericCollectionStore`). Membership is read
   # fresh; the collection metadata object is cached. Items render as URIs by default, or embedded
   # objects with `embed: true`.
@@ -151,6 +176,8 @@ defmodule ActivityPub.Web.ObjectView do
     total = total || length(collection)
 
     Collections.page(iri, page, total, items,
+      page_type: "OrderedCollectionPage",
+      items_key: "orderedItems",
       next?: offset < total or total == Collections.page_size()
     )
   end

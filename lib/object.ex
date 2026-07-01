@@ -908,15 +908,86 @@ defmodule ActivityPub.Object do
   def get_inbox_for_actor(ap_id, page, opts) when is_binary(ap_id) do
     from(object in Object,
       where: object.is_object != true,
+      # match all addressing fields, including blind ones — MLS messages often address recipients via
+      # `bto`/`bcc` to keep the recipient list private (consistent with `all_activity_recipients`)
       where:
-        (fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
-           fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id)) and
-          fragment("(?->>'published')::timestamptz <= now()", object.data)
+        fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
+          fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id) or
+          fragment("(?->'bto')::jsonb \\? ?", object.data, ^ap_id) or
+          fragment("(?->'bcc')::jsonb \\? ?", object.data, ^ap_id) or
+          fragment("(?->'audience')::jsonb \\? ?", object.data, ^ap_id)
     )
+    |> maybe_filter_types(opts[:activity_types], opts[:object_types])
+    |> maybe_published_filter(opts)
     |> do_list_page(page, opts)
   end
 
   def get_inbox_for_actor(_, _page, _opts), do: []
+
+  @doc """
+  An actor's `mls:messages` collection (per the MLS-over-ActivityPub spec): their inbox filtered to
+  MLS-related types, so an E2EE client can skip scanning the whole inbox.
+
+  Reuses `get_inbox_for_actor/3` (same addressing/ordering/paging seam). Differs in that it:
+  - filters to the configured MLS types — `:mls_message_object_types` matched against the wrapped
+    object's type (application messages are a `PrivateMessage`/`PublicMessage` object wrapped in a
+    `Create`), and `:mls_message_activity_types` against the activity's own type;
+  - skips the draft/scheduled `published <= now()` gate (`only_published: false`) — gating on
+    `published` could hide an in-order message and break MLS group/ratchet state.
+  """
+  def get_mls_messages_for_actor(actor_or_ap_id, page \\ 1, opts \\ []) do
+    get_inbox_for_actor(
+      actor_or_ap_id,
+      page,
+      opts
+      |> Keyword.put_new(:activity_types, ActivityPub.Config.get(:mls_message_activity_types, []))
+      |> Keyword.put_new(
+        :object_types,
+        ActivityPub.Config.get(:mls_message_object_types, ["PrivateMessage", "PublicMessage"])
+      )
+      |> Keyword.put_new(:only_published, false)
+    )
+  end
+
+  # Restrict the inbox to activities of the given `activity_types`, and/or whose wrapped object
+  # (embedded or referenced/joined) is of the given `object_types`. Empty/nil lists are no-ops; the
+  # object join is only added when filtering by object type.
+  defp maybe_filter_types(query, activity_types, object_types) do
+    activity_types = List.wrap(activity_types)
+    object_types = List.wrap(object_types)
+
+    cond do
+      activity_types == [] and object_types == [] ->
+        query
+
+      object_types == [] ->
+        where(query, [a], fragment("(?)->>'type' = ANY(?)", a.data, ^activity_types))
+
+      true ->
+        query
+        |> Queries.with_joined_object(:left)
+        |> where(
+          [a, object: o],
+          fragment("(?)->'object'->>'type' = ANY(?)", a.data, ^object_types) or
+            fragment("(?)->>'type' = ANY(?)", o.data, ^object_types)
+        )
+    end
+  end
+
+  # The inbox hides future-scheduled/draft posts; MLS messages opt out via `only_published: false`.
+  # NULL-safe: an activity with no `published` is included (matches the instance-inbox query above);
+  # only a *future* `published` is excluded.
+  defp maybe_published_filter(query, opts) do
+    if Keyword.get(opts, :only_published, true),
+      do:
+        where(
+          query,
+          [o],
+          fragment("(?->>'published') IS NULL", o.data) or
+            fragment("(?->>'published')::timestamptz <= now()", o.data)
+        ),
+      else: query
+  end
 
   # def get_inbox(instance_or_actor_url, page) do
   #   instance_or_actor_filter = "#{instance_or_actor_url}%"

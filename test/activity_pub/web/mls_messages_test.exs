@@ -177,7 +177,8 @@ defmodule ActivityPub.Web.MlsMessagesTest do
       la = local_actor()
       ap = la.data["id"]
 
-      bcc = insert_inbox_activity(ap, object_type: "PrivateMessage", field: :bcc, published: iso(-1))
+      bcc =
+        insert_inbox_activity(ap, object_type: "PrivateMessage", field: :bcc, published: iso(-1))
 
       ids = Object.get_mls_messages_for_actor(ap) |> Enum.map(& &1.data["id"])
 
@@ -193,7 +194,9 @@ defmodule ActivityPub.Web.MlsMessagesTest do
 
       ids = Object.get_inbox_for_actor(ap) |> Enum.map(& &1.data["id"])
 
-      assert no_pub.data["id"] in ids, "inbox should include activities with no `published` (NULL-safe fix)"
+      assert no_pub.data["id"] in ids,
+             "inbox should include activities with no `published` (NULL-safe fix)"
+
       refute future.data["id"] in ids, "inbox should still hide future-scheduled posts"
     end
   end

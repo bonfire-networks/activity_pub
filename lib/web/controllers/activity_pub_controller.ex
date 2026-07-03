@@ -371,7 +371,11 @@ defmodule ActivityPub.Web.ActivityPubController do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
-      |> render("mls_messages.json", %{actor: current_actor, page: page_number(params["page"]), paged: Map.has_key?(params, "page")})
+      |> render("mls_messages.json", %{
+        actor: current_actor,
+        page: page_number(params["page"]),
+        paged: Map.has_key?(params, "page")
+      })
     else
       _ ->
         Utils.error_json(

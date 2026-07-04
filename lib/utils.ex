@@ -579,6 +579,10 @@ defmodule ActivityPub.Utils do
              cache_bucket,
              cache_key,
              fn ->
+               # this fn only runs on a cache MISS — tag the rebuild for storm attribution
+               # (many rebuilds/tick = the cache isn't absorbing the storm). StormRecorder.
+               Logger.metadata(action: "rebuild_#{cache_bucket}")
+
                if is_function(get_fun, 2) do
                  get_fun.([{key, identifier}], opts)
                else

@@ -193,6 +193,10 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp sign_and_publish_one(actor, %{json: json, inbox: inbox} = params) do
     uri = URI.parse(inbox)
+
+    # log-only (host cardinality is unbounded — not a StormRecorder counter key): during fan-out,
+    # greping the storm window shows which remote instance's slow deliveries hold worker slots
+    Logger.metadata(target_host: uri.host)
     format = Instances.get_or_discover_signature_format(uri)
 
     case format do

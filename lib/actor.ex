@@ -355,6 +355,8 @@ defmodule ActivityPub.Actor do
     else
       e ->
         debug(e, "not a cached actor")
+        # storm attribution: remote-actor fetch on cache miss (StormRecorder)
+        Logger.metadata(action: "fetch_actor")
 
         # case get_remote_actor(ap_id) |> debug() do
         #   {:ok, actor} ->

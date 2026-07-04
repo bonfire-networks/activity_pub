@@ -117,6 +117,9 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   def fetch_object_from_id(id_or_object, opts) do
+    # storm attribution: remote-object fetch (StormRecorder). Left the shared
+    # fetch_fresh_object_from_id/2 untagged so actor-fetch keeps its own action tag.
+    Logger.metadata(action: "fetch_object")
     opts = opts |> Keyword.put(:triggered_by, "fetch_object_from_id")
 
     case cached_or_handle_incoming(id_or_object, opts)

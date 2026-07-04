@@ -28,6 +28,8 @@ defmodule ActivityPub.Federator.Worker do
       def perform(job) do
         # Mark this process as an Oban worker for downstream checks
         Process.put(:ap_oban_worker, true)
+        # tag for storm attribution (StormRecorder); perform_job refines `action:` per op
+        Logger.metadata(caller_class: :oban, queue: unquote(queue))
 
         try do
           case perform_job(job) do

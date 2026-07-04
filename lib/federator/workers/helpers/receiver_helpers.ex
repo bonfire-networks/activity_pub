@@ -41,7 +41,8 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   def perform(%Oban.Job{args: %{"op" => op, "params" => params, "repo" => repo}} = job, _type)
       when op in ["incoming_ap_doc", "incoming_ap_doc_mentions", "incoming_ap_doc_follows"] do
     ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
-    Logger.metadata(action: op)
+    # ap_type is the boost-storm fingerprint ("Announce" vs "Create" vs "Like") — StormRecorder
+    Logger.metadata(action: op, ap_type: params["type"])
     Untangle.debug("Handling incoming AP activity (#{op})")
 
     ActivityPub.Federator.Transformer.handle_incoming(params)
@@ -60,7 +61,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         _type
       ) do
     ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
-    Logger.metadata(action: "incoming_unverified_ap_doc")
+    Logger.metadata(action: "incoming_unverified_ap_doc", ap_type: params["type"])
     Untangle.debug("Handling incoming AP activity with no verified signature")
     maybe_process_unsigned(headers, params)
   end

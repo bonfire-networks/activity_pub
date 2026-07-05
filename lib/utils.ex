@@ -11,7 +11,13 @@ defmodule ActivityPub.Utils do
   import Untangle
   # import Ecto.Query
 
-  def repo, do: ProcessTree.get(:ecto_repo_module) || ActivityPub.Config.get!(:repo)
+  # test/dev keep the ProcessTree repo swap (TestInstanceRepo / federation dance); in prod a
+  # ProcessTree MISS would walk the whole process ancestry on every federation DB op
+  if Config.env() in [:test, :dev] do
+    def repo, do: ProcessTree.get(:ecto_repo_module) || ActivityPub.Config.get!(:repo)
+  else
+    def repo, do: ActivityPub.Config.get!(:repo)
+  end
 
   def adapter_fallback() do
     warn("Could not find an ActivityPub adapter, falling back to TestAdapter")
@@ -695,7 +701,7 @@ defmodule ActivityPub.Utils do
       )
 
   def json_with_cache(%Plug.Conn{} = conn, get_fun, cache_bucket, id, ret_fn, opts) do
-    if Untangle.log_level?(:info),
+    if Untangle.log_enabled?(:info),
       do:
         info(
           "#{inspect(request_ip(conn.remote_ip))} / #{inspect(Plug.Conn.get_req_header(conn, "user-agent"))}",

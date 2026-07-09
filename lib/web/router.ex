@@ -68,6 +68,15 @@ defmodule ActivityPub.Web.Router do
         get("/actors/:username/inbox", ActivityPubController, :maybe_inbox)
         # MLS-over-ActivityPub `mls:messages`: owner-only, the actor's received MLS activities
         get("/actors/:username/mls_messages", ActivityPubController, :mls_messages)
+
+        # ULID-based actor collections, one family per AP actor type (resolved by pointer id)
+        for seg <- ~w(person group organization service application) do
+          get("/#{seg}/:id/followers", ActivityPubController, :followers_by_id)
+          get("/#{seg}/:id/following", ActivityPubController, :following_by_id)
+          get("/#{seg}/:id/outbox", ActivityPubController, :outbox_by_id)
+          get("/#{seg}/:id/inbox", ActivityPubController, :maybe_inbox_by_id)
+          get("/#{seg}/:id/mls_messages", ActivityPubController, :mls_messages_by_id)
+        end
       end
 
       scope unquote(ap_base_path), ActivityPub.Web do
@@ -80,9 +89,14 @@ defmodule ActivityPub.Web.Router do
         get("/object/:uuid", ActivityPubController, :object)
 
         get("/actors/:username", ActivityPubController, :actor)
-        # options("/actors/:username", ActivityPubController, :actor) 
+        # options("/actors/:username", ActivityPubController, :actor)
         # note: singular is not canonical
         get("/actor/:username", ActivityPubController, :actor)
+
+        # ULID-based actor documents, one per AP actor type (resolved by pointer id)
+        for seg <- ~w(person group organization service application) do
+          get("/#{seg}/:id", ActivityPubController, :actor_by_id)
+        end
 
         # maybe return the public outbox
         get("/shared_outbox", ActivityPubController, :shared_outbox)
@@ -126,6 +140,12 @@ defmodule ActivityPub.Web.Router do
         # outbox
         # post("/actors/:username/outbox", IncomingActivityPubController, :only_get_error!) # return error saying not supported
         post("/actors/:username/outbox", C2SOutboxController, :create)
+
+        # ULID-based actor inbox/outbox, one per AP actor type (actions key on signature/session, not the path id)
+        for seg <- ~w(person group organization service application) do
+          post("/#{seg}/:id/inbox", IncomingActivityPubController, :inbox)
+          post("/#{seg}/:id/outbox", C2SOutboxController, :create)
+        end
 
         # proxy for c2s to get remote objects
         post("/proxy_remote_object", ProxyRemoteObjectController, :proxy)

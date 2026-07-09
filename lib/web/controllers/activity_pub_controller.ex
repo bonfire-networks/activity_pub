@@ -178,10 +178,62 @@ defmodule ActivityPub.Web.ActivityPubController do
         ActivityPub.Web.RedirectController.actor(conn, %{"username" => username})
 
       may_serve_actor?(username, conn) ->
-        actor_with_cache(conn, username)
+        maybe_canonical_redirect(conn, username) || actor_with_cache(conn, username)
 
       true ->
         Utils.error_json(conn, "this instance is not currently federating", 403)
+    end
+  end
+
+  # 301 a non-canonical ULID/username actor URL to its canonical form, so remotes that key actors by fetch URL never end up with duplicates. The cached Actor's `ap_id` IS the canonical URL (generated per the ULID cutoff). Scoped to ULID-vs-username mismatches only, existing non-canonical aliases (`/actor/:username`, `/users/:username`) keep serving 200.
+  defp maybe_canonical_redirect(conn, username) do
+    with {:ok, %{ap_id: ap_id}} when is_binary(ap_id) <- Actor.get_cached(username: username),
+         canonical_path when is_binary(canonical_path) <- URI.parse(ap_id).path,
+         true <- conn.request_path != canonical_path,
+         true <- ulid_actor_path?(conn.request_path) or ulid_actor_path?(canonical_path) do
+      conn
+      |> put_status(:moved_permanently)
+      |> redirect(external: ap_id)
+      |> halt()
+    else
+      _ -> nil
+    end
+  end
+
+  defp ulid_actor_path?(path) when is_binary(path),
+    do: String.contains?(path, ["/person/", "/group/", "/application/"])
+
+  defp ulid_actor_path?(_), do: false
+
+  # ULID-based actor URLs (/pub/person|group|application/:id) resolve the actor by
+  # pointer id, then reuse the username-keyed serving/collection logic. The served actor JSON
+  # carries the canonical (ULID) `id`, and `maybe_canonical_redirect` (in the username actions)
+  # 301s any non-canonical URL form to the canonical one so remotes never dup the actor.
+  def actor_by_id(conn, %{"id" => id} = params),
+    do: delegate_by_actor_id(conn, id, params, &actor/2)
+
+  def following_by_id(conn, %{"id" => id} = params),
+    do: delegate_by_actor_id(conn, id, params, &following/2)
+
+  def followers_by_id(conn, %{"id" => id} = params),
+    do: delegate_by_actor_id(conn, id, params, &followers/2)
+
+  def outbox_by_id(conn, %{"id" => id} = params),
+    do: delegate_by_actor_id(conn, id, params, &outbox/2)
+
+  def maybe_inbox_by_id(conn, %{"id" => id} = params),
+    do: delegate_by_actor_id(conn, id, params, &maybe_inbox/2)
+
+  def mls_messages_by_id(conn, %{"id" => id} = params),
+    do: delegate_by_actor_id(conn, id, params, &mls_messages/2)
+
+  defp delegate_by_actor_id(conn, id, params, fun) do
+    case Actor.get_cached(pointer: id) do
+      {:ok, %{username: username}} when is_binary(username) ->
+        fun.(conn, Map.put(params, "username", username))
+
+      _ ->
+        Utils.error_json(conn, "not found", 404)
     end
   end
 

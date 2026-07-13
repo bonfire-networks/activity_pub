@@ -100,7 +100,7 @@ defmodule ActivityPub.Web.CollectionServingTest do
         )
 
       {:ok, _} = Bonfire.Social.Pins.pin(user, post)
-      ap = Bonfire.Common.URIs.canonical_url(post)
+      ap = Bonfire.Common.URIs.canonical_url(post, preload_if_needed: true)
 
       resp =
         build_conn()

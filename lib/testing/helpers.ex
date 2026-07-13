@@ -25,6 +25,28 @@ defmodule ActivityPub.Test.Helpers do
   def ap_object_from_outgoing(%{activity: %{federate_activity_pub: object}}), do: object
   def ap_object_from_outgoing(object), do: object
 
+  @doc "GETs `path`, following one 301/302 redirect first if needed (e.g. new-scheme local actors 301 from their legacy username URL to `/pub/<type>/<ULID>`), and returns the conn. Re-dispatches on the ORIGINAL conn so request headers (accept etc) are preserved."
+  def get_following_redirect(conn, path) do
+    resp = Phoenix.ConnTest.dispatch(conn, endpoint(), :get, path)
+
+    case resp.status do
+      code when code in [301, 302] ->
+        Phoenix.ConnTest.dispatch(
+          conn,
+          endpoint(),
+          :get,
+          Phoenix.ConnTest.redirected_to(resp, code)
+        )
+
+      _ ->
+        resp
+    end
+  end
+
+  @doc "Like `get_following_redirect/2` but decodes the JSON response."
+  def get_json_following_redirect(conn, path, status \\ 200),
+    do: get_following_redirect(conn, path) |> Phoenix.ConnTest.json_response(status)
+
   def follow(actor_1, actor_2) do
     # TODO: make into a generic adapter callback?
     if ActivityPub.Federator.Adapter.adapter() == Bonfire.Federate.ActivityPub.Adapter do

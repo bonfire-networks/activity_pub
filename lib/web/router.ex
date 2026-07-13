@@ -141,10 +141,14 @@ defmodule ActivityPub.Web.Router do
         # post("/actors/:username/outbox", IncomingActivityPubController, :only_get_error!) # return error saying not supported
         post("/actors/:username/outbox", C2SOutboxController, :create)
 
-        # ULID-based actor inbox/outbox, one per AP actor type (actions key on signature/session, not the path id)
+        # ULID-based actor inbox/outbox, one per AP actor type (actions key on signature/session,
+        # not the path id). NB: the path param must NOT be `:id` as Phoenix merges path params into
+        # `conn.params`, so `:id` clobbered the posted AP document's own "id" (every activity
+        # delivered to such an inbox got stored under the ACTOR's id; the second one then
+        # collided with "already exists"). Controllers also read the doc from `conn.body_params`.
         for seg <- ~w(person group organization service application) do
-          post("/#{seg}/:id/inbox", IncomingActivityPubController, :inbox)
-          post("/#{seg}/:id/outbox", C2SOutboxController, :create)
+          post("/#{seg}/:actor_id/inbox", IncomingActivityPubController, :inbox)
+          post("/#{seg}/:actor_id/outbox", C2SOutboxController, :create)
         end
 
         # proxy for c2s to get remote objects

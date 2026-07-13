@@ -15,14 +15,23 @@ defmodule ActivityPub.Web.C2SOutboxController do
   plug :rate_limit, key_prefix: :c2s
 
   @doc """
-  Handles POST requests to /actors/:username/outbox for C2S API.
+  Handles POST requests to /actors/:username/outbox (and the new-scheme
+  /<type>/:actor_id/outbox) for C2S API.
   """
-  def create(conn, %{"username" => _username} = params) do
+  def create(conn, %{"actor_id" => _} = _params), do: do_create(conn)
+  def create(conn, %{"username" => _username} = _params), do: do_create(conn)
+
+  defp do_create(conn) do
     # TODO: uncomment when scope validation is implemented
     # required_scopes = ["write:statuses"]
     # with true <- validate_authorized_scopes(conn, required_scopes) || {:error, :insufficient_scopes} do
 
-    with {:ok, activity} <- C2S.handle_c2s_activity(conn.assigns[:current_actor], params) do
+    # the posted activity is read from `conn.body_params`, NOT the merged params: Phoenix merges
+    # router path params in, which would inject fields into the activity (a path `:id`/`:username`
+    # would land in the activity). `handle_c2s_activity` takes identity from the authenticated
+    # `current_actor`, so no path param is needed.
+    with {:ok, activity} <-
+           C2S.handle_c2s_activity(conn.assigns[:current_actor], conn.body_params) do
       conn
       |> put_status(:created)
       |> maybe_put_location_header(activity)

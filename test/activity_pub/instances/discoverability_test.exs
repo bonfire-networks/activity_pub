@@ -72,13 +72,10 @@ defmodule ActivityPub.Instances.DiscoverabilityTest do
     test "actor JSON includes generator with RFC 9421 in implements" do
       actor = local_actor()
 
-      response =
+      body =
         build_conn()
         |> put_req_header("accept", "application/activity+json")
-        |> get("/pub/actors/#{actor.username}")
-
-      assert response.status in [200, 304]
-      body = json_response(response, 200)
+        |> get_json_following_redirect("/pub/actors/#{actor.username}")
 
       generator = body["generator"]
 
@@ -102,12 +99,11 @@ defmodule ActivityPub.Instances.DiscoverabilityTest do
     test "generator includes service actor id" do
       actor = local_actor()
 
-      response =
+      body =
         build_conn()
         |> put_req_header("accept", "application/activity+json")
-        |> get("/pub/actors/#{actor.username}")
+        |> get_json_following_redirect("/pub/actors/#{actor.username}")
 
-      body = json_response(response, 200)
       generator = body["generator"]
 
       if is_map(generator) do
@@ -175,7 +171,7 @@ defmodule ActivityPub.Instances.DiscoverabilityTest do
       response =
         build_conn()
         |> put_req_header("accept", "application/activity+json")
-        |> get("/pub/actors/#{actor.username}")
+        |> get_following_redirect("/pub/actors/#{actor.username}")
 
       assert response.status in [200, 304]
 

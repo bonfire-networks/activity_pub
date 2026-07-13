@@ -15,17 +15,20 @@ defmodule ActivityPub.C2S do
   @addressing_fields ["to", "cc", "bto", "bcc", "audience"]
 
   @doc """
-  Handles POST requests to /actors/:username/outbox for C2S API.
+  Handles a C2S activity posted to an actor's outbox.
 
-  Validates the authenticated user matches the actor, prepares the activity,
-  and routes through `Transformer.handle_incoming` with `local: true`.
+  The identity is the AUTHENTICATED `current_actor` (established by the outbox auth plug) — the
+  `activity` is the raw posted document (from `conn.body_params`, so router path params like the
+  actor's id/username are never injected into it). Rejects a document that tries to attribute
+  itself to a DIFFERENT actor; otherwise stamps `current_actor` as the actor and routes through
+  `Transformer.handle_incoming` with `local: true`.
   """
-  def handle_c2s_activity(current_actor, %{"username" => username} = params) do
+  def handle_c2s_activity(current_actor, activity) when is_map(activity) do
     with true <- not is_nil(current_actor) || {:error, :unauthorized},
          true <-
-           validate_actor_match?(current_actor, username) ||
-             error(:actor_mismatch, "Actor does not match authenticated user") do
-      params
+           actor_not_forged?(activity, current_actor) ||
+             error(:actor_mismatch, "Activity actor does not match authenticated user") do
+      activity
       |> maybe_wrap_object_in_create()
       |> ensure_actor(current_actor)
       |> ensure_attributed_to()
@@ -143,9 +146,20 @@ defmodule ActivityPub.C2S do
     {:error, :invalid_activity}
   end
 
-  defp validate_actor_match?(%{username: actor_username}, username) when is_binary(username) do
-    actor_username == username
-  end
+  # The posted document may omit an actor (we stamp `current_actor` via `ensure_actor`), but if it
+  # DOES declare one — on the activity or its nested object — it must be the authenticated actor:
+  # no posting activities attributed to someone else through your own outbox.
+  defp actor_not_forged?(activity, current_actor) do
+    actor_ap_id = Utils.ap_id(current_actor)
 
-  defp validate_actor_match?(_, _), do: false
+    # `object` may be a bare URI string (e.g. a Like's target), so only look inside it when it's a map
+    object = activity["object"]
+    nested_actors = if is_map(object), do: [object["actor"], object["attributedTo"]], else: []
+
+    declared =
+      ([activity["actor"], activity["attributedTo"]] ++ nested_actors)
+      |> Enum.filter(&is_binary/1)
+
+    declared == [] or Enum.all?(declared, &(&1 == actor_ap_id))
+  end
 end

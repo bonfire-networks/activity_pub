@@ -33,14 +33,18 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     inbox(conn, params)
   end
 
-  def inbox(%{assigns: %{valid_signature: true}} = conn, params) do
-    apply_process(conn, params, &process_incoming/3)
+  # NOTE: the AP document is read from `conn.body_params`, NOT the merged `params` as Phoenix
+  # merges router path params (and query params) in, which can clobber/inject document fields
+  # (a path `:id` param once overwrote every incoming activity's "id" with the actor's id)
+
+  def inbox(%{assigns: %{valid_signature: true}} = conn, _params) do
+    apply_process(conn, conn.body_params, &process_incoming/3)
   end
 
   # HTTP signature missing or invalid — queue for the full verification cascade
   # (key re-fetch, LD signature check, source re-fetch) in ReceiverHelpers.
-  def inbox(%{assigns: %{valid_signature: false}} = conn, params) do
-    apply_process(conn, params, &maybe_process_unsigned/3)
+  def inbox(%{assigns: %{valid_signature: false}} = conn, _params) do
+    apply_process(conn, conn.body_params, &maybe_process_unsigned/3)
   end
 
   # accept (but verify) unsigned Creates only?
@@ -52,8 +56,8 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   # end
 
   # accept (but verify) unsigned any activities
-  def inbox(conn, params) do
-    apply_process(conn, params, &maybe_process_unsigned/3)
+  def inbox(conn, _params) do
+    apply_process(conn, conn.body_params, &maybe_process_unsigned/3)
   end
 
   def only_get_error!(conn, _params) do

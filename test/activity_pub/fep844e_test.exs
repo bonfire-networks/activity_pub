@@ -23,8 +23,7 @@ defmodule ActivityPub.FEP844eTest do
       resp =
         build_conn()
         |> put_req_header("accept", "application/json")
-        |> get("/pub/actors/#{actor.username}")
-        |> json_response(200)
+        |> get_json_following_redirect("/pub/actors/#{actor.username}")
 
       generator = resp["generator"]
       assert generator, "actor should include generator property"

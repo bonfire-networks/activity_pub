@@ -23,8 +23,13 @@ defmodule ActivityPub.Federator.Transformer.AnswerHandlingTest do
     activity =
       insert(:note_activity, %{
         actor: user,
-        status: "suya...",
-        poll: %{options: ["suya", "suya.", "suya.."], expires_in: 10}
+        note:
+          insert(:question, %{
+            actor: user,
+            status: "suya...",
+            options: ["suya", "suya.", "suya.."],
+            expires_in: 10
+          })
       })
 
     object = Object.normalize(activity, fetch: false)
@@ -60,8 +65,13 @@ defmodule ActivityPub.Federator.Transformer.AnswerHandlingTest do
     poll_activity =
       insert(:note_activity, %{
         actor: user,
-        status: "suya...",
-        poll: %{options: ["suya", "suya.", "suya.."], expires_in: 10}
+        note:
+          insert(:question, %{
+            actor: user,
+            status: "suya...",
+            options: ["suya", "suya.", "suya.."],
+            expires_in: 10
+          })
       })
 
     poll_object = Object.normalize(poll_activity, fetch: false)

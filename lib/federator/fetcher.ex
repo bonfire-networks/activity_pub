@@ -1000,6 +1000,11 @@ defmodule ActivityPub.Federator.Fetcher do
 
   defp objects_from_collection(page, opts \\ [])
 
+  # a page that couldn't be fetched/resolved (e.g. a Question's `replies.first` that a peer doesn't
+  # serve) yields nil — treat as an empty collection rather than crashing downstream
+  defp objects_from_collection(nil, _opts), do: []
+  defp objects_from_collection([], _opts), do: []
+
   defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
        when is_list(items) and items != [] and
               is_in(type, ["OrderedCollection", "OrderedCollectionPage"]),

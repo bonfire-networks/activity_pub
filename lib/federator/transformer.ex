@@ -98,6 +98,9 @@ defmodule ActivityPub.Federator.Transformer do
   defp prepare_outgoing_object(%Object{} = object) do
     object
     |> set_replies()
+    # `Answer` is the internal marker for a poll vote (set by `fix_type/2` on incoming); on the wire
+    # a vote is a plain `Note` (Mastodon has no `Answer` type), so rewrite it back on the way out.
+    |> rewrite_answer_to_note()
 
     # |> Map.get(:data) # done by set_replies/2
     # |> Map.delete("bto")
@@ -105,6 +108,10 @@ defmodule ActivityPub.Federator.Transformer do
 
     # |> debug
   end
+
+  #  TODO: can we do this only for outgoing objects that are being sent to Mastodon instances?
+  defp rewrite_answer_to_note(%{"type" => "Answer"} = data), do: Map.put(data, "type", "Note")
+  defp rewrite_answer_to_note(data), do: data
 
   defp prepare_outgoing_object(object) do
     case Object.normalize(object, false) do
@@ -713,7 +720,10 @@ defmodule ActivityPub.Federator.Transformer do
        when is_binary(name) do
     options = Keyword.put(options, :fetch, true)
 
-    with %Object{data: %{"type" => "Question"}} <- Object.normalize(reply_id, options) do
+    with %Object{data: %{"type" => "Question"}} = question <-
+           Object.normalize(reply_id, options) do
+      count_poll_vote(question, name)
+
       Map.put(object, "type", "Answer")
     else
       _ -> object
@@ -721,6 +731,41 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp fix_type(object, _options), do: object
+
+  # Bumps the referenced Question's matching `oneOf`/`anyOf` option tally for an incoming vote, so
+  # AP-lib consumers see counts (Mastodon-style). Bonfire additionally records a real `Vote` via the
+  # adapter. Persists on the QUESTION object; returns the (unchanged) vote object for the pipeline.
+  defp count_poll_vote(%Object{data: question_data} = question, name) do
+    updated_data = increment_poll_option(question_data, name)
+
+    if updated_data != question_data do
+      Object.do_update_existing(question, %{data: updated_data})
+    else
+      warn(question_data, "No matching poll option found for vote #{inspect(name)}")
+    end
+  end
+
+  # Increment `replies.totalItems` on the poll option whose `name` matches the vote, in whichever of
+  # `anyOf`/`oneOf` the Question uses.
+  defp increment_poll_option(%{} = question_data, name) do
+    key = if is_list(question_data["anyOf"]), do: "anyOf", else: "oneOf"
+
+    options =
+      (question_data[key] || [])
+      |> Enum.map(fn
+        %{"name" => ^name} = opt ->
+          Map.update(opt, "replies", %{"type" => "Collection", "totalItems" => 1}, fn replies ->
+            Map.update(replies, "totalItems", 1, &((&1 || 0) + 1))
+          end)
+
+        opt ->
+          opt
+      end)
+
+    Map.put(question_data, key, options)
+  end
+
+  defp increment_poll_option(_question_data, _name), do: nil
 
   # See https://akkoma.dev/FoundKeyGang/FoundKey/issues/343
   # Misskey/Foundkey drops some of the custom formatting when it sends remotely

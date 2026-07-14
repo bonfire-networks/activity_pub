@@ -202,20 +202,25 @@ defmodule ActivityPub.Factory do
          Code.ensure_loaded?(Bonfire.Posts.Fake) do
       text = attrs[:status] || sequence(:text, &"This is local note #{&1}")
 
+      boundary =
+        attrs[:boundary] ||
+          if(
+            !attrs[:to] or
+              "https://www.w3.org/ns/activitystreams#Public" in List.wrap(attrs[:to]),
+            do: "public",
+            else: "mentions"
+          )
+
       with %{} = user <- user_by_ap_id(actor) |> debug("user_by_ap_id"),
            %{id: id} = post <-
-             Bonfire.Posts.Fake.fake_post!(
-               user,
-               attrs[:boundary] ||
-                 if(
-                   !attrs[:to] or
-                     "https://www.w3.org/ns/activitystreams#Public" in List.wrap(attrs[:to]),
-                   do: "public",
-                   else: "mentions"
-                 ),
-               %{html_body: text},
-               to_circles: attrs[:to_circles] || []
-             )
+             (if reply_to = attrs[:reply_to] do
+                # a real threaded reply (so it inherits the parent's thread/context)
+                Bonfire.Posts.Fake.fake_comment!(user, reply_to, boundary)
+              else
+                Bonfire.Posts.Fake.fake_post!(user, boundary, %{html_body: text},
+                  to_circles: attrs[:to_circles] || []
+                )
+              end)
              |> debug("the_post"),
            {:ok, object} <- ActivityPub.Object.get_cached(pointer: id) do
         %ActivityPub.Object{
@@ -283,6 +288,39 @@ defmodule ActivityPub.Factory do
     |> debug("prepared object")
   end
 
+  @doc """
+  An AP `Question` (poll) object. Reuses `note_factory` for the base (id, actor, to, …) then
+  overrides the type and adds the choices: `oneOf` (single-choice) or `anyOf` (`multiple: true`),
+  each option a `Note` with a zeroed `replies.totalItems` tally, plus an `endTime`.
+  Options come from `:options` (default `["yes", "no"]`), closing after `:expires_in` seconds.
+  """
+  def question_factory(attrs \\ %{}) do
+    attrs = attrs |> Enum.into(%{})
+    options = attrs[:options] || ["yes", "no"]
+    key = if attrs[:multiple], do: "anyOf", else: "oneOf"
+
+    %ActivityPub.Object{data: base} =
+      note = note_factory(Map.drop(attrs, [:options, :expires_in, :multiple]))
+
+    poll_fields = %{
+      "type" => "Question",
+      key =>
+        Enum.map(options, fn name ->
+          %{
+            "type" => "Note",
+            "name" => name,
+            "replies" => %{"type" => "Collection", "totalItems" => 0}
+          }
+        end),
+      "endTime" =>
+        DateTime.utc_now()
+        |> DateTime.add(attrs[:expires_in] || 3600, :second)
+        |> DateTime.to_iso8601()
+    }
+
+    %{note | data: Map.merge(base, poll_fields)}
+  end
+
   def local_direct_note(attrs \\ %{}) do
     to = attrs[:to] || local_actor()
 
@@ -319,7 +357,7 @@ defmodule ActivityPub.Factory do
       actor = note.data["actor"]
 
       attrs = attrs |> Enum.into(%{}) |> Map.drop([:actor, :note, :data_attrs])
-      data_attrs = attrs[:data_attrs] || attrs |> Map.drop([:status])
+      data_attrs = attrs[:data_attrs] || attrs |> Map.drop([:status, :reply_to])
 
       data =
         %{

@@ -322,9 +322,11 @@ defmodule ActivityPub.Object do
          upsert?
        )
        when is_in(type, :supported_actor_types) == false and
-              is_in(type, :supported_activity_types) == false do
-    # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
-
+              (is_in(type, :supported_activity_types) == false or
+                 is_in(type, :supported_intransitive_types) == true) do
+    # Store the wrapped thing as its own object (rather than leaving it embedded in the activity).
+    # We support two uses of some types (e.g. `Question`): as a bare intransitive *activity* (handled by the intransitive clause below), and, like Mastodon does for polls, as a content *object* wrapped in a `Create`/`Update`. When such a type appears as an activity's `object`, treat it as an object here so it becomes retrievable by its ap_id (e.g. for `Object.normalize`/voting).
+    # Other (non-intransitive) activity types stay embedded, so we don't split nested activities like `Announce{Create}` or `Undo{Like}`.
     with {:ok, object} <-
            actually_do_insert_object(activity, object_data, local, pointer, upsert?) do
       # return an activity that contains the ID as object rather than the actual object
@@ -656,20 +658,29 @@ defmodule ActivityPub.Object do
   def normalize(ap_id, fetch_remote?, pointer) when is_binary(ap_id) and is_binary(pointer),
     do:
       get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id) ||
-        maybe_fetch(ap_id, fetch_remote?)
+        maybe_fetch(ap_id, fetch_remote?) || warn!(ap_id, "Could not find object")
 
-  def normalize(_, _fetch_remote?, pointer) when is_binary(pointer),
-    do: get_cached!(pointer: pointer)
+  def normalize(_ap_id, _fetch_remote?, pointer) when is_binary(pointer),
+    do: get_cached!(pointer: pointer) || warn!(pointer, "Could not find object by pointer")
 
   def normalize(ap_id, fetch_remote?, _) when is_binary(ap_id),
-    do: get_cached!(ap_id: ap_id) || maybe_fetch(ap_id, fetch_remote?)
+    do:
+      get_cached!(ap_id: ap_id) || maybe_fetch(ap_id, fetch_remote?) ||
+        warn!(ap_id, "Could not find object by ap id")
 
   def normalize(%{"id" => ap_id} = _data, false, pointer)
       when is_binary(ap_id) do
-    normalize(ap_id, false, pointer) || nil
+    normalize(ap_id, false, pointer)
   end
 
-  def normalize(_, _, _), do: nil
+  def normalize(ap_id, _, _) do
+    warn!(ap_id, "Invalid input for normalize object")
+  end
+
+  defp warn!(obj, msg) do
+    warn(obj, msg)
+    nil
+  end
 
   defp maybe_fetch(ap_id, true) when is_binary(ap_id) do
     with {:ok, object} <- Fetcher.fetch_object_from_id(ap_id, triggered_by: "Object.normalize") do

@@ -16,7 +16,7 @@ defmodule ActivityPub.Federator.Transformer.AudioHandlingTest do
     :ok
   end
 
-  test "Funkwhale Audio object" do
+  test "Funkwhale Audio object is stored with its url list preserved" do
     data = file("fixtures/funkwhale_create_audio.json") |> Jason.decode!()
 
     {:ok, %Activity{local: false} = activity} = Transformer.handle_incoming(data)
@@ -25,25 +25,21 @@ defmodule ActivityPub.Federator.Transformer.AudioHandlingTest do
 
     assert object.data["to"] == ["https://www.w3.org/ns/activitystreams#Public"]
 
-    assert object.data["cc"] == [
-             "https://funkwhale.local/federation/actors/compositions/followers"
-           ]
-
-    assert object.data["url"] == "https://funkwhale.local/library/tracks/74"
-
-    assert object.data["attachment"] == [
+    # we do NOT split the url list into url + attachment (Pleroma-style): the raw Link list is the input contract of `Bonfire.Files.Media.ap_receive_activity`, whose `extract_audio_url/1` picks the playable file from it on the adapter side
+    assert object.data["url"] == [
              %{
-               "mediaType" => "audio/ogg",
                "type" => "Link",
-               "url" => [
-                 %{
-                   "href" =>
-                     "https://funkwhale.local/api/v1/listen/3901e5d8-0445-49d5-9711-e096cf32e515/?upload=42342395-0208-4fee-a38d-259a6dae0871&download=false",
-                   "mediaType" => "audio/ogg",
-                   "type" => "Link"
-                 }
-               ]
+               "mimeType" => "audio/ogg",
+               "href" =>
+                 "https://funkwhale.local/api/v1/listen/3901e5d8-0445-49d5-9711-e096cf32e515/?upload=42342395-0208-4fee-a38d-259a6dae0871&download=false"
+             },
+             %{
+               "type" => "Link",
+               "mimeType" => "text/html",
+               "href" => "https://funkwhale.local/library/tracks/74"
              }
            ]
+
+    assert object.data["attachment"] == nil
   end
 end

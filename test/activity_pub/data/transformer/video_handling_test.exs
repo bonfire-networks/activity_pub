@@ -45,30 +45,29 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
              "Déframasoftisons Internet [Framasoft]"
   end
 
-  test "it remaps video URLs as attachments if necessary" do
+  # unlike Pleroma we do NOT remap a PeerTube video's url list into url + attachment: the raw
+  # Link list is the input contract of `Bonfire.Files.Media.ap_receive_activity`, which picks
+  # the best playable file from it (incl. from mpegURL playlists) on the adapter side
+  test "it preserves PeerTube video url lists" do
     {:ok, object} =
       Fetcher.fetch_object_from_id(
         "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
       )
 
-    assert object.data["url"] ==
-             "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3"
+    urls = object.data["url"]
+    assert is_list(urls)
 
-    assert object.data["attachment"] == [
-             %{
-               "type" => "Link",
-               "mediaType" => "video/mp4",
-               "url" => [
-                 %{
-                   "href" =>
-                     "https://group.local/static/webseed/df5f464b-be8d-46fb-ad81-2d4c2d1630e3-480.mp4",
-                   "mediaType" => "video/mp4",
-                   "type" => "Link",
-                   "width" => 480
-                 }
-               ]
-             }
-           ]
+    # note: this older PeerTube fixture tags links with `mimeType` rather than `mediaType`,
+    # so match on href (the watch page + a playable mp4 must both still be in the list)
+    assert Enum.any?(
+             urls,
+             &(&1["href"] ==
+                 "https://group.local/videos/watch/df5f464b-be8d-46fb-ad81-2d4c2d1630e3")
+           )
+
+    assert Enum.any?(urls, &String.ends_with?(&1["href"] || "", ".mp4"))
+
+    assert object.data["attachment"] == nil
 
     data = file("fixtures/framatube.org-video.json") |> Jason.decode!()
 
@@ -76,24 +75,24 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
 
     assert object = Object.normalize(activity, fetch: false)
 
-    assert object.data["attachment"] == [
-             %{
-               "type" => "Link",
-               "mediaType" => "video/mp4",
-               "url" => [
-                 %{
-                   "href" =>
-                     "https://framatube.local/static/webseed/6050732a-8a7a-43d4-a6cd-809525a1d206-1080.mp4",
-                   "mediaType" => "video/mp4",
-                   "type" => "Link",
-                   "height" => 1080
-                 }
-               ]
-             }
-           ]
+    urls = object.data["url"]
+    assert is_list(urls)
 
-    assert object.data["url"] ==
-             "https://framatube.local/videos/watch/6050732a-8a7a-43d4-a6cd-809525a1d206"
+    assert Enum.any?(
+             urls,
+             &(&1["mediaType"] == "text/html" and
+                 &1["href"] ==
+                   "https://framatube.local/videos/watch/6050732a-8a7a-43d4-a6cd-809525a1d206")
+           )
+
+    assert Enum.any?(
+             urls,
+             &(&1["mediaType"] == "video/mp4" and
+                 &1["href"] ==
+                   "https://framatube.local/static/webseed/6050732a-8a7a-43d4-a6cd-809525a1d206-1080.mp4")
+           )
+
+    assert object.data["attachment"] == nil
   end
 
   test "it works for peertube videos with only their mpegURL map" do
@@ -105,23 +104,19 @@ defmodule ActivityPub.Federator.Transformer.VideoHandlingTest do
 
     assert object = Object.normalize(activity, fetch: false)
 
-    assert object.data["attachment"] == [
-             %{
-               "type" => "Link",
-               "mediaType" => "video/mp4",
-               "url" => [
-                 %{
-                   "href" =>
-                     "https://peertube.local/static/streaming-playlists/hls/abece3c3-b9c6-47f4-8040-f3eed8c602e6/abece3c3-b9c6-47f4-8040-f3eed8c602e6-1080-fragmented.mp4",
-                   "mediaType" => "video/mp4",
-                   "type" => "Link",
-                   "height" => 1080
-                 }
-               ]
-             }
-           ]
+    urls = object.data["url"]
+    assert is_list(urls)
 
-    assert object.data["url"] ==
-             "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6"
+    assert Enum.any?(
+             urls,
+             &(&1["mediaType"] == "text/html" and
+                 &1["href"] ==
+                   "https://peertube.local/videos/watch/abece3c3-b9c6-47f4-8040-f3eed8c602e6")
+           )
+
+    # the mpegURL playlist entry is kept for the Media adapter to pick a file from
+    assert Enum.any?(urls, &(&1["mediaType"] == "application/x-mpegURL"))
+
+    assert object.data["attachment"] == nil
   end
 end

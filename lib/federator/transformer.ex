@@ -621,7 +621,8 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def fix_url(%{"url" => [url]} = object) do
-    fix_url(%{"url" => url})
+    # unwrap a single-element url list (keeping the REST of the object!)
+    fix_url(Map.put(object, "url", url))
   end
 
   # def fix_url(%{"url" => url} = object) when is_list(url) do
@@ -1222,6 +1223,21 @@ defmodule ActivityPub.Federator.Transformer do
       e ->
         error(e, "Could not handle incoming Reject")
     end
+  end
+
+  # Misskey federates custom emoji reactions as a `Like` carrying the emoji in `content` —
+  # normalise those to `EmojiReact` so reactions have one canonical type downstream
+  def handle_incoming(
+        %{
+          "type" => "Like",
+          "content" => emoji
+        } = data,
+        opts
+      )
+      when is_binary(emoji) and emoji != "" do
+    data
+    |> Map.put("type", "EmojiReact")
+    |> handle_incoming(opts)
   end
 
   def handle_incoming(

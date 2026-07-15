@@ -658,15 +658,15 @@ defmodule ActivityPub.Object do
   def normalize(ap_id, fetch_remote?, pointer) when is_binary(ap_id) and is_binary(pointer),
     do:
       get_cached!(pointer: pointer) || get_cached!(ap_id: ap_id) ||
-        maybe_fetch(ap_id, fetch_remote?) || warn!(ap_id, "Could not find object")
+        maybe_fetch(ap_id, fetch_remote?) || unnormalized(ap_id, "Could not find object")
 
   def normalize(_ap_id, _fetch_remote?, pointer) when is_binary(pointer),
-    do: get_cached!(pointer: pointer) || warn!(pointer, "Could not find object by pointer")
+    do: get_cached!(pointer: pointer) || unnormalized(pointer, "Could not find object by pointer")
 
   def normalize(ap_id, fetch_remote?, _) when is_binary(ap_id),
     do:
       get_cached!(ap_id: ap_id) || maybe_fetch(ap_id, fetch_remote?) ||
-        warn!(ap_id, "Could not find object by ap id")
+        unnormalized(ap_id, "Could not find object by ap id")
 
   def normalize(%{"id" => ap_id} = _data, false, pointer)
       when is_binary(ap_id) do
@@ -674,11 +674,11 @@ defmodule ActivityPub.Object do
   end
 
   def normalize(ap_id, _, _) do
-    warn!(ap_id, "Invalid input for normalize object")
+    unnormalized(ap_id, "Invalid input for normalize object")
   end
 
-  defp warn!(obj, msg) do
-    warn(obj, msg)
+  defp unnormalized(obj, msg) do
+    debug(obj, msg)
     nil
   end
 

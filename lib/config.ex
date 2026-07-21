@@ -179,6 +179,11 @@ defmodule ActivityPub.Config do
     is_in_guard(type, list)
   end
 
+  # a non-literal expression as the list, e.g. a module attribute holding a list (`is_in(type, @types_to_translate)`): its value isn't visible at macro-expansion time, but a list-valued expression is valid inside the generated guard (module attributes expand to their value in guard context)
+  defmacro is_in(type, list_expr) do
+    is_in_guard(type, list_expr)
+  end
+
   defp is_in_guard(type, list) do
     # handles list of types privided at runtime (only supports list of 1 or 2 types)
     quote do

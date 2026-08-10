@@ -368,6 +368,11 @@ defmodule ActivityPub.Safety.LinkedDataSignaturesTest do
     test "activity with valid LD signature is verified and processed end-to-end", %{conn: conn} do
       import ActivityPub.Factory
 
+      # the success line asserted below is logged at :info, so raise it for the duration to pass in CI
+      prev_log_level = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: prev_log_level) end)
+
       # Generate a keypair for the remote actor
       {:ok, pem} = Keys.generate_rsa_pem()
       {:ok, private_key, public_key} = Keys.keypair_from_pem(pem)

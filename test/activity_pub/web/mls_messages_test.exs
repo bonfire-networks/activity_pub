@@ -76,7 +76,10 @@ defmodule ActivityPub.Web.MlsMessagesTest do
   defp iso(offset_seconds),
     do: DateTime.utc_now() |> DateTime.add(offset_seconds, :second) |> DateTime.to_iso8601()
 
+  # Advertising `mls:messages` on an actor is up to the adapter, and an adapter only does so when its E2EE support is part of the build. so these two are tagged `:e2ee` and the host app excludes that tag when it isn't . The collection-serving tests below are the lib's own behaviour and always run.
   describe "actor advertisement" do
+    @describetag :e2ee
+
     test "actor data advertises a dereferenceable mls:messages collection id" do
       la = local_actor()
 

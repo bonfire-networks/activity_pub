@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 defmodule ActivityPub.Federator.Transformer.AnswerHandlingTest do
-  use ActivityPub.DataCase, async: true
+  # NOT async: `Tesla.Mock.mock_global/1` below installs a process-independent mock, so running
+  # concurrently lets this module's mock and other tests' mocks clobber each other. Every other
+  # test module using `mock_global` is sync for the same reason.
+  use ActivityPub.DataCase, async: false
 
   alias ActivityPub.Object, as: Activity
   alias ActivityPub.Object

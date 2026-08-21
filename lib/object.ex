@@ -731,8 +731,12 @@ defmodule ActivityPub.Object do
     e
   end
 
+  # nil rather than an error tuple: every caller treats the result as an actor reference, and a
+  # document with `"actor" => {:error, …}` in it is no longer serialisable (nor is it caught by any
+  # `is_nil`/`is_binary` guard downstream)
   def actor_from_data(e) do
     error(e, "No actor found")
+    nil
   end
 
   def actor_id_from_data(id) when is_binary(id) do

@@ -126,8 +126,7 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
         |> put_req_header("content-type", @content_type)
         |> post(outbox_endpoint(actor), activity_data)
 
-      # FIXME: why are we getting 400?
-      resp = json_response(conn, 400) || json_response(conn, 403)
+      resp = json_response(conn, 403)
       assert resp["error"] =~ "does not match"
     end
   end

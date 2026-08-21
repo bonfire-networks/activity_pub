@@ -8,7 +8,7 @@ defmodule ActivityPub.Web.C2SOutboxController do
   use ActivityPub.Web, :controller
   import Untangle
 
-  alias ActivityPub.{Object, Utils}
+  alias ActivityPub.Object
   alias ActivityPub.C2S
   alias ActivityPub.Federator.Adapter
 
@@ -17,21 +17,19 @@ defmodule ActivityPub.Web.C2SOutboxController do
   @doc """
   Handles POST requests to /actors/:username/outbox (and the new-scheme
   /<type>/:actor_id/outbox) for C2S API.
+
+  Who may publish here, and what becomes of the document, is `ActivityPub.C2S`' business — this
+  only turns its result into a response.
   """
-  def create(conn, %{"actor_id" => _} = _params), do: do_create(conn)
-  def create(conn, %{"username" => _username} = _params), do: do_create(conn)
-
-  defp do_create(conn) do
-    # TODO: uncomment when scope validation is implemented
-    # required_scopes = ["write:statuses"]
-    # with true <- validate_authorized_scopes(conn, required_scopes) || {:error, :insufficient_scopes} do
-
+  def create(conn, params) do
     # the posted activity is read from `conn.body_params`, NOT the merged params: Phoenix merges
     # router path params in, which would inject fields into the activity (a path `:id`/`:username`
-    # would land in the activity). `handle_c2s_activity` takes identity from the authenticated
-    # `current_actor`, so no path param is needed.
+    # would land in the activity). The params are passed separately, as they name the outbox.
     with {:ok, activity} <-
-           C2S.handle_c2s_activity(conn.assigns[:current_actor], conn.body_params) do
+           C2S.handle_outbox_post(params, conn.body_params,
+             current_actor: conn.assigns[:current_actor],
+             valid_signature: conn.assigns[:valid_signature]
+           ) do
       conn
       |> put_status(:created)
       |> maybe_put_location_header(activity)
@@ -83,13 +81,6 @@ defmodule ActivityPub.Web.C2SOutboxController do
         |> put_status(:internal_server_error)
         |> json(%{error: "Failed to process activity"})
     end
-  end
-
-  # Handle malformed requests
-  def create(conn, _params) do
-    conn
-    |> put_status(:bad_request)
-    |> json(%{error: "Invalid request format"})
   end
 
   defp activity_to_json(%Object{data: data}), do: data

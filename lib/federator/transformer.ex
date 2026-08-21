@@ -177,32 +177,14 @@ defmodule ActivityPub.Federator.Transformer do
       when is_binary(host) or (is_list(target_actor_ids) and target_actor_ids != []) do
     data
     |> Map.put("object", preserve_privacy_of_outgoing(object, host, target_actor_ids))
-    |> Map.update(
-      "bto",
-      [],
-      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
-    )
-    |> Map.update(
-      "bcc",
-      [],
-      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
-    )
+    |> disclose_relevant_private_recipients(host, target_actor_ids)
     |> Adapter.transform_outgoing(host, target_actor_ids)
   end
 
   def preserve_privacy_of_outgoing(%{} = data, host, target_actor_ids)
       when is_binary(host) or (is_list(target_actor_ids) and target_actor_ids != []) do
     data
-    |> Map.update(
-      "bto",
-      [],
-      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
-    )
-    |> Map.update(
-      "bcc",
-      [],
-      &filter_recipients_visibility_by_instance(&1, host, target_actor_ids)
-    )
+    |> disclose_relevant_private_recipients(host, target_actor_ids)
     |> Adapter.transform_outgoing(host, target_actor_ids)
   end
 
@@ -220,6 +202,33 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def preserve_privacy_of_outgoing(other, _, _), do: other
+
+  # Discloses the `bto`/`bcc` recipients that belong to THIS target instance by folding them into `cc`, then removes `bto`/`bcc` entirely.
+  #
+  # Two reasons to surface them in `cc`: consumers such as Mastodon compute a status's audience from `to`/`cc` only (see `ActivityPub::Parser::StatusParser`), so a recipient addressed solely via `bcc` is invisible to them; and AP spec 6.11 requires the sender to remove `bto`/`bcc` before delivery while still using them to determine recipients.
+  #
+  # What gets disclosed is the already-per-instance-filtered list, so each instance learns only about its own recipients and a private audience (e.g. the members of a circle) is never disclosed across instances. This is why only the clauses that KNOW the target instance call it: the ones that do not, such as serving an object over HTTP via `ActivityPub.Web.ObjectView`, must merely strip `bto`/`bcc`, since disclosing to an unknown audience would publish the private recipient list to anyone who fetches the object.
+  defp disclose_relevant_private_recipients(data, host, target_actor_ids) do
+    private =
+      (List.wrap(Map.get(data, "bto")) ++ List.wrap(Map.get(data, "bcc")))
+      |> filter_recipients_visibility_by_instance(host, target_actor_ids)
+      |> Enum.uniq()
+
+    data
+    |> Map.drop(["bto", "bcc"])
+    |> merge_into_cc(private)
+  end
+
+  defp merge_into_cc(data, []), do: data
+
+  defp merge_into_cc(data, private) do
+    # a public activity already has its audience in `to`/`cc`; only private ones need this
+    if Utils.public?(data) do
+      data
+    else
+      Map.update(data, "cc", private, &Enum.uniq(List.wrap(&1) ++ private))
+    end
+  end
 
   defp filter_recipients_visibility_by_instance(bto, host, target_actor_ids) when is_list(bto) do
     Enum.filter(bto, &recipient_is_from_instance?(&1, host, target_actor_ids))

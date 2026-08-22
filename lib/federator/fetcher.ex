@@ -388,6 +388,16 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  # Reaching here means WE chose to take this in: resolved by id, or embedded in something we were
+  # already ingesting, unlike an inbox delivery, which calls `handle_incoming` directly. That licenses lenient authorship handling (see `Transformer.resolve_author/2`).
+  #
+  # Except when the ingestion is itself part of a delivery: resolving an object embedded in a document someone POSTed to us must NOT relabel it as fetched, or an authorless object could be laundered past the rule by embedding it in a delivered activity.
+  defp maybe_mark_fetched(opts, data) do
+    if opts[:from_inbox],
+      do: opts,
+      else: Keyword.put_new(opts, :already_fetched, Object.get_ap_id(data) || true)
+  end
+
   defp handle_fetched(%{data: data}, opts), do: handle_fetched(data, opts)
 
   defp handle_fetched(data, opts) do
@@ -396,6 +406,7 @@ defmodule ActivityPub.Federator.Fetcher do
     opts =
       opts
       |> Keyword.put(:triggered_by, "handle_fetched")
+      |> maybe_mark_fetched(data)
       |> debug("opts")
 
     with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do

@@ -716,6 +716,10 @@ defmodule ActivityPub.Object do
       when is_in(type, :supported_actor_types),
       do: actor
 
+  # A Create's object may carry the authorship its activity omitted. Only for Create: the actor of an Announce/Update/Delete is the announcer/editor/deleter, never the wrapped object's author.
+  def actor_from_data(%{"type" => "Create", "object" => object}) when is_map(object),
+    do: actor_from_data(object)
+
   def actor_from_data(actors) when is_list(actors) do
     Enum.map(actors, &actor_from_data/1)
     |> Enum.reject(&is_nil/1)

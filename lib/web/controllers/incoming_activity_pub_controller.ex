@@ -97,7 +97,9 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
         "incoming_ap_doc",
         %{
           "params" => params,
-          "username" => params["username"]
+          "username" => params["username"],
+          # the identity the signature plugs verified for THIS delivery, the only thing we know about authorship when the document itself names no author
+          "signed_by" => Utils.ap_id(conn.assigns[:current_actor])
         },
         worker_args
       )

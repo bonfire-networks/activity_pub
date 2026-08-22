@@ -1081,15 +1081,60 @@ defmodule ActivityPub.Federator.Transformer do
       Object.actor_id_from_data(data)
       |> debug("the actor_id")
 
-    {:ok, actor} =
-      with {:ok, actor} <- is_binary(actor_id) and Actor.get_cached_or_fetch(ap_id: actor_id) do
-        {:ok, actor}
-      else
-        e ->
-          warn(e, "could not get or fetch actor: #{inspect(actor_id)}")
-          Utils.service_actor()
-      end
+    case resolve_author(actor_id, opts) do
+      {:ok, actor} -> handle_incoming_create(data, object, actor, opts)
+      cancel_or_error -> cancel_or_error
+    end
+  end
 
+  # Who this object gets attributed to, in descending order of what we actually know:
+  #
+  # 1. the actor the document names, when we can resolve it
+  # 2. the signature-verified signer, when the document names NO author, since a signed delivery carries a verified identity which is a truer attribution than our own service actor. Not used when the document DID name an author: a TOP-LEVEL `actor` cannot differ from the signer anyway (`MappedSignatureToIdentityPlug` fails the signature on a payload-actor mismatch, routing to the unverified cascade, which threads no signer), so what remains is an author claimed only by a NESTED `attributedTo`, which the signature never vouched for, and which we should not quietly replace with the deliverer's identity.
+  # 3. our service actor, ONLY for a document we fetched ourselves, there was no deliverer to credit, and we chose to retrieve it. 
+  # Anything else is refused: saving as the service actor means this instance vouches for content nobody claimed and nobody proved.
+  defp resolve_author(actor_id, opts) do
+    with true <- is_binary(actor_id),
+         {:ok, %Actor{} = actor} <- Actor.get_cached_or_fetch(ap_id: actor_id) do
+      {:ok, actor}
+    else
+      _ -> fallback_author(actor_id, opts)
+    end
+  end
+
+  defp fallback_author(nil, opts) do
+    signer = opts[:signed_by]
+
+    with signer when is_binary(signer) <- signer,
+         {:ok, %Actor{} = actor} <- Actor.get_cached_or_fetch(ap_id: signer) do
+      info(signer, "attributing a document with no author to its verified signer")
+      {:ok, actor}
+    else
+      _ ->
+        warn(
+          signer,
+          "could not get or fetch an actor based on the signature of this document (if any)"
+        )
+
+        service_actor_or_cancel(opts)
+    end
+  end
+
+  defp fallback_author(actor_id, opts) do
+    warn(actor_id, "could not get or fetch the actor this document names")
+    service_actor_or_cancel(opts)
+  end
+
+  # Fetching or embedding is US choosing to ingest something (a `Place` inside an event's `location`, an object we resolve by id), and stays accepted. A DELIVERY is someone else pushing a document at us: with no author we can resolve and no verified signer, there is nothing left to attribute it to but our own identity, so we refuse. `already_fetched` is the primary signal; `from_inbox` is the fallback for paths that cannot say where the document came from.
+  defp service_actor_or_cancel(opts) do
+    if opts[:from_inbox] && !opts[:already_fetched] do
+      {:cancel, "Refusing to attribute a delivered document with no resolvable author or signer"}
+    else
+      Utils.service_actor()
+    end
+  end
+
+  defp handle_incoming_create(data, object, actor, opts) do
     params = %{
       activity_id: data["id"],
       to: data["to"],

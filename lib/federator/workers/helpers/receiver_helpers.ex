@@ -38,14 +38,21 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   The `type` argument is an atom indicating the queue type:
   `:mentions`, `:follows`, `:verified`, `:unverified`, etc.
   """
-  def perform(%Oban.Job{args: %{"op" => op, "params" => params, "repo" => repo}} = job, _type)
+  def perform(
+        %Oban.Job{args: %{"op" => op, "params" => params, "repo" => repo} = args} = job,
+        _type
+      )
       when op in ["incoming_ap_doc", "incoming_ap_doc_mentions", "incoming_ap_doc_follows"] do
     ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     # ap_type is the boost-storm fingerprint ("Announce" vs "Create" vs "Like") — StormRecorder
     Logger.metadata(action: op, ap_type: params["type"])
     Untangle.debug("Handling incoming AP activity (#{op})")
 
-    ActivityPub.Federator.Transformer.handle_incoming(params)
+    # carry the identity the signature plugs verified for this delivery: it is the only thing we know about authorship when the document itself names no author
+    ActivityPub.Federator.Transformer.handle_incoming(params,
+      from_inbox: true,
+      signed_by: args["signed_by"]
+    )
     |> Untangle.debug("result of handling incoming AP activity")
   end
 
@@ -100,7 +107,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
     if fetch_fresh_public_key? and HTTPSignatures.validate(headers) do
       Untangle.debug("HTTP signature valid after key re-fetch, processing activity")
-      ActivityPub.Federator.Transformer.handle_incoming(params)
+      ActivityPub.Federator.Transformer.handle_incoming(params, from_inbox: true)
     else
       if fetch_fresh_public_key? do
         Untangle.warn("HTTP signature still invalid after key re-fetch")
@@ -113,7 +120,12 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
           {:ok, creator} ->
             Untangle.info("Valid Linked Data Signature from #{creator}, processing activity")
 
-            ActivityPub.Federator.Transformer.handle_incoming(params)
+            # an LD signature verifies an identity just as an HTTP signature does, so it can stand
+            # as the author of a document that names none (e.g. relay-forwarded)
+            ActivityPub.Federator.Transformer.handle_incoming(params,
+              from_inbox: true,
+              signed_by: creator
+            )
 
           {:error, reason} ->
             Untangle.warn(
@@ -143,7 +155,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         "Accept/Reject of Follow - validating against local Follow activity (URLs are typically unfetchable)"
       )
 
-      ActivityPub.Federator.Transformer.handle_incoming(params)
+      ActivityPub.Federator.Transformer.handle_incoming(params, from_inbox: true)
     else
       is_deleted? =
         Untangle.debug(
@@ -165,7 +177,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
               "No valid signature and re-fetch failed, but accepting because ACCEPT_UNSIGNED_ACTIVITIES=1"
             )
 
-            ActivityPub.Federator.Transformer.handle_incoming(params)
+            ActivityPub.Federator.Transformer.handle_incoming(params, from_inbox: true)
           else
             reason =
               "Rejecting activity: no valid HTTP or LD signature, and re-fetch from source failed"

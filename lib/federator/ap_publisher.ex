@@ -292,6 +292,7 @@ defmodule ActivityPub.Federator.APPublisher do
       {_post_result, %{status: code, body: body} = response} ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
         SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
+
         # log the BODY, not the whole `%Tesla.Env{}`: remote error messages are the single most useful diagnostic (eg. Lemmy's parse errors name the offending field), and inspecting the env truncates long before reaching `body:`
         error(body, "could not push activity to #{inbox}, got HTTP #{code}")
 

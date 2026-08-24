@@ -199,6 +199,42 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
     end
   end
 
+  describe "POST /actors/:username/outbox - a more uncommon object type " do
+    # Every other C2S test here posts a type the host app is likely to have a federation module for (Note, Like, Follow…), or a collection op the lib owns (Add/Remove), so none of them exercises the host's FALLBACK handling (if any). A type nobody claims still has to end up as a real object on the host, or the post exists in `ap_object` and nowhere a user can see it.
+    test "is stored and linked to an object on the host", %{conn: conn} do
+      actor = local_actor()
+      user = user_by_ap_id(actor)
+
+      event = %{
+        "type" => "Event",
+        "name" => "a type with no dedicated handler",
+        "startTime" => "2026-08-21T15:47:13Z",
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"]
+      }
+
+      conn =
+        conn
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), event)
+
+      assert conn.status == 201
+      resp = json_response(conn, 201)
+
+      # the activity itself
+      {:ok, activity} = Object.get_cached(ap_id: resp["id"])
+      assert activity.data["type"] == "Create"
+      assert activity.local
+
+      # and the wrapped object, which must be linked to whatever the host created for it
+      {:ok, object} = Object.get_cached(ap_id: get_object_id(resp["object"]))
+      assert object.data["type"] == "Event"
+
+      assert object.pointer_id,
+             "the AP object was stored but never linked to an object on the host"
+    end
+  end
+
   describe "POST /actors/:username/outbox - Like activity" do
     test "creates a Like activity for a note", %{conn: conn} do
       actor = local_actor()

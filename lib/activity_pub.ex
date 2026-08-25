@@ -416,8 +416,12 @@ defmodule ActivityPub do
                  |> Map.put_new_lazy("id", fn ->
                    Map.get(params, :pointer) |> Object.object_url()
                  end)
-                 |> Map.put_new_lazy("update", fn ->
+                 |> Map.put_new_lazy("updated", fn ->
                    Utils.make_date()
+                 end)
+                 # keep the original creation date instead of letting Object.insert stamp "now"
+                 |> Map.put_new_lazy("published", fn ->
+                   params[:published] || Utils.make_date()
                  end)
              },
              additional

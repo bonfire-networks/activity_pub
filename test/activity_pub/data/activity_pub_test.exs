@@ -343,6 +343,29 @@ defmodule ActivityPubTest do
       assert embedded_object = update.data["object"]
       assert embedded_object["id"] == actor_data["id"]
       assert embedded_object["type"] == actor_data["type"]
+      assert embedded_object["updated"]
+      refute Map.has_key?(embedded_object, "update")
+    end
+
+    test "it keeps the given published date on the updated object", context do
+      actor = local_actor()
+      assert {:ok, actor} = Actor.get_cached(username: actor.username)
+      actor = Keys.add_public_key(actor)
+
+      actor_data = ActivityPub.Web.ActorView.render("actor.json", %{actor: actor})
+      published = "2020-01-01T00:00:00Z"
+
+      assert {:ok, update} =
+               ActivityPub.update(%{
+                 actor: actor,
+                 to: [actor.data["followers"]],
+                 cc: [],
+                 object: actor_data,
+                 published: published
+               })
+
+      assert update.data["object"]["published"] == published
+      assert update.data["object"]["updated"] != published
     end
   end
 

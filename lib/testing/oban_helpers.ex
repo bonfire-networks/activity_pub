@@ -24,6 +24,22 @@ defmodule ActivityPub.Tests.ObanHelpers do
     |> perform()
   end
 
+  @doc """
+  Keep running queued jobs until the queue stays empty, rather than only the jobs queued right now.
+
+  `perform_all/0` works from a single snapshot, so anything a job enqueues while running is left sitting in the queue: deleting a user, for example, enqueues the outgoing `Delete` activity from inside the deletion job, so one `perform_all/0` deletes locally and federates nothing.
+
+  Bounded, so a job that re-enqueues itself fails the test rather than hanging it.
+  """
+  def drain(max_rounds \\ 10) do
+    Enum.reduce_while(1..max_rounds, [], fn _round, done ->
+      case perform_all() do
+        [] -> {:halt, done}
+        results -> {:cont, done ++ results}
+      end
+    end)
+  end
+
   def perform(%Oban.Job{} = job) do
     res = apply(String.to_existing_atom("Elixir." <> job.worker), :perform, [job])
     repo().delete(job)

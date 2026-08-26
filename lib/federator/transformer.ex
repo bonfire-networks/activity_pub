@@ -1330,6 +1330,104 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # FEP-1b12: a group relays by announcing the ACTIVITY (`Announce{Create{Page}}`) rather than the object, so without unwrapping, the embedded `Create` falls through to the boost clause below and is mistaken for the post. Verified against real captures: Lemmy, PieFed and NodeBB all send this shape exclusively.
+  def handle_incoming(
+        %{
+          "type" => "Announce",
+          "object" => %{"type" => inner_type} = inner_activity,
+          "actor" => _actor
+        } = data,
+        opts
+      )
+      when is_in(inner_type, :supported_activity_types) do
+    info("Handle incoming group announce of an activity (FEP-1b12)")
+
+    with {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
+         {:ok, _inner} <- handle_incoming(inner_activity, opts) do
+      # Hand off to the boost clause with the inner OBJECT's id, the announce is of the object, and actor resolution, `public?`, dedup and error handling all already live there.
+      handle_incoming(
+        Map.put(data, "object", Object.get_ap_id(inner_activity["object"])),
+        opts
+      )
+    else
+      e -> error(e)
+    end
+  end
+
+  # `:trust` (default) takes the relayed copy at face value, which is 1b12 as designed and what Lemmy/PieFed/NodeBB do themselves; `:verify` refetches from the origin instead. See `relayed_activity_trust/0`.
+  defp verify_relayed_activity(inner_activity, opts) do
+    case signature_check(inner_activity) do
+      :valid ->
+        # the origin signed it, so the relay could not have altered or invented it
+        {:ok, inner_activity}
+
+      :invalid ->
+        # a BROKEN signature is worse than none: something tampered with this, so refuse it whatever the trust mode says
+        error(inner_activity["id"], "relayed activity has an invalid signature")
+
+      :none ->
+        maybe_refetch_relayed_activity(inner_activity, opts)
+    end
+  end
+
+  defp signature_check(activity) do
+    case ActivityPub.Safety.LinkedDataSignatures.verify(activity) do
+      {:ok, creator} ->
+        # a valid signature from SOMEONE only authenticates this activity if that someone is its actor
+        if ActivityPub.Safety.Containment.contain_origin(creator, activity),
+          do: :valid,
+          else: :invalid
+
+      {:error, :no_signature} ->
+        :none
+
+      _ ->
+        :invalid
+    end
+  end
+
+  defp maybe_refetch_relayed_activity(inner_activity, opts) do
+    if relayed_activity_trust() == :verify do
+      object_id = Object.get_ap_id(inner_activity["object"])
+
+      case Fetcher.fetch_fresh_object_from_id(object_id, opts) do
+        {:ok, %{data: authentic}} ->
+          debug(object_id, "relayed activity verified against its origin")
+          {:ok, Map.put(inner_activity, "object", authentic)}
+
+        {:error, :not_found} ->
+          error(
+            object_id,
+            "the origin does not have this object, so the relayed copy cannot be trusted"
+          )
+
+        cannot_verify ->
+          # eg 401 (`:needs_login`): declining to answer US says nothing about whether the object exists, which is precisely the case 1b12 exists for
+          debug(cannot_verify, "could not verify relayed activity, accepting the relayed copy")
+          {:ok, inner_activity}
+      end
+    else
+      {:ok, inner_activity}
+    end
+  end
+
+  @doc """
+  How far to trust an activity handed to us by a relay (FEP-1b12), set with `AP_RELAYED_ACTIVITY_TRUST=trust|verify` or `config :activity_pub, :relayed_activity_trust`.
+
+  Lemmy, PieFed and NodeBB do NOT sign relayed activities (verified against real captures), so this governs all threadiverse content rather than some edge case.
+
+  `:trust` (the default) takes the relayed copy at face value. This is 1b12 as designed, and what those implementations do themselves: the relay IS the delivery, so it keeps working when the origin won't serve us or has since deleted the object. The cost is that following a group means trusting that group about third parties.
+
+  `:verify` refetches from the origin and stores that copy instead, refusing anything the origin says does not exist. A 404/410 is evidence against the relayed copy, and trusting it would let a forger guarantee acceptance by naming any nonexistent URL on the victim's host. An origin declining to answer us (401/403) is the one trusted failure, since it says nothing about whether the object exists.
+  """
+  def relayed_activity_trust do
+    case System.get_env("AP_RELAYED_ACTIVITY_TRUST") do
+      "verify" -> :verify
+      "trust" -> :trust
+      _ -> Config.get(:relayed_activity_trust, :trust)
+    end
+  end
+
   def handle_incoming(
         %{
           "type" => "Announce",

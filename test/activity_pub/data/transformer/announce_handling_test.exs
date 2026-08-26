@@ -175,6 +175,182 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
     assert object.data["content"] == "this is a private toot"
   end
 
+  # FEP-1b12: a group relays by announcing the ACTIVITY (`Announce{Create{…}}`) rather than the object, which is what a Mastodon-style boost does. Verified against real captures from Lemmy, PieFed and NodeBB, as all three send this shape exclusively, so without unwrapping, the embedded `Create` is mistaken for the announced object and the inner object is never ingested at all.
+  describe "a group announcing an activity (FEP-1b12)" do
+    test "unwraps the inlined activity and ingests its object" do
+      group = insert(:actor)
+      author = insert(:actor)
+
+      object_id = "#{author.data["id"]}/posts/1b12-unwrap"
+
+      data = %{
+        "type" => "Announce",
+        "id" => "#{group.data["id"]}/activities/announce/1b12-unwrap",
+        "actor" => group.data["id"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => %{
+          "type" => "Create",
+          "id" => "#{author.data["id"]}/activities/create/1b12-unwrap",
+          "actor" => author.data["id"],
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+          "object" => %{
+            "type" => "Note",
+            "id" => object_id,
+            "attributedTo" => author.data["id"],
+            "audience" => group.data["id"],
+            "content" => "announced by the group, authored by someone else",
+            "to" => [group.data["id"], "https://www.w3.org/ns/activitystreams#Public"]
+          }
+        }
+      }
+
+      assert {:ok, %Object{data: announce}} = Transformer.handle_incoming(data)
+
+      assert announce["type"] == "Announce"
+      assert announce["actor"] == group.data["id"]
+
+      assert Object.get_ap_id(announce["object"]) =~ object_id,
+             "the announce should point at the inner OBJECT, not at the wrapping activity"
+
+      assert %Object{data: note} = Object.normalize(object_id, fetch: false),
+             "the inner object must be ingested — this is what fails when the activity is mistaken for the object"
+
+      assert note["attributedTo"] == author.data["id"],
+             "attribution stays with the author, not the announcing group"
+    end
+
+    # How far to trust an activity handed to us by a relay, mirroring the policy the inbox already applies to forwarded activities (`receiver_helpers.ex`): a verifiable signature is enough, otherwise it depends on configuration. Lemmy/PieFed/NodeBB do NOT sign relayed activities (verified against real captures), so this setting decides what happens to all of their content.
+    # How far to trust an activity handed to us by a relay. Lemmy/PieFed/NodeBB do NOT sign relayed activities (verified against real captures), so this setting governs ALL threadiverse content rather than some edge case. See `Transformer.relayed_activity_trust/0`.
+    test "`trust` accepts the inline copy even when the origin won't serve it" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      with_trust_mode(:trust, fn ->
+        %{data: data, object_id: object_id} = relayed_announce()
+
+        assert {:ok, _} = Transformer.handle_incoming(data)
+
+        assert %Object{} = Object.normalize(object_id, fetch: false),
+               "the relayed copy should be accepted as-is"
+      end)
+    end
+
+    test "`verify` refuses when the origin says the object does not exist" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      with_trust_mode(:verify, fn ->
+        %{data: data, object_id: object_id} = relayed_announce()
+
+        assert {:error, _} = Transformer.handle_incoming(data)
+
+        assert is_nil(Object.normalize(object_id, fetch: false)),
+               "a 404 is evidence AGAINST the relayed copy, not a reason to fall back to it: otherwise a forger guarantees acceptance by pointing the inner id at any nonexistent URL on the victim's host"
+      end)
+    end
+
+    test "`verify` accepts when the origin refuses to answer US (401/403)" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 403, body: ""} end)
+
+      with_trust_mode(:verify, fn ->
+        %{data: data, object_id: object_id} = relayed_announce()
+
+        assert {:ok, _} = Transformer.handle_incoming(data)
+
+        assert %Object{} = Object.normalize(object_id, fetch: false),
+               "'not to you' says nothing about whether the object exists, and is the case 1b12 exists for"
+      end)
+    end
+
+    test "`verify` is not fooled by an unverifiable signature" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      with_trust_mode(:verify, fn ->
+        %{data: data, object_id: object_id} = relayed_announce()
+
+        # merely LOOKING signed must not be enough: `has_verifiable_signature?/1` only checks the
+        # shape, so a forger could otherwise skip verification by attaching this field
+        signed =
+          put_in(data["object"]["signature"], %{
+            "type" => "RsaSignature2017",
+            "creator" => "#{data["actor"]}#main-key",
+            "signatureValue" => "bogus"
+          })
+
+        assert {:error, _} = Transformer.handle_incoming(signed)
+
+        assert is_nil(Object.normalize(object_id, fetch: false)),
+               "an invalid signature must not buy more trust than no signature at all"
+      end)
+    end
+
+    test "a broken signature is refused even in `trust` mode" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      with_trust_mode(:trust, fn ->
+        %{data: data, object_id: object_id} = relayed_announce()
+
+        signed =
+          put_in(data["object"]["signature"], %{
+            "type" => "RsaSignature2017",
+            "creator" => "#{data["actor"]}#main-key",
+            "signatureValue" => "bogus"
+          })
+
+        assert {:error, _} = Transformer.handle_incoming(signed)
+
+        assert is_nil(Object.normalize(object_id, fetch: false)),
+               "trusting UNSIGNED relays is a choice about missing evidence; a signature that fails to verify is evidence of tampering, so it is refused regardless of mode"
+      end)
+    end
+
+    test "`verify` prefers the ORIGIN's copy over the relayed one" do
+      %{data: data, object_id: object_id, inner_object: inner} = relayed_announce()
+      authentic = Map.put(inner, "content", "what the author actually wrote")
+
+      mock(fn
+        %{method: :get, url: url} when url == object_id -> json(authentic)
+        %{method: :get} -> %Tesla.Env{status: 404, body: ""}
+      end)
+
+      with_trust_mode(:verify, fn ->
+        assert {:ok, _} = Transformer.handle_incoming(data)
+
+        assert %Object{data: stored} = Object.normalize(object_id, fetch: false)
+
+        assert stored["content"] == "what the author actually wrote",
+               "verifying is pointless if we then store the relay's version anyway"
+      end)
+    end
+
+    test "refuses an inlined activity forged from another origin" do
+      group = insert(:actor)
+      author = insert(:actor)
+
+      # the group claims to relay an activity whose id is on ITS OWN host while attributing it to a
+      # different actor — the forgery a relay could otherwise perform
+      data = %{
+        "type" => "Announce",
+        "id" => "#{group.data["id"]}/activities/announce/forged",
+        "actor" => group.data["id"],
+        "object" => %{
+          "type" => "Create",
+          "id" => "#{group.data["id"]}/activities/create/forged",
+          "actor" => author.data["id"],
+          "object" => %{
+            "type" => "Note",
+            "id" => "#{group.data["id"]}/posts/forged",
+            "attributedTo" => author.data["id"],
+            "content" => "put words in someone else's mouth"
+          }
+        }
+      }
+
+      assert {:error, _} = Transformer.handle_incoming(data)
+
+      assert is_nil(Object.normalize("#{group.data["id"]}/posts/forged", fetch: false)),
+             "nothing from a forged relay should be ingested"
+    end
+  end
+
   test "it rejects incoming announces with an inlined activity from another origin" do
     Tesla.Mock.mock(fn
       %{method: :get} -> %Tesla.Env{status: 404, body: ""}
@@ -187,5 +363,51 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
     # _user = actor(local: false, ap_id: data["actor"])
 
     assert {:error, _e} = Transformer.handle_incoming(data)
+  end
+
+  # A group relaying a THIRD PARTY's activity: the case where trust actually matters. (A group relaying its own instance's activity is already covered by the delivering instance's HTTP signature.)
+  defp relayed_announce do
+    group = insert(:actor)
+    author = insert(:actor)
+
+    object_id = "#{author.data["id"]}/posts/relayed"
+
+    inner_object = %{
+      "type" => "Note",
+      "id" => object_id,
+      "attributedTo" => author.data["id"],
+      "audience" => group.data["id"],
+      "content" => "what the relay claims the author wrote",
+      "to" => [group.data["id"], "https://www.w3.org/ns/activitystreams#Public"]
+    }
+
+    %{
+      object_id: object_id,
+      inner_object: inner_object,
+      data: %{
+        "type" => "Announce",
+        "id" => "#{group.data["id"]}/activities/announce/relayed",
+        "actor" => group.data["id"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => %{
+          "type" => "Create",
+          "id" => "#{author.data["id"]}/activities/create/relayed",
+          "actor" => author.data["id"],
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+          "object" => inner_object
+        }
+      }
+    }
+  end
+
+  defp with_trust_mode(mode, fun) do
+    previous = Application.get_env(:activity_pub, :relayed_activity_trust)
+    Application.put_env(:activity_pub, :relayed_activity_trust, mode)
+
+    try do
+      fun.()
+    after
+      Application.put_env(:activity_pub, :relayed_activity_trust, previous)
+    end
   end
 end

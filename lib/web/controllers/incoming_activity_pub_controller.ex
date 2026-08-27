@@ -38,13 +38,13 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   # (a path `:id` param once overwrote every incoming activity's "id" with the actor's id)
 
   def inbox(%{assigns: %{valid_signature: true}} = conn, _params) do
-    apply_process(conn, conn.body_params, &process_incoming/3)
+    apply_process(conn, maybe_capture_inbox(conn.body_params, conn), &process_incoming/3)
   end
 
   # HTTP signature missing or invalid — queue for the full verification cascade
   # (key re-fetch, LD signature check, source re-fetch) in ReceiverHelpers.
   def inbox(%{assigns: %{valid_signature: false}} = conn, _params) do
-    apply_process(conn, conn.body_params, &maybe_process_unsigned/3)
+    apply_process(conn, maybe_capture_inbox(conn.body_params, conn), &maybe_process_unsigned/3)
   end
 
   # accept (but verify) unsigned Creates only?
@@ -57,7 +57,7 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
 
   # accept (but verify) unsigned any activities
   def inbox(conn, _params) do
-    apply_process(conn, conn.body_params, &maybe_process_unsigned/3)
+    apply_process(conn, maybe_capture_inbox(conn.body_params, conn), &maybe_process_unsigned/3)
   end
 
   def only_get_error!(conn, _params) do
@@ -68,6 +68,24 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
     end
     # |> debug()
     |> Utils.error_json(conn, ..., 403)
+  end
+
+  # Hands each incoming activity to the configured `ActivityPub.Observer` EXACTLY as received. Hooked here because this is the single funnel every inbox POST passes through while `conn.body_params` is still untouched, and it sees documents we go on to reject, which nothing downstream does.
+  #
+  # The conn itself is not passed on: the seam is shared with the fetcher, which has no conn, so only the identifying headers cross it.
+  defp maybe_capture_inbox(params, conn) do
+    ActivityPub.Observer.maybe_observe(params, %{
+      source: :inbox,
+      headers: %{
+        "signature" => header(conn, "signature"),
+        "user-agent" => header(conn, "user-agent")
+      }
+    })
+  end
+
+  defp header(conn, name) do
+    Plug.Conn.get_req_header(conn, name)
+    |> List.first()
   end
 
   defp apply_process(conn, %{"type" => "Delete"} = params, fun) do

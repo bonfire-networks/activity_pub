@@ -605,6 +605,14 @@ defmodule ActivityPub.Federator.Fetcher do
          _ <- Instances.handle_successful_contact(uri),
          _ <- ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(uri, resp_headers) do
       with {:ok, data} <- Jason.decode(body),
+           # before containment, so documents we go on to REJECT are observed too
+           _ <-
+             ActivityPub.Observer.maybe_observe(data, %{
+               source: :fetch,
+               url: id,
+               status: code,
+               headers: resp_headers
+             }),
            {true, _} <-
              {options[:skip_contain_origin_check] ||
                 Containment.contain_origin(Utils.ap_id(data) || id, data) ||

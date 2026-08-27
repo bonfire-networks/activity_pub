@@ -10,11 +10,17 @@ defmodule ActivityPub.Safety.PublicKeyPemTest do
 
   import ActivityPub.Factory
 
-  test "the published PEM has no trailing blank line" do
+  # via the rendered actor.json, NOT the cached `actor.data`: only the render calls `Keys.add_public_key/2`, so the cached struct may carry no `publicKey` at all (it doesn't in CI), and this is the surface remotes actually fetch anyway.
+  defp published_pem do
     actor = local_actor()
     {:ok, actor} = ActivityPub.Actor.get_cached(username: actor.username)
 
-    pem = get_in(actor.data, ["publicKey", "publicKeyPem"])
+    ActivityPub.Web.ActorView.render("actor.json", %{actor: actor})
+    |> get_in(["publicKey", "publicKeyPem"])
+  end
+
+  test "the published PEM has no trailing blank line" do
+    pem = published_pem()
 
     assert is_binary(pem)
     assert String.starts_with?(pem, "-----BEGIN PUBLIC KEY-----\n")
@@ -27,10 +33,7 @@ defmodule ActivityPub.Safety.PublicKeyPemTest do
   end
 
   test "the published PEM still parses as a key" do
-    actor = local_actor()
-    {:ok, actor} = ActivityPub.Actor.get_cached(username: actor.username)
-
-    pem = get_in(actor.data, ["publicKey", "publicKeyPem"])
+    pem = published_pem()
 
     # trimming must not have broken the key itself
     assert [entry] = :public_key.pem_decode(pem)

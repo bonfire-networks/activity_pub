@@ -88,7 +88,9 @@ defmodule ActivityPub.Safety.Keys do
       public_key = :public_key.pem_entry_encode(:SubjectPublicKeyInfo, public_key)
 
       # `:public_key.pem_encode/1` ends with a BLANK line (`-----END PUBLIC KEY-----\n\n`), which strict PEM parsers read as residual data starting another block and reject with "PEM error in pre-encapsulation boundary". Lemmy refuses our actor with exactly that, so it cannot verify our signatures. Lemmy, PieFed and Mbin all publish a single trailing newline or none. OpenSSL accepts either.
-      public_key = :public_key.pem_encode([public_key]) |> String.trim_trailing()
+      # Trimming alone leaves NO line ending, so put exactly one back: RFC 7468 terminates the post-encapsulation boundary with an EOL, and one newline is what the implementations we federate with emit.
+      public_key =
+        :public_key.pem_encode([public_key]) |> String.trim_trailing() |> Kernel.<>("\n")
       {:ok, public_key}
     end
   end

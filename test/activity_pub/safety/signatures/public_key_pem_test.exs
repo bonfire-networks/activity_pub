@@ -6,7 +6,8 @@ defmodule ActivityPub.Safety.PublicKeyPemTest do
 
   Captured actors from Lemmy, PieFed and Mbin all end with a single newline or none.
   """
-  use ActivityPub.DataCase, async: true
+  # not async: every other module in this suite runs non-async, which puts the sandbox in shared mode, and a shared-mode owner exiting kills processes borrowing its connection
+  use ActivityPub.DataCase, async: false
 
   import ActivityPub.Factory
 

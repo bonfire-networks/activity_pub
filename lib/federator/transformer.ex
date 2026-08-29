@@ -608,13 +608,16 @@ defmodule ActivityPub.Federator.Transformer do
           |> Utils.put_if_present("width", (url || %{})["width"] || data["width"])
           |> Utils.put_if_present("height", (url || %{})["height"] || data["height"])
 
-        %{
+        # normalising `url` (and `type`/`mediaType`) is all this does; everything else the sender
+        # included is kept, rather than dropped for not being on a list we thought of — a link
+        # preview's `summary` and `image` would otherwise have to be re-fetched from the origin
+        data
+        |> Map.drop(["href", "mimeType"])
+        |> Map.merge(%{
           "url" => [attachment_url],
           "type" => data["type"] || "Document"
-        }
+        })
         |> Utils.put_if_present("mediaType", media_type)
-        |> Utils.put_if_present("name", data["name"])
-        |> Utils.put_if_present("blurhash", data["blurhash"])
       else
         nil
       end

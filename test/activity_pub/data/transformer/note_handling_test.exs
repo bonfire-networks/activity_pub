@@ -629,6 +629,33 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
                ]
              }
     end
+
+    # normalising `url`/`mediaType` is the job here; rebuilding each attachment from a fixed set of keys silently discards everything else the sender chose to include, like a link preview's title, description and cover image, for one, which then have to be re-fetched from the origin
+    test "keeps the fields it does not normalise" do
+      assert %{"attachment" => [attachment]} =
+               Transformer.fix_attachments(%{
+                 "attachment" => [
+                   %{
+                     "type" => "Link",
+                     "mediaType" => "link",
+                     "href" => "https://example.com/some/article",
+                     "name" => "The Article Title",
+                     "summary" => "What the article is about",
+                     "image" => %{"type" => "Image", "url" => "https://example.com/og.jpg"}
+                   }
+                 ]
+               })
+
+      assert attachment["type"] == "Link"
+      assert attachment["name"] == "The Article Title"
+      assert attachment["summary"] == "What the article is about"
+      assert attachment["image"] == %{"type" => "Image", "url" => "https://example.com/og.jpg"}
+
+      assert attachment["mediaType"] == "link",
+             "a mediaType that isn't a registered MIME type still tells the receiver what this is"
+
+      assert [%{"href" => "https://example.com/some/article"}] = attachment["url"]
+    end
   end
 
   describe "fix_emoji/1" do

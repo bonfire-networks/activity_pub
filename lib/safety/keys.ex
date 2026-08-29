@@ -91,6 +91,7 @@ defmodule ActivityPub.Safety.Keys do
       # Trimming alone leaves NO line ending, so put exactly one back: RFC 7468 terminates the post-encapsulation boundary with an EOL, and one newline is what the implementations we federate with emit.
       public_key =
         :public_key.pem_encode([public_key]) |> String.trim_trailing() |> Kernel.<>("\n")
+
       {:ok, public_key}
     end
   end

@@ -1021,7 +1021,12 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, opts) do
     with objects = List.wrap(objects),
          context <- data["context"],
-         content <- data["content"] || "",
+         # the threadiverse puts a report's reason in `summary` (verified against Lemmy's own `report_page` asset) where Mastodon-family senders use `content`, so keep both rather than picking: a report reaching a moderator missing half its reason is worse than one that repeats itself
+         content <-
+           [data["summary"], data["content"]]
+           |> Enum.reject(&(&1 in [nil, ""]))
+           |> Enum.uniq()
+           |> Enum.join("\n\n"),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
 
          # Reduce the object list to find reported user

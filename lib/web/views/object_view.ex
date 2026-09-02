@@ -170,15 +170,19 @@ defmodule ActivityPub.Web.ObjectView do
     end
   end
 
+  # NOTE: `collection` here is ALREADY one page (`get_outbox_for_actor/3` pages in SQL), so `total`
+  # is this page's length, not the collection's — hence "full page ⇒ maybe more" rather than the
+  # exact `offset + length < total` the followers view can use. (`offset < total` was wrong: page 1
+  # has offset 0, so any non-empty outbox advertised a `next` to an often-empty page.)
+  # TODO: return a real COUNT alongside the page so `totalItems` and `next?` become exact.
   def collection(collection, iri, page, total \\ nil) do
-    offset = (page - 1) * Collections.page_size()
     items = Enum.map(collection, fn object -> render("object.json", %{object: object}) end)
     total = total || length(collection)
 
     Collections.page(iri, page, total, items,
       page_type: "OrderedCollectionPage",
       items_key: "orderedItems",
-      next?: offset < total or total == Collections.page_size()
+      next?: length(items) == Collections.page_size()
     )
   end
 end

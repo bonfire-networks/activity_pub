@@ -808,6 +808,27 @@ defmodule ActivityPub.Actor do
     |> list_cached()
   end
 
+  @doc """
+  `{ap_ids, total}` for one page of followers, resolving only that page (for the collection view).
+  `get_followers/2` remains the full-struct path used by delivery.
+  """
+  def followers_page(actor, page, page_size, purpose_or_current_actor \\ nil) do
+    {Adapter.get_follower_local_ids(actor, purpose_or_current_actor,
+       page: page,
+       page_size: page_size
+     )
+     |> Adapter.get_actor_ap_ids_by_ids(), Adapter.count_followers(actor, purpose_or_current_actor)}
+  end
+
+  @doc "Following-side sibling of `followers_page/4`."
+  def following_page(actor, page, page_size, purpose_or_current_actor \\ nil) do
+    {Adapter.get_following_local_ids(actor, purpose_or_current_actor,
+       page: page,
+       page_size: page_size
+     )
+     |> Adapter.get_actor_ap_ids_by_ids(), Adapter.count_following(actor, purpose_or_current_actor)}
+  end
+
   def get_external_followers(actor, purpose_or_current_actor \\ nil) do
     get_followers(actor, purpose_or_current_actor)
     # Filter locals

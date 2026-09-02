@@ -734,6 +734,8 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
       result_next_ids = Enum.map(result_next["orderedItems"], fn x -> x["id"] end)
       assert length(result_next["orderedItems"]) == 6
       assert length(result_next_ids) == 6
+      # a short page is the last page — it must not advertise a further one
+      refute Map.has_key?(result_next, "next")
       refute Enum.find(result_next_ids, fn x -> x in result_ids end)
       refute Enum.find(result_ids, fn x -> x in result_next_ids end)
       assert String.starts_with?(result["id"], outbox_endpoint)
@@ -745,6 +747,22 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
         |> json_response(200)
 
       assert result_next == result_next_again
+    end
+
+    test "it does not advertise a `next` page when all activities fit on one page", %{conn: conn} do
+      user = local_actor()
+      outbox_endpoint = ap_id(user) <> "/outbox"
+
+      for i <- 0..2, do: insert(:note_activity, %{actor: user, status: "post #{i}"})
+
+      result =
+        conn
+        |> put_req_header("accept", "application/activity+json")
+        |> get(outbox_endpoint <> "?page=true")
+        |> json_response(200)
+
+      assert length(result["orderedItems"]) == 3
+      refute Map.has_key?(result, "next")
     end
 
     test "it returns 200 even if there're no activities", %{conn: conn} do

@@ -172,11 +172,94 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   @doc """
+  Paged variant of `get_follower_local_ids/2` (`opts`: `page:`, `page_size:`), so serving one page
+  never materialises the whole list. Optional callback — polyfilled by slicing (adapters SHOULD
+  page in SQL).
+  """
+  @callback get_follower_local_ids(Actor.t(), any(), Keyword.t()) :: [Actor.id()]
+  def get_follower_local_ids(actor, purpose_or_current_actor, opts) when is_list(opts) do
+    if function_exported?(adapter(), :get_follower_local_ids, 3) do
+      adapter().get_follower_local_ids(actor, purpose_or_current_actor, opts)
+    else
+      get_follower_local_ids(actor, purpose_or_current_actor) |> maybe_slice_page(opts)
+    end
+  end
+
+  @doc """
   Get the host application IDs for all `Actor`s that the given `Actor` is following.
   """
   @callback get_following_local_ids(Actor.t(), boolean()) :: [Actor.id()]
   def get_following_local_ids(actor, purpose_or_current_actor \\ nil) do
     adapter().get_following_local_ids(actor, purpose_or_current_actor)
+  end
+
+  @doc "Paged variant of `get_following_local_ids/2` — see `get_follower_local_ids/3`."
+  @callback get_following_local_ids(Actor.t(), any(), Keyword.t()) :: [Actor.id()]
+  def get_following_local_ids(actor, purpose_or_current_actor, opts) when is_list(opts) do
+    if function_exported?(adapter(), :get_following_local_ids, 3) do
+      adapter().get_following_local_ids(actor, purpose_or_current_actor, opts)
+    else
+      get_following_local_ids(actor, purpose_or_current_actor) |> maybe_slice_page(opts)
+    end
+  end
+
+  defp maybe_slice_page(ids, opts) when is_list(ids) do
+    case {opts[:page], opts[:page_size]} do
+      {page, page_size} when is_integer(page) and page > 0 and is_integer(page_size) ->
+        Enum.slice(ids, (page - 1) * page_size, page_size)
+
+      _ ->
+        ids
+    end
+  end
+
+  defp maybe_slice_page(other, _opts), do: other
+
+  @doc """
+  Follower count (for collection `totalItems`). Optional callback — polyfilled as
+  `length(get_follower_local_ids/2)` (adapters SHOULD `COUNT` in SQL).
+  """
+  @callback count_followers(Actor.t(), any()) :: non_neg_integer()
+  def count_followers(actor, purpose_or_current_actor \\ nil) do
+    if function_exported?(adapter(), :count_followers, 2) do
+      adapter().count_followers(actor, purpose_or_current_actor)
+    else
+      length(get_follower_local_ids(actor, purpose_or_current_actor) |> List.wrap())
+    end
+    |> case do
+      n when is_integer(n) and n >= 0 -> n
+      _ -> 0
+    end
+  end
+
+  @doc "Number of actors the given `Actor` follows — see `count_followers/2`."
+  @callback count_following(Actor.t(), any()) :: non_neg_integer()
+  def count_following(actor, purpose_or_current_actor \\ nil) do
+    if function_exported?(adapter(), :count_following, 2) do
+      adapter().count_following(actor, purpose_or_current_actor)
+    else
+      length(get_following_local_ids(actor, purpose_or_current_actor) |> List.wrap())
+    end
+    |> case do
+      n when is_integer(n) and n >= 0 -> n
+      _ -> 0
+    end
+  end
+
+  @doc """
+  Resolve host-app ids to bare actor ap_ids (URIs), in input order (unknown dropped). Collection
+  pages need only URIs, so adapters SHOULD implement this without building full actors or warming
+  the actor cache. Optional — polyfilled via `Actor.list_cached/1`, which does both.
+  """
+  @callback get_actor_ap_ids_by_ids([String.t()]) :: [String.t()]
+  def get_actor_ap_ids_by_ids([]), do: []
+
+  def get_actor_ap_ids_by_ids(ids) when is_list(ids) do
+    if function_exported?(adapter(), :get_actor_ap_ids_by_ids, 1) do
+      adapter().get_actor_ap_ids_by_ids(ids)
+    else
+      Actor.list_cached(ids) |> Enum.map(& &1.ap_id)
+    end
   end
 
   @doc """
@@ -403,6 +486,11 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   @optional_callbacks external_followers_for_activity: 2,
+                      get_follower_local_ids: 3,
+                      get_following_local_ids: 3,
+                      count_followers: 2,
+                      count_following: 2,
+                      get_actor_ap_ids_by_ids: 1,
                       external_followers_for_activity: 3,
                       get_multi_tenant_context: 0,
                       set_multi_tenant_context: 1,

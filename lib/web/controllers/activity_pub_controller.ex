@@ -462,6 +462,15 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   defp page_number("true"), do: 1
-  defp page_number(page) when is_binary(page), do: Integer.parse(page) |> elem(0)
+
+  # untrusted input: a page < 1 reaches SQL as a negative OFFSET (rejected by Postgres) and
+  # `Integer.parse/1` returns a bare `:error` for junk — both become page 1 rather than a 500.
+  defp page_number(page) when is_binary(page) do
+    case Integer.parse(page) do
+      {n, _} when n > 0 -> n
+      _ -> 1
+    end
+  end
+
   defp page_number(_), do: nil
 end

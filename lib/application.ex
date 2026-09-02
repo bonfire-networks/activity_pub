@@ -114,6 +114,15 @@ defmodule ActivityPub.Application do
     {ActivityPub.RateLimit, clean_period: clean_period}
   end
 
+  defp limit_hooks(config_key, default) do
+    [
+      Cachex.Spec.hook(
+        module: Cachex.Limit.Scheduled,
+        args: {Application.get_env(:activity_pub, config_key, default), [], []}
+      )
+    ]
+  end
+
   def cachex() do
     if Application.get_env(:activity_pub, :disable_cache) != true,
       do: [
@@ -125,8 +134,9 @@ defmodule ActivityPub.Application do
                :ap_actor_cache,
                [
                  expiration: @expiration,
-                 hooks: @hooks
-                 #  limit: @limit
+                 # each actor occupies 4 keys (id/ap_id/username/pointer) + `:json` entries, so
+                 # effective capacity is ~limit/4
+                 hooks: limit_hooks(:actor_cache_limit, 20_000)
                ]
              ]}
         },

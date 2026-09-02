@@ -63,6 +63,8 @@ defmodule ActivityPub.Config do
           "Travel",
           "View",
           "EmojiReact",
+          # a moderator closing a thread to further replies, sent by Lemmy (and announced by the community) with the reason in `summary`
+          "Lock",
           "IntransitiveActivity"
         ]
 

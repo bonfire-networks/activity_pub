@@ -1016,8 +1016,22 @@ defmodule ActivityPub.Federator.Transformer do
   """
   def handle_incoming(data, opts \\ [])
 
-  # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them
-  # with nil ID.
+  # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them with nil ID.
+  # A moderator closing a thread to further replies, and reopening it. Lemmy sends both with the reason in `summary`, exactly as its mod-removal `Delete` does, and the community announces them. Explicit clause so the side effect runs regardless of the `handle_unknown_activities` flag, which is the same reason the collection `Add`/`Remove` clause is explicit.
+  def handle_incoming(%{"type" => "Lock", "object" => _} = data, opts),
+    do: store_and_hand_to_adapter(data, opts)
+
+  def handle_incoming(%{"type" => "Undo", "object" => %{"type" => "Lock"}} = data, opts),
+    do: store_and_hand_to_adapter(data, opts)
+
+  defp store_and_hand_to_adapter(data, opts) do
+    with {:ok, activity} <-
+           fix_other_object(data, opts) |> Object.insert(local?(opts), nil, opts),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts) do
+      {:ok, Map.put(activity, :pointer, adapter_object)}
+    end
+  end
+
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, opts) do
     with objects = List.wrap(objects),
          context <- data["context"],
@@ -1361,6 +1375,56 @@ defmodule ActivityPub.Federator.Transformer do
       e -> error(e)
     end
   end
+
+  # FEP-171b: the Hubzilla/streams family relays by ADDING the activity into a conversation container (`Add{Create{Note}}` with `context`), where the threadiverse announces it. Same envelope, different verb, so it verifies and unwraps identically — but there is no boost to record afterwards: membership of the container is what marks the object as belonging, and `context` is already carried through by `fix_context/1`.
+  def handle_incoming(
+        %{
+          "type" => "Add",
+          "object" => %{"type" => inner_type} = inner_activity,
+          "actor" => actor,
+          "context" => container
+        } = data,
+        opts
+      )
+      when is_in(inner_type, :supported_activity_types) and is_binary(container) and
+             is_binary(actor) do
+    info("Handle incoming container add of an activity (FEP-171b)")
+
+    # An `Add` means "put this object in that collection", and only a container owner distributing into its OWN container is the 1b12-equivalent relay. Anything else is an ordinary collection Add, so hand it back rather than treating it as a relay: dropping `context` is what stops this clause matching again, and lets the generic `Add`/`Remove` clause below take it.
+    if !ActivityPub.Safety.Containment.contain_origin(container, %{"actor" => actor}) do
+      debug(container, "an Add naming a container on another host is not a 171b relay")
+      handle_collection_add_remove(data, "Add", inner_activity, data["target"], opts)
+    else
+      with {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
+           # the container's own id, so a reply can quote it back
+           inner_activity =
+             Map.put_new(inner_activity, "context", container),
+           # 171b marks belonging by membership of the container, where 1b12 marks it with `audience`. They mean the same thing, and our attribution already understands `audience`, so normalise to it: the container's owner is the group. Without this the container owner is never resolved and the post belongs to nobody locally.
+           inner_activity = put_audience(inner_activity, actor),
+           {:ok, _inner} <- handle_incoming(inner_activity, opts) do
+        # Adding to the container IS the act of distribution, the same act an `Announce` performs in 1b12, so record it the same way locally: hand off to the boost clause with the inner OBJECT's id, which also gives us actor resolution, `public?`, dedup and error handling. Nothing synthesised here is ever emitted.
+        handle_incoming(
+          data
+          |> Map.put("type", "Announce")
+          |> Map.put("object", Object.get_ap_id(inner_activity["object"])),
+          opts
+        )
+      else
+        e -> error(e)
+      end
+    end
+  end
+
+  defp put_audience(%{"object" => %{} = object} = activity, audience) when is_binary(audience) do
+    activity
+    |> Map.put_new("audience", audience)
+    |> Map.put("object", Map.put_new(object, "audience", audience))
+  end
+
+  defp put_audience(activity, audience) when is_binary(audience),
+    do: Map.put_new(activity, "audience", audience)
+
+  defp put_audience(activity, _), do: activity
 
   # `:trust` (default) takes the relayed copy at face value, which is 1b12 as designed and what Lemmy/PieFed/NodeBB do themselves; `:verify` refetches from the origin instead. See `relayed_activity_trust/0`.
   defp verify_relayed_activity(inner_activity, opts) do
@@ -1925,6 +1989,11 @@ defmodule ActivityPub.Federator.Transformer do
         opts
       )
       when type in ["Add", "Remove"] do
+    handle_collection_add_remove(data, type, object, target, opts)
+  end
+
+  # Shared so the FEP-171b clause above can hand back an `Add` that turned out not to be a container relay, rather than refusing it: an `Add` into someone else's collection is still an ordinary collection Add.
+  defp handle_collection_add_remove(data, type, object, target, opts) do
     info(type, "Handle incoming collection #{type}")
 
     case ActivityPub.resolve_collection(target) do

@@ -14,10 +14,16 @@ defmodule ActivityPub.Federator.AdapterPolyfillsTest do
   alias ActivityPub.Federator.Adapter
 
   # 15 pointer ids, in a fixed order the stub returns for every call
-  @ids Enum.map(1..15, &"01ARZ3NDEKTSV4RRFFQ69G5F#{String.pad_leading(Integer.to_string(&1), 2, "0")}")
+  @ids Enum.map(
+         1..15,
+         &"01ARZ3NDEKTSV4RRFFQ69G5F#{String.pad_leading(Integer.to_string(&1), 2, "0")}"
+       )
 
   defmodule StubAdapter do
-    @ids Enum.map(1..15, &"01ARZ3NDEKTSV4RRFFQ69G5F#{String.pad_leading(Integer.to_string(&1), 2, "0")}")
+    @ids Enum.map(
+           1..15,
+           &"01ARZ3NDEKTSV4RRFFQ69G5F#{String.pad_leading(Integer.to_string(&1), 2, "0")}"
+         )
 
     def ids, do: @ids
 
@@ -28,7 +34,14 @@ defmodule ActivityPub.Federator.AdapterPolyfillsTest do
     # legacy batch struct resolution — the polyfill for `get_actor_ap_ids_by_ids/1` must map these
     def get_actors_by_ids(ids) do
       Enum.map(ids, fn id ->
-        %Actor{id: id, pointer_id: id, ap_id: "https://stub.local/actors/#{id}", username: id, local: true, data: %{}}
+        %Actor{
+          id: id,
+          pointer_id: id,
+          ap_id: "https://stub.local/actors/#{id}",
+          username: id,
+          local: true,
+          data: %{}
+        }
       end)
     end
 
@@ -40,7 +53,14 @@ defmodule ActivityPub.Federator.AdapterPolyfillsTest do
     :ok
   end
 
-  @actor %Actor{id: "stub", pointer_id: "stub", ap_id: "https://stub.local/actors/stub", username: "stub", local: true, data: %{}}
+  @actor %Actor{
+    id: "stub",
+    pointer_id: "stub",
+    ap_id: "https://stub.local/actors/stub",
+    username: "stub",
+    local: true,
+    data: %{}
+  }
 
   describe "get_follower_local_ids/3 with page opts (polyfill = slice of the 2-arity result)" do
     test "returns the requested page" do

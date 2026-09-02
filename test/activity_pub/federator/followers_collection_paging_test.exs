@@ -199,7 +199,9 @@ defmodule ActivityPub.Web.FollowersCollectionPagingTest do
              "expected at most #{@page_size} ids to be resolved, got #{length(ids)}"
     end
 
-    test "followers: the top-level (unpaged) collection also resolves only one page", %{conn: conn} do
+    test "followers: the top-level (unpaged) collection also resolves only one page", %{
+      conn: conn
+    } do
       user = local_actor()
       add_followers(user, @page_size + 5)
 

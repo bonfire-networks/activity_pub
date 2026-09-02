@@ -817,7 +817,8 @@ defmodule ActivityPub.Actor do
        page: page,
        page_size: page_size
      )
-     |> Adapter.get_actor_ap_ids_by_ids(), Adapter.count_followers(actor, purpose_or_current_actor)}
+     |> Adapter.get_actor_ap_ids_by_ids(),
+     Adapter.count_followers(actor, purpose_or_current_actor)}
   end
 
   @doc "Following-side sibling of `followers_page/4`."
@@ -826,7 +827,8 @@ defmodule ActivityPub.Actor do
        page: page,
        page_size: page_size
      )
-     |> Adapter.get_actor_ap_ids_by_ids(), Adapter.count_following(actor, purpose_or_current_actor)}
+     |> Adapter.get_actor_ap_ids_by_ids(),
+     Adapter.count_following(actor, purpose_or_current_actor)}
   end
 
   def get_external_followers(actor, purpose_or_current_actor \\ nil) do

@@ -1016,6 +1016,17 @@ defmodule ActivityPub.Federator.Transformer do
   """
   def handle_incoming(data, opts \\ [])
 
+  # A BATCHED announce or similar, whose `object` is a list of activities (PieFed sends batched announce to receivers it believes can cope). Each element is a complete activity with its own attribution, so the batch is the single case in a loop.
+  # The failure this replaces was silent: a list otherwise falls through to the bare-id clause, which does the wrong thing with a whole batch rather than erroring.
+  def handle_incoming(
+        %{"type" => type, "object" => [_ | _] = inner_activities, "actor" => _actor} = data,
+        opts
+      )
+      when type in ["Create", "Like", "Announce", "Lock", "Delete"] do
+    info(length(inner_activities), "Handle incoming batched announce of activities")
+    handle_each_object(data, inner_activities, opts)
+  end
+
   # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them with nil ID.
   # A moderator closing a thread to further replies, and reopening it. Lemmy sends both with the reason in `summary`, exactly as its mod-removal `Delete` does, and the community announces them. Explicit clause so the side effect runs regardless of the `handle_unknown_activities` flag, which is the same reason the collection `Add`/`Remove` clause is explicit.
   def handle_incoming(%{"type" => "Lock", "object" => _} = data, opts),
@@ -1023,14 +1034,6 @@ defmodule ActivityPub.Federator.Transformer do
 
   def handle_incoming(%{"type" => "Undo", "object" => %{"type" => "Lock"}} = data, opts),
     do: store_and_hand_to_adapter(data, opts)
-
-  defp store_and_hand_to_adapter(data, opts) do
-    with {:ok, activity} <-
-           fix_other_object(data, opts) |> Object.insert(local?(opts), nil, opts),
-         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts) do
-      {:ok, Map.put(activity, :pointer, adapter_object)}
-    end
-  end
 
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, opts) do
     with objects = List.wrap(objects),
@@ -1697,47 +1700,6 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  defp handle_local_block(data, blocker, blocked, opts) do
-    with {:ok, %{local: true} = blocker_actor} <- Actor.get_cached(ap_id: blocker),
-         {:ok, blocked_actor} <- Actor.get_cached_or_fetch(ap_id: blocked) do
-      ActivityPub.block(
-        %{
-          actor: blocker_actor,
-          object: blocked_actor,
-          activity_id: data["id"],
-          local: true
-        },
-        opts
-      )
-    else
-      e -> error(e, "Could not process C2S block")
-    end
-  end
-
-  defp handle_remote_block(data, blocker, blocked, opts) do
-    with {:ok, %{local: true} = blocked_actor} <- Actor.get_cached(ap_id: blocked),
-         {:ok, %{local: false} = blocker_actor} <- Actor.get_cached_or_fetch(ap_id: blocker) do
-      ActivityPub.block(
-        %{
-          actor: blocker_actor,
-          object: blocked_actor,
-          activity_id: data["id"],
-          local: false
-        },
-        opts
-      )
-    else
-      {:ok, %{local: false}} ->
-        error("S2S Block rejected: blocked user is not local")
-
-      {:ok, %{local: true}} ->
-        error("S2S Block rejected: blocker should not be local")
-
-      e ->
-        error(e, "Could not process S2S block")
-    end
-  end
-
   def handle_incoming(
         %{
           "type" => "Delete",
@@ -1758,112 +1720,6 @@ defmodule ActivityPub.Federator.Transformer do
       # S2S: Remote user sent us a Delete activity
       # Verify the object is actually deleted at the source
       handle_remote_delete(data, object, object_id, opts)
-    end
-  end
-
-  defp handle_local_delete(data, object_id, opts) do
-    # For C2S deletes, verify the actor owns the object
-    actor_id = Object.actor_from_data(data)
-
-    with {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
-         true <- can_delete?(cached_object, actor_id, opts) || {:error, :unauthorized},
-         {:ok, activity} <- ActivityPub.delete(cached_object, true, opts) do
-      {:ok, activity}
-    else
-      {:error, :not_found} ->
-        {:error, :not_found}
-
-      {:error, :unauthorized} ->
-        {:error, :not_deleted}
-
-      e ->
-        error(e, "Could not process C2S delete")
-    end
-  end
-
-  # Check if the actor can delete the object
-  defp can_delete?(object, actor, opts) do
-    actor_owns_object?(object, actor) or
-      Adapter.call_or(:can_delete?, [opts[:current_actor] || actor, object], false)
-  end
-
-  defp can_delete?(_, _, _), do: false
-
-  # Check if the actor can update the object
-  defp can_update?(object, actor, opts) do
-    actor =
-      (opts[:current_actor] ||
-         actor)
-      |> debug("current_actor")
-
-    debug(object, "object to update")
-
-    actor_owns_object?(object, actor) |> debug("actor_owns_object?") or
-      Adapter.call_or(:can_update?, [actor, object], false) |> debug("can_update? via adapter")
-  end
-
-  defp can_update?(_, _, _), do: false
-
-  # Shared helper: check if actor owns the object
-  defp actor_owns_object?(%Object{data: obj_data}, actor), do: actor_owns_object?(obj_data, actor)
-
-  defp actor_owns_object?(obj_data, %{ap_id: actor_id}),
-    do: actor_owns_object?(obj_data, actor_id)
-
-  defp actor_owns_object?(obj_data, %{"id" => actor_id}),
-    do: actor_owns_object?(obj_data, actor_id)
-
-  defp actor_owns_object?(%{} = obj_data, actor_id) do
-    Object.actor_id_from_data(obj_data) == actor_id
-  end
-
-  defp actor_owns_object?(_, _), do: false
-
-  defp handle_remote_delete(data, object, object_id, opts) do
-    with {:ok, cached_object} <- Object.get_cached(ap_id: object_id) |> debug("re-fetched"),
-         #  {:actor, false} <- {:actor, Actor.actor?(cached_object) || Actor.actor?(object)},
-         {:ok, verified_data} <-
-           check_remote_object_deleted(object, opts[:already_fetched]) |> debug("re-fetched"),
-         verified_object <- Object.normalize(verified_data || object, false) |> debug("normied"),
-         {:actor, false} <-
-           {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
-         {:ok, activity} <-
-           ActivityPub.delete(verified_object || object_id, false, opts) |> debug("deleted!!") do
-      {:ok, activity}
-    else
-      {:error, :not_found} ->
-        handle_activity_with_pruned_object(data, "Delete", opts)
-
-      {:actor, true} ->
-        debug("it's an actor!")
-
-        case Actor.get_cached(ap_id: object_id) do
-          # FIXME: This is supposed to prevent unauthorized deletes
-          # but we currently use delete activities where the activity
-          # actor isn't the deleted object so we need to disable it.
-          # {:ok, %Actor{data: %{"id" => ^actor}} = actor} ->
-          {:ok, %Actor{} = actor} ->
-            ActivityPub.delete(actor, false, opts)
-
-          {:error, :not_found} ->
-            handle_activity_with_pruned_object(data, "Delete", opts)
-
-          e ->
-            error(e, "Error while trying to find actor to delete in AP db")
-        end
-
-      {:error, :not_deleted} ->
-        if opts[:local] do
-          {:error, :not_deleted}
-        else
-          error("Could not verify incoming deletion")
-        end
-
-      {:error, e} ->
-        error(e)
-
-      e ->
-        error(e, "Could not handle incoming deletion")
     end
   end
 
@@ -1990,64 +1846,6 @@ defmodule ActivityPub.Federator.Transformer do
       )
       when type in ["Add", "Remove"] do
     handle_collection_add_remove(data, type, object, target, opts)
-  end
-
-  # Shared so the FEP-171b clause above can hand back an `Add` that turned out not to be a container relay, rather than refusing it: an `Add` into someone else's collection is still an ordinary collection Add.
-  defp handle_collection_add_remove(data, type, object, target, opts) do
-    info(type, "Handle incoming collection #{type}")
-
-    case ActivityPub.resolve_collection(target) do
-      {:store, _collection} ->
-        # a collection this lib owns (e.g. a local actor's keyPackages): apply real semantics,
-        # gated by the FEP-400e authority check
-        with actor_ap <- Object.actor_from_data(data),
-             {:ok, actor} <- Actor.get_cached(ap_id: actor_ap),
-             :ok <- validate_collection_authority(actor, target) do
-          # for Add we materialise the member object locally (so the FK resolves); for Remove the
-          # object may already be gone, so the ap_id is enough
-          member =
-            case type do
-              "Add" ->
-                case object_normalize_and_maybe_fetch(object, opts) do
-                  {:ok, %{} = obj} -> obj
-                  _ -> Utils.ap_id(object)
-                end
-
-              "Remove" ->
-                Utils.ap_id(object)
-            end
-
-          params = %{
-            actor: actor,
-            object: member,
-            target: target,
-            activity_id: data["id"],
-            local: local?(opts)
-          }
-
-          # The lib owns this collection (GenericCollectionStore handles membership);
-          # skip the adapter to avoid it trying to persist the activity as a social post.
-          opts = Keyword.put(opts, :skip_adapter, true)
-
-          case type do
-            "Add" -> ActivityPub.add(params, opts)
-            "Remove" -> ActivityPub.remove(params, opts)
-          end
-        else
-          {:error, :forbidden} = e ->
-            warn(data, "Rejected collection #{type}: actor does not own the target collection")
-            e
-
-          e ->
-            error(e)
-        end
-
-      _ ->
-        # a foreign collection (e.g. a remote actor's featured/wall): preserve prior generic
-        # handling (store + pass to adapter) rather than rejecting.
-        # TODO: FEP-400e — snapshot remote appendable collections so local users can read them
-        maybe_handle_other_activity(data, opts)
-    end
   end
 
   def handle_incoming(
@@ -2200,6 +1998,48 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  @doc """
+  Handles an activity whose `object` is an ARRAY, by treating it as one activity per element.
+
+  AS2 allows an array `object` on any activity, and the fan-out is the same every time, so it is written once here instead of per type. It also serves activities we produce locally (C2S clients may post one activity naming several objects), since those reach the same `handle_incoming/2`.
+
+  **Opt in per activity type, deliberately: for some types a list is ONE activity ABOUT several objects, not several activities.** `Flag` is the standing example — Mastodon reports an account together with the offending statuses in a single report, and fanning that out would turn one report into several, each losing the others as context. So a clause calls this when per-element semantics hold, rather than a generic clause claiming every list.
+
+  Each element needs its own activity id: a batch arrives under ONE outer `id`, and reusing it makes every element after the first a duplicate of the first. The suffix is derived from the element's own id, so a redelivery derives the same ids rather than positional ones.
+
+  One bad element does not discard the rest: what arrived is kept and what failed is logged. A batch where nothing could be handled is still an error.
+  """
+  def handle_each_object(data, objects, opts) when is_list(objects) do
+    objects
+    |> Enum.map(fn object ->
+      data
+      |> Map.put("object", object)
+      |> Map.put("id", per_object_activity_id(data["id"], object))
+      |> handle_incoming(opts)
+    end)
+    |> Enum.split_with(&match?({:ok, _}, &1))
+    |> case do
+      {[], failed} ->
+        error(failed, "no activity in the batch could be handled")
+
+      {[{:ok, first} | _], []} ->
+        {:ok, first}
+
+      {[{:ok, first} | _], failed} ->
+        warn(failed, "some activities in the batch could not be handled, keeping the rest")
+        {:ok, first}
+    end
+  end
+
+  defp per_object_activity_id(id, object) when is_binary(id) do
+    case Object.get_ap_id(object) do
+      object_id when is_binary(object_id) -> "#{id}##{URI.encode_www_form(object_id)}"
+      _ -> id
+    end
+  end
+
+  defp per_object_activity_id(id, _object), do: id
+
   defp object_normalize_and_maybe_fetch(id, opts) do
     fetch? = opts[:already_fetched] != id and Fetcher.allowed_recursion?(opts[:depth])
 
@@ -2224,5 +2064,218 @@ defmodule ActivityPub.Federator.Transformer do
     )
 
     Adapter.maybe_handle_activity(%Object{data: data, local: local?(opts), public: true}, opts)
+  end
+
+  defp store_and_hand_to_adapter(data, opts) do
+    with {:ok, activity} <-
+           fix_other_object(data, opts) |> Object.insert(local?(opts), nil, opts),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts) do
+      {:ok, Map.put(activity, :pointer, adapter_object)}
+    end
+  end
+
+  # Shared so the FEP-171b clause above can hand back an `Add` that turned out not to be a container relay, rather than refusing it: an `Add` into someone else's collection is still an ordinary collection Add.
+  defp handle_collection_add_remove(data, type, object, target, opts) do
+    info(type, "Handle incoming collection #{type}")
+
+    case ActivityPub.resolve_collection(target) do
+      {:store, _collection} ->
+        # a collection this lib owns (e.g. a local actor's keyPackages): apply real semantics,
+        # gated by the FEP-400e authority check
+        with actor_ap <- Object.actor_from_data(data),
+             {:ok, actor} <- Actor.get_cached(ap_id: actor_ap),
+             :ok <- validate_collection_authority(actor, target) do
+          # for Add we materialise the member object locally (so the FK resolves); for Remove the
+          # object may already be gone, so the ap_id is enough
+          member =
+            case type do
+              "Add" ->
+                case object_normalize_and_maybe_fetch(object, opts) do
+                  {:ok, %{} = obj} -> obj
+                  _ -> Utils.ap_id(object)
+                end
+
+              "Remove" ->
+                Utils.ap_id(object)
+            end
+
+          params = %{
+            actor: actor,
+            object: member,
+            target: target,
+            activity_id: data["id"],
+            local: local?(opts)
+          }
+
+          # The lib owns this collection (GenericCollectionStore handles membership);
+          # skip the adapter to avoid it trying to persist the activity as a social post.
+          opts = Keyword.put(opts, :skip_adapter, true)
+
+          case type do
+            "Add" -> ActivityPub.add(params, opts)
+            "Remove" -> ActivityPub.remove(params, opts)
+          end
+        else
+          {:error, :forbidden} = e ->
+            warn(data, "Rejected collection #{type}: actor does not own the target collection")
+            e
+
+          e ->
+            error(e)
+        end
+
+      _ ->
+        # a foreign collection (e.g. a remote actor's featured/wall): preserve prior generic
+        # handling (store + pass to adapter) rather than rejecting.
+        # TODO: FEP-400e — snapshot remote appendable collections so local users can read them
+        maybe_handle_other_activity(data, opts)
+    end
+  end
+
+  defp handle_local_delete(data, object_id, opts) do
+    # For C2S deletes, verify the actor owns the object
+    actor_id = Object.actor_from_data(data)
+
+    with {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
+         true <- can_delete?(cached_object, actor_id, opts) || {:error, :unauthorized},
+         {:ok, activity} <- ActivityPub.delete(cached_object, true, opts) do
+      {:ok, activity}
+    else
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, :unauthorized} ->
+        {:error, :not_deleted}
+
+      e ->
+        error(e, "Could not process C2S delete")
+    end
+  end
+
+  # Check if the actor can delete the object
+  defp can_delete?(object, actor, opts) do
+    actor_owns_object?(object, actor) or
+      Adapter.call_or(:can_delete?, [opts[:current_actor] || actor, object], false)
+  end
+
+  defp can_delete?(_, _, _), do: false
+
+  # Check if the actor can update the object
+  defp can_update?(object, actor, opts) do
+    actor =
+      (opts[:current_actor] ||
+         actor)
+      |> debug("current_actor")
+
+    debug(object, "object to update")
+
+    actor_owns_object?(object, actor) |> debug("actor_owns_object?") or
+      Adapter.call_or(:can_update?, [actor, object], false) |> debug("can_update? via adapter")
+  end
+
+  defp can_update?(_, _, _), do: false
+
+  # Shared helper: check if actor owns the object
+  defp actor_owns_object?(%Object{data: obj_data}, actor), do: actor_owns_object?(obj_data, actor)
+
+  defp actor_owns_object?(obj_data, %{ap_id: actor_id}),
+    do: actor_owns_object?(obj_data, actor_id)
+
+  defp actor_owns_object?(obj_data, %{"id" => actor_id}),
+    do: actor_owns_object?(obj_data, actor_id)
+
+  defp actor_owns_object?(%{} = obj_data, actor_id) do
+    Object.actor_id_from_data(obj_data) == actor_id
+  end
+
+  defp actor_owns_object?(_, _), do: false
+
+  defp handle_remote_delete(data, object, object_id, opts) do
+    with {:ok, cached_object} <- Object.get_cached(ap_id: object_id) |> debug("re-fetched"),
+         #  {:actor, false} <- {:actor, Actor.actor?(cached_object) || Actor.actor?(object)},
+         {:ok, verified_data} <-
+           check_remote_object_deleted(object, opts[:already_fetched]) |> debug("re-fetched"),
+         verified_object <- Object.normalize(verified_data || object, false) |> debug("normied"),
+         {:actor, false} <-
+           {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
+         {:ok, activity} <-
+           ActivityPub.delete(verified_object || object_id, false, opts) |> debug("deleted!!") do
+      {:ok, activity}
+    else
+      {:error, :not_found} ->
+        handle_activity_with_pruned_object(data, "Delete", opts)
+
+      {:actor, true} ->
+        debug("it's an actor!")
+
+        case Actor.get_cached(ap_id: object_id) do
+          # FIXME: This is supposed to prevent unauthorized deletes
+          # but we currently use delete activities where the activity
+          # actor isn't the deleted object so we need to disable it.
+          # {:ok, %Actor{data: %{"id" => ^actor}} = actor} ->
+          {:ok, %Actor{} = actor} ->
+            ActivityPub.delete(actor, false, opts)
+
+          {:error, :not_found} ->
+            handle_activity_with_pruned_object(data, "Delete", opts)
+
+          e ->
+            error(e, "Error while trying to find actor to delete in AP db")
+        end
+
+      {:error, :not_deleted} ->
+        if opts[:local] do
+          {:error, :not_deleted}
+        else
+          error("Could not verify incoming deletion")
+        end
+
+      {:error, e} ->
+        error(e)
+
+      e ->
+        error(e, "Could not handle incoming deletion")
+    end
+  end
+
+  defp handle_local_block(data, blocker, blocked, opts) do
+    with {:ok, %{local: true} = blocker_actor} <- Actor.get_cached(ap_id: blocker),
+         {:ok, blocked_actor} <- Actor.get_cached_or_fetch(ap_id: blocked) do
+      ActivityPub.block(
+        %{
+          actor: blocker_actor,
+          object: blocked_actor,
+          activity_id: data["id"],
+          local: true
+        },
+        opts
+      )
+    else
+      e -> error(e, "Could not process C2S block")
+    end
+  end
+
+  defp handle_remote_block(data, blocker, blocked, opts) do
+    with {:ok, %{local: true} = blocked_actor} <- Actor.get_cached(ap_id: blocked),
+         {:ok, %{local: false} = blocker_actor} <- Actor.get_cached_or_fetch(ap_id: blocker) do
+      ActivityPub.block(
+        %{
+          actor: blocker_actor,
+          object: blocked_actor,
+          activity_id: data["id"],
+          local: false
+        },
+        opts
+      )
+    else
+      {:ok, %{local: false}} ->
+        error("S2S Block rejected: blocked user is not local")
+
+      {:ok, %{local: true}} ->
+        error("S2S Block rejected: blocker should not be local")
+
+      e ->
+        error(e, "Could not process S2S block")
+    end
   end
 end

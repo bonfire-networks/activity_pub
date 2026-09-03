@@ -221,30 +221,44 @@ defmodule ActivityPub.Federator.Adapter do
   """
   @callback count_followers(Actor.t(), any()) :: non_neg_integer()
   def count_followers(actor, purpose_or_current_actor \\ nil) do
-    if function_exported?(adapter(), :count_followers, 2) do
-      adapter().count_followers(actor, purpose_or_current_actor)
-    else
-      length(get_follower_local_ids(actor, purpose_or_current_actor) |> List.wrap())
-    end
-    |> case do
-      n when is_integer(n) and n >= 0 -> n
-      _ -> 0
-    end
+    cached_count("followers", actor, purpose_or_current_actor, fn ->
+      if function_exported?(adapter(), :count_followers, 2) do
+        adapter().count_followers(actor, purpose_or_current_actor)
+      else
+        length(get_follower_local_ids(actor, purpose_or_current_actor) |> List.wrap())
+      end
+    end)
   end
 
   @doc "Number of actors the given `Actor` follows — see `count_followers/2`."
   @callback count_following(Actor.t(), any()) :: non_neg_integer()
   def count_following(actor, purpose_or_current_actor \\ nil) do
-    if function_exported?(adapter(), :count_following, 2) do
-      adapter().count_following(actor, purpose_or_current_actor)
-    else
-      length(get_following_local_ids(actor, purpose_or_current_actor) |> List.wrap())
-    end
-    |> case do
-      n when is_integer(n) and n >= 0 -> n
-      _ -> 0
-    end
+    cached_count("following", actor, purpose_or_current_actor, fn ->
+      if function_exported?(adapter(), :count_following, 2) do
+        adapter().count_following(actor, purpose_or_current_actor)
+      else
+        length(get_following_local_ids(actor, purpose_or_current_actor) |> List.wrap())
+      end
+    end)
   end
+
+  # Cached like every other collection count. The polyfill is the expensive case, since it counts by
+  # materialising the whole list. `purpose_or_current_actor` is part of the key because it decides
+  # WHICH followers are visible, and a count cached under one viewer must not be served to another.
+  defp cached_count(which, actor, purpose_or_current_actor, fun) do
+    key = "#{which}_count:#{ap_id(actor)}:#{:erlang.phash2(purpose_or_current_actor)}"
+
+    ActivityPub.Utils.cached_page_count(key, fn ->
+      case fun.() do
+        n when is_integer(n) and n >= 0 -> n
+        _ -> 0
+      end
+    end)
+  end
+
+  defp ap_id(%{ap_id: ap_id}) when is_binary(ap_id), do: ap_id
+  defp ap_id(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: ap_id
+  defp ap_id(other), do: :erlang.phash2(other)
 
   @doc """
   Resolve host-app ids to bare actor ap_ids (URIs), in input order (unknown dropped). Collection

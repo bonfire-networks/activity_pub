@@ -332,15 +332,7 @@ defmodule ActivityPub do
         opts \\ []
       ) do
     with true <- Utils.public?(object.data),
-         announce_data <-
-           make_announce_data(
-             actor,
-             object,
-             Map.get(params, :activity_id),
-             Map.get(params, :public, true),
-             Map.get(params, :summary, nil),
-             Map.get(params, :published, nil)
-           ),
+         announce_data <- build_announce_data(params, actor, object),
          {:ok, activity} <-
            Object.insert(
              announce_data,
@@ -824,9 +816,81 @@ defmodule ActivityPub do
     if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 
-  @doc """
-  Make announce activity data for the given actor and object
-  """
+  # Picks between the two Announce shapes. They are NOT interchangeable, see `make_announce_activity_data/4`. Asking to wrap and finding no activity falls back to the boost shape rather than failing, so a group still relays something.
+  defp build_announce_data(params, actor, object) do
+    case announced_activity_data(params, object) do
+      {:ok, activity_data} ->
+        make_announce_activity_data(
+          actor,
+          activity_data,
+          Map.get(params, :activity_id),
+          Map.get(params, :published, nil)
+        )
+
+      _ ->
+        make_announce_data(
+          actor,
+          object,
+          Map.get(params, :activity_id),
+          Map.get(params, :public, true),
+          Map.get(params, :summary, nil),
+          Map.get(params, :published, nil)
+        )
+    end
+  end
+
+  # An ACTIVITY handed in as the thing to announce can only sensibly be embedded, so this decides the shape on its own and callers need not pass `:embed_object_in_create_activity`. A bare-id Announce works only because receivers resolve that id to an OBJECT: the ones that re-fetch (Akkoma, GoToSocial, the Misskey family) then type-check against their post types and drop an activity, so `Announce{<activity id>}` is a shape nobody consumes.
+  # `Announce` itself is excluded: a boost of a boost stays a boost, and nesting announces is not a shape anyone asked for either.
+  defp announceable_activity?(%Object{data: %{"type" => type}})
+       when is_binary(type) and type != "Announce",
+       do: is_in(type, :supported_activity_types)
+
+  defp announceable_activity?(_), do: false
+
+  # Chooses the shape and finds what to embed in one pass: an activity announces itself, an object announces the activity that created it, and anything else means the boost shape.
+  defp announced_activity_data(params, object) do
+    cond do
+      # PREFERRED: the caller passes the `Create` (or other activity) as the thing to announce, so the shape follows from what it hands in and no lookup is needed.
+      announceable_activity?(object) ->
+        {:ok, object.data}
+
+      # The lesser path, for a caller that has only the object: costs a query, and can find nothing (an object whose activity we never stored), in which case it degrades to a boost below.
+      Map.get(params, :embed_object_in_create_activity) ->
+        case Object.get_activity_for_object_ap_id(object.data) do
+          %Object{data: %{"id" => _} = data} ->
+            {:ok, data}
+
+          %{"id" => _} = data ->
+            {:ok, data}
+
+          _ ->
+            # Warn rather than refuse: the caller falls back to the boost shape, which still reaches every receiver except Lemmy. Relaying nothing would reach nobody, so partial delivery wins as long as the gap is visible here.
+            warn(
+              object.data["id"],
+              "No activity found to wrap, so announcing the object itself (Lemmy refuses that shape)"
+            )
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  # Skeleton shared by every Announce shape. What differs between them is only what goes in `object` and how it is addressed, so those are the arguments: keeping the rest here means a new shape cannot drift on `published` or on the optional `id`.
+  defp base_announce_data(%{data: %{"id" => ap_id}}, object_field, activity_id, published, fields) do
+    data =
+      %{
+        "type" => "Announce",
+        "actor" => ap_id,
+        "object" => object_field,
+        "published" => published || Utils.make_date()
+      }
+      |> Map.merge(fields)
+
+    if activity_id, do: Map.put(data, "id", activity_id), else: data
+  end
+
+  # Make announce activity data for the given actor and object: the boost shape, announcing the object's id.
   # for relayed messages, we only want to send to subscribers
   defp make_announce_data(
          actor,
@@ -838,47 +902,53 @@ defmodule ActivityPub do
        )
 
   defp make_announce_data(
-         %{data: %{"id" => ap_id}} = actor,
+         %{data: %{"id" => _}} = actor,
          %Object{data: %{"id" => id}} = object,
          activity_id,
-         false = _public?,
+         public?,
          summary,
          published
        ) do
-    data = %{
-      "type" => "Announce",
-      "actor" => ap_id,
-      "object" => id,
-      "to" => [actor.data["followers"]],
+    base_announce_data(actor, id, activity_id, published, %{
+      "to" =>
+        if(public?,
+          do: [ActivityPub.Config.public_uri(), actor.data["followers"]],
+          else: [actor.data["followers"]]
+        ),
       "cc" => [object.data["attributedTo"] || object.data["actor"]],
       "context" => object.data["context"],
-      "summary" => summary,
-      "published" => published || Utils.make_date()
-    }
-
-    if activity_id, do: Map.put(data, "id", activity_id), else: data
+      "summary" => summary
+    })
   end
 
-  defp make_announce_data(
-         %{data: %{"id" => ap_id}} = actor,
-         %Object{data: %{"id" => id}} = object,
+  # The 171b/context of the announced activity, which may carry it itself or only on its inner object.
+  defp announced_context(%{"context" => context}) when is_binary(context), do: context
+
+  defp announced_context(%{"object" => %{"context" => context}}) when is_binary(context),
+    do: context
+
+  defp announced_context(_), do: nil
+
+  @doc """
+  Make a FEP-1b12 group-relay Announce: `Announce{Create{…}}`, with the announced activity EMBEDDED.
+
+  This is a different thing from `make_announce_data/6`, not a variant of it. That one announces the object's id: a boost, meaning this actor is repeating an EXISTING object to their own followers. This one announces the ACTIVITY, which says a NEW post belongs to this group, and is what the threadiverse files as group content. Lemmy, PieFed and NodeBB all emit this shape, and Lemmy REFUSES an announced bare object inbound (`CannotReceivePage`).
+
+  Addressing follows the captured wrappers (Lemmy, PieFed, NodeBB, checked 2026-09-03): `to` is Public alone and `cc` is the announcer's followers collection. Note there is deliberately **no `audience` here**: 1b12 marks belonging on the inner activity and on the object, and not one captured wrapper carries it, so adding it would be our invention rather than the convention.
+
+  The activity stays embedded through `Object.insert/4`, which keeps nested activities whole. Receivers that distrust embedded copies and re-fetch by id (Mastodon, Misskey) can, since local activities are served at their own ids.
+  """
+  defp make_announce_activity_data(
+         %{data: %{"id" => _}} = actor,
+         %{"id" => _} = activity_data,
          activity_id,
-         true = _public?,
-         summary,
          published
        ) do
-    data = %{
-      "type" => "Announce",
-      "actor" => ap_id,
-      "object" => id,
-      "to" => [ActivityPub.Config.public_uri(), actor.data["followers"]],
-      "cc" => [object.data["attributedTo"] || object.data["actor"]],
-      "context" => object.data["context"],
-      "summary" => summary,
-      "published" => published || Utils.make_date()
-    }
-
-    if activity_id, do: Map.put(data, "id", activity_id), else: data
+    base_announce_data(actor, activity_data, activity_id, published, %{
+      "to" => [ActivityPub.Config.public_uri()],
+      "cc" => List.wrap(actor.data["followers"]),
+      "context" => announced_context(activity_data)
+    })
   end
 
   @doc """

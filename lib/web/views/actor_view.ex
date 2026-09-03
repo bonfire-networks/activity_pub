@@ -8,6 +8,7 @@ defmodule ActivityPub.Web.ActorView do
   alias ActivityPub.Utils
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Web.Collections
+  alias ActivityPub.Federator.Adapter
 
   def actor_json(username) do
     with {:ok, actor} <- Actor.get_cached(username: username) do
@@ -69,54 +70,33 @@ defmodule ActivityPub.Web.ActorView do
     end
   end
 
-  def render("following.json", %{actor: actor, page: page}) when is_integer(page) do
-    #  TODO: load based on current_actor so we can show non-public ones
-    {ap_ids, total} = Actor.following_page(actor, page, Collections.page_size())
-
-    collection_page(ap_ids, "#{actor.ap_id}/following", page, total)
+  def render("following.json", %{actor: actor} = params) do
+    follow_collection(actor, "following", params[:page])
     |> Map.merge(Utils.make_json_ld_header(:actor))
   end
 
-  def render("following.json", %{actor: actor}) do
-    #  TODO: load based on current_actor so we can show non-public ones
-    {ap_ids, total} = Actor.following_page(actor, 1, Collections.page_size())
-    url = "#{actor.ap_id}/following"
-
-    %{
-      "id" => url,
-      "type" => "Collection",
-      "first" => collection_page(ap_ids, url, 1, total),
-      "totalItems" => total
-    }
+  def render("followers.json", %{actor: actor} = params) do
+    follow_collection(actor, "followers", params[:page])
     |> Map.merge(Utils.make_json_ld_header(:actor))
   end
 
-  def render("followers.json", %{actor: actor, page: page}) when is_integer(page) do
-    #  TODO: load based on current_actor so we can show non-public ones
-    {ap_ids, total} = Actor.followers_page(actor, page, Collections.page_size())
+  #  TODO: load based on current_actor so we can show non-public ones
+  defp follow_collection(actor, which, page) do
+    {fetch, count} =
+      case which do
+        "followers" ->
+          {&Actor.follower_ap_ids(actor, &1, &2), fn -> Adapter.count_followers(actor) end}
 
-    collection_page(ap_ids, "#{actor.ap_id}/followers", page, total)
-    |> Map.merge(Utils.make_json_ld_header(:actor))
-  end
+        "following" ->
+          {&Actor.following_ap_ids(actor, &1, &2), fn -> Adapter.count_following(actor) end}
+      end
 
-  def render("followers.json", %{actor: actor}) do
-    #  TODO: load based on current_actor so we can show non-public ones
-    {ap_ids, total} = Actor.followers_page(actor, 1, Collections.page_size())
-    url = "#{actor.ap_id}/followers"
-
-    %{
-      "id" => url,
-      "type" => "Collection",
-      "first" => collection_page(ap_ids, url, 1, total),
-      "totalItems" => total
-    }
-    |> Map.merge(Utils.make_json_ld_header(:actor))
-  end
-
-  @doc "One page of already-resolved URIs. Emits `next` only when a further page exists."
-  def collection_page(ap_ids, iri, page, total) when is_list(ap_ids) do
-    offset = (page - 1) * Collections.page_size()
-
-    Collections.page(iri, page, total, ap_ids, next?: offset + length(ap_ids) < total)
+    Collections.collection("#{actor.ap_id}/#{which}",
+      page: page,
+      fetch: fetch,
+      count: count,
+      ordered?: false,
+      items_key: "orderedItems"
+    )
   end
 end

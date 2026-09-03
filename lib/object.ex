@@ -877,6 +877,18 @@ defmodule ActivityPub.Object do
     do: get_outbox_for_actor(ap_id, page, opts)
 
   def get_outbox_for_actor(ap_id, page, opts) when is_binary(ap_id) do
+    outbox_query(ap_id)
+    |> do_list_page(page, opts)
+  end
+
+  # ONE definition of what an outbox holds, so a page and its count cannot disagree. They did while
+  # the `where` clauses were written out in both places.
+  defp outbox_query(ap_id) do
+    published_public_activities()
+    |> Queries.by_actor(ap_id)
+  end
+
+  defp published_public_activities do
     now = DateTime.utc_now()
 
     from(object in Object,
@@ -886,78 +898,66 @@ defmodule ActivityPub.Object do
           (fragment("(?->>'published') IS NULL", object.data) or
              fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
     )
-    |> Queries.by_actor(ap_id)
-    |> do_list_page(page, opts)
   end
-
-  # A minute is long enough to absorb a crawl or a backfilling instance hammering the endpoint, and short enough that a group's `totalItems` is never visibly stale.
-  @outbox_count_ttl :timer.minutes(1)
 
   @doc """
   How many items an actor's outbox holds.
 
-  `totalItems` is otherwise the length of the page just fetched, which reports 10 however much is there, and a truthful count is also what makes a `last` page number computable.
-
-  Cached briefly: this runs on a PUBLIC endpoint that every backfilling instance and crawler hits, and it is a `COUNT` over the objects table filtered on a `published` fragment — the shape that has been slow in production before. Both consumers of the number tolerate a minute of staleness.
+  `totalItems` is otherwise the length of the page just fetched, which reports 10 however much is there, and a truthful count is also what makes a `last` page number computable. Cached briefly, see `ActivityPub.Utils.cached_page_count/2`.
   """
   def count_outbox_for_actor(%{ap_id: ap_id}), do: count_outbox_for_actor(ap_id)
 
-  def count_outbox_for_actor(ap_id) when is_binary(ap_id) do
-    case ActivityPub.Utils.cachex_fetch(
-           :ap_object_cache,
-           "outbox_count:#{ap_id}",
-           fn -> do_count_outbox_for_actor(ap_id) end,
-           ttl: @outbox_count_ttl
-         ) do
-      {:ok, count} when is_integer(count) -> count
-      {:commit, count} when is_integer(count) -> count
-      count when is_integer(count) -> count
-      _ -> do_count_outbox_for_actor(ap_id)
-    end
-  end
+  def count_outbox_for_actor(ap_id) when is_binary(ap_id),
+    do: cached_query_count("outbox_count:#{ap_id}", fn -> outbox_query(ap_id) end)
 
   def count_outbox_for_actor(_), do: 0
 
-  defp do_count_outbox_for_actor(ap_id) do
-    now = DateTime.utc_now()
+  @doc "How many activities the instance's shared outbox holds — see `count_outbox_for_actor/1`."
+  def count_outbox_for_instance,
+    do: cached_query_count("instance_outbox_count", &instance_outbox_query/0)
 
-    from(object in Object,
-      where:
-        object.public == true and
-          object.is_object != true and
-          (fragment("(?->>'published') IS NULL", object.data) or
-             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
+  @doc "How many activities the instance's shared inbox holds — see `count_outbox_for_actor/1`."
+  def count_inbox_for_instance,
+    do: cached_query_count("instance_inbox_count", &instance_inbox_query/0)
+
+  @doc "How many activities an actor's inbox holds — see `count_outbox_for_actor/1`."
+  def count_inbox_for_actor(actor_or_ap_id, opts \\ [])
+
+  def count_inbox_for_actor(%{ap_id: ap_id}, opts), do: count_inbox_for_actor(ap_id, opts)
+  def count_inbox_for_actor(%{"id" => ap_id}, opts), do: count_inbox_for_actor(ap_id, opts)
+
+  def count_inbox_for_actor(ap_id, opts) when is_binary(ap_id) do
+    cached_query_count(
+      "inbox_count:#{ap_id}:#{:erlang.phash2({opts[:activity_types], opts[:object_types]})}",
+      fn -> inbox_query(ap_id, opts) end
     )
-    |> Queries.by_actor(ap_id)
-    |> repo().aggregate(:count)
   end
 
-  def get_outbox_for_instance(page \\ 1, opts \\ []) do
-    now = DateTime.utc_now()
+  def count_inbox_for_actor(_, _), do: 0
 
-    from(object in Object,
-      where:
-        object.local == true and
-          object.public == true and
-          object.is_object != true and
-          (fragment("(?->>'published') IS NULL", object.data) or
-             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
-    )
+  @doc "How many MLS messages an actor holds — see `count_inbox_for_actor/2`."
+  def count_mls_messages_for_actor(actor_or_ap_id),
+    do: count_inbox_for_actor(actor_or_ap_id, mls_message_filters())
+
+  defp cached_query_count(key, query_fun),
+    do: ActivityPub.Utils.cached_page_count(key, fn -> repo().aggregate(query_fun.(), :count) end)
+
+  def get_outbox_for_instance(page \\ 1, opts \\ []) do
+    instance_outbox_query()
     |> do_list_page(page, opts)
+  end
+
+  defp instance_outbox_query do
+    from(object in published_public_activities(), where: object.local == true)
   end
 
   def get_inbox_for_instance(page \\ 1, opts \\ []) do
-    now = DateTime.utc_now()
-
-    from(object in Object,
-      where:
-        object.local == false and
-          object.public == true and
-          object.is_object != true and
-          (fragment("(?->>'published') IS NULL", object.data) or
-             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
-    )
+    instance_inbox_query()
     |> do_list_page(page, opts)
+  end
+
+  defp instance_inbox_query do
+    from(object in published_public_activities(), where: object.local == false)
   end
 
   def get_inbox_for_actor(ap_id, page \\ 1, opts \\ [])
@@ -967,6 +967,11 @@ defmodule ActivityPub.Object do
     do: get_inbox_for_actor(ap_id, page, opts)
 
   def get_inbox_for_actor(ap_id, page, opts) when is_binary(ap_id) do
+    inbox_query(ap_id, opts)
+    |> do_list_page(page, opts)
+  end
+
+  defp inbox_query(ap_id, opts) do
     from(object in Object,
       where: object.is_object != true,
       # match all addressing fields, including blind ones — MLS messages often address recipients via
@@ -980,7 +985,6 @@ defmodule ActivityPub.Object do
     )
     |> maybe_filter_types(opts[:activity_types], opts[:object_types])
     |> maybe_published_filter(opts)
-    |> do_list_page(page, opts)
   end
 
   def get_inbox_for_actor(_, _page, _opts), do: []
@@ -1000,14 +1004,18 @@ defmodule ActivityPub.Object do
     get_inbox_for_actor(
       actor_or_ap_id,
       page,
-      opts
-      |> Keyword.put_new(:activity_types, ActivityPub.Config.get(:mls_message_activity_types, []))
-      |> Keyword.put_new(
-        :object_types,
-        ActivityPub.Config.get(:mls_message_object_types, ["PrivateMessage", "PublicMessage"])
-      )
-      |> Keyword.put_new(:only_published, false)
+      Keyword.merge(mls_message_filters(), opts)
     )
+  end
+
+  # Shared by the page and its count, so `totalItems` counts the same messages the page lists.
+  defp mls_message_filters do
+    [
+      activity_types: ActivityPub.Config.get(:mls_message_activity_types, []),
+      object_types:
+        ActivityPub.Config.get(:mls_message_object_types, ["PrivateMessage", "PublicMessage"]),
+      only_published: false
+    ]
   end
 
   # Restrict the inbox to activities of the given `activity_types`, and/or whose wrapped object

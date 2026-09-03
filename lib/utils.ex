@@ -502,6 +502,24 @@ defmodule ActivityPub.Utils do
     if pid, do: [ap_cache_key(:pointer, pid) | base], else: base
   end
 
+  # A minute is long enough to absorb a crawl or a backfilling instance hammering an endpoint, and
+  # short enough that a `totalItems` is never visibly stale.
+  @collection_count_ttl :timer.minutes(1)
+
+  @doc """
+  A briefly cached `totalItems`, shared by every collection that publishes one.
+
+  These run on PUBLIC endpoints that backfilling instances and crawlers hit, over queries that have been slow in production (a `COUNT` on a `published` fragment, or an adapter polyfill that materialises a whole follower list to take its length). Every consumer of the number tolerates a minute of staleness.
+  """
+  def cached_page_count(key, fun) when is_function(fun, 0) do
+    case cachex_fetch(:ap_object_cache, key, fun, ttl: @collection_count_ttl) do
+      {:ok, n} when is_integer(n) -> n
+      {:commit, n} when is_integer(n) -> n
+      n when is_integer(n) -> n
+      _ -> fun.()
+    end
+  end
+
   def cachex_fetch(cache, key, fallback, options \\ []) when is_function(fallback) do
     if not cache_enabled?() do
       # bypassed in the test env by default (Ecto sandbox / ExUnit workaround); opt in per-process

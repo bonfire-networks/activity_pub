@@ -825,22 +825,36 @@ defmodule ActivityPub.Actor do
   `get_followers/2` remains the full-struct path used by delivery.
   """
   def followers_page(actor, page, page_size, purpose_or_current_actor \\ nil) do
-    {Adapter.get_follower_local_ids(actor, purpose_or_current_actor,
-       page: page,
-       page_size: page_size
-     )
-     |> Adapter.get_actor_ap_ids_by_ids(),
+    {follower_ap_ids(actor, page, page_size, purpose_or_current_actor),
      Adapter.count_followers(actor, purpose_or_current_actor)}
   end
 
   @doc "Following-side sibling of `followers_page/4`."
   def following_page(actor, page, page_size, purpose_or_current_actor \\ nil) do
-    {Adapter.get_following_local_ids(actor, purpose_or_current_actor,
-       page: page,
-       page_size: page_size
-     )
-     |> Adapter.get_actor_ap_ids_by_ids(),
+    {following_ap_ids(actor, page, page_size, purpose_or_current_actor),
      Adapter.count_following(actor, purpose_or_current_actor)}
+  end
+
+  @doc """
+  One page of follower URIs, without counting.
+
+  The collection renderer asks for the page and the count separately, since the count is cached and the page is not; `followers_page/4` remains for callers that want both at once.
+  """
+  def follower_ap_ids(actor, page, page_size, purpose_or_current_actor \\ nil) do
+    Adapter.get_follower_local_ids(actor, purpose_or_current_actor,
+      page: page,
+      page_size: page_size
+    )
+    |> Adapter.get_actor_ap_ids_by_ids()
+  end
+
+  @doc "Following-side sibling of `follower_ap_ids/4`."
+  def following_ap_ids(actor, page, page_size, purpose_or_current_actor \\ nil) do
+    Adapter.get_following_local_ids(actor, purpose_or_current_actor,
+      page: page,
+      page_size: page_size
+    )
+    |> Adapter.get_actor_ap_ids_by_ids()
   end
 
   def get_external_followers(actor, purpose_or_current_actor \\ nil) do

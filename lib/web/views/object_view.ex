@@ -17,12 +17,7 @@ defmodule ActivityPub.Web.ObjectView do
   end
 
   def render("outbox.json", %{actor: actor, page: page}) when is_integer(page) do
-    # embed each activity's object from cache (resolved in one batched list_cached), not a SQL join
-    outbox = Object.get_outbox_for_actor(actor, page, load_object: :cache)
-
-    total = length(outbox)
-
-    collection(outbox, "#{actor.ap_id}/outbox", page, total)
+    outbox_collection(actor, page: page)
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
@@ -39,112 +34,85 @@ defmodule ActivityPub.Web.ObjectView do
   #
   # This is a response to how two implementations behave rather than to anything they promise, so the reasoning lives here: without it, `first` looks like an omission and gets added back.
   def render("outbox.json", %{actor: %{data: %{"type" => "Group"}} = actor}) do
-    outbox =
-      Object.get_outbox_for_actor(actor, 1, load_object: :cache, limit: @group_outbox_limit)
-
-    total = Object.count_outbox_for_actor(actor)
-    url = "#{actor.ap_id}/outbox"
-
-    %{
-      "id" => url,
-      "type" => "OrderedCollection",
-      "totalItems" => total,
-      "orderedItems" =>
-        Enum.map(outbox, fn object -> render("object.json", %{object: object}) end)
-    }
-    |> Map.merge(Collections.last_page_link(url, total, @group_outbox_limit))
+    outbox_collection(actor, inline: true, page_size: @group_outbox_limit)
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   def render("outbox.json", %{actor: actor}) do
-    outbox = Object.get_outbox_for_actor(actor, 1, load_object: :cache)
-
-    total = length(outbox)
-    url = "#{actor.ap_id}/outbox"
-
-    %{
-      "id" => url,
-      "type" => "OrderedCollection",
-      "first" => collection(outbox, url, 1, total),
-      "totalItems" => total
-    }
+    outbox_collection(actor, [])
     |> Map.merge(Utils.make_json_ld_header(:object))
+  end
+
+  # embed each activity's object from cache (resolved in one batched list_cached), not a SQL join
+  defp outbox_collection(actor, opts) do
+    Collections.collection(
+      "#{actor.ap_id}/outbox",
+      [
+        fetch: fn page, limit ->
+          Object.get_outbox_for_actor(actor, page, load_object: :cache, limit: limit)
+          |> render_objects()
+        end,
+        count: fn -> Object.count_outbox_for_actor(actor) end
+      ] ++ opts
+    )
   end
 
   # only for testing purposes
   def render("outbox.json", %{outbox: :shared_outbox} = params) do
     ap_base_url = Utils.ap_base_url()
-    page = params[:page] || 1
-    outbox = Object.get_outbox_for_instance(page, load_object: :cache)
 
-    total = length(outbox)
-
-    %{
-      "id" => "#{ap_base_url}/shared_outbox",
-      "type" => "OrderedCollection",
-      "first" => collection(outbox, "#{ap_base_url}/shared_outbox", page, total),
-      "totalItems" => total
-    }
+    Collections.collection("#{ap_base_url}/shared_outbox",
+      page: params[:page],
+      fetch: fn page, limit ->
+        Object.get_outbox_for_instance(page, load_object: :cache, limit: limit)
+        |> render_objects()
+      end,
+      count: &Object.count_outbox_for_instance/0
+    )
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   def render("inbox.json", %{inbox: :shared_inbox} = params) do
     ap_base_url = Utils.ap_base_url()
-    page = params[:page] || 1
-    outbox = Object.get_inbox_for_instance(page, load_object: :cache)
 
-    total = length(outbox)
-
-    %{
-      "id" => "#{ap_base_url}/shared_inbox",
-      "type" => "OrderedCollection",
-      "first" => collection(outbox, "#{ap_base_url}/shared_inbox", page, total),
-      "totalItems" => total
-    }
+    Collections.collection("#{ap_base_url}/shared_inbox",
+      page: params[:page],
+      fetch: fn page, limit ->
+        Object.get_inbox_for_instance(page, load_object: :cache, limit: limit) |> render_objects()
+      end,
+      count: &Object.count_inbox_for_instance/0
+    )
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   def render("inbox.json", %{actor: actor} = params) do
-    ap_base_url = Utils.ap_base_url()
-    page = params[:page] || 1
-    outbox = Object.get_inbox_for_actor(actor, page, load_object: :cache)
-
-    total = length(outbox)
-
-    url = "#{actor.ap_id}/inbox"
-
-    %{
-      "id" => url,
-      "type" => "OrderedCollection",
-      "first" => collection(outbox, url, page, total),
-      "totalItems" => total
-    }
+    Collections.collection("#{actor.ap_id}/inbox",
+      page: params[:page],
+      fetch: fn page, limit ->
+        Object.get_inbox_for_actor(actor, page, load_object: :cache, limit: limit)
+        |> render_objects()
+      end,
+      count: fn -> Object.count_inbox_for_actor(actor) end
+    )
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
+
+  defp render_objects(objects),
+    do: Enum.map(objects, fn object -> render("object.json", %{object: object}) end)
 
   # MLS-over-ActivityPub `mls:messages`: the actor's inbox filtered to MLS activity/object types, so an
   # E2EE client can skip scanning the whole inbox. Owner-only (auth enforced in the controller).
   def render("mls_messages.json", %{actor: actor} = params) do
-    page = params[:page] || 1
-    messages = Object.get_mls_messages_for_actor(actor, page, load_object: :cache)
-
-    total = length(messages)
-    url = "#{actor.ap_id}/mls_messages"
-
-    result =
-      if params[:paged] do
-        # Spec-compliant: ?page=N dereferences to an OrderedCollectionPage directly.
-        collection(messages, url, page, total)
-      else
-        %{
-          "id" => url,
-          "type" => "OrderedCollection",
-          "first" => collection(messages, url, page, total),
-          "totalItems" => total
-        }
-      end
-
-    Map.merge(result, Utils.make_json_ld_header(:object))
+    Collections.collection("#{actor.ap_id}/mls_messages",
+      # spec-compliant: ?page=N dereferences to an OrderedCollectionPage directly
+      page: if(params[:paged], do: params[:page] || 1),
+      fetch: fn page, limit ->
+        Object.get_mls_messages_for_actor(actor, page, load_object: :cache, limit: limit)
+        |> render_objects()
+      end,
+      count: fn -> Object.count_mls_messages_for_actor(actor) end
+    )
+    |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
   # Serve a lib-owned generic collection (backed by `GenericCollectionStore`). Membership is read
@@ -198,21 +166,5 @@ defmodule ActivityPub.Web.ObjectView do
       nil -> %{}
       order_type -> %{"orderType" => order_type}
     end
-  end
-
-  # NOTE: `collection` here is ALREADY one page (`get_outbox_for_actor/3` pages in SQL), so `total`
-  # is this page's length, not the collection's — hence "full page ⇒ maybe more" rather than the
-  # exact `offset + length < total` the followers view can use. (`offset < total` was wrong: page 1
-  # has offset 0, so any non-empty outbox advertised a `next` to an often-empty page.)
-  # TODO: return a real COUNT alongside the page so `totalItems` and `next?` become exact.
-  def collection(collection, iri, page, total \\ nil) do
-    items = Enum.map(collection, fn object -> render("object.json", %{object: object}) end)
-    total = total || length(collection)
-
-    Collections.page(iri, page, total, items,
-      page_type: "OrderedCollectionPage",
-      items_key: "orderedItems",
-      next?: length(items) == Collections.page_size()
-    )
   end
 end

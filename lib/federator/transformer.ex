@@ -51,6 +51,23 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, maybe_add_json_ld_header(data, type, opts)}
   end
 
+  # FEP-1b12 group relay: `Announce{Create{…}}`, where the announced activity must carry its object INLINE. We STORE the inner activity with its object as a bare id, since `Object.insert/4` splits the two, so without this the wire form is `Announce{Create{<id>}}` and a receiver that reads the relayed copy rather than re-fetching gets nothing. Embedding on the way out is how a plain `Create` already behaves.
+  # Restricted to `Announce` on purpose: the same recursion over `Undo{Like}` or `Accept{Follow}` would start embedding objects that those verbs have always sent as ids.
+  def prepare_outgoing(
+        %{
+          "type" => "Announce",
+          "object" => %{"type" => inner_type, "object" => inner_object} = inner
+        } =
+          data,
+        opts
+      )
+      when is_in(inner_type, :supported_activity_types) do
+    {:ok,
+     data
+     |> Map.put("object", Map.put(inner, "object", prepare_outgoing_object(inner_object)))
+     |> maybe_add_json_ld_header(:object, opts)}
+  end
+
   def prepare_outgoing(%{"object" => object} = data, opts) do
     data =
       data

@@ -10,6 +10,66 @@ defmodule ActivityPub.Web.Collections do
   @page_size 10
   def page_size, do: @page_size
 
+  @doc """
+  The one envelope builder: tell it how to fetch a page and how to count the whole, and it returns either the top-level collection or a single page.
+
+  This exists because every renderer used to do its own arithmetic, and they disagreed. `totalItems` was `length(page)` in five of them, reporting 10 however much was there, and `next` was emitted whenever a page came back full, which links to an empty page whenever the total is an exact multiple of the page size. Both are computed here once, from a real count.
+
+  Options:
+
+  - `:fetch` — `fn page, page_size -> items`, already rendered by the caller
+  - `:count` — `fn -> integer`, the whole collection, not this page
+  - `:page` — a page number, or nil for the top level
+  - `:page_size` — defaults to `page_size/0`
+  - `:ordered?` — picks `OrderedCollection` and `orderedItems`, defaults to true
+  - `:items_key` — override just the items key. The followers collection is a plain `Collection` that has always carried `orderedItems`, and changing that would be a wire change unrelated to this refactor
+  - `:extra` — merged into the top-level document
+  - `:inline` — serve the items IN the top-level document, with no `first` and a `last` for whatever does not fit. This is the shape a Group's outbox needs
+  """
+  def collection(iri, opts) do
+    fetch = Keyword.fetch!(opts, :fetch)
+    page_size = Keyword.get(opts, :page_size, @page_size)
+    ordered? = Keyword.get(opts, :ordered?, true)
+    items_key = Keyword.get(opts, :items_key, items_key(ordered?))
+    total = Keyword.fetch!(opts, :count).()
+
+    case Keyword.get(opts, :page) do
+      page when is_integer(page) ->
+        build_page(iri, page, total, fetch, page_size, ordered?, items_key)
+
+      _ ->
+        if Keyword.get(opts, :inline, false) do
+          %{
+            "id" => iri,
+            "type" => collection_type(ordered?),
+            "totalItems" => total,
+            items_key => fetch.(1, page_size)
+          }
+          |> Map.merge(last_page_link(iri, total, page_size))
+          |> Map.merge(Keyword.get(opts, :extra, %{}))
+        else
+          top_level(
+            iri,
+            collection_type(ordered?),
+            total,
+            build_page(iri, 1, total, fetch, page_size, ordered?, items_key),
+            Keyword.get(opts, :extra, %{})
+          )
+        end
+    end
+  end
+
+  defp build_page(iri, page, total, fetch, page_size, ordered?, items_key) do
+    items = fetch.(page, page_size)
+
+    page(iri, page, total, items,
+      page_type: page_type(ordered?),
+      items_key: items_key,
+      # exact, so a page that exactly fills does not link to an empty one
+      next?: (page - 1) * page_size + length(items) < total
+    )
+  end
+
   @doc "Top-level (unpaged) collection envelope: id, type, totalItems and a `first` page link/object."
   def top_level(id, type, total, first_page, extra \\ %{}) do
     Map.merge(

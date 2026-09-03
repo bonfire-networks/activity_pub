@@ -890,6 +890,48 @@ defmodule ActivityPub.Object do
     |> do_list_page(page, opts)
   end
 
+  # A minute is long enough to absorb a crawl or a backfilling instance hammering the endpoint, and short enough that a group's `totalItems` is never visibly stale.
+  @outbox_count_ttl :timer.minutes(1)
+
+  @doc """
+  How many items an actor's outbox holds.
+
+  `totalItems` is otherwise the length of the page just fetched, which reports 10 however much is there, and a truthful count is also what makes a `last` page number computable.
+
+  Cached briefly: this runs on a PUBLIC endpoint that every backfilling instance and crawler hits, and it is a `COUNT` over the objects table filtered on a `published` fragment — the shape that has been slow in production before. Both consumers of the number tolerate a minute of staleness.
+  """
+  def count_outbox_for_actor(%{ap_id: ap_id}), do: count_outbox_for_actor(ap_id)
+
+  def count_outbox_for_actor(ap_id) when is_binary(ap_id) do
+    case ActivityPub.Utils.cachex_fetch(
+           :ap_object_cache,
+           "outbox_count:#{ap_id}",
+           fn -> do_count_outbox_for_actor(ap_id) end,
+           ttl: @outbox_count_ttl
+         ) do
+      {:ok, count} when is_integer(count) -> count
+      {:commit, count} when is_integer(count) -> count
+      count when is_integer(count) -> count
+      _ -> do_count_outbox_for_actor(ap_id)
+    end
+  end
+
+  def count_outbox_for_actor(_), do: 0
+
+  defp do_count_outbox_for_actor(ap_id) do
+    now = DateTime.utc_now()
+
+    from(object in Object,
+      where:
+        object.public == true and
+          object.is_object != true and
+          (fragment("(?->>'published') IS NULL", object.data) or
+             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
+    )
+    |> Queries.by_actor(ap_id)
+    |> repo().aggregate(:count)
+  end
+
   def get_outbox_for_instance(page \\ 1, opts \\ []) do
     now = DateTime.utc_now()
 
@@ -1022,13 +1064,15 @@ defmodule ActivityPub.Object do
   # end
 
   defp do_list_page(query, page, opts \\ []) do
-    offset = (page - 1) * 10
+    # a caller can ask for a bigger page: a GROUP outbox is served as one capped collection with its items inline, because Lemmy reads those and never follows pages (see `ObjectView`)
+    limit = opts[:limit] || 10
+    offset = (page - 1) * limit
 
     load_object = opts[:load_object] || :cache
 
     query
     |> Queries.ordered()
-    |> limit(10)
+    |> limit(^limit)
     |> offset(^offset)
     |> Queries.with_object(:left, load_object)
     |> repo().all()

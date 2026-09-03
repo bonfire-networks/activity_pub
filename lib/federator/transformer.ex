@@ -394,6 +394,21 @@ defmodule ActivityPub.Federator.Transformer do
 
   # def determine_explicit_mentions(_), do: []
 
+  @doc """
+  Fills in Mobilizon's `mz:openness` from AS2's `manuallyApprovesFollowers` when an actor states only the latter, so consumers read ONE field without losing detail.
+
+  Both answer "may anyone in, or does someone approve?", in different vocabularies and about different acts: AS2 says it of FOLLOWING, Mobilizon of JOINING, a distinction only groups with real membership can draw. `openness` is the richer of the two (`open` / `moderated` / `invite_only`, where a boolean can only say "approval or not"), so the boolean fills it in rather than flattening it, as an invite-only group must not arrive looking like a request-to-join one. An actor that states `openness` keeps it untouched.
+  """
+  def fix_openness(%{"openness" => openness} = data) when is_binary(openness), do: data
+
+  def fix_openness(%{"manuallyApprovesFollowers" => true} = data),
+    do: Map.put(data, "openness", "moderated")
+
+  def fix_openness(%{"manuallyApprovesFollowers" => false} = data),
+    do: Map.put(data, "openness", "open")
+
+  def fix_openness(data), do: data
+
   def fix_actor(data) do
     actor =
       data

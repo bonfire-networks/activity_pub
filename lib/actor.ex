@@ -613,6 +613,9 @@ defmodule ActivityPub.Actor do
   defp extract_public_key_pem(_), do: nil
 
   def create_or_update_actor_from_object(actor, opts \\ []) do
+    # normalise the vendor variants once, here rather than in each consumer, because an actor reaches us both by fetch and through the inbox and both land here
+    actor = maybe_fix_actor_data(actor)
+
     case do_maybe_create_or_update_actor_from_object(actor, opts) do
       {:ok, %Actor{} = actor} ->
         debug("Actor created or updated")
@@ -626,6 +629,15 @@ defmodule ActivityPub.Actor do
         error(e, "Could not find or create an actor")
     end
   end
+
+  # raw AS2 arrives as a plain map; an `%Object{}` or `%Actor{}` has already been through here
+  defp maybe_fix_actor_data(%{"type" => _} = data),
+    do: ActivityPub.Federator.Transformer.fix_openness(data)
+
+  defp maybe_fix_actor_data(%{data: %{"type" => _} = data} = object),
+    do: Map.put(object, :data, ActivityPub.Federator.Transformer.fix_openness(data))
+
+  defp maybe_fix_actor_data(other), do: other
 
   defp do_maybe_create_or_update_actor_from_object(%{"type" => type} = data, opts)
        when is_in(type, :supported_actor_types) do

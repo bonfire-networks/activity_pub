@@ -26,6 +26,36 @@ defmodule ActivityPub.Web.ObjectView do
     |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
+  @group_outbox_limit 50
+
+  @doc false
+  def group_outbox_limit, do: @group_outbox_limit
+
+  # A GROUP's outbox is served as ONE capped collection with its items inline, newest first.
+  #
+  # Lemmy backfills a community by reading `orderedItems` from the top-level document and never follows pages; it also requires every item to be an `Announce`. Given anything else it backfills NOTHING rather than degrading, which is why our captures of real communities each hold exactly 50 items in a single unpaged collection.
+  #
+  # ⚠️ No root-level `first`, deliberately. PieFed copes with either shape but PREFERS `first` when it is present, following it for 10 items instead of reading the 50 already inline. History stays reachable through `last` and the `prev` chain, which is ordinary AS2, so nothing is lost.
+  #
+  # This is a response to how two implementations behave rather than to anything they promise, so the reasoning lives here: without it, `first` looks like an omission and gets added back.
+  def render("outbox.json", %{actor: %{data: %{"type" => "Group"}} = actor}) do
+    outbox =
+      Object.get_outbox_for_actor(actor, 1, load_object: :cache, limit: @group_outbox_limit)
+
+    total = Object.count_outbox_for_actor(actor)
+    url = "#{actor.ap_id}/outbox"
+
+    %{
+      "id" => url,
+      "type" => "OrderedCollection",
+      "totalItems" => total,
+      "orderedItems" =>
+        Enum.map(outbox, fn object -> render("object.json", %{object: object}) end)
+    }
+    |> Map.merge(Collections.last_page_link(url, total, @group_outbox_limit))
+    |> Map.merge(Utils.make_json_ld_header(:object))
+  end
+
   def render("outbox.json", %{actor: actor}) do
     outbox = Object.get_outbox_for_actor(actor, 1, load_object: :cache)
 

@@ -36,6 +36,19 @@ defmodule ActivityPub.Web.Collections do
       else: map
   end
 
+  @doc """
+  A `last` link for a collection served with its items inline rather than behind a `first`.
+
+  Walking back from `last` through `prev` is ordinary AS2, and it is how history stays reachable for a consumer that wants more than the inline page — without a root `first`, which some implementations prefer over the inline items and then fetch a smaller page.
+
+  Empty when there is nothing beyond what is already inline, since a `last` pointing at the page you are holding says nothing.
+  """
+  def last_page_link(iri, total, page_size) when is_integer(total) and total > page_size do
+    %{"last" => "#{iri}?page=#{ceil(total / page_size)}"}
+  end
+
+  def last_page_link(_iri, _total, _page_size), do: %{}
+
   def collection_type(true), do: "OrderedCollection"
   def collection_type(_), do: "Collection"
   def page_type(true), do: "OrderedCollectionPage"

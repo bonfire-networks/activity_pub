@@ -992,6 +992,34 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  @doc """
+  A `DateTime` from whichever of the three forms a timestamp reaches us in: a `DateTime`, the `NaiveDateTime` Ecto and Oban hand back, or an ISO8601 string from JSON.
+
+  Returns nil for anything unparseable, so a caller comparing against "now" decides for itself what a missing timestamp means rather than inheriting a guess.
+
+  ## Examples
+
+      iex> ActivityPub.Utils.to_datetime(~N[2026-09-04 12:00:00])
+      ~U[2026-09-04 12:00:00Z]
+
+      iex> ActivityPub.Utils.to_datetime("2026-09-04T12:00:00Z")
+      ~U[2026-09-04 12:00:00Z]
+
+      iex> ActivityPub.Utils.to_datetime("not a date")
+      nil
+  """
+  def to_datetime(%DateTime{} = datetime), do: datetime
+  def to_datetime(%NaiveDateTime{} = naive), do: DateTime.from_naive!(naive, "Etc/UTC")
+
+  def to_datetime(datetime) when is_binary(datetime) do
+    case DateTime.from_iso8601(datetime) do
+      {:ok, datetime, _} -> datetime
+      _ -> nil
+    end
+  end
+
+  def to_datetime(_), do: nil
+
   @doc "Format according to RFC 1123, which is the standard for HTTP dates. Example: `Mon, 15 Apr 2025 14:30:15 GMT`"
   def format_date(date \\ NaiveDateTime.utc_now(Calendar.ISO))
 

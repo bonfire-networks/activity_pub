@@ -16,6 +16,7 @@ defmodule ActivityPub.Web.ActivityPubController do
   # alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
   alias ActivityPub.Utils
+  alias ActivityPub.Federator.Transformer
   alias ActivityPub.Federator.Adapter
   # alias ActivityPub.Instances
   # alias ActivityPub.Safety.Containment
@@ -44,6 +45,33 @@ defmodule ActivityPub.Web.ActivityPubController do
 
       Config.federating?() != false ->
         json_object_with_cache(conn, uuid)
+
+      true ->
+        Utils.error_json(conn, "this instance is not currently federating", 403)
+    end
+  end
+
+  @doc """
+  The same stored activity as `object/2`, rendered in its FEP-1b12 shape (announcing the activity rather than the object).
+
+  A group relay is delivered as both shapes, because the threadiverse accepts only the wrapped one and the Pleroma/Misskey/GoToSocial family only the other. Both ids therefore have to resolve, and each has to return what was delivered under it: a receiver that re-fetched this id and got the object form would get back exactly the shape it could not parse.
+
+  One stored row, two ids, the path choosing the rendering.
+  """
+  def activity_object(conn, %{"uuid" => uuid}) do
+    cond do
+      get_format(conn) == "html" ->
+        ActivityPub.Web.RedirectController.object(conn, %{"uuid" => uuid})
+
+      Config.federating?() != false ->
+        # take the CACHED compat json and transform that, rather than caching a second shape: both ids key on the same uuid, so a second entry would need a variant dimension in shared cache code, and without one the first shape fetched is served for the other. Transforming costs a single lookup for the `Create`, on a path that is rarely hit since the threadiverse trusts a relayed activity inline and Mastodon re-fetches the OBJECT rather than the announce
+        with {:ok, %{json: json, meta: meta}} <-
+               Utils.get_with_cache(&object_json/2, :ap_object_cache, :json, uuid, []),
+             %{} = wrapped <- Transformer.wrapped_relay_data(json) do
+          maybe_return_json(conn, meta, wrapped, [])
+        else
+          _ -> Utils.error_json(conn, "not found", 404)
+        end
 
       true ->
         Utils.error_json(conn, "this instance is not currently federating", 403)

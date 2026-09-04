@@ -230,6 +230,33 @@ defmodule ActivityPub.Federator.Adapter do
     end)
   end
 
+  @doc """
+  Whether the host app already records `actor_ap_id` as having performed a `type` activity on `object_ap_id`, still in effect (eg. `"Announce"`, `"Like"`).
+
+  Optional callback, polyfilled as `false`, which simply means no early skip. A host answers only for the types it tracks as a lasting relationship; for anything else, a `Create` say, `false` is the right answer, and the caller decides which types are worth asking about.
+
+  "Still in effect" is the part that matters: an activity that was later undone must NOT suppress a genuine repeat, so hosts should answer from current state rather than from the activities they have stored.
+
+  Exists so a duplicate can be discarded before it costs anything. Lemmy and its family dual-emit, sending both `Announce{Create{…}}` and a compat `Announce{<object>}` for the same content, with different activity ids and nothing else in common, so the pair is only recognisable by actor plus type plus announced object. Without this the second copy survives until `Boosts.maybe_boost/3`, by which point we have ingested the inner activity, written a second `Announce` row and run two boundary checks.
+
+  Answer from LIVE state rather than from stored activities: one that was later undone must NOT suppress a genuine repeat, and `ActivityPub.Object.get_existing_announce/2` cannot tell those apart (it also scans, since `coalesce(data->'object'->>'id', data->>'object')` is unindexed).
+  """
+  @callback activity_exists?(String.t(), String.t(), Object.t()) :: boolean()
+  def activity_exists?(type, actor_ap_id, object_ap_id)
+      when is_binary(type) and is_binary(actor_ap_id) and is_binary(object_ap_id) do
+    # resolved HERE rather than in the caller or in each host adapter: it is a cached, indexed lookup
+    # and never a fetch, so a duplicate is answered without touching the network. Not holding the
+    # object locally means there is nothing to have interacted with, and nothing to skip.
+    with true <- function_exported?(adapter(), :activity_exists?, 3),
+         {:ok, object} <- Object.get_cached(ap_id: object_ap_id) do
+      adapter().activity_exists?(type, actor_ap_id, object) == true
+    else
+      _ -> false
+    end
+  end
+
+  def activity_exists?(_, _, _), do: false
+
   @doc "Number of actors the given `Actor` follows — see `count_followers/2`."
   @callback count_following(Actor.t(), any()) :: non_neg_integer()
   def count_following(actor, purpose_or_current_actor \\ nil) do

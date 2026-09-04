@@ -39,7 +39,8 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
           "module" => module_name,
           "params" => params,
           "repo" => repo
-        }
+        },
+        inserted_at: inserted_at
       }) do
     ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: info(op))
@@ -48,6 +49,8 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
       :publish_one,
       String.to_atom(module_name),
       Map.new(params, fn {k, v} -> {String.to_atom(k), v} end)
+      # how long this delivery has been waiting, which is the publisher's cue to stop bothering (`APPublisher.too_stale?/1`). It has to come from here because the publisher never sees the job, and snoozing means the attempt count cannot answer it
+      |> Map.put(:queued_at, inserted_at)
     )
   end
 

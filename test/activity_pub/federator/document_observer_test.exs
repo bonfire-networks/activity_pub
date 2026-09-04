@@ -142,6 +142,74 @@ defmodule ActivityPub.Web.DocumentObserverTest do
     end
   end
 
+  describe "delivery" do
+    # The outgoing half, and the only one that records what a remote made of our payload. "Does X accept this shape" is otherwise unanswerable from our side: a 202 and a 400 leave identical traces in `ap_object`, and the reason is usually in the response body.
+    test "observes what we sent and the receiver's answer" do
+      observe_to_self()
+
+      inbox = "https://mocked.local/users/karen/inbox"
+      document = %{"type" => "Create", "id" => "https://bonfire.local/pub/objects/sent-1"}
+
+      # process-local `mock/1`, NOT `mock_global/1`: the latter replaces the shared
+      # `HttpRequestMock` from `setup_all` for every process, which breaks the fetch test above
+      mock(fn %{method: :post, url: ^inbox} ->
+        %Tesla.Env{status: 400, body: "unknown field `audience`"}
+      end)
+
+      ActivityPub.Federator.APPublisher.publish_one_unsigned(%{
+        inbox: inbox,
+        json: Jason.encode!(document),
+        id: document["id"]
+      })
+
+      assert_received {:observed, observed, context}
+
+      assert observed == document, "the payload as sent, not as stored"
+      assert context.source == :delivery
+      assert context.url == inbox
+      assert context.status == 400
+
+      assert context.body == "unknown field `audience`",
+             "the body is where a receiver says WHY, and it is the whole point of observing this"
+    end
+
+    test "a 2xx is observed too, since acceptance is the answer we are usually looking for" do
+      observe_to_self()
+
+      inbox = "https://mocked.local/users/karen/inbox"
+
+      # process-local `mock/1`, NOT `mock_global/1`: the latter replaces the shared
+      # `HttpRequestMock` from `setup_all` for every process, which breaks the fetch test above
+      mock(fn %{method: :post, url: ^inbox} -> %Tesla.Env{status: 202, body: ""} end)
+
+      ActivityPub.Federator.APPublisher.publish_one_unsigned(%{
+        inbox: inbox,
+        json: Jason.encode!(%{"type" => "Create"}),
+        id: "https://bonfire.local/pub/objects/sent-2"
+      })
+
+      assert_received {:observed, _observed, context}
+      assert context.status == 202
+    end
+
+    test "nothing is decoded when no observer is configured" do
+      inbox = "https://mocked.local/users/karen/inbox"
+
+      # process-local `mock/1`, NOT `mock_global/1`: the latter replaces the shared
+      # `HttpRequestMock` from `setup_all` for every process, which breaks the fetch test above
+      mock(fn %{method: :post, url: ^inbox} -> %Tesla.Env{status: 202, body: ""} end)
+
+      ActivityPub.Federator.APPublisher.publish_one_unsigned(%{
+        inbox: inbox,
+        json: "{not json at all",
+        id: "https://bonfire.local/pub/objects/sent-3"
+      })
+
+      refute_received {:observed, _, _},
+                      "delivery must not depend on the payload being parseable when nobody is watching"
+    end
+  end
+
   def observer_mfa(document, _context) do
     Application.get_env(:activity_pub, :document_observer_test_pid)
     |> send({:observed_mfa, document["type"]})

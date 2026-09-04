@@ -1117,6 +1117,18 @@ defmodule ActivityPub.Object do
 
   def object_url(_), do: Utils.generate_object_id()
 
+  @doc """
+  A second id for the SAME stored announce, under which it is served in its FEP-1b12 shape (wrapping the activity) rather than its compat shape (wrapping the object).
+
+  A group relay goes out as both shapes, since Lemmy and the threadiverse only accept the wrapped one while the Pleroma, Misskey and GoToSocial family only accept the other. Each copy needs its own id, or two different documents claim to be the same activity; but neither needs its own row, because the id decides which shape we render for a single stored activity.
+
+  Derived from the canonical id rather than minted separately, so the pair stays recognisably one thing, and so serving it is a path match rather than a lookup table.
+  """
+  def activity_object_url(canonical_ap_id) when is_binary(canonical_ap_id),
+    do: String.replace(canonical_ap_id, "/objects/", "/activity/")
+
+  def activity_object_url(_), do: nil
+
   def get_follow_activity(follow_object, followed) do
     with object_id when not is_nil(object_id) <- get_ap_id(follow_object),
          {:ok, activity} <- get_cached(ap_id: object_id) do

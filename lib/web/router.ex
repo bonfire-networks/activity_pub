@@ -88,6 +88,9 @@ defmodule ActivityPub.Web.Router do
         # note: singular is not canonical
         get("/object/:uuid", ActivityPubController, :object)
 
+        # the SAME stored activity as `/objects/:uuid`, rendered in its FEP-1b12 shape: a group relay is delivered as both shapes, and each copy has to re-fetch to the shape it was sent in
+        get("/activity/:uuid", ActivityPubController, :activity_object)
+
         get("/actors/:username", ActivityPubController, :actor)
         # options("/actors/:username", ActivityPubController, :actor)
         # note: singular is not canonical

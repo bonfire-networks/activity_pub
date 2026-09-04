@@ -10,6 +10,17 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
   import Untangle
   alias ActivityPub.Config
 
+  @doc """
+  How long to snooze an Oban job for, in SECONDS, given Hammer's retry-after in milliseconds.
+
+  Capped at one rate-limit window, since waiting longer than the window cannot help. Its own function because `call/3` is compiled out under `:test`, and this is the arithmetic worth pinning: `{:snooze, n}` takes seconds while Hammer answers in milliseconds, and multiplying instead of dividing postponed a rate-limited delivery by up to 115 days.
+  """
+  def snooze_seconds(retry_after_ms, scale_ms) do
+    min(retry_after_ms, scale_ms)
+    |> div(1000)
+    |> max(1)
+  end
+
   @impl Tesla.Middleware
   if Mix.env() == :test and System.get_env("ENABLE_RATE_LIMIT") != "yes" do
     def call(env, next, _opts), do: Tesla.run(env, next)
@@ -35,7 +46,7 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
           wait_ms = min(retry_after, scale_ms)
 
           if ProcessTree.get(:ap_oban_worker) do
-            wait_sec = wait_ms * 1000
+            wait_sec = snooze_seconds(retry_after, scale_ms)
             info(wait_sec, "HTTP client rate limit reached, snoozing (seconds)")
 
             raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: wait_sec

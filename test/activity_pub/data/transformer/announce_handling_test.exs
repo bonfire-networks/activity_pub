@@ -298,7 +298,33 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
         assert {:error, _} = Transformer.handle_incoming(signed)
 
         assert is_nil(Object.normalize(object_id, fetch: false)),
-               "trusting UNSIGNED relays is a choice about missing evidence; a signature that fails to verify is evidence of tampering, so it is refused regardless of mode"
+               "trusting UNSIGNED relays is a choice about missing evidence; a signature that fails to verify is evidence against the relayed bytes, so they are never stored — and here the origin has nothing to offer instead"
+      end)
+    end
+
+    test "a broken signature falls back to the origin rather than losing the post" do
+      %{data: data, object_id: object_id, inner_object: inner} = relayed_announce()
+      authentic = Map.put(inner, "content", "what the author actually wrote")
+
+      mock(fn
+        %{method: :get, url: url} when url == object_id -> json(authentic)
+        %{method: :get} -> %Tesla.Env{status: 404, body: ""}
+      end)
+
+      with_trust_mode(:trust, fn ->
+        signed =
+          put_in(data["object"]["signature"], %{
+            "type" => "RsaSignature2017",
+            "creator" => "#{data["actor"]}#main-key",
+            "signatureValue" => "bogus"
+          })
+
+        assert {:ok, _} = Transformer.handle_incoming(signed)
+
+        assert %Object{data: stored} = Object.normalize(object_id, fetch: false)
+
+        assert stored["content"] == "what the author actually wrote",
+               "the relay's bytes are discarded, but the post still arrives from its origin. Refusing outright loses content the origin is happy to give us, and a reserialising relay is a likelier cause of a broken signature than an attack"
       end)
     end
 
@@ -366,6 +392,67 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
   end
 
   # A group relaying a THIRD PARTY's activity: the case where trust actually matters. (A group relaying its own instance's activity is already covered by the delivering instance's HTTP signature.)
+  describe "a remote that dual-emits" do
+    # Lemmy and its family send the SAME content twice, as `Announce{Create{…}}` and as a compat
+    # `Announce{<object>}`, with different activity ids and nothing in common but actor and object
+    # (observed live against lemmy.world, 2026-09-04). The pair must land once.
+    test "the compat copy is discarded, and the content is kept once" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      %{data: data, object_id: object_id} = relayed_announce()
+
+      assert {:ok, _} = Transformer.handle_incoming(data)
+
+      # positive control: the 1b12 copy really did land, so a "skipped" result below means DEDUPED
+      # rather than "never worked in the first place"
+      assert %Object{} = object = Object.normalize(object_id, fetch: false)
+
+      assert %Object{} = first = Object.get_existing_announce(data["actor"], object),
+             "the first announce should have been recorded"
+
+      compat = %{
+        "type" => "Announce",
+        "id" => "#{data["actor"]}/activities/announce/compat",
+        "actor" => data["actor"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => object_id
+      }
+
+      assert {:ok, :duplicate} = Transformer.handle_incoming(compat),
+             "must be skipped AS a duplicate: any other outcome, including an error, would satisfy the assertions below for the wrong reason"
+
+      assert %Object{id: kept_id} = Object.get_existing_announce(data["actor"], object)
+
+      assert kept_id == first.id,
+             "the compat copy must not add a second announce of the same object by the same actor"
+
+      refute Object.get_cached!(ap_id: compat["id"]),
+             "and it must be discarded BEFORE it is stored, not cleaned up afterwards"
+    end
+
+    test "a different actor announcing the same object is not treated as a duplicate" do
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      %{data: data, object_id: object_id} = relayed_announce()
+      assert {:ok, _} = Transformer.handle_incoming(data)
+
+      someone_else = insert(:actor)
+
+      other = %{
+        "type" => "Announce",
+        "id" => "#{someone_else.data["id"]}/activities/announce/1",
+        "actor" => someone_else.data["id"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => object_id
+      }
+
+      assert {:ok, _} = Transformer.handle_incoming(other)
+
+      assert Object.get_cached!(ap_id: other["id"]),
+             "dedup is per actor: someone else boosting the same post is a real, separate activity"
+    end
+  end
+
   defp relayed_announce do
     group = insert(:actor)
     author = insert(:actor)

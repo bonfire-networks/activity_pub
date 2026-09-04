@@ -68,6 +68,46 @@ defmodule ActivityPub.Federator.Transformer do
      |> maybe_add_json_ld_header(:object, opts)}
   end
 
+  @doc """
+  The FEP-1b12 serialisation of a group's `Announce`, or nil when there is none to build.
+
+  A group relay has to go out as BOTH shapes: Lemmy accepts only `Announce{Activity}` (its `Page` variant is marked send-only and errors on receipt), while Akkoma, Misskey, Sharkey, Iceshrimp and GoToSocial all drop `Announce{Create}` and take only the object form. Mastodon copes either way by re-fetching. That is what Lemmy and NodeBB independently settled on, per the SWICG Forums task force.
+
+  We STORE the object form, which is what every existing query expects: `Queries.by_object_id/2` matches `coalesce(data->'object'->>'id', data->>'object')`, so storing the wrapped shape instead would hide the announce from `get_existing_announce/2`, and `unannounce/2` needs that to build an `Undo`. The wrapped form is therefore derived here, once per publish rather than per recipient.
+
+  Only for `Create`: there is no object form of an `Announce{Like}` or `Announce{Delete}`, since announcing the liked object instead would say something else, so those have one shape and need no pair.
+  """
+  def wrapped_relay_data(%{data: %{"type" => "Group"}}, %{"type" => "Announce"} = data),
+    do: wrapped_relay_data(data)
+
+  def wrapped_relay_data(%{"type" => "Group"}, %{"type" => "Announce"} = data),
+    do: wrapped_relay_data(data)
+
+  def wrapped_relay_data(_actor, _data), do: nil
+
+  @doc """
+  Same as `wrapped_relay_data/1`, without the "is this a group relaying" test.
+
+  For SERVING: a request for the wrapped id has already said which shape it wants, so the only question left is whether one can be built.
+  """
+  def wrapped_relay_data(%{"type" => "Announce", "id" => canonical} = data)
+      when is_binary(canonical) do
+    with object_id when is_binary(object_id) <- Object.get_ap_id(data["object"]),
+         %Object{data: %{"type" => "Create"} = create} <-
+           Object.get_activity_for_object_ap_id(object_id),
+         wrapped_id when is_binary(wrapped_id) <- Object.activity_object_url(canonical) do
+      # back through `prepare_outgoing/2` so the inner activity gets its object embedded by the clause above, rather than reimplementing that here
+      case prepare_outgoing(Map.merge(data, %{"id" => wrapped_id, "object" => create})) do
+        {:ok, prepared} -> prepared
+        _ -> nil
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  def wrapped_relay_data(_), do: nil
+
   def prepare_outgoing(%{"object" => object} = data, opts) do
     data =
       data
@@ -1387,6 +1427,21 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # Lemmy and its family DUAL-EMIT: the same content arrives twice, once as `Announce{Create{…}}` and once as a compat `Announce{<object>}`, with different activity ids and nothing in common but the actor and the announced object (observed live, 2026-09-04), so the id-based dedup that catches a redelivered activity cannot catch the pair. Without this, the second copy survives until `Boosts.maybe_boost/3`, by which point we have ingested the inner activity, written a second `Announce` row and run two boundary checks.
+  # Answered from the host's CURRENT state, so an announce that was undone does not suppress a genuine repeat. Not holding the object locally means there is nothing to have boosted and nothing to skip, so the copy proceeds, which is what makes this safe when the first copy failed to ingest.
+  defp duplicate_announce?(data, object_ap_id) when is_binary(object_ap_id) do
+    case Adapter.activity_exists?("Announce", Object.actor_from_data(data), object_ap_id) do
+      true ->
+        info(object_ap_id, "already announced by this actor, discarding the duplicate relay")
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp duplicate_announce?(_data, _object_ap_id), do: false
+
   # FEP-1b12: a group relays by announcing the ACTIVITY (`Announce{Create{Page}}`) rather than the object, so without unwrapping, the embedded `Create` falls through to the boost clause below and is mistaken for the post. Verified against real captures: Lemmy, PieFed and NodeBB all send this shape exclusively.
   def handle_incoming(
         %{
@@ -1399,7 +1454,8 @@ defmodule ActivityPub.Federator.Transformer do
       when is_in(inner_type, :supported_activity_types) do
     info("Handle incoming group announce of an activity (FEP-1b12)")
 
-    with {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
+    with false <- duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
+         {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
          {:ok, _inner} <- handle_incoming(inner_activity, opts) do
       # Hand off to the boost clause with the inner OBJECT's id, the announce is of the object, and actor resolution, `public?`, dedup and error handling all already live there.
       handle_incoming(
@@ -1407,6 +1463,8 @@ defmodule ActivityPub.Federator.Transformer do
         opts
       )
     else
+      # discarding a duplicate is a success, and says so distinguishably: an error here would be indistinguishable from a real failure, in the log and to anything asserting on the result
+      true -> {:ok, :duplicate}
       e -> error(e)
     end
   end
@@ -1469,8 +1527,9 @@ defmodule ActivityPub.Federator.Transformer do
         {:ok, inner_activity}
 
       :invalid ->
-        # a BROKEN signature is worse than none: something tampered with this, so refuse it whatever the trust mode says
-        error(inner_activity["id"], "relayed activity has an invalid signature")
+        # A broken signature is evidence against the relayed BYTES, so they are never stored, whatever the trust mode says. But refusing outright also throws away a post the origin is happy to serve, and a relay that reserialised the document is a likelier cause than an attack: our own normalising ingest would do exactly that if we forwarded. So ask the origin, and refuse only if it cannot answer.
+        # Mastodon reaches the same place from the other direction: it discards a failed signature and lets its `Announce` handling re-fetch the object by id.
+        refetch_instead_of_relayed(inner_activity, opts)
 
       :none ->
         maybe_refetch_relayed_activity(inner_activity, opts)
@@ -1490,6 +1549,23 @@ defmodule ActivityPub.Federator.Transformer do
 
       _ ->
         :invalid
+    end
+  end
+
+  # Only the origin's own copy will do, so unlike `maybe_refetch_relayed_activity/2` this refuses when the fetch fails rather than falling back to the relayed bytes. Fetching goes through `Containment`, so what comes back is the object's host speaking for itself.
+  defp refetch_instead_of_relayed(inner_activity, opts) do
+    object_id = Object.get_ap_id(inner_activity["object"])
+
+    case Fetcher.fetch_fresh_object_from_id(object_id, opts) do
+      {:ok, %{data: authentic}} ->
+        debug(object_id, "replaced a relayed copy carrying a bad signature with the origin's own")
+        {:ok, Map.put(inner_activity, "object", authentic)}
+
+      cannot_fetch ->
+        error(
+          cannot_fetch,
+          "relayed activity has an invalid signature, and its origin would not give us a copy to use instead: #{object_id}"
+        )
     end
   end
 
@@ -1526,6 +1602,8 @@ defmodule ActivityPub.Federator.Transformer do
   `:trust` (the default) takes the relayed copy at face value. This is 1b12 as designed, and what those implementations do themselves: the relay IS the delivery, so it keeps working when the origin won't serve us or has since deleted the object. The cost is that following a group means trusting that group about third parties.
 
   `:verify` refetches from the origin and stores that copy instead, refusing anything the origin says does not exist. A 404/410 is evidence against the relayed copy, and trusting it would let a forger guarantee acceptance by naming any nonexistent URL on the victim's host. An origin declining to answer us (401/403) is the one trusted failure, since it says nothing about whether the object exists.
+
+  **Neither mode applies when the relayed activity carries a signature that FAILS to verify.** Those bytes are never stored: a broken signature is evidence against them. But the activity is not dropped either, since refusing outright loses a post the origin may be glad to serve, and the likeliest cause is a relay that reserialised the document rather than an attack — our own normalising ingest would do the same if we forwarded. So that case always refetches from the origin, and refuses only if the origin cannot answer at all.
   """
   def relayed_activity_trust do
     case System.get_env("AP_RELAYED_ACTIVITY_TRUST") do
@@ -1545,7 +1623,9 @@ defmodule ActivityPub.Federator.Transformer do
       ) do
     info("Handle incoming boost")
 
-    with actor <- Object.actor_from_data(data),
+    # before `object_normalize_and_maybe_fetch/2`, which may go to the network
+    with false <- duplicate_announce?(data, Object.get_ap_id(object_id)),
+         actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          public <- Utils.public?(data, object),
@@ -1562,6 +1642,7 @@ defmodule ActivityPub.Federator.Transformer do
            ) do
       {:ok, activity}
     else
+      true -> {:ok, :duplicate}
       e -> error(e)
     end
   end

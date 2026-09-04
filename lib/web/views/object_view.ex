@@ -11,7 +11,7 @@ defmodule ActivityPub.Web.ObjectView do
 
   def render("object.json", %{object: object} = assigns) do
     object
-    # |> debug 
+    # |> debug
     |> Transformer.prepare_outgoing(assigns[:opts] || [])
     ~> Transformer.preserve_privacy_of_outgoing(nil, :public)
   end

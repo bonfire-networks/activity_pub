@@ -87,6 +87,45 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
     end
   end
 
+  describe "/activity/:uuid" do
+    # The SAME stored announce as `/objects/:uuid`, served in its FEP-1b12 shape. A group relay goes out as both shapes, so each copy has to re-fetch to the shape it was delivered as: serving the object form here would hand a threadiverse receiver exactly the shape it cannot parse. Both ids key the JSON cache on the same uuid, so this also guards against the two sharing an entry.
+    test "serves the wrapped shape, while the canonical id still serves the object shape", %{
+      conn: conn
+    } do
+      group = insert(:actor, type: "Group")
+      create = insert(:note_activity)
+      note = Object.get_cached!(ap_id: create.data["object"])
+
+      assert {:ok, announce} = ActivityPub.announce(%{actor: group, object: note})
+      uuid = String.split(announce.data["id"], "/") |> List.last()
+
+      compat =
+        conn
+        |> put_req_header("accept", "application/activity+json")
+        |> get("#{Utils.ap_base_url()}/objects/#{uuid}")
+        |> json_response(200)
+
+      assert compat["type"] == "Announce"
+
+      assert compat["object"]["type"] in ["Note", "Page", "Article", "Question"],
+             "the canonical id keeps announcing the OBJECT, so nothing that fetches today changes meaning"
+
+      wrapped =
+        build_conn()
+        |> put_req_header("accept", "application/activity+json")
+        |> get("#{Utils.ap_base_url()}/activity/#{uuid}")
+        |> json_response(200)
+
+      assert wrapped["object"]["type"] == "Create",
+             "and the sibling id announces the ACTIVITY"
+
+      assert wrapped["object"]["object"]["id"] == note.data["id"]
+
+      refute wrapped["id"] == compat["id"],
+             "each shape needs its own id, or the pair is incoherent to anyone who fetches it"
+    end
+  end
+
   describe "/objects/:uuid" do
     test "it doesn't return a local-only object", %{conn: conn} do
       user = local_actor()

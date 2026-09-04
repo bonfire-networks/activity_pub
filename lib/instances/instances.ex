@@ -33,6 +33,70 @@ defmodule ActivityPub.Instances do
     set_reachable(url_or_host)
   end
 
+  @doc """
+  How long to leave a failing host alone, given how many seconds it has been failing.
+
+  Proportional rather than counted, because `set_unreachable/2` keeps the OLDEST timestamp: elapsed IS the length of the outage, so no separate failure counter is needed to make the wait grow. Capped, since the whole point of still probing is to notice a host coming back.
+
+  Answers only "how long between attempts". Whether to give up on a host entirely stays with `reachability_datetime_threshold/0`.
+
+  Tuned by `:federation_backoff_grace_sec` (below which a host is not paced at all, so a single failure throttles nothing and the success that normally follows clears the flag first), `:federation_backoff_fraction` (what share of the outage so far to wait) and `:federation_backoff_cap_sec`.
+  """
+  def backoff_sec(seconds_failing) do
+    if seconds_failing < instance_config(:federation_backoff_grace_sec, 60) do
+      0
+    else
+      min(
+        div(seconds_failing, instance_config(:federation_backoff_fraction, 4)),
+        instance_config(:federation_backoff_cap_sec, 3600)
+      )
+    end
+  end
+
+  defp instance_config(key, default),
+    do: Application.get_env(:activity_pub, :instance, [])[key] || default
+
+  @doc """
+  Seconds to wait before trying this host again, or nil to try it now.
+
+  Without this, Oban's per-job backoff means every queued delivery discovers the same outage for itself, so a host with hundreds of them waiting gets the same herd it just failed under. Here the host's own record decides: `unreachable_since` says how long it has been failing, `updated_at` says when we last tried, and everything else queued for it is put back to sleep.
+  """
+  def pacing_snooze_sec(url_or_host) do
+    with host when is_binary(host) <- host(url_or_host),
+         %Instance{unreachable_since: since, updated_at: last_attempt}
+         when not is_nil(since) <- Instance.get_by_host(host) do
+      now = NaiveDateTime.utc_now(Calendar.ISO)
+
+      case NaiveDateTime.diff(now, since)
+           |> backoff_sec()
+           |> then(&NaiveDateTime.add(last_attempt, &1))
+           |> NaiveDateTime.diff(now) do
+        remaining when remaining > 0 -> remaining
+        _ -> nil
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  How long to wait after a delivery to this host just failed, or nil if the host is not known to be failing.
+
+  Separate from `pacing_snooze_sec/1` because the two answer different questions. Pacing decides whether to try at all, and stays silent during the grace so that one blip does not throttle a healthy host. This decides how a failure is REPORTED: with a number the caller returns `{:snooze, n}`, which does not spend one of the job's three attempts, and without one it returns an error, which does.
+
+  That distinction is what makes the backoff curve reachable. Erroring three times takes about three minutes of Oban's default backoff, so a delivery queued when a host goes down would otherwise die long before the hours-long part of the curve, while one queued an hour later would ride it for days.
+
+  Never less than the grace period, since there is no snoozing for zero seconds.
+  """
+  def failure_snooze_sec(url_or_host) do
+    with host when is_binary(host) <- host(url_or_host),
+         %Instance{unreachable_since: since} when not is_nil(since) <- Instance.get_by_host(host) do
+      max(pacing_snooze_sec(host) || 0, instance_config(:federation_backoff_grace_sec, 60))
+    else
+      _ -> nil
+    end
+  end
+
   def reachability_datetime_threshold do
     federation_reachability_timeout_days =
       Application.get_env(:activity_pub, :instance, [])[
@@ -139,8 +203,7 @@ defmodule ActivityPub.Instances do
       nil ->
         unless Process.get(:ap_discovery_in_progress) || discovery_attempted?(host) do
           try do
-            # Prevents re-entrant discovery (when handle_incoming during discovery
-            # triggers another fetch) and suppresses Tesla retries
+            # Prevents re-entrant discovery (when handle_incoming during discovery triggers another fetch) and suppresses Tesla retries
             Process.put(:ap_discovery_in_progress, true)
             mark_discovery_attempted(host)
             discover_service_actor(uri)

@@ -6,6 +6,7 @@ defmodule ActivityPub.Federator.APPublisher do
   alias ActivityPub.Actor
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.HTTP
+  alias ActivityPub.Federator.HTTP.RetryAfter
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Utils
@@ -48,6 +49,11 @@ defmodule ActivityPub.Federator.APPublisher do
       Transformer.prepare_outgoing(activity.data)
       |> debug("prepared_activity_data")
 
+    # a group relay goes out in BOTH shapes (see `Transformer.wrapped_relay_data/2`), built once here rather than per inbox, since one payload is fanned out to every recipient below
+    wrapped_relay_data =
+      Transformer.wrapped_relay_data(actor, prepared_activity_data)
+      |> debug("wrapped_relay_data")
+
     # Utils.maybe_forward_activity(prepared_activity_data)
 
     to = activity.data["to"] || []
@@ -89,25 +95,30 @@ defmodule ActivityPub.Federator.APPublisher do
          |> Instances.filter_reachable()
          |> debug("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
-        Enum.map(recipients, fn {inbox, meta} ->
-          json =
-            Transformer.preserve_privacy_of_outgoing(
-              prepared_activity_data,
-              Utils.authority(inbox),
-              meta[:ids]
-            )
-            |> debug("safe json")
-            |> Jason.encode!()
+        Enum.flat_map(recipients, fn {inbox, meta} ->
+          # one entry per shape per inbox: this is the last point before delivery, and the only one where the target host is in scope, so narrowing "both shapes to everyone" to "the shape this host understands" would be a change here rather than a redesign
+          [prepared_activity_data, wrapped_relay_data]
+          |> Enum.reject(&is_nil/1)
+          |> Enum.map(fn data ->
+            json =
+              Transformer.preserve_privacy_of_outgoing(
+                data,
+                Utils.authority(inbox),
+                meta[:ids]
+              )
+              |> debug("safe json")
+              |> Jason.encode!()
 
-          %{
-            inbox: inbox,
-            json: json,
-            actor_username: Map.get(actor, :username),
-            actor_id: Map.get(actor, :id),
-            actor_ap_id: Map.get(actor, :ap_id) || (Map.get(actor, :data) || %{})["id"],
-            id: prepared_activity_data["id"],
-            unreachable_since: meta[:unreachable_since]
-          }
+            %{
+              inbox: inbox,
+              json: json,
+              actor_username: Map.get(actor, :username),
+              actor_id: Map.get(actor, :id),
+              actor_ap_id: Map.get(actor, :ap_id) || (Map.get(actor, :data) || %{})["id"],
+              id: data["id"],
+              unreachable_since: meta[:unreachable_since]
+            }
+          end)
         end)
 
       _other ->
@@ -117,8 +128,7 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   @doc """
-  Publish a single message to a peer.  Takes a struct with the following
-  parameters set:
+  Publish a single message to a peer.  Takes a struct with the following parameters set:
 
   * `inbox`: the inbox to publish to
   * `json`: the JSON message body representing the ActivityPub message
@@ -192,6 +202,49 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   defp sign_and_publish_one(actor, %{json: json, inbox: inbox} = params) do
+    # both checks come before signing, since the cheapest delivery to a host in trouble is the one we never build
+    cond do
+      too_stale?(params) ->
+        warn(
+          inbox,
+          "giving up on a delivery that has been waiting too long to still be worth making"
+        )
+
+        {:cancel, "delivery too old"}
+
+      seconds = Instances.pacing_snooze_sec(inbox) ->
+        info(inbox, "backing off from a failing host for #{seconds}s, rescheduling this delivery")
+        {:snooze, seconds}
+
+      true ->
+        do_sign_and_publish_one(actor, params, json, inbox)
+    end
+  end
+
+  @doc """
+  Whether a delivery has been waiting long enough that making it would be worse than dropping it.
+
+  Riding the backoff curve costs a job nothing, since each snooze raises `max_attempts`, so nothing else ever stops a delivery to a host that stays down. Staleness is what should: by the time an activity is days late the post may have been edited or deleted and the `Follow` revoked, and nothing guarantees the `Delete` queued behind it arrives afterwards.
+
+  ⚠️ Reaching this must CANCEL rather than error. A delivery that has been snoozing for days has as many attempts banked as it has snoozes, so an error here would retry it that many times against a host we have just decided is not worth delivering to.
+
+  `queued_at` comes from the Oban job's `inserted_at`, which `PublisherWorker` passes down: the publisher cannot see the job. A delivery made outside a job carries none, and is never too old.
+  """
+  def too_stale?(%{queued_at: queued_at}) when not is_nil(queued_at) do
+    case Utils.to_datetime(queued_at) do
+      %DateTime{} = queued_at ->
+        max_age_days = Config.get([:instance, :federation_delivery_max_age_days], 6)
+        DateTime.diff(DateTime.utc_now(), queued_at, :second) > max_age_days * 24 * 3600
+
+      # an unreadable timestamp says nothing about age, and refusing to deliver on that basis would be the more damaging guess
+      _ ->
+        false
+    end
+  end
+
+  def too_stale?(_), do: false
+
+  defp do_sign_and_publish_one(actor, params, json, inbox) do
     uri = URI.parse(inbox)
 
     # log-only (host cardinality is unbounded — not a StormRecorder counter key): during fan-out,
@@ -287,14 +340,17 @@ defmodule ActivityPub.Federator.APPublisher do
          do: Instances.handle_successful_contact(inbox)
 
       SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
+      maybe_observe_delivery(inbox, json, code, Map.get(response, :body))
       debug(result, "remote responded with #{code}")
     else
       {_post_result, %{status: code, body: body} = response} ->
-        unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
-        SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
+        if unreachable_status?(code) and !params[:unreachable_since],
+          do: Instances.set_unreachable(inbox)
 
-        # log the BODY, not the whole `%Tesla.Env{}`: remote error messages are the single most useful diagnostic (eg. Lemmy's parse errors name the offending field), and inspecting the env truncates long before reaching `body:`
-        error(body, "could not push activity to #{inbox}, got HTTP #{code}")
+        SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
+        maybe_observe_delivery(inbox, json, code, body)
+
+        delivery_refused(inbox, code, body, Map.get(response, :headers, []))
 
       {_post_result, response} when is_binary(response) or is_atom(response) ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
@@ -305,6 +361,69 @@ defmodule ActivityPub.Federator.APPublisher do
         error(response, "could not push activity to #{inbox}, got")
         #  so we can see the result in Sentry
         {:error, "could not push activity to #{inbox}, got: #{inspect(response)}"}
+    end
+  end
+
+  @doc """
+  Whether a delivery that got this status is worth attempting again.
+
+  A 4xx is the receiver saying THIS PAYLOAD is wrong, and identical bytes get refused identically, so it is discarded rather than retried. The exceptions describe the moment rather than the document: 408, where the server could not take the request in time, and 429, where it is shedding load.
+
+  This is not academic since the group relay, which sends both announce shapes so that receivers understanding either can file it: Lemmy answers the shape it cannot parse with a 400 every single time.
+  """
+  def retryable_status?(status) when status in [408, 429], do: true
+  def retryable_status?(status) when is_integer(status) and status >= 500, do: true
+  def retryable_status?(_), do: false
+
+  @doc """
+  Whether this status counts towards giving up on the host.
+
+  `Instances` treats the flag as a clock rather than a block: it changes nothing until the host has failed continuously past `federation_reachability_timeout_days`, and any success in either direction clears it. So the question each status answers is "if this were all we ever got for that long, should we stop trying?"
+
+  A host that answers is reachable, whatever it answered, which leaves three cases that count. 408, where the server says it could not take the request in time, is a timeout it happened to report. 502, 503 and 504 come from the gateway in front of an application that is not answering, which is the same condition as no answer at all.
+
+  **A plain 500 does NOT count**, and the distinction is worth keeping: that is their application erroring on our document, which says nothing about the host being there, and a genuinely dead instance answers with a refused connection rather than a 500.
+  """
+  def unreachable_status?(status) when status in [408, 502, 503, 504], do: true
+  def unreachable_status?(_), do: false
+
+  # Log the BODY, not the whole `%Tesla.Env{}`: remote error messages are the single most useful diagnostic (Lemmy's parse errors name the offending field), and inspecting the env truncates long before reaching `body:`.
+  defp delivery_refused(inbox, code, body, headers) do
+    cond do
+      not retryable_status?(code) ->
+        warn(body, "#{inbox} refused this activity with HTTP #{code}, so not sending it again")
+        {:cancel, "refused with HTTP #{code}"}
+
+      # an overloaded host naming its own recovery time is better information than our backoff guessing. Unlike the 429 case, which `HTTP.RetryAfter` absorbs, this one had to reach us first so the failure above could be recorded
+      seconds = RetryAfter.retry_after_sec(headers) ->
+        info(body, "#{inbox} is unavailable for #{seconds}s (HTTP #{code}), rescheduling")
+        {:snooze, seconds}
+
+      # a host we already know is failing: reschedule rather than error, so riding out the outage does not spend the job's three attempts. What stops it eventually is the delivery age limit, not the attempt count
+      seconds = Instances.failure_snooze_sec(inbox) ->
+        info(body, "#{inbox} is still failing (HTTP #{code}), retrying in #{seconds}s")
+        {:snooze, seconds}
+
+      true ->
+        error(body, "could not push activity to #{inbox}, got HTTP #{code}")
+    end
+  end
+
+  # The outgoing half of `ActivityPub.Observer`: what we sent, where, and what they made of it. Only decodes when someone is watching, since a delivery otherwise never needs the payload parsed. Transport failures with no HTTP response are skipped: there is no answer to record.
+  defp maybe_observe_delivery(inbox, json, status, body) do
+    if ActivityPub.Observer.observing?() do
+      case Jason.decode(json) do
+        {:ok, document} ->
+          ActivityPub.Observer.maybe_observe(document, %{
+            source: :delivery,
+            url: inbox,
+            status: status,
+            body: body
+          })
+
+        _ ->
+          :ok
+      end
     end
   end
 

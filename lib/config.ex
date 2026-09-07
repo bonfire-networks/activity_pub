@@ -45,7 +45,6 @@ defmodule ActivityPub.Config do
           "Like",
           "Announce",
           "Undo",
-          "Arrive",
           "Block",
           "Flag",
           "Dislike",
@@ -56,17 +55,17 @@ defmodule ActivityPub.Config do
           "Listen",
           "Move",
           "Offer",
-          "Question",
           "Read",
           "TentativeReject",
           "TentativeAccept",
-          "Travel",
           "View",
           "EmojiReact",
           # a moderator closing a thread to further replies, sent by Lemmy (and announced by the community) with the reason in `summary`
-          "Lock",
-          "IntransitiveActivity"
+          "Lock"
         ]
+
+  def all_supported_activity_types,
+    do: supported_activity_types() ++ supported_intransitive_types()
 
   def supported_intransitive_types,
     do:
@@ -216,7 +215,7 @@ defmodule ActivityPub.Config do
   """
   def known_fetchable_type?(types) do
     config_types =
-      supported_actor_types() ++ supported_activity_types() ++ known_object_fetchable_types()
+      supported_actor_types() ++ all_supported_activity_types() ++ known_object_fetchable_types()
 
     Enum.any?(List.wrap(types), fn type -> type_in?(type, config_types) end)
   end

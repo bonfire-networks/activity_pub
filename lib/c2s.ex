@@ -262,8 +262,7 @@ defmodule ActivityPub.C2S do
   Wraps a bare object (like a Note) in a Create activity if needed.
   """
   def maybe_wrap_object_in_create(%{"type" => type} = params)
-      when not is_in(type, :supported_activity_types) and
-             not is_in(type, :supported_intransitive_types) do
+      when not is_in(type, :all_supported_activity_types) do
     %{
       "type" => "Create",
       "object" => params

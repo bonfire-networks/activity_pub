@@ -61,7 +61,7 @@ defmodule ActivityPub.Federator.Transformer do
           data,
         opts
       )
-      when is_in(inner_type, :supported_activity_types) do
+      when is_in(inner_type, :all_supported_activity_types) do
     {:ok,
      data
      |> Map.put("object", Map.put(inner, "object", prepare_outgoing_object(inner_object)))
@@ -1451,7 +1451,7 @@ defmodule ActivityPub.Federator.Transformer do
         } = data,
         opts
       )
-      when is_in(inner_type, :supported_activity_types) do
+      when is_in(inner_type, :all_supported_activity_types) do
     info("Handle incoming group announce of an activity (FEP-1b12)")
 
     with false <- duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
@@ -1479,7 +1479,7 @@ defmodule ActivityPub.Federator.Transformer do
         } = data,
         opts
       )
-      when is_in(inner_type, :supported_activity_types) and is_binary(container) and
+      when is_in(inner_type, :all_supported_activity_types) and is_binary(container) and
              is_binary(actor) do
     info("Handle incoming container add of an activity (FEP-171b)")
 
@@ -1993,8 +1993,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   # Handle other activity types (and their object)
   def handle_incoming(%{"type" => type} = data, opts)
-      when is_in(type, :supported_activity_types) or
-             is_in(type, :supported_intransitive_types) do
+      when is_in(type, :all_supported_activity_types) do
     info(
       type,
       "ActivityPub - some other Activity or Intransitive type - store it and pass to adapter..."

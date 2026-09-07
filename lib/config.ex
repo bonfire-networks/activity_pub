@@ -143,11 +143,15 @@ defmodule ActivityPub.Config do
 
   @doc "Collection types that are singleton-per-actor — addressed by the owner actor's id (uuid). e.g. keyPackages, featured."
   def singleton_collection_types,
-    do: get([:instance, :singleton_collection_types]) || ["keyPackages", "featured"]
+    do: get([:instance, :singleton_collection_types]) || ["keyPackages", "featured", "moderators"]
 
   @doc "Collection types served as `OrderedCollection` rather than `Collection` (order is significant — e.g. MLS keyPackages, Mastodon featured)."
   def ordered_collection_types,
-    do: get([:instance, :ordered_collection_types]) || ["keyPackages", "featured"]
+    do: get([:instance, :ordered_collection_types]) || ["keyPackages", "featured", "moderators"]
+
+  @doc "Collections served whole, items inline and no `first`, because the implementations that read them do not follow pages (see `ObjectView.render(\"collection.json\", …)`). Only suitable for collections that stay small."
+  def inline_collection_types,
+    do: get([:instance, :inline_collection_types]) || ["moderators"]
 
   # whether a collection is store-backed (vs adapter/extension-provided) is *inferred* —
   # store-backed iff no adapter owns it (see `ActivityPub.Federator.Adapter.adapter_handles?/1`)

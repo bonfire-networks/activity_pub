@@ -127,38 +127,39 @@ defmodule ActivityPub.Web.ObjectView do
     page = assigns[:page]
     embed? = assigns[:embed] == true
 
-    result =
-      if is_integer(page) do
-        custom_collection_page(collection, id, page, total, ordered?, embed?)
-      else
-        first = custom_collection_page(collection, id, 1, total, ordered?, embed?)
-        extra = maybe_order_type(collection)
-        Collections.top_level(id, Collections.collection_type(ordered?), total, first, extra)
+    Collections.collection(id,
+      page: page,
+      ordered?: ordered?,
+      count: fn -> total end,
+      extra: maybe_order_type(collection),
+      # served whole, items inline and no `first`, for the same reason a GROUP's outbox is (see `render("outbox.json", …)`): the implementations that read these do not follow pages, so a paged one reads as empty
+      inline: inline_collection?(collection),
+      fetch: fn page, limit ->
+        collection_items(collection, page, limit, embed?)
       end
-
-    Map.merge(result, Utils.make_json_ld_header(:object))
+    )
+    |> Map.merge(Utils.make_json_ld_header(:object))
   end
 
-  defp custom_collection_page(collection, iri, page, total, ordered?, embed?) do
-    per = Collections.page_size()
-    offset = (page - 1) * per
+  defp inline_collection?(collection) do
+    case ActivityPub.Utils.parse_collection_ap_id(collection.data["id"]) do
+      {:ok, type, _uuid} -> ActivityPub.Config.type_in?(type, :inline_collection_types)
+      _ -> false
+    end
+  end
 
-    # the read seam: an adapter may own the membership (else GenericCollectionStore fallback). We ask
-    # the source for the shape we need — embedded objects, or bare ap_id URIs — so it can produce
-    # them efficiently (e.g. canonical URLs without building full AP objects).
-    items =
-      if embed? do
-        Adapter.collection_items(collection, limit: per, offset: offset, return: :ap_objects)
-        |> Enum.map(&render("object.json", %{object: &1}))
-      else
-        Adapter.collection_items(collection, limit: per, offset: offset, return: :ap_ids)
-      end
+  # the read seam: an adapter may own the membership (else GenericCollectionStore fallback). We ask
+  # the source for the shape we need — embedded objects, or bare ap_id URIs — so it can produce
+  # them efficiently (e.g. canonical URLs without building full AP objects).
+  defp collection_items(collection, page, limit, embed?) do
+    opts = [limit: limit, offset: (page - 1) * limit]
 
-    Collections.page(iri, page, total, items,
-      page_type: Collections.page_type(ordered?),
-      items_key: Collections.items_key(ordered?),
-      next?: offset + per < total
-    )
+    if embed? do
+      Adapter.collection_items(collection, opts ++ [return: :ap_objects])
+      |> Enum.map(&render("object.json", %{object: &1}))
+    else
+      Adapter.collection_items(collection, opts ++ [return: :ap_ids])
+    end
   end
 
   defp maybe_order_type(collection) do

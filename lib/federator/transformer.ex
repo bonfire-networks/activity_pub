@@ -371,7 +371,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_quote(options)
     |> fix_emoji()
     |> fix_tag()
-    |> fix_content_map()
+    |> fix_language_maps()
     |> fix_addressing()
     |> fix_summary()
     |> add_emoji_tags()
@@ -779,34 +779,86 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_tag(object), do: object
 
-  def fix_content_map(%{"contentMap" => content_map} = object) when is_map(content_map) do
-    if Enum.count(content_map) == 1 do
-      # content usually has the same data as single language so this should do for now
-      Map.put_new_lazy(
-        object,
-        "content",
-        fn -> List.first(Map.values(content_map)) end
-      )
-    else
-      Map.put(
-        object,
-        "content",
-        Enum.map(content_map, fn {locale, content} ->
-          lang =
-            with {:ok, lang_localized} <- Cldr.LocaleDisplay.display_name(locale, locale: locale) do
-              String.capitalize(lang_localized)
-            else
-              _ -> String.upcase(locale)
-            end
+  @doc """
+  Derives each natural-language property from its AS2 language map (`nameMap` -> `name`, `contentMap` -> `content`, and so on), throughout the document.
 
-          "<div lang='#{locale}'><em data-role='lang'>#{lang}</em>:\n#{content}</div>"
-        end)
-        |> Enum.join("\n")
-      )
-    end
+  A sender may provide only the map, so without this every consumer would have to know both shapes: a cuisine.social recipe titles itself with `nameMap` and gives each of its ingredients one too. The maps are kept alongside, so nothing is lost.
+
+  `content` and `summary` are markup, so a multi-language map keeps every translation in its own `lang`-tagged block, replacing the single-language `content` a sender may also have sent (Mastodon sends both). Other properties are not markup, where those blocks would land inside a heading or a label, so a multi-language map contributes one translation, unwrapped, and never displaces what the sender sent.
+  """
+  def fix_language_maps(object) when is_non_struct_map(object) do
+    object
+    |> Enum.reduce(object, fn {key, value}, acc ->
+      Map.put(acc, key, fix_language_maps(value))
+    end)
+    |> derive_language_maps()
   end
 
-  def fix_content_map(object), do: object
+  def fix_language_maps(list) when is_list(list), do: Enum.map(list, &fix_language_maps/1)
+
+  def fix_language_maps(other), do: other
+
+  @markup_properties ~w(content summary)
+
+  defp derive_language_maps(object) do
+    Enum.reduce(object, object, fn
+      {key, translations}, acc when is_non_struct_map(translations) ->
+        case language_map_property(key) do
+          nil -> acc
+          property -> derive_language_map(acc, property, translations)
+        end
+
+      _, acc ->
+        acc
+    end)
+  end
+
+  # `"nameMap"` is the language map of `"name"`. A key that merely ends in `map` (`"sitemap"`) is not one, nor is `"Map"` alone.
+  defp language_map_property(key) when is_binary(key) do
+    property = String.replace_suffix(key, "Map", "")
+
+    if property != key and property != "", do: property
+  end
+
+  defp language_map_property(_), do: nil
+
+  defp derive_language_map(object, _property, translations) when map_size(translations) == 0,
+    do: object
+
+  defp derive_language_map(object, property, translations) when map_size(translations) == 1 do
+    put_derived(object, property, translations |> Map.values() |> List.first())
+  end
+
+  defp derive_language_map(object, property, translations)
+       when property in @markup_properties do
+    Map.put(object, property, join_translations(translations))
+  end
+
+  defp derive_language_map(object, property, translations) do
+    # ingest has no reader whose language we could pick, so choose deterministically
+    put_derived(object, property, translations |> Enum.sort() |> List.first() |> elem(1))
+  end
+
+  # A sender with no text for a property may still send the property, empty (this is how cuisine.social sends `summary`), and an empty string must not stand in for the translation the sender did give.
+  defp put_derived(object, property, value) do
+    if Map.get(object, property) in [nil, ""],
+      do: Map.put(object, property, value),
+      else: object
+  end
+
+  defp join_translations(translations) do
+    Enum.map_join(translations, "\n", fn {locale, content} ->
+      "<div lang='#{locale}'><em data-role='lang'>#{locale_name(locale)}</em>:\n#{content}</div>"
+    end)
+  end
+
+  defp locale_name(locale) do
+    with {:ok, localised} <- Cldr.LocaleDisplay.display_name(locale, locale: locale) do
+      String.capitalize(localised)
+    else
+      _ -> String.upcase(locale)
+    end
+  end
 
   defp fix_type(%{"type" => "Note", "inReplyTo" => reply_id, "name" => name} = object, options)
        when is_binary(name) do

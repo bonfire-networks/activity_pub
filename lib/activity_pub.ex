@@ -1014,6 +1014,75 @@ defmodule ActivityPub do
     }
   end
 
+  @doc """
+  Closes a thread to further replies, as `Lock`.
+
+  Lemmy's shape, which Mbin, PieFed and NodeBB read: the locked POST as `object`, the moderator's reason in `summary`, and the community in `audience` when a moderator acts for one. An author closing their own thread needs no `audience` — the actor IS the object's `attributedTo`, which any receiver can verify.
+
+  Addressed like the object it closes, since the people who need to know a thread is shut are the ones who could see it.
+  """
+  def lock(%{actor: actor, object: object} = params, opts \\ []) do
+    with lock_data <-
+           %{
+             "type" => "Lock",
+             "actor" => actor.data["id"],
+             "object" => object.data["id"],
+             "to" => object.data["to"] || [ActivityPub.Config.public_uri()],
+             "cc" => object.data["cc"] || []
+           }
+           |> Utils.maybe_put("summary", params[:summary])
+           |> Utils.maybe_put("audience", params[:audience])
+           |> Utils.maybe_put("id", params[:activity_id]),
+         {:ok, activity} <-
+           Object.insert(
+             lock_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
+         :ok <- maybe_federate(actor, activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
+    else
+      {:ok, %Object{} = object} -> {:ok, object}
+      %Object{} = object -> {:ok, object}
+      error -> error(error)
+    end
+  end
+
+  @doc "Reopens a thread closed by `lock/2`, as `Undo{Lock}` — the same shape Lemmy uses to reverse one."
+  def unlock(%{actor: actor, object: object} = params, opts \\ []) do
+    with lock_activity <-
+           Object.get_activity_for_object_ap_id(object.data["id"], "Lock"),
+         true <- not is_nil(lock_activity) || error(object, "found no Lock to undo"),
+         undo_data <-
+           %{
+             "type" => "Undo",
+             "actor" => actor.data["id"],
+             "object" => lock_activity.data,
+             "to" => lock_activity.data["to"] || [ActivityPub.Config.public_uri()],
+             "cc" => lock_activity.data["cc"] || []
+           }
+           |> Utils.maybe_put("id", params[:activity_id]),
+         {:ok, activity} <-
+           Object.insert(
+             undo_data,
+             Map.get(params, :local, true),
+             Map.get(params, :pointer),
+             opts
+           ),
+         :ok <- maybe_federate(actor, activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
+    else
+      {:ok, %Object{} = object} -> {:ok, object}
+      %Object{} = object -> {:ok, object}
+      error -> error(error)
+    end
+  end
+
   defp make_block_data(blocker, blocked, activity_id) do
     data = %{
       "type" => "Block",

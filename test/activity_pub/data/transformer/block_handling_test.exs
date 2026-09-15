@@ -38,7 +38,8 @@ defmodule ActivityPub.Federator.Transformer.BlockHandlingTest do
     assert is_blocked?(blocker, user)
   end
 
-  test "incoming blocks successfully tear down any follow relationship" do
+  # PARKED 2026-09-15: what an incoming Block should do to an existing follow is undecided. Unfollowing became opt-in for local blocks, because block/unblock is asymmetric and a reversible mute should not silently cost someone their subscription. Whether the federated path should opt back in turns on what remote implementations actually do: IIRC Mastodon severs both follows, but that was never verified for Lemmy, Akkoma or Mobilizon, nor is it in the AS2 spec, which says only that the Block SHOULD NOT be delivered to the blocked actor. Research those, then restore the two assertions below or delete them. See the group federation plan.
+  test "incoming blocks apply to the blocked actor" do
     # blocker = local_actor()
     blocked = local_actor()
 
@@ -68,7 +69,7 @@ defmodule ActivityPub.Federator.Transformer.BlockHandlingTest do
 
     assert is_blocked?(blocker, blocked)
 
-    refute following?(blocker, blocked)
-    refute following?(blocked, blocker)
+    # refute following?(blocker, blocked)
+    # refute following?(blocked, blocker)
   end
 end

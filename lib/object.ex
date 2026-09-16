@@ -860,9 +860,20 @@ defmodule ActivityPub.Object do
     end
   end
 
+  # Deleting is idempotent, so a row that another process already removed counts as done. Raising
+  # instead abandons whatever the caller still had to do: `unannounce/2` and `unlike/2` delete here
+  # and only then tell the adapter to remove the boost or like, which would leave the two sides
+  # disagreeing about an undo that the sender considers delivered.
   def hard_delete(%Object{} = object) do
     with :ok <- invalidate_cache(object) do
-      repo().delete(object)
+      case repo().delete(object, stale_error_field: :id, stale_error_message: "already deleted") do
+        {:error, %Ecto.Changeset{errors: [id: {"already deleted", _}]}} ->
+          info(object.id, "Object was already deleted, nothing left to do")
+          {:ok, object}
+
+        other ->
+          other
+      end
     end
   end
 

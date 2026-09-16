@@ -322,6 +322,25 @@ defmodule ActivityPubTest do
     end
   end
 
+  describe "hard deleting an object" do
+    test "reports success when the row is already gone", context do
+      note_activity = insert(:note_activity)
+      object = Object.normalize(note_activity)
+      actor = context[:actor1]
+
+      assert {:ok, _} = ActivityPub.announce(%{actor: actor, object: object})
+
+      # the struct `unannounce/2` holds when it comes to delete
+      assert %Object{} =
+               announce_activity = Object.get_existing_announce(actor.data["id"], object)
+
+      assert {:ok, _} = Object.hard_delete(announce_activity)
+
+      # a concurrent delete leaves the caller holding a struct whose row is gone, and the caller still has work left to do after it (`unannounce/2` has yet to tell the adapter to remove the boost)
+      assert {:ok, _} = Object.hard_delete(announce_activity)
+    end
+  end
+
   describe "update" do
     test "it creates an update activity with the new user data", context do
       actor = local_actor()

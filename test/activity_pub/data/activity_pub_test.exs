@@ -96,6 +96,26 @@ defmodule ActivityPubTest do
       assert Object.get_ap_id(activity.data["object"]) =~ blocked.data["id"]
     end
 
+    # Which follow a block ends, if any, is the adapter's decision and it differs by direction: an adapter may sever the blocked person's follow of the blocker, or the blocker's of them, or neither, and may offer it as a choice. Severing one here took that decision away and made it unrecoverable, since nothing records that the block is what ended the follow, so an `Undo{Block}` could not put it back.
+    test "does not end a follow between the two actors", context do
+      blocker = context[:actor1]
+      blocked = context[:actor2]
+
+      assert {:ok, _} = ActivityPub.follow(%{actor: blocker, object: blocked})
+
+      assert %Object{} =
+               Object.fetch_latest_activity(blocker, blocked, "Follow"),
+             "control: the follow this test is about must exist before the block"
+
+      assert {:ok, _} = ActivityPub.block(%{actor: blocker, object: blocked})
+
+      assert %Object{} = Object.fetch_latest_activity(blocker, blocked, "Follow"),
+             "the follow must survive the block, so that undoing the block can restore the prior state"
+
+      refute Object.fetch_latest_activity(blocker, blocked, "Undo"),
+             "and no Undo{Follow} should have been made on the blocker's behalf"
+    end
+
     test "creates an undo activity for the last block", context do
       blocker = context[:actor1]
       blocked = context[:actor2]

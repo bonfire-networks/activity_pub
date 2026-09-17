@@ -439,12 +439,8 @@ defmodule ActivityPub do
   #         activity_id :: binary() | nil,
   #         local :: boolean
   #       ) :: {:ok, Object.t()} | {:error, any()}
+  # Makes and federates the Block, and severs no follows: which follow a block ends, if any, is the adapter's policy and it differs by direction. Bonfire ghosts by severing THEIR follow of me and silences by severing MINE of them, and offers both as an opt-in, none of which this can know. `handle_remote_block/4` does it explicitly for the one case where the decision is ours to make.
   def block(%{actor: blocker, object: blocked} = params, opts \\ []) do
-    follow_activity = Object.fetch_latest_activity(blocker, blocked, "Follow")
-
-    if follow_activity,
-      do: unfollow(%{actor: blocker, object: blocked, local: Map.get(params, :local, true)})
-
     with block_data <- make_block_data(blocker, blocked, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(

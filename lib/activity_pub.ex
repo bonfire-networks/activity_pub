@@ -147,6 +147,41 @@ defmodule ActivityPub do
   end
 
   @doc """
+  Generates and federates a `Join` of a group.
+
+  Like `follow/2`, the membership should be reflected on the host side only once the group answers with an `Accept`, unless the group declares that it admits anyone.
+  """
+  def join(%{actor: actor, object: group} = params, opts \\ []) do
+    publish_membership("Join", actor, group, params, opts)
+  end
+
+  @doc """
+  Generates and federates a `Leave` of a group.
+  """
+  def leave(%{actor: actor, object: group} = params, opts \\ []) do
+    publish_membership("Leave", actor, group, params, opts)
+  end
+
+  defp publish_membership(
+         type,
+         %{data: %{"id" => actor_id}} = actor,
+         %{data: %{"id" => group_id}},
+         params,
+         opts
+       ) do
+    data =
+      %{"type" => type, "actor" => actor_id, "to" => [group_id], "object" => group_id}
+      |> Utils.maybe_put("id", Map.get(params, :activity_id))
+
+    with {:ok, activity} <-
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
+         :ok <- maybe_federate(actor, activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts) do
+      {:ok, Map.put(activity, :pointer, adapter_object)}
+    end
+  end
+
+  @doc """
   Generates and federates an Accept activity via the data passed through `params`.
   """
   @spec accept(%{

@@ -1508,7 +1508,12 @@ defmodule ActivityPub.Federator.Transformer do
 
     with false <- duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
          {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
-         {:ok, _inner} <- handle_incoming(inner_activity, opts) do
+         # who relayed it, so the adapter can tell a post this group accepted from one that only names it
+         {:ok, _inner} <-
+           handle_incoming(
+             inner_activity,
+             Keyword.put(opts, :relayed_by, Object.get_ap_id(data["actor"]))
+           ) do
       # Hand off to the boost clause with the inner OBJECT's id, the announce is of the object, and actor resolution, `public?`, dedup and error handling all already live there.
       handle_incoming(
         Map.put(data, "object", Object.get_ap_id(inner_activity["object"])),
@@ -2106,44 +2111,11 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp local?(opts), do: Keyword.get(opts, :local, false)
 
-  # FEP-400e: the activity `actor` must own the `target` collection. Owner is derived from the
-  # collection's `attributedTo` (when embedded), from a materialised collection object, or from
-  # our minted `{owner}/collections/{type}` URI convention.
+  # FEP-400e: the activity `actor` must own the `target` collection.
   defp validate_collection_authority(actor, target) do
-    actor_ap = Utils.ap_id(actor)
-    target_ap = Utils.ap_id(target)
+    owner = ActivityPub.collection_owner_ap_id(target)
 
-    owner =
-      cond do
-        is_map(target) and is_binary(target["attributedTo"]) ->
-          target["attributedTo"]
-
-        is_binary(target_ap) ->
-          case Object.get_cached(ap_id: target_ap) do
-            {:ok, %{data: %{"attributedTo" => owner}}} when is_binary(owner) ->
-              owner
-
-            _ ->
-              fallback_collection_owner_ap_id(target_ap)
-          end
-
-        true ->
-          nil
-      end
-
-    if is_binary(owner) and owner == actor_ap, do: :ok, else: {:error, :forbidden}
-  end
-
-  # For a not-yet-materialised singleton collection (e.g. keyPackages), the uuid in
-  # `{base}/collections/{type}/{uuid}` is the owner actor's id → resolve it to the owner's ap_id.
-  defp fallback_collection_owner_ap_id(target_ap) do
-    with {:ok, type, uuid} <- ActivityPub.Utils.parse_collection_ap_id(target_ap),
-         true <- type_in?(type, :singleton_collection_types),
-         {:ok, %{ap_id: ap_id}} <- Actor.get_cached(pointer: uuid) do
-      ap_id
-    else
-      _ -> nil
-    end
+    if is_binary(owner) and owner == Utils.ap_id(actor), do: :ok, else: {:error, :forbidden}
   end
 
   def maybe_handle_other_activity(data, opts) do

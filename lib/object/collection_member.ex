@@ -1,11 +1,8 @@
 defmodule ActivityPub.Object.CollectionMember do
   @moduledoc """
-  Membership row backing `ActivityPub.GenericCollectionStore`: one per member of a
-  lib-owned collection (e.g. an actor's `keyPackages`).
+  Membership row backing `ActivityPub.GenericCollectionStore`: one per member of a lib-owned collection (e.g. an actor's `keyPackages`).
 
-  Each row carries both `object_id` (FK to the local `ap_object`, for joins/cascade/embedded
-  rendering) and `object_ap_id` (the immutable URI, for cheap URI-only rendering and to hold a
-  member referenced before it's resolved to a local row).
+  Each row carries both `object_id` (FK to the local `ap_object`, for joins/cascade/embedded rendering) and `object_ap_id` (the immutable URI, for cheap URI-only rendering and to hold a member referenced before it's resolved to a local row).
   """
   use Ecto.Schema
   import Ecto.Changeset

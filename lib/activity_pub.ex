@@ -528,9 +528,7 @@ defmodule ActivityPub do
   Generates and federates an `Add` activity adding `object` to the collection `target`.
 
   When `target` resolves to a collection this lib owns (per the minted
-  `{owner}/collections/{type}` convention, see `ActivityPub.GenericCollectionStore`), the
-  membership is recorded in the fallback store. Otherwise the side-effect is left to the host
-  via `Adapter.maybe_handle_activity/2` (e.g. a future Pins extension).
+  `{owner}/collections/{type}` convention, see `ActivityPub.GenericCollectionStore`), the membership is recorded in the fallback store. Otherwise the side-effect is left to the host via `Adapter.maybe_handle_activity/2` (e.g. a future Pins extension).
   """
   def add(%{actor: actor, object: object, target: _target} = params, opts \\ []) do
     apply_collection_activity("Add", :add, params, actor, object, opts)
@@ -545,31 +543,73 @@ defmodule ActivityPub do
   end
 
   defp apply_collection_activity(type, op, %{target: target} = params, actor, object, opts) do
+    owner = other_collection_owner(actor, target)
+
     with data <-
-           make_add_remove_data(type, actor, object, target, Map.get(params, :activity_id)),
+           make_add_remove_data(type, actor, object, target, owner, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
          # C2S activities are federated by the adapter's outgoing path (as in `do_create/3`)
          :ok <- if(opts[:from_c2s], do: :ok, else: maybe_federate(actor, activity, opts)),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object),
-         _ <- apply_to_collection_store(op, target, object, opts) do
+         _ <- apply_to_collection_store(op, target, object, opts),
+         _ <- maybe_owner_announces(owner, activity, params, opts) do
       {:ok, activity}
     end
   end
 
-  defp make_add_remove_data(type, actor, object, target, activity_id) do
-    data = %{
+  # The owner of `target` when it is someone other than the actor, e.g. a group whose moderators collection a moderator changes. Nil for an actor's own collection, such as their `featured`.
+  defp other_collection_owner(actor, target) do
+    with owner_ap_id when is_binary(owner_ap_id) <- collection_owner_ap_id(target),
+         false <- owner_ap_id == Utils.ap_id(actor),
+         {:ok, owner} <- Actor.get_cached(ap_id: owner_ap_id) do
+      owner
+    else
+      _ -> nil
+    end
+  end
+
+  defp make_add_remove_data(type, actor, object, target, owner, activity_id) do
+    %{
       "type" => type,
       "actor" => Utils.ap_id(actor),
       "object" => Utils.ap_id(object),
-      "target" => Utils.ap_id(target),
-      # TODO: FEP-400e — on an accepted Add, fan out the Add to the collection owner's followers
-      "to" => [Config.public_uri()] ++ List.wrap(followers_ap_id(actor))
+      "target" => Utils.ap_id(target)
     }
-
-    if activity_id, do: Map.put(data, "id", activity_id), else: data
+    |> Map.merge(add_remove_addressing(actor, object, owner))
+    |> then(&if activity_id, do: Map.put(&1, "id", activity_id), else: &1)
   end
+
+  defp add_remove_addressing(actor, _object, nil),
+    do: %{"to" => [Config.public_uri()] ++ List.wrap(followers_ap_id(actor))}
+
+  # About someone else's collection, so addressed as Lemmy addresses a community's mod actions: to the owner (whose inbox then relays it if it is remote) and to the person added or removed, not to the actor's own followers
+  defp add_remove_addressing(_actor, object, owner) do
+    %{
+      "to" => [Config.public_uri()],
+      "cc" => [owner.ap_id] ++ List.wrap(actor_ap_id(object)),
+      "audience" => owner.ap_id
+    }
+  end
+
+  defp actor_ap_id(object) do
+    case Actor.get_cached(ap_id: Utils.ap_id(object)) do
+      {:ok, %{ap_id: ap_id}} -> ap_id
+      _ -> nil
+    end
+  end
+
+  # A LOCAL owner relays the change to its followers, as a Lemmy community announces its mod actions (the fan-out FEP-400e describes). A remote owner does that on its side, once the activity reaches its inbox.
+  defp maybe_owner_announces(%{local: true} = owner, activity, params, opts) do
+    if Map.get(params, :local, true) do
+      with {:error, e} <- announce(%{actor: owner, object: activity}, opts) do
+        warn(e, "the collection's owner could not relay the change to its followers")
+      end
+    end
+  end
+
+  defp maybe_owner_announces(_owner, _activity, _params, _opts), do: nil
 
   defp followers_ap_id(%{data: %{"followers" => followers}}) when is_binary(followers),
     do: followers
@@ -591,16 +631,12 @@ defmodule ActivityPub do
   end
 
   @doc """
-  Resolves a collection `target` (an `%Object{}`, ap_id, or map) to how its membership is handled:
-  `{:store, collection}` for a lib-owned collection, `{:adapter, ap_id}` when an extension owns it,
-  or `:unknown`.
+  Resolves a collection `target` (an `%Object{}`, ap_id, or map) to how its membership is handled: `{:store, collection}` for a lib-owned collection, `{:adapter, ap_id}` when an extension owns it, or `:unknown`.
   """
   def resolve_collection(target) do
     ap_id = Utils.ap_id(target)
 
-    # Store-backed iff it's a singleton-per-actor collection owned by a local actor that *no adapter
-    # handles* (a cheap registry check — no member queries). Adapter-owned ones (e.g. Pins/featured)
-    # → `{:adapter}` so the host handles membership.
+    # Store-backed if it's a singleton-per-actor collection owned by a local actor that *no adapter handles* (a cheap registry check, with no member queries). Adapter-owned ones (e.g. Pins/featured) → `{:adapter}` so the host handles membership.
     with true <- is_binary(ap_id),
          {:ok, type, uuid} <- Utils.parse_collection_ap_id(ap_id),
          true <- is_in(type, :singleton_collection_types),
@@ -611,6 +647,40 @@ defmodule ActivityPub do
       {:store, collection}
     else
       _ -> if is_binary(ap_id), do: {:adapter, ap_id}, else: :unknown
+    end
+  end
+
+  @doc """
+  The ap_id of the actor who owns a collection `target`: from its `attributedTo` when embedded, from the stored collection object, or from our minted `{base}/collections/{type}/{uuid}` id, whose uuid is the owner's (for a singleton collection not yet materialised, e.g. keyPackages). Nil when none can be found.
+  """
+  def collection_owner_ap_id(target) do
+    target_ap = Utils.ap_id(target)
+
+    cond do
+      is_map(target) and is_binary(target["attributedTo"]) ->
+        target["attributedTo"]
+
+      is_binary(target_ap) ->
+        case Object.get_cached(ap_id: target_ap) do
+          {:ok, %{data: %{"attributedTo" => owner}}} when is_binary(owner) ->
+            owner
+
+          _ ->
+            minted_collection_owner_ap_id(target_ap)
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  defp minted_collection_owner_ap_id(target_ap) do
+    with {:ok, type, uuid} <- Utils.parse_collection_ap_id(target_ap),
+         true <- is_in(type, :singleton_collection_types),
+         {:ok, %{ap_id: ap_id}} <- Actor.get_cached(pointer: uuid) do
+      ap_id
+    else
+      _ -> nil
     end
   end
 

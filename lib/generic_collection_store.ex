@@ -1,16 +1,11 @@
 defmodule ActivityPub.GenericCollectionStore do
   @moduledoc """
-  The fallback backing store for ActivityPub collections that the lib itself owns — i.e. AP-native
-  collections with no host-domain home, such as an actor's `keyPackages` (per the MLS-over-AP spec).
+  The fallback backing store for ActivityPub collections that the lib itself owns, i.e. AP-native collections with no host-domain home, such as an actor's `keyPackages` (per the MLS-over-AP spec).
 
   Used when no adapter claims a collection via `ActivityPub.Federator.Adapter.collection_items/2`.
-  Collections projected from host data (outbox/followers/…) do *not* use this; they're served by
-  the adapter callback.
+  Collections projected from host data (outbox/followers/…) do *not* use this; they're served by the adapter callback.
 
-  Design: the collection's **identity/metadata** is a normal cached `ap_object` (rarely changes),
-  while **membership** lives in `ap_collection_member` and is read fresh/uncached so single-use
-  consumption (e.g. a consumed key package) is reflected immediately. Members are loaded for
-  embedded rendering via `ActivityPub.Object.get_cached/1` (objects cached once, by id).
+  Design: the collection's **identity/metadata** is a normal cached `ap_object` (rarely changes), while **membership** lives in `ap_collection_member` and is read fresh/uncached so single-use consumption (e.g. a consumed key package) is reflected immediately. Members are loaded for embedded rendering via `ActivityPub.Object.get_cached/1` (objects cached once, by id).
   """
   use Arrows
   import Ecto.Query
@@ -21,11 +16,9 @@ defmodule ActivityPub.GenericCollectionStore do
   alias ActivityPub.Object.CollectionMember
 
   @doc """
-  Get (or lazily create) the Collection `ap_object` identified by `(type, uuid)`, owned by
-  `owner_ap_id` (its `attributedTo`). Idempotent.
+  Get (or lazily create) the Collection `ap_object` identified by `(type, uuid)`, owned by `owner_ap_id` (its `attributedTo`). Idempotent.
 
-  Options: `ordered: true` for an `OrderedCollection`, `order_type:` for an explicit FEP-1985
-  `orderType`, `local:` (default `true`).
+  Options: `ordered: true` for an `OrderedCollection`, `order_type:` for an explicit FEP-1985 `orderType`, `local:` (default `true`).
   """
   def get_or_create_collection(type, uuid, owner_ap_id, opts \\ []) do
     id = ActivityPub.Utils.collection_ap_id(type, uuid)

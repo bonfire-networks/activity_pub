@@ -128,8 +128,8 @@ defmodule ActivityPub.Federator.Adapter do
       debug("skipping adapter for remote activity as requested")
       {:ok, :skipped}
     else
-      # remote activities should always go to adapter
-      handle_activity(activity)
+      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`)
+      handle_activity(%{activity | relayed_by: opts[:relayed_by]})
     end
   end
 

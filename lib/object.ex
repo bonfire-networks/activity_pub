@@ -26,6 +26,9 @@ defmodule ActivityPub.Object do
     # is it an object rather than an activity?
     field(:is_object, :boolean, default: false)
 
+    # the group whose FEP-1b12 `Announce` delivered this activity, if any: a property of the DELIVERY rather than of the activity, so never stored, only carried to the adapter, which can then tell a post a group relayed (and so accepted) from one that merely names it
+    field(:relayed_by, :string, virtual: true)
+
     # TODO: get the table to reference from config? and maybe the type as well
     belongs_to(:pointer, Needle.Pointer, type: Needle.UID)
 

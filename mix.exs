@@ -55,7 +55,7 @@ defmodule ActivityPub.MixProject do
       {:phoenix, "~> 1.7", optional: true},
       {:plug_cowboy, "~> 2.0", optional: true},
       {:phoenix_ecto, "~> 4.5", optional: true},
-      {:phoenix_live_dashboard, "~> 0.8.0", optional: true},
+      {:phoenix_live_dashboard, "~> 0.9", optional: true},
       {:phoenix_html_helpers, "~> 1.0"},
       {:ecto_sql, "~> 3.8"},
       {:postgrex, ">= 0.0.0"},

@@ -28,7 +28,8 @@ defmodule ActivityPub.Web.ProxyRemoteObjectController do
         |> json(%{error: "Authentication required"})
         |> halt()
 
-      {:error, :not_found} ->
+      # also for fetches refused by the block/allow lists or the SSRF guard: the same answer as "not found", so callers can't use the proxy to probe which addresses exist
+      {:error, _} ->
         conn
         |> put_status(:not_found)
         |> json(%{error: "Object not found"})

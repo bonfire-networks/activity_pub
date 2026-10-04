@@ -25,7 +25,8 @@ defmodule ActivityPub.Federator.HTTP.Connection do
      [
        connect_timeout: 10_000,
        recv_timeout: 20_000,
-       follow_redirect: true,
+       # redirects are followed by `Tesla.Middleware.FollowRedirects` instead, so `ActivityPub.Safety.ORF` checks each hop
+       follow_redirect: false,
        pool: :federation,
        ssl_options: [
          # insecure: false,

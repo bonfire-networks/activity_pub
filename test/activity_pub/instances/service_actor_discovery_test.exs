@@ -151,7 +151,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
         })
 
       with_mock ActivityPub.Federator.HTTP,
-        get: fn _url, _headers ->
+        get: fn _url, _headers, _opts ->
           {:ok, %{status: 200, body: jrd, headers: []}}
         end do
         assert {:ok, "https://#{host}/actor"} == WebFinger.finger_host(host)
@@ -174,7 +174,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
         })
 
       with_mock ActivityPub.Federator.HTTP,
-        get: fn _url, _headers ->
+        get: fn _url, _headers, _opts ->
           {:ok, %{status: 200, body: jrd, headers: []}}
         end do
         assert {:ok, "https://#{host}/actor"} == WebFinger.finger_host(host)
@@ -185,7 +185,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
       host = "wf-fail-#{System.unique_integer([:positive])}.example.com"
 
       with_mock ActivityPub.Federator.HTTP,
-        get: fn _url, _headers ->
+        get: fn _url, _headers, _opts ->
           {:ok, %{status: 404, body: "not found", headers: []}}
         end do
         assert {:error, :not_found} == WebFinger.finger_host(host)
@@ -204,7 +204,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
         })
 
       with_mock ActivityPub.Federator.HTTP,
-        get: fn _url, _headers ->
+        get: fn _url, _headers, _opts ->
           {:ok, %{status: 200, body: jrd, headers: []}}
         end do
         assert {:error, :not_found} == WebFinger.finger_host(host)
@@ -227,7 +227,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
         })
 
       with_mock ActivityPub.Federator.HTTP,
-        get: fn _url, _headers ->
+        get: fn _url, _headers, _opts ->
           {:ok, %{status: 200, body: jrd, headers: [{"Accept-Signature", "sig1=()"}]}}
         end do
         assert {:ok, _} = WebFinger.finger_host(host)
@@ -278,7 +278,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
       end
 
       with_mock ActivityPub.Federator.HTTP, [:passthrough],
-        get: fn url, _headers -> http_get.(url) end do
+        get: fn url, _headers, _opts -> http_get.(url) end do
         Instances.get_or_discover_signature_format(host)
       end
 

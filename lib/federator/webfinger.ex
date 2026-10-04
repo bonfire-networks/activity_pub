@@ -3,12 +3,13 @@
 defmodule ActivityPub.Federator.WebFinger do
   @moduledoc """
   Serves and fetches data (mainly actor URI) necessary for federation when only the username and host is known.
+
+  Lookups go through `ActivityPub.Safety.ORF`, which checks each host on its own. So in allowlist-only mode, a handle whose domain differs from the instance's (e.g. `@alice@example.com` served by `social.example.com`) only resolves and federates if both domains are allowlisted.
   """
   use Arrows
   import Untangle
 
   alias ActivityPub.Actor
-  alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.HTTP
   alias ActivityPub.Federator.Publisher
   alias ActivityPub.Utils
@@ -25,15 +26,12 @@ defmodule ActivityPub.Federator.WebFinger do
     account = String.trim_leading(account, "@")
 
     with {:ok, base_url} <- remote_base_url(account),
-         # apply instance restrictions here too, so we don't even attempt to discover (and thus leak  interest in / reach out to) an actor on a blocked/disallowed instance, honouring the direction and per-user/actor context the caller passes via opts
-         # TODO: need to make sure all callers pass current actor/user in opts for this to also take into account user-level allows & blocks
-         true <-
-           Adapter.federation_allowed?(URI.parse(base_url), opts) ||
-             {:error, :not_allowed},
          response <-
            HTTP.get(
              "#{base_url}/.well-known/webfinger?#{URI.encode_query(%{"resource" => "acct:#{account}"})}",
-             [{"Accept", "application/jrd+json"}]
+             [{"Accept", "application/jrd+json"}],
+             # `ActivityPub.Safety.ORF` checks the instance's (and this user's) block/allow lists before anything is sent, so a blocked instance isn't contacted (nor told of our interest in one of its actors)
+             Keyword.take(opts, ActivityPub.Safety.ORF.federation_opts_keys())
            ),
          {:ok, %{status: status, body: body, headers: headers}} when status in 200..299 <-
            response,
@@ -150,14 +148,18 @@ defmodule ActivityPub.Federator.WebFinger do
   FEP-d556: Discover the server actor for a host via WebFinger.
   Queries `resource=https://host/` and extracts the `self` link.
   """
-  def finger_host(%URI{} = uri) do
+  def finger_host(uri, opts \\ [])
+
+  def finger_host(%URI{} = uri, opts) do
     base_url = Utils.base_url(uri)
     host = Utils.authority(uri)
 
     with {:ok, %{status: status, body: body, headers: headers}} when status in 200..299 <-
            HTTP.get(
              "#{base_url}/.well-known/webfinger?#{URI.encode_query(%{"resource" => base_url})}",
-             [{"Accept", "application/jrd+json"}]
+             [{"Accept", "application/jrd+json"}],
+             # the caller's user context, so `ActivityPub.Safety.ORF` applies their blocks too
+             Keyword.take(opts, ActivityPub.Safety.ORF.federation_opts_keys())
            ),
          _ <-
            ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(host, headers),
@@ -172,19 +174,21 @@ defmodule ActivityPub.Federator.WebFinger do
            end) do
       {:ok, service_actor_uri}
     else
+      # refused by the block/allow lists: kept apart from "not found" so discovery doesn't record it as done for everyone
+      {:error, :not_allowed} = refused -> refused
       _ -> {:error, :not_found}
     end
   end
 
-  def finger_host(url) when is_binary(url) do
+  def finger_host(url, opts) when is_binary(url) do
     uri = URI.parse(url)
 
     if uri.host do
-      finger_host(uri)
+      finger_host(uri, opts)
     else
       # Bare hostname like "example.com" — URI.parse misparses it
       scheme = if String.starts_with?(url, "localhost"), do: "http", else: "https"
-      finger_host(URI.parse("#{scheme}://#{url}"))
+      finger_host(URI.parse("#{scheme}://#{url}"), opts)
     end
   end
 

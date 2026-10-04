@@ -40,6 +40,29 @@ defmodule ActivityPub.Web.ProxyRemoteObjectControllerTest do
     end
   end
 
+  # the proxy returns what it fetched to the caller, so it must never fetch from a private address
+  describe "a private address" do
+    test "is never fetched nor returned", %{conn: conn} do
+      test_pid = self()
+
+      Tesla.Mock.mock(fn env ->
+        send(test_pid, {:hit, env.url})
+        json(%{"id" => env.url, "type" => "Person", "secret" => "internal"})
+      end)
+
+      user = user_by_ap_id(local_actor())
+
+      conn =
+        conn
+        |> assign(:current_user, user)
+        |> post(proxy_endpoint(), %{"id" => "http://10.0.0.1/users/admin"})
+
+      refute conn.status == 200
+      refute conn.resp_body =~ "internal"
+      refute_received {:hit, _}
+    end
+  end
+
   describe "proxying a post" do
     test "returns a cached note object", %{conn: conn} do
       actor = local_actor()

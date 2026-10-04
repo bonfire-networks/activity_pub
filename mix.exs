@@ -66,6 +66,8 @@ defmodule ActivityPub.MixProject do
       {:oban, "~> 2.17"},
       # {:hackney, "~> 1.16"},
       {:tesla, "~> 1.2"},
+      # refuses private/reserved addresses on every request and redirect hop
+      {:req_ssrf, "~> 0.2"},
       # {:tesla_extra, "~> 0.2"},
       {:http_signatures,
        git: "https://github.com/bonfire-networks/http_signatures"},

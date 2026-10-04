@@ -21,6 +21,13 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
   defp outbox_endpoint(actor), do: "#{Utils.ap_base_url()}/actors/#{actor.username}/outbox"
 
   # Helper to get the object ID from response (handles both string URI and map with "id")
+  # how many `Undo`s this actor has sent
+  defp undos_by(actor) do
+    Object
+    |> repo().all()
+    |> Enum.count(&(&1.data["type"] == "Undo" and &1.data["actor"] == actor.data["id"]))
+  end
+
   defp get_object_id(resp) when is_binary(resp), do: resp
   defp get_object_id(%{"id" => id}), do: id
   defp get_object_id(resp), do: resp
@@ -377,6 +384,9 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
 
       {:ok, object} = Object.get_cached(ap_id: object_id)
       assert object.data["type"] == "Undo"
+
+      assert undos_by(actor) == 1,
+             "the posted Undo is the one that federates; applying it locally must not send another"
     end
 
     test "creates an Undo activity for an Announce", %{conn: conn} do
@@ -420,6 +430,9 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
 
       {:ok, object} = Object.get_cached(ap_id: object_id)
       assert object.data["type"] == "Undo"
+
+      assert undos_by(actor) == 1,
+             "the posted Undo is the one that federates; applying it locally must not send another"
     end
 
     test "creates an Undo activity for a Block", %{conn: conn} do

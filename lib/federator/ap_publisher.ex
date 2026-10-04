@@ -352,6 +352,11 @@ defmodule ActivityPub.Federator.APPublisher do
 
         delivery_refused(inbox, code, body, Map.get(response, :headers, []))
 
+      # refused by `ActivityPub.Safety.ORF` before sending (block/allow lists or a private address): the host never answered, so it isn't unreachable, and retrying won't change the answer
+      {:error, reason} when reason == :not_allowed or elem(reason, 0) == :ssrf ->
+        debug(reason, "delivery to #{inbox} refused before sending")
+        {:cancel, reason}
+
       {_post_result, response} when is_binary(response) or is_atom(response) ->
         unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
         error("could not push activity to #{inbox}, got: #{response}")

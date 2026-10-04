@@ -19,7 +19,8 @@ defmodule ActivityPub.Safety.LinkedDataSignatures.DocumentLoader do
   def load(url, options) do
     case Map.get(@bundled_contexts, url) do
       nil ->
-        JSON.LD.DocumentLoader.Default.load(url, options)
+        # through the same checks as other federation requests, since the URL is chosen by whoever sent the document
+        RemoteDocument.load(url, options, ActivityPub.Safety.LinkedDataSignatures.HTTPClient)
 
       filename ->
         load_bundled(url, filename)

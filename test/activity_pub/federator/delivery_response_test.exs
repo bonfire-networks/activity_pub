@@ -169,4 +169,50 @@ defmodule ActivityPub.Federator.DeliveryResponseTest do
              "a polite outage is still an outage: waiting as asked must not stop the clock that decides when to give up"
     end
   end
+
+  # `ActivityPub.Safety.ORF` refuses a delivery before it's sent: the host never answered, so it isn't unreachable, and retrying won't change the answer
+  describe "a delivery the outgoing request filter refuses" do
+    setup do
+      test_pid = self()
+
+      mock(fn env ->
+        send(test_pid, {:hit, env.url})
+        %Tesla.Env{status: 202, body: ""}
+      end)
+
+      {:ok, actor} = ActivityPub.Actor.get_cached(username: local_actor().username)
+      {:ok, actor: actor}
+    end
+
+    defp publish(actor, inbox) do
+      APPublisher.publish_one(%{
+        actor: actor,
+        inbox: inbox,
+        json: Jason.encode!(%{"type" => "Announce"}),
+        id: "https://local.local/pub/objects/3"
+      })
+    end
+
+    test "to a rejected instance is cancelled, and the instance isn't marked unreachable", %{
+      actor: actor
+    } do
+      clear_config([:mrf_simple, :reject], ["receiver.local", "i said so"])
+
+      assert {:cancel, _} = publish(actor, @inbox)
+      refute_received {:hit, _}
+      refute flagged?()
+    end
+
+    test "to a private address is cancelled, and the address isn't marked unreachable", %{
+      actor: actor
+    } do
+      assert {:cancel, _} = publish(actor, "http://10.0.0.1/inbox")
+      refute_received {:hit, _}
+
+      refute match?(
+               %{unreachable_since: since} when not is_nil(since),
+               Instance.get_by_host("10.0.0.1")
+             )
+    end
+  end
 end

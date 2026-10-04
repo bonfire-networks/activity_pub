@@ -582,13 +582,14 @@ defmodule ActivityPub.Federator.Fetcher do
          true <-
            options[:force_instance_reachable] || Instances.reachable?(uri) ||
              error("Instance was recently not reachable"),
-         # If we have instance restrictions, apply them here to prevent fetching from unwanted instances
-         true <-
-           Adapter.federation_allowed?(uri, Keyword.put(options, :direction, :in)) ||
-             {:error, :not_allowed},
          true <-
            not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :is_local},
-         format <- options[:signature_format] || Instances.get_or_discover_signature_format(uri),
+         format <-
+           options[:signature_format] ||
+             Instances.get_or_discover_signature_format(
+               uri,
+               Keyword.take(options, ActivityPub.Safety.ORF.federation_opts_keys())
+             ),
          headers <-
            [{"Accept", "application/activity+json"}]
            |> Keys.maybe_add_fetch_signature_headers(
@@ -599,7 +600,9 @@ defmodule ActivityPub.Federator.Fetcher do
          {:ok, %{body: body, status: code, headers: resp_headers}} when code in 200..299 <-
            HTTP.get(
              id,
-             headers
+             headers,
+             # `ActivityPub.Safety.ORF` checks the instance's (and this user's) block/allow lists, on every hop
+             Keyword.take(options, ActivityPub.Safety.ORF.federation_opts_keys())
            )
            |> debug("fetch_done"),
          _ <- Instances.handle_successful_contact(uri),

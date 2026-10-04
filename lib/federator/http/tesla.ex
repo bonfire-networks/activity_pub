@@ -11,6 +11,9 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
 
   plug Tesla.Middleware.FollowRedirects, max_redirects: 3
 
+  # after the redirects middleware so every hop is checked, and before `Retry` so a refused request isn't retried
+  plug ActivityPub.Safety.ORF
+
   # if ActivityPub.Config.env() != :test do
   # retry failed outgoing HTTP requests
   plug ActivityPub.Federator.HTTP.RetryAfter

@@ -95,8 +95,11 @@ defmodule ActivityPub.Safety.SignatureTest do
     end
 
     test "it returns error when user not found" do
+      # a host the HTTP mock has no fixture for (a bare `https://404` would be read as the IP address 0.0.1.148, and refused before any request)
       assert {:error, :not_found} =
-               Signatures.fetch_fresh_public_key(make_fake_conn("https://404"))
+               Signatures.fetch_fresh_public_key(
+                 make_fake_conn("https://not-found.local/users/nobody")
+               )
     end
   end
 

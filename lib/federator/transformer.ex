@@ -44,10 +44,9 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, data}
   end
 
-  # An actor-referencing activity's `object` must stay a bare id: implementations type it as a link (eg. Lemmy's `ObjectId<ApubCommunity>`, Mastodon's URI) and fail to deserialise an embedded actor.
-  # Without this, `prepare_outgoing_object/1` normalises the id back into the full cached actor JSON.
+  # An actor-referencing activity's `object` must stay a bare id (see `Config.bare_object_activity_types/0`). Without this, `prepare_outgoing_object/1` normalises the id back into the full cached actor JSON.
   def prepare_outgoing(%{"type" => type, "object" => object} = data, opts)
-      when type in ["Follow", "Block"] and is_binary(object) do
+      when is_in(type, :bare_object_activity_types) and is_binary(object) do
     {:ok, maybe_add_json_ld_header(data, type, opts)}
   end
 

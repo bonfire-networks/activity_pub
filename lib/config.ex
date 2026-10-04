@@ -143,11 +143,19 @@ defmodule ActivityPub.Config do
 
   @doc "Collection types that are singleton-per-actor — addressed by the owner actor's id (uuid). e.g. keyPackages, featured."
   def singleton_collection_types,
-    do: get([:instance, :singleton_collection_types]) || ["keyPackages", "featured", "moderators"]
+    do:
+      get([:instance, :singleton_collection_types]) ||
+        ["keyPackages", "featured", "moderators", "members"]
 
   @doc "Collection types served as `OrderedCollection` rather than `Collection` (order is significant — e.g. MLS keyPackages, Mastodon featured)."
   def ordered_collection_types,
     do: get([:instance, :ordered_collection_types]) || ["keyPackages", "featured", "moderators"]
+
+  @doc "Activity types whose `object` is an actor and goes out as a bare id, because implementations type it as a link (eg. Lemmy's `ObjectId<ApubCommunity>`, Mastodon's URI) and fail on an embedded actor. Read at compile time, since `Transformer.prepare_outgoing/2` matches on it in a guard."
+  def bare_object_activity_types,
+    do:
+      get([:instance, :bare_object_activity_types]) ||
+        ["Follow", "Block", "Join", "Leave"]
 
   @doc "Collections served whole, items inline and no `first`, because the implementations that read them do not follow pages (see `ObjectView.render(\"collection.json\", …)`). Only suitable for collections that stay small."
   def inline_collection_types,

@@ -23,7 +23,12 @@ defmodule ActivityPub.Federator.WebFinger do
   check falls back to blocking on *any* block type (a safe default for neutral/inbound lookups).
   """
   def finger(account, opts \\ []) do
-    account = String.trim_leading(account, "@")
+    account =
+      case String.split(String.trim_leading(account, "@"), "@") do
+        # the host goes into both the URL and the `acct:` resource, so it must be an A-label
+        [name, domain] -> name <> "@" <> Utils.ascii_host(domain)
+        _ -> String.trim_leading(account, "@")
+      end
 
     with {:ok, base_url} <- remote_base_url(account),
          response <-
@@ -74,12 +79,12 @@ defmodule ActivityPub.Federator.WebFinger do
   end
 
   def output(resource) do
+    # the username is anchored so only an exact one matches, since a partial match would serve another user (e.g. `jos` for `josé`). It may have a type prefix (`&` for groups, `+` for topics). Any host is accepted, as before, since a handle's domain can differ from the instance's.
     with %{"username" => username} <-
            Regex.named_captures(
-             ~r/(?<username>[a-z0-9A-Z_\.-]+)@#{local_hostname()}/,
+             ~r/^[@&+]?(?<username>[\p{L}\p{M}\p{N}_.-]+)(@[^@]+)?$/u,
              resource
-           ) ||
-             Regex.named_captures(~r/(?<username>[a-z0-9A-Z_\.-]+)/, resource),
+           ),
          {:ok, actor} <- Actor.get_cached(username: username) do
       {:ok, represent_user(actor)}
     else

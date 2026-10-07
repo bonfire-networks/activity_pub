@@ -64,6 +64,43 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  @doc """
+  Converts an internationalized host (optionally with a port) to its IDNA A-label form, which is what DNS, HTTP and `acct:` URIs need (W3C SocialCG ActivityPub and WebFinger report, 3.1). ASCII hosts are returned unchanged, and so is an invalid host, with a warning.
+
+      iex> ActivityPub.Utils.ascii_host("bücher.local")
+      "xn--bcher-kva.local"
+
+      iex> ActivityPub.Utils.ascii_host("你好.local:4000")
+      "xn--6qq79v.local:4000"
+
+      iex> ActivityPub.Utils.ascii_host("mocked.local")
+      "mocked.local"
+  """
+  def ascii_host(host) when is_binary(host) do
+    if String.match?(host, ~r/\A[[:ascii:]]*\z/) do
+      host
+    else
+      {name, port} =
+        case String.split(host, ":", parts: 2) do
+          [name, port] -> {name, ":" <> port}
+          [name] -> {name, ""}
+        end
+
+      try do
+        to_string(:idna.encode(String.to_charlist(name), uts46: true)) <> port
+      catch
+        # `:idna` reports an invalid label by exiting, it has no error tuple API
+        :exit, reason ->
+          warn(
+            reason,
+            "Could not convert host #{inspect(host)} to an IDNA A-label, using it as is"
+          )
+
+          host
+      end
+    end
+  end
+
   @doc "Builds a base URL (scheme://host[:port]) from a URI, omitting standard ports."
   def base_url(%{scheme: scheme, host: host} = uri) when is_binary(scheme) and is_binary(host),
     do: scheme <> "://" <> authority(uri)
@@ -76,8 +113,14 @@ defmodule ActivityPub.Utils do
     if uri.host do
       base_url(uri)
     else
-      # Bare authority like "localhost:4002" — infer scheme
-      scheme = if String.starts_with?(url, "localhost"), do: "http", else: "https"
+      # Bare authority like "localhost:4002" — infer scheme: names under `localhost` are loopback (RFC 6761), so plain HTTP like `localhost` itself
+      host = url |> String.split(":") |> List.first()
+
+      scheme =
+        if host == "localhost" or String.ends_with?(host, ".localhost"),
+          do: "http",
+          else: "https"
+
       "#{scheme}://#{url}"
     end
   end

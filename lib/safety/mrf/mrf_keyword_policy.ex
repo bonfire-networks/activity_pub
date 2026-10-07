@@ -57,38 +57,6 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   #   }
   # end
 
-  # Multi-step normalization to catch various Unicode evasion techniques
-  defp normalize_for_matching(string) do
-    string
-    |> strip_zero_width_chars()
-    |> nfkc_normalize()
-    |> ExConfusables.skeleton()
-    |> strip_diacritics()
-  end
-
-  # Remove zero-width characters used to break up words
-  defp strip_zero_width_chars(string) do
-    # U+200B Zero Width Space, U+200C Zero Width Non-Joiner,
-    # U+200D Zero Width Joiner, U+FEFF Byte Order Mark/Zero Width No-Break Space
-    String.replace(string || "", ~r/[\x{200B}\x{200C}\x{200D}\x{FEFF}]/u, "")
-  end
-
-  # NFKC normalization decomposes compatibility characters:
-  # - Enclosed alphanumerics (Ⓐ → A)
-  # - Full-width chars (Ａ → A)
-  # - Ligatures (ﬁ → fi)
-  # - Superscript/subscript (² → 2)
-  defp nfkc_normalize(string) do
-    :unicode.characters_to_nfkc_binary(string)
-  end
-
-  # Strip combining diacritical marks (accents, etc.) after NFKD decomposition
-  defp strip_diacritics(string) do
-    string
-    |> :unicode.characters_to_nfkd_binary()
-    |> String.replace(~r/[\x{0300}-\x{036F}]/u, "")
-  end
-
   defp match_type_message(:exact), do: "[KeywordPolicy] Matches rejected keyword"
 
   defp match_type_message(:confusable),
@@ -142,7 +110,8 @@ defmodule ActivityPub.MRF.KeywordPolicy do
         {:reject, :exact}
 
       confusables_enabled ->
-        normalized = string |> normalize_for_matching() |> String.downcase()
+        # folds zero-width characters, NFKC compatibility forms (Ⓐ, Ａ, ﬁ, ²), look-alikes and diacritics, to catch Unicode evasion
+        normalized = string |> ExConfusables.normalize() |> String.downcase()
 
         # Also check "rn" → "m" reverse homoglyph
         if String.contains?(normalized, downcased_patterns) or
@@ -164,7 +133,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
         {:reject, :exact}
 
       confusables_enabled ->
-        normalized = normalize_for_matching(string)
+        normalized = ExConfusables.normalize(string)
 
         if Enum.any?(regex_patterns, &String.match?(normalized, &1)) or
              Enum.any?(

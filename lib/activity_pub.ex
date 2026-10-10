@@ -1109,8 +1109,8 @@ defmodule ActivityPub do
     %{
       "type" => "Follow",
       "actor" => follower_id,
+      # addressed to who is being followed and nobody else, like Mastodon and GoToSocial do: as:Public here made `APPublisher` deliver every Follow to all the follower's followers too
       "to" => [followed_id],
-      "cc" => [ActivityPub.Config.public_uri()],
       "object" => followed_id
     }
   end

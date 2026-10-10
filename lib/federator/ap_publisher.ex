@@ -449,8 +449,9 @@ defmodule ActivityPub.Federator.APPublisher do
 
     followers =
       cond do
-        # Accept/Reject should only go to addressed recipients, not fan out to followers
-        is_in(activity_data["type"], ["Accept", "Reject"]) ->
+        # Accept/Reject, and a Follow or its Undo, are for the one actor they address
+        is_in(activity_data["type"], ["Accept", "Reject", "Follow"]) or
+            undo_of_follow?(activity_data) ->
           []
 
         # When handling Flag activities, we need special recipient handling
@@ -479,6 +480,10 @@ defmodule ActivityPub.Federator.APPublisher do
 
     addressed ++ followers
   end
+
+  # `make_unfollow_data/4` embeds the Follow it retracts
+  defp undo_of_follow?(%{"type" => "Undo", "object" => %{"type" => "Follow"}}), do: true
+  defp undo_of_follow?(_), do: false
 
   defp get_external_followers_except(actor, purpose, addressed_pointer_ids) do
     exclude_set = MapSet.new(addressed_pointer_ids)

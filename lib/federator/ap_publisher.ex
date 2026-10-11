@@ -16,6 +16,9 @@ defmodule ActivityPub.Federator.APPublisher do
 
   @behaviour ActivityPub.Federator.Publisher
 
+  # delivered to their addressees only, never fanned out to the actor's followers
+  @addressed_only_types ["Accept", "Reject", "Follow", "Like"]
+
   # handle all types
   def is_representable?(_activity), do: true
 
@@ -449,9 +452,9 @@ defmodule ActivityPub.Federator.APPublisher do
 
     followers =
       cond do
-        # Accept/Reject, and a Follow or its Undo, are for the one actor they address
-        is_in(activity_data["type"], ["Accept", "Reject", "Follow"]) or
-            undo_of_follow?(activity_data) ->
+        # Accept/Reject, a Follow, a Like, and the Undo of either, are for the one actor they address. Neither is public, so without this they reach the fallback below, which sends to every follower allowed to see the object: all of them, for a public post
+        is_in(activity_data["type"], @addressed_only_types) or
+            undo_of_addressed_only?(activity_data) ->
           []
 
         # When handling Flag activities, we need special recipient handling
@@ -481,9 +484,11 @@ defmodule ActivityPub.Federator.APPublisher do
     addressed ++ followers
   end
 
-  # `make_unfollow_data/4` embeds the Follow it retracts
-  defp undo_of_follow?(%{"type" => "Undo", "object" => %{"type" => "Follow"}}), do: true
-  defp undo_of_follow?(_), do: false
+  # `make_unfollow_data/4` and `make_unlike_data/3` embed the activity they retract
+  defp undo_of_addressed_only?(%{"type" => "Undo", "object" => %{"type" => type}}),
+    do: type in @addressed_only_types
+
+  defp undo_of_addressed_only?(_), do: false
 
   defp get_external_followers_except(actor, purpose, addressed_pointer_ids) do
     exclude_set = MapSet.new(addressed_pointer_ids)

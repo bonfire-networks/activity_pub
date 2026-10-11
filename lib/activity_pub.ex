@@ -909,8 +909,8 @@ defmodule ActivityPub do
       "type" => "Undo",
       "actor" => ap_id,
       "object" => activity.data,
-      "to" => [actor.data["followers"], activity.data["actor"]],
-      "cc" => [ActivityPub.Config.public_uri()],
+      "to" => activity.data["to"] || [],
+      "cc" => activity.data["cc"] || [],
       "context" => context
     }
 

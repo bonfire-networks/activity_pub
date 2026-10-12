@@ -366,7 +366,8 @@ defmodule ActivityPub do
         } = params,
         opts \\ []
       ) do
-    with true <- Utils.public?(object.data),
+    # `skip_public_check` is for a caller that judged publicness itself: a group relaying a vote, which is addressed to the author and the group rather than Public, about a post that is public
+    with true <- opts[:skip_public_check] == true or Utils.public?(object.data),
          announce_data <- build_announce_data(params, actor, object),
          {:ok, activity} <-
            Object.insert(
@@ -758,16 +759,22 @@ defmodule ActivityPub do
     to =
       (object.data["to"] || []) ++ (object.data["cc"] || []) ++ [ActivityPub.Config.public_uri()]
 
-    with {:ok, _object} <- Object.delete(object) |> debug("dellll"),
+    # `keep_object: true` publishes the `Delete` without deleting the object here, for a moderator REMOVING it from where it was posted (the threadiverse's mod "remove", marked by `summary`): it leaves the object where else it lives, so tombstoning our own copy would delete what was only removed
+    with {:ok, _object} <-
+           if(opts[:keep_object], do: {:ok, object}, else: Object.delete(object))
+           |> debug("dellll"),
          # prune lib-owned collection memberships (tombstone keeps the row, so cascade won't fire)
-         _ <- GenericCollectionStore.remove_object_everywhere(id),
-         data <- %{
-           "type" => "Delete",
-           "actor" => opts[:subject] || actor,
-           "object" => id,
-           "to" => to,
-           "bcc" => opts[:bcc]
-         },
+         _ <- if(!opts[:keep_object], do: GenericCollectionStore.remove_object_everywhere(id)),
+         data <-
+           %{
+             "type" => "Delete",
+             "actor" => opts[:subject] || actor,
+             "object" => id,
+             "to" => to,
+             "bcc" => opts[:bcc]
+           }
+           |> Utils.maybe_put("summary", opts[:summary])
+           |> Utils.maybe_put("audience", opts[:audience]),
          {:ok, activity} <- Object.insert(data, is_local?, nil, opts),
          :ok <- maybe_federate(actor, activity, opts) |> debug("maybe_federated"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
@@ -800,11 +807,12 @@ defmodule ActivityPub do
   def flag(%{} = params, opts \\ []) do
     additional = params[:additional] || %{}
 
+    # the caller's addressing wins over these defaults: a report to a group names the group in `to`, and an incoming report keeps the `cc` it arrived with
     additional =
       if is_map(params[:account]) and params[:forward] == true do
-        Map.merge(additional, %{"to" => [], "bcc" => [params[:account].data["id"]]})
+        Map.merge(%{"to" => [], "bcc" => [params[:account].data["id"]]}, additional)
       else
-        Map.merge(additional, %{"to" => [], "cc" => []})
+        Map.merge(%{"to" => [], "cc" => []}, additional)
       end
 
     with {:ok, activity} <-
@@ -1287,6 +1295,10 @@ defmodule ActivityPub do
   end
 
   defp actor_id_from_params(%{actor: %{"id" => id}}) do
+    id
+  end
+
+  defp actor_id_from_params(%{actor: %Actor{data: %{"id" => id}}}) do
     id
   end
 

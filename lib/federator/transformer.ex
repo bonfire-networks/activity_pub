@@ -1505,19 +1505,28 @@ defmodule ActivityPub.Federator.Transformer do
       when is_in(inner_type, :all_supported_activity_types) do
     info("Handle incoming group announce of an activity (FEP-1b12)")
 
-    with false <- duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
+    # Only a relayed `Create` is the group sharing a post, so only it is deduplicated against a boost and recorded as one. A relayed `Delete`, `Update`, `Lock`, `Undo`, … is the group passing on what happened TO a post it already shares: checking it against that boost discarded it as a "duplicate", and handing it to the boost clause re-boosted the very post a removal had just taken out
+    relays_a_post? = inner_type == "Create"
+
+    with false <-
+           relays_a_post? and
+             duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
          {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
          # who relayed it, so the adapter can tell a post this group accepted from one that only names it
-         {:ok, _inner} <-
+         {:ok, inner} <-
            handle_incoming(
              inner_activity,
              Keyword.put(opts, :relayed_by, Object.get_ap_id(data["actor"]))
            ) do
-      # Hand off to the boost clause with the inner OBJECT's id, the announce is of the object, and actor resolution, `public?`, dedup and error handling all already live there.
-      handle_incoming(
-        Map.put(data, "object", Object.get_ap_id(inner_activity["object"])),
-        opts
-      )
+      if relays_a_post? do
+        # Hand off to the boost clause with the inner OBJECT's id, the announce is of the object, and actor resolution, `public?`, dedup and error handling all already live there.
+        handle_incoming(
+          Map.put(data, "object", Object.get_ap_id(inner_activity["object"])),
+          opts
+        )
+      else
+        {:ok, inner}
+      end
     else
       # discarding a duplicate is a success, and says so distinguishably: an error here would be indistinguishable from a real failure, in the log and to anything asserting on the result
       true -> {:ok, :duplicate}
@@ -2359,10 +2368,20 @@ defmodule ActivityPub.Federator.Transformer do
         end
 
       {:error, :not_deleted} ->
-        if opts[:local] do
-          {:error, :not_deleted}
-        else
-          error("Could not verify incoming deletion")
+        cond do
+          opts[:local] ->
+            {:error, :not_deleted}
+
+          # a moderator's REMOVAL, which Lemmy marks with the reason in `summary` ("if summary is present, this is a mod action"): it takes the object out of a community and leaves it in place at its origin, so re-fetching cannot verify it the way it verifies a deletion. Handed to the adapter to judge the moderator's standing and apply it, as for a `Lock`, rather than refused as a forged delete
+          # Lemmy's marker, or (from senders that don't set it) an actor who is not the object's author: only its origin can delete an object, and the origin still has it, so someone else's `Delete` can only be a removal
+          (is_binary(data["summary"]) and data["summary"] != "") or
+              removal_by_someone_else?(data, object_id) ->
+            store_and_hand_to_adapter(data, opts)
+
+          # the origin still has it, so re-fetching again will not change the answer: `:not_deleted` makes the worker cancel the job rather than retry it
+          true ->
+            error(object_id, "Could not verify incoming deletion")
+            {:error, :not_deleted}
         end
 
       {:error, e} ->
@@ -2370,6 +2389,15 @@ defmodule ActivityPub.Federator.Transformer do
 
       e ->
         error(e, "Could not handle incoming deletion")
+    end
+  end
+
+  defp removal_by_someone_else?(data, object_id) do
+    with {:ok, %{data: %{"attributedTo" => authors}}} <- Object.get_cached(ap_id: object_id),
+         actor when is_binary(actor) <- Object.actor_from_data(data) do
+      actor not in Enum.map(List.wrap(authors), &Object.get_ap_id/1)
+    else
+      _ -> false
     end
   end
 

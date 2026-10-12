@@ -555,6 +555,7 @@ defmodule ActivityPub.Actor do
 
   def format_username(ap_id) when is_binary(ap_id) do
     uri = URI.parse(ap_id)
+
     # a username in a URL path is percent-encoded (e.g. `/user/%D0%B8%D0%B2%D0%B0%D0%BD` for `иван`)
     format_username(
       uri,

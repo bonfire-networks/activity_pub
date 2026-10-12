@@ -92,8 +92,8 @@ defmodule ActivityPub.Web.WebFingerControllerTest do
     assert json_response(response, 404)
   end
 
-  # handles may carry a type prefix, e.g. `&` for groups or `+` for topics
-  for prefix <- ["@", "&", "+"] do
+  # handles may carry a type prefix, e.g. `&` for groups or `+` for topics, or `!` as the threadiverse names a community
+  for prefix <- ["@", "&", "+", "!"] do
     test "webfinger with a #{prefix} prefix on the username" do
       actor = local_actor()
 

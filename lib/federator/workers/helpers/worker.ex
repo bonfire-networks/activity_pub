@@ -57,6 +57,10 @@ defmodule ActivityPub.Federator.Worker do
             {:error, :ignore} ->
               {:cancel, "Federation ignored"}
 
+            # a `Delete` whose object its origin still serves: retrying re-fetches the same answer
+            {:error, :not_deleted} ->
+              {:cancel, "The origin still has the object, so the deletion could not be verified"}
+
             {:error, _} = error ->
               error
 

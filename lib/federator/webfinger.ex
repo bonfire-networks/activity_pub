@@ -83,11 +83,11 @@ defmodule ActivityPub.Federator.WebFinger do
     do: URI.encode(name, &(URI.char_unreserved?(&1) or &1 in ~c"!$&'()*+,;="))
 
   def output(resource) do
-    # the username is anchored so only an exact one matches, since a partial match would serve another user (e.g. `jos` for `josé`). It may have a type prefix (`&` for groups, `+` for topics). Any host is accepted, as before, since a handle's domain can differ from the instance's.
+    # the username is anchored so only an exact one matches, since a partial match would serve another user (e.g. `jos` for `josé`). It may have a type prefix (`&` for groups, `+` for topics, or `!` as the threadiverse names a community). Any host is accepted, as before, since a handle's domain can differ from the instance's.
     # the userpart arrives percent-encoded from software following RFC 7565, raw from others
     with %{"username" => username} <-
            Regex.named_captures(
-             ~r/^[@&+]?(?<username>[\p{L}\p{M}\p{N}_.-]+)(@[^@]+)?$/u,
+             ~r/^[@&+!]?(?<username>[\p{L}\p{M}\p{N}_.-]+)(@[^@]+)?$/u,
              # a malformed escape is left as is, and then matches no user
              Utils.safe_percent_decode(resource)
            ),

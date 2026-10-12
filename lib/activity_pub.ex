@@ -477,7 +477,7 @@ defmodule ActivityPub do
   #       ) :: {:ok, Object.t()} | {:error, any()}
   # Makes and federates the Block, and severs no follows: which follow a block ends, if any, is the adapter's policy and it differs by direction. Bonfire ghosts by severing THEIR follow of me and silences by severing MINE of them, and offers both as an opt-in, none of which this can know. `handle_remote_block/4` does it explicitly for the one case where the decision is ours to make.
   def block(%{actor: blocker, object: blocked} = params, opts \\ []) do
-    with block_data <- make_block_data(blocker, blocked, Map.get(params, :activity_id)),
+    with block_data <- make_block_data(blocker, blocked, params),
          {:ok, activity} <-
            Object.insert(
              block_data,
@@ -1220,26 +1220,32 @@ defmodule ActivityPub do
     end
   end
 
-  defp make_block_data(blocker, blocked, activity_id) do
-    data = %{
+  # A personal block goes to the blocked person alone. A group's ban (Lemmy's `block_user.json`) also names the group as `target` and `audience`, carries the reason in `summary`, and is addressed to Public and the group, so the caller may set those
+  defp make_block_data(blocker, blocked, params) do
+    %{
       "type" => "Block",
       "actor" => blocker.data["id"],
-      "to" => [blocked.data["id"]],
+      "to" => params[:to] || [blocked.data["id"]],
       "object" => blocked.data["id"]
     }
-
-    if activity_id, do: Map.put(data, "id", activity_id), else: data
+    |> Utils.maybe_put("cc", params[:cc])
+    |> Utils.maybe_put("target", params[:target])
+    |> Utils.maybe_put("audience", params[:audience])
+    |> Utils.maybe_put("summary", params[:summary])
+    |> Utils.maybe_put("id", params[:activity_id])
   end
 
+  # addressed as the block was, so undoing a group's ban reaches whoever the ban did
   defp make_unblock_data(blocker, blocked, block_activity, activity_id) do
-    data = %{
+    %{
       "type" => "Undo",
       "actor" => blocker.data["id"],
-      "to" => [blocked.data["id"]],
+      "to" => block_activity.data["to"] || [blocked.data["id"]],
       "object" => block_activity.data
     }
-
-    if activity_id, do: Map.put(data, "id", activity_id), else: data
+    |> Utils.maybe_put("cc", block_activity.data["cc"])
+    |> Utils.maybe_put("audience", block_activity.data["audience"])
+    |> Utils.maybe_put("id", activity_id)
   end
 
   #### Create-related helpers

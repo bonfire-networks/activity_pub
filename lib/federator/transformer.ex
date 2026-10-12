@@ -1508,6 +1508,31 @@ defmodule ActivityPub.Federator.Transformer do
     # Only a relayed `Create` is the group sharing a post, so only it is deduplicated against a boost and recorded as one. A relayed `Delete`, `Update`, `Lock`, `Undo`, … is the group passing on what happened TO a post it already shares: checking it against that boost discarded it as a "duplicate", and handing it to the boost clause re-boosted the very post a removal had just taken out
     relays_a_post? = inner_type == "Create"
 
+    case not relays_a_post? and Object.get_cached(ap_id: Object.get_ap_id(inner_activity)) do
+      {:ok, %Object{local: false, pointer_id: pointer_id} = stored} when is_binary(pointer_id) ->
+        # someone else's, which the adapter already applied and linked to what it made of it: the relay adds nothing, and applying it again would repeat its side effects (eg. a second moderation record)
+        {:ok, stored}
+
+      {:ok, %Object{} = stored} ->
+        # An activity we already hold, relayed by a group: inserting it again would fail as a duplicate, yet the relay says something the first copy didn't, that the group accepted it. Our own moderator's action is stored when sent and only applied once the group relays it back (as Lemmy relays a moderator's activity unchanged), and a remote one we refused before learning its sender moderates the group can apply now. So the stored copy goes to the adapter, which decides: apply it, or nothing if it already applied
+        handle_relayed_stored_activity(stored, data, opts)
+
+      _ ->
+        handle_relayed_activity(data, inner_activity, relays_a_post?, opts)
+    end
+  end
+
+  defp handle_relayed_stored_activity(stored, data, opts) do
+    with {:ok, adapter_object} <-
+           Adapter.maybe_handle_activity(
+             stored,
+             Keyword.put(opts, :relayed_by, Object.get_ap_id(data["actor"]))
+           ) do
+      {:ok, Map.put(stored, :pointer, adapter_object)}
+    end
+  end
+
+  defp handle_relayed_activity(data, inner_activity, relays_a_post?, opts) do
     with false <-
            relays_a_post? and
              duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
@@ -1985,6 +2010,36 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # undoing a `Block` made on behalf of a `target` (see `handle_remote_block/4`), whoever was blocked
+  def handle_incoming(
+        %{
+          "type" => "Undo",
+          "object" => %{"type" => "Block", "object" => blocked, "target" => target},
+          "actor" => blocker
+        } = data,
+        opts
+      )
+      when is_binary(target) do
+    info("Handle incoming unblock on behalf of #{target}")
+
+    with {:ok, blocked} <- Actor.get_cached_or_fetch(ap_id: blocked),
+         {:ok, blocker} <- Actor.get_cached(ap_id: blocker),
+         {:ok, activity} <-
+           ActivityPub.unblock(
+             %{
+               actor: blocker,
+               object: blocked,
+               activity_id: data["id"],
+               local: local?(opts)
+             },
+             opts
+           ) do
+      {:ok, activity}
+    else
+      e -> error(e)
+    end
+  end
+
   def handle_incoming(
         %{
           "type" => "Undo",
@@ -2415,6 +2470,34 @@ defmodule ActivityPub.Federator.Transformer do
       )
     else
       e -> error(e, "Could not process C2S block")
+    end
+  end
+
+  # A `Block` with a `target` is made on behalf of that actor, usually a group keeping someone out of it (the threadiverse's way, Lemmy's `block_user.json`). The person blocked may then be anyone, since what makes it ours is the target, and whether the target is a group we follow, and the sender one of its moderators, is the adapter's to decide. It keeps its addressing, `target`, `audience` and reason for that
+  defp handle_remote_block(%{"target" => target} = data, blocker, blocked, opts)
+       when is_binary(target) do
+    with {:ok, blocked_actor} <- Actor.get_cached_or_fetch(ap_id: blocked),
+         {:ok, %{local: false} = blocker_actor} <- Actor.get_cached_or_fetch(ap_id: blocker) do
+      ActivityPub.block(
+        %{
+          actor: blocker_actor,
+          object: blocked_actor,
+          activity_id: data["id"],
+          local: false,
+          target: target,
+          to: data["to"],
+          cc: data["cc"],
+          audience: data["audience"],
+          summary: data["summary"]
+        },
+        opts
+      )
+    else
+      {:ok, %{local: true}} ->
+        error("S2S Block rejected: blocker should not be local")
+
+      e ->
+        error(e, "Could not process S2S block on behalf of #{target}")
     end
   end
 

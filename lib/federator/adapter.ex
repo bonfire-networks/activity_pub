@@ -145,17 +145,25 @@ defmodule ActivityPub.Federator.Adapter do
   end
 
   def maybe_handle_activity(%Object{local: true} = activity, opts) do
-    if opts[:from_c2s] do
-      if opts[:skip_adapter] == true do
+    from_c2s = opts[:from_c2s]
+    relayed_by = opts[:relayed_by]
+
+    cond do
+      opts[:skip_adapter] == true and (from_c2s || relayed_by) ->
         debug("skipping adapter for remote activity as requested")
         {:ok, :skipped}
-      else
+
+      from_c2s ->
         # C2S activities should go to adapter
         handle_activity(activity)
-      end
-    else
-      # Regular local activities skip adapter (they originated from there)
-      {:ok, :local}
+
+      relayed_by ->
+        # one of ours, relayed back by a group (FEP-1b12): the relay says the group accepted it, which the adapter may still have to act on (a moderator's action on a group hosted elsewhere is applied once the group relays it)
+        handle_activity(%{activity | relayed_by: relayed_by})
+
+      true ->
+        # Regular local activities skip adapter (they originated from there)
+        {:ok, :local}
     end
   end
 

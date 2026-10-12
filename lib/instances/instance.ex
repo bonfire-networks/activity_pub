@@ -52,7 +52,7 @@ defmodule ActivityPub.Instances.Instance do
       repo().all(
         from(i in Instance,
           where: i.host in ^hosts,
-          select: {i.host, i.unreachable_since}
+          select: {i.host, {i.unreachable_since, i.updated_at}}
         )
       )
       |> Map.new()
@@ -62,9 +62,10 @@ defmodule ActivityPub.Instances.Instance do
     urls
     |> Enum.reduce(%{}, fn url, acc ->
       h = host(url)
-      usince = unreachable_since_by_host[h]
+      {usince, last_attempt} = unreachable_since_by_host[h] || {nil, nil}
 
-      if !usince || NaiveDateTime.compare(usince, threshold) == :gt do
+      if !usince || NaiveDateTime.compare(usince, threshold) == :gt ||
+           Instances.dead_probe_due?(usince, last_attempt) do
         previous_val = url_map[url]
 
         val =
@@ -84,12 +85,25 @@ defmodule ActivityPub.Instances.Instance do
   def reachable?(uri_or_host) do
     host = host(uri_or_host)
 
+    # passed in rather than the database's `now()`, so the comparison matches `Instances.dead_probe_due?/3` whatever timezone the database runs in
+    now = NaiveDateTime.utc_now(Calendar.ISO)
+
     host &&
       not repo().exists?(
         from(i in Instance,
+          # written off and not yet due a probe: `Instances.dead_probe_sec/1` in SQL, min(outage / fraction, cap)
           where:
             i.host == ^host and
-              i.unreachable_since <= ^Instances.reachability_datetime_threshold(),
+              i.unreachable_since <= ^Instances.reachability_datetime_threshold() and
+              i.updated_at >
+                fragment(
+                  "?::timestamp - LEAST((?::timestamp - ?) / ?::integer, make_interval(secs => ?::integer))",
+                  ^now,
+                  ^now,
+                  i.unreachable_since,
+                  ^Instances.dead_probe_fraction(),
+                  ^Instances.dead_probe_cap_sec()
+                ),
           select: true
         )
       )

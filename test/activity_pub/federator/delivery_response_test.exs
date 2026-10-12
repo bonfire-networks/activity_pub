@@ -112,6 +112,32 @@ defmodule ActivityPub.Federator.DeliveryResponseTest do
     end
   end
 
+  # the same rule, read from the other side: an answer does not just leave a healthy host alone, it clears one we had flagged. Otherwise a host refusing our deliveries (a signature it cannot verify, say) runs out the clock while plainly up, and gets written off
+  describe "delivering to a host we had flagged" do
+    setup do
+      ActivityPub.Instances.set_unreachable(@inbox)
+      assert flagged?()
+      :ok
+    end
+
+    test "clears it on a 4xx, since it answered" do
+      deliver(401, ~s({"error":"signature"}))
+
+      refute flagged?(),
+             "a host that refuses our signature is up; holding it against the host is how a reachable instance got written off"
+    end
+
+    test "and on a 500" do
+      deliver(500)
+      refute flagged?()
+    end
+
+    test "but not on a 502, which is the host not answering" do
+      deliver(502)
+      assert flagged?()
+    end
+  end
+
   # Snoozing and erroring differ in ATTEMPT ACCOUNTING rather than in timing: `{:error, _}` burns one of the three attempts, while `{:snooze, n}` raises `max_attempts` to compensate. So a delivery that keeps erroring against a host that is down dies in about three minutes (Oban's ~16s/35s/110s) and never reaches the hours-long part of the backoff curve at all. Snoozing instead lets it ride out the outage, which is what the delivery age limit then has to bound. The cost is that a one-off blip waits the grace period rather than Oban's first 16s, which is a trade worth one simple rule.
   describe "a retryable failure that counts against the host" do
     test "snoozes rather than spending an attempt" do

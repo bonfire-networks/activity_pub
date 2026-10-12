@@ -1208,6 +1208,19 @@ defmodule ActivityPub.Object do
     repo().one(query)
   end
 
+  @doc "The `Flag`s `actor` sent about `object_id`. A report names what it is about in a list (an account and statuses, Mastodon's shape) or as one id (Lemmy's), so both are matched."
+  def get_existing_flags(actor, object_id) do
+    from(
+      object in Object,
+      where:
+        fragment("(?)->'object' @> to_jsonb(ARRAY[?]::text[])", object.data, ^object_id) or
+          fragment("(?)->>'object' = ?", object.data, ^object_id)
+    )
+    |> Queries.by_type("Flag")
+    |> Queries.by_actor(actor)
+    |> repo().all()
+  end
+
   #### Announce-related helpers
 
   @doc """

@@ -19,6 +19,17 @@ defmodule ActivityPub.Federator.Fetcher do
 
   import Untangle
 
+  # transport failures, as the Finch adapter unwraps them to bare atoms
+  @no_answer_errors [
+    :econnrefused,
+    :timeout,
+    :nxdomain,
+    :closed,
+    :econnreset,
+    :ehostunreach,
+    :enetunreach
+  ]
+
   @doc """
   Returns a cached object or fetches, stores, and returns it.
   Always returns `{:ok, %Object{}}` on success.
@@ -581,7 +592,7 @@ defmodule ActivityPub.Federator.Fetcher do
          uri <- URI.parse(id),
          true <-
            options[:force_instance_reachable] || Instances.reachable?(uri) ||
-             error("Instance was recently not reachable"),
+             error(Instances.written_off_reason(uri)),
          true <-
            not String.starts_with?(id, ActivityPub.Web.base_url()) || {:error, :is_local},
          format <-
@@ -657,6 +668,12 @@ defmodule ActivityPub.Federator.Fetcher do
   end
 
   defp handle_fetch_error(returned, id, options, status \\ nil, headers \\ nil) do
+    # a host that answered is up, whatever it answered, so it clears the flag as a 2xx does (a 2xx already did, before decoding). Only "I could not take this request" says otherwise, as for deliveries
+    with {:ok, %{status: code}} when is_integer(code) <- returned,
+         false <- ActivityPub.Federator.APPublisher.unreachable_status?(code) do
+      Instances.handle_successful_contact(id)
+    end
+
     case returned do
       {:ok, %{status: 401} = ret} ->
         debug(id, "Received a 401 - authentication required response")
@@ -745,7 +762,9 @@ defmodule ActivityPub.Federator.Fetcher do
             end
         end
 
-      {:error, :econnrefused} ->
+      # the host did not answer at all. Recorded for each of these, not only a refused connection, since `updated_at` is the last attempt: a probe of a host we gave up on that times out has to close the gate again, or every fetch to it waits out its own timeout
+      # {:error, :econnrefused} ->
+      {:error, reason} when reason in @no_answer_errors ->
         # cache_fetch_error(id)
         Instances.set_unreachable(id)
         error("Could not connect to ActivityPub remote")

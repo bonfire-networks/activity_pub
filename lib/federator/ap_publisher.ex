@@ -347,8 +347,15 @@ defmodule ActivityPub.Federator.APPublisher do
       debug(result, "remote responded with #{code}")
     else
       {_post_result, %{status: code, body: body} = response} ->
-        if unreachable_status?(code) and !params[:unreachable_since],
-          do: Instances.set_unreachable(inbox)
+        # recorded even when the job already knew the host was failing (`params[:unreachable_since]`): `set_unreachable` keeps the oldest timestamp, but its `updated_at` is the last attempt that pacing and probing read, and skipping it froze that at the first failure
+        # if unreachable_status?(code) and !params[:unreachable_since],
+        if unreachable_status?(code) do
+          Instances.set_unreachable(inbox)
+        else
+          # any other answer means the host is up, so it clears the flag just as a 2xx does (see `unreachable_status?/1`)
+          if !Map.has_key?(params, :unreachable_since) || params[:unreachable_since],
+            do: Instances.handle_successful_contact(inbox)
+        end
 
         SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
         maybe_observe_delivery(inbox, json, code, body)
@@ -361,11 +368,13 @@ defmodule ActivityPub.Federator.APPublisher do
         {:cancel, reason}
 
       {_post_result, response} when is_binary(response) or is_atom(response) ->
-        unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
+        # unless params[:unreachable_since], do: Instances.set_unreachable(inbox) -- recorded either way, see above
+        Instances.set_unreachable(inbox)
         error("could not push activity to #{inbox}, got: #{response}")
 
       {_post_result, response} ->
-        unless params[:unreachable_since], do: Instances.set_unreachable(inbox)
+        # unless params[:unreachable_since], do: Instances.set_unreachable(inbox) -- recorded either way, see above
+        Instances.set_unreachable(inbox)
         error(response, "could not push activity to #{inbox}, got")
         #  so we can see the result in Sentry
         {:error, "could not push activity to #{inbox}, got: #{inspect(response)}"}

@@ -299,6 +299,110 @@ defmodule ActivityPub.Federator.FetcherTest do
     end
   end
 
+  describe "a host past the reachability threshold" do
+    @probed_id "https://mastodon.local/@admin/99512778738411822"
+
+    test "is not fetched while it was tried recently" do
+      Instances.set_consistently_unreachable(@probed_id)
+
+      assert {:error, _} = Fetcher.fetch_object_from_id(@probed_id)
+    end
+
+    test "and the refusal says which host, since when, and when it will be probed" do
+      Instances.set_consistently_unreachable(@probed_id)
+
+      since =
+        ActivityPub.Instances.Instance.get_by_host("mastodon.local").unreachable_since
+        |> NaiveDateTime.to_date()
+        |> Date.to_iso8601()
+
+      assert {:error, reason} = Fetcher.fetch_remote_object_from_id(@probed_id)
+
+      assert reason =~ "mastodon.local",
+             "a search that finds nothing has to say which server it gave up on"
+
+      assert reason =~ since,
+             "and since when, which is what tells a stale write-off from a real outage"
+
+      assert reason =~ "next probe"
+    end
+
+    test "is probed once it is due, and a success clears it" do
+      Instances.set_consistently_unreachable(@probed_id)
+      last_attempted_a_window_ago("mastodon.local")
+
+      assert {:ok, _object} = Fetcher.fetch_object_from_id(@probed_id),
+             "searching a URL from a host that failed once weeks ago and has since recovered must work"
+
+      assert Instances.reachable?(@probed_id)
+
+      assert is_nil(
+               ActivityPub.Instances.Instance.get_by_host("mastodon.local").unreachable_since
+             )
+    end
+
+    test "and a probe that times out closes the gate again" do
+      id = "https://down.local/objects/1"
+      Instances.set_consistently_unreachable(id)
+      last_attempted_a_window_ago("down.local")
+
+      mock(fn %{url: "https://down.local" <> _} -> {:error, :timeout} end)
+
+      assert {:error, _} = Fetcher.fetch_remote_object_from_id(id)
+
+      refute Instances.reachable?(id),
+             "otherwise every fetch to a host that is still down waits out its own timeout"
+    end
+  end
+
+  # a host that answers is up, whatever it answered, as with deliveries (`APPublisher.unreachable_status?/1`)
+  describe "a flagged host that answers a fetch" do
+    @answering_id "https://answering.local/objects/gone"
+
+    setup do
+      Instances.set_unreachable(@answering_id)
+
+      refute is_nil(
+               ActivityPub.Instances.Instance.get_by_host("answering.local").unreachable_since
+             )
+
+      :ok
+    end
+
+    test "with a 404 is cleared" do
+      mock(fn %{url: "https://answering.local" <> _} -> %Tesla.Env{status: 404, body: ""} end)
+
+      Fetcher.fetch_remote_object_from_id(@answering_id)
+
+      assert is_nil(
+               ActivityPub.Instances.Instance.get_by_host("answering.local").unreachable_since
+             ),
+             "the object is gone, the host is not"
+    end
+
+    test "but not with a 502, which is the host not answering" do
+      mock(fn %{url: "https://answering.local" <> _} -> %Tesla.Env{status: 502, body: ""} end)
+
+      Fetcher.fetch_remote_object_from_id(@answering_id)
+
+      refute is_nil(
+               ActivityPub.Instances.Instance.get_by_host("answering.local").unreachable_since
+             )
+    end
+  end
+
+  # just past the moment a written-off host is due a probe, whatever that is configured to
+  defp last_attempted_a_window_ago(host) do
+    now = NaiveDateTime.utc_now(Calendar.ISO) |> NaiveDateTime.truncate(:second)
+    %{unreachable_since: since} = ActivityPub.Instances.Instance.get_by_host(host)
+    window = Instances.dead_probe_sec(NaiveDateTime.diff(now, since))
+
+    repo().update_all(
+      Ecto.Query.from(i in ActivityPub.Instances.Instance, where: i.host == ^host),
+      set: [updated_at: NaiveDateTime.add(now, -window - 60)]
+    )
+  end
+
   describe "implementation quirks" do
     test "it can fetch plume articles" do
       {:ok, object} =

@@ -97,6 +97,51 @@ defmodule ActivityPub.Instances do
     end
   end
 
+  @doc """
+  How long to leave a host we have given up on before probing it again, given how many seconds it has been failing.
+
+  Giving up stops deliveries and fetches, which are the only things that would notice a host coming back, so without a probe a host that failed long enough once stays blocked forever. The probe is the next real delivery or fetch for the host, never a scheduled request. The wait grows with the outage, since the longer a host has been down the more likely it is gone for good.
+
+  Tuned by `:federation_dead_probe_fraction` (what share of the outage so far to wait) and `:federation_dead_probe_cap_sec` (the longest wait, which is also the longest a recovered host can go unnoticed).
+  """
+  def dead_probe_sec(seconds_failing) do
+    min(
+      div(seconds_failing, dead_probe_fraction()),
+      dead_probe_cap_sec()
+    )
+  end
+
+  @doc "Whether a host we have given up on is due a probe, from when it started failing and when we last tried it."
+  def dead_probe_due?(
+        %NaiveDateTime{} = unreachable_since,
+        %NaiveDateTime{} = last_attempt,
+        now \\ NaiveDateTime.utc_now(Calendar.ISO)
+      ) do
+    NaiveDateTime.diff(now, last_attempt) >=
+      dead_probe_sec(NaiveDateTime.diff(now, unreachable_since))
+  end
+
+  @doc "Why requests to a host we have given up on are refused: which host, since when, and when it will next be probed."
+  def written_off_reason(url_or_host) do
+    with host when is_binary(host) <- host(url_or_host),
+         %Instance{unreachable_since: %NaiveDateTime{} = since, updated_at: last_attempt} <-
+           Instance.get_by_host(host) do
+      now = NaiveDateTime.utc_now(Calendar.ISO)
+      failing = NaiveDateTime.diff(now, since)
+      next_probe = max(dead_probe_sec(failing) - NaiveDateTime.diff(now, last_attempt), 0)
+
+      "#{host} has been unreachable since #{NaiveDateTime.to_date(since)} (#{div(failing, 86_400)} days), next probe in #{about(next_probe)}"
+    else
+      _ -> "Instance is not reachable"
+    end
+  end
+
+  defp about(seconds) when seconds >= 2 * 86_400, do: "~#{div(seconds, 86_400)} days"
+  defp about(seconds), do: "~#{max(div(seconds, 3600), 1)}h"
+
+  def dead_probe_fraction, do: instance_config(:federation_dead_probe_fraction, 10)
+  def dead_probe_cap_sec, do: instance_config(:federation_dead_probe_cap_sec, 7 * 86_400)
+
   def reachability_datetime_threshold do
     federation_reachability_timeout_days =
       Application.get_env(:activity_pub, :instance, [])[

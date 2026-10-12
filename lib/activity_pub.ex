@@ -825,6 +825,34 @@ defmodule ActivityPub do
     end
   end
 
+  @doc "Withdraws a report: an `Undo` of the stored `Flag`, from the actor who sent it and to whoever it went to, since only its sender may undo it."
+  def unflag(%{flag: %Object{data: %{"type" => "Flag"} = flag_data}} = params, opts \\ []) do
+    actor =
+      case Actor.get_cached(ap_id: flag_data["actor"]) do
+        {:ok, actor} -> actor
+        _ -> nil
+      end
+
+    with {:ok, activity} <-
+           %{
+             "type" => "Undo",
+             "actor" => flag_data["actor"],
+             "object" => flag_data,
+             "to" => flag_data["to"] || [],
+             "cc" => flag_data["cc"] || []
+           }
+           |> Utils.maybe_put("bcc", flag_data["bcc"])
+           |> Utils.maybe_put("id", params[:activity_id])
+           |> Object.insert(Map.get(params, :local, true), Map.get(params, :pointer), opts),
+         :ok <- maybe_federate(actor, activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
+         activity <- Map.put(activity, :pointer, adapter_object) do
+      {:ok, activity}
+    else
+      error -> error(error, "Could not withdraw the report")
+    end
+  end
+
   @spec move(Actor.t(), Actor.t(), boolean()) :: {:ok, Object.t()} | {:error, any()}
   def move(
         %{ap_id: origin_ap_id, data: origin_data} = _origin,

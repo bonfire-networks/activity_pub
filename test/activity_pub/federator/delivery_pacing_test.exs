@@ -113,6 +113,62 @@ defmodule ActivityPub.Federator.DeliveryPacingTest do
     end
   end
 
+  # A queued delivery carries the `unreachable_since` its host had when the job was enqueued, as a string since it went through the job's JSON args. So during an outage the probe that wakes is one that already knows the host is failing, and its failure has to be recorded all the same: `updated_at` is the last attempt that pacing reads, and if it stays at the first failure the window passes once and never closes again
+  describe "a probe that fails" do
+    setup do
+      mock(fn %{method: :post} -> %Tesla.Env{status: 502, body: ""} end)
+
+      {:ok, actor} = ActivityPub.Actor.get_cached(username: local_actor().username)
+
+      %{actor: actor}
+    end
+
+    defp probe(actor, extra_params) do
+      APPublisher.publish_one(
+        Map.merge(
+          %{
+            actor: actor,
+            inbox: @inbox,
+            json: Jason.encode!(%{"type" => "Announce"}),
+            id: "https://local.local/pub/objects/probe"
+          },
+          extra_params
+        )
+      )
+    end
+
+    test "from a job queued before the host started failing restarts the window", %{
+      actor: actor
+    } do
+      failing_for(3600, 3600)
+
+      refute Instances.pacing_snooze_sec(@inbox),
+             "the window has passed, so this delivery is the probe"
+
+      probe(actor, %{unreachable_since: nil})
+
+      assert Instances.pacing_snooze_sec(@inbox),
+             "the probe failed, so the deliveries queued behind it should go back to sleep"
+    end
+
+    test "and so does one from a job queued during the outage", %{actor: actor} do
+      failing_for(3600, 3600)
+
+      refute Instances.pacing_snooze_sec(@inbox),
+             "the window has passed, so this delivery is the probe"
+
+      since =
+        NaiveDateTime.utc_now(Calendar.ISO)
+        |> NaiveDateTime.add(-3600)
+        |> NaiveDateTime.to_iso8601()
+
+      probe(actor, %{unreachable_since: since})
+
+      assert Instances.pacing_snooze_sec(@inbox),
+             "the probe failed, so the deliveries queued behind it should go back to sleep, however the job learned the host was failing"
+    end
+  end
+
   # Because snoozing raises `max_attempts` every time, a delivery riding the backoff curve never runs out of attempts by itself: something has to decide it is too late to bother. Staleness is that something, since an activity delivered long enough after the fact is worse than one never delivered, as the post may have been edited or deleted and the `Follow` revoked, and nothing guarantees the `Delete` we queued behind it arrives after it.
   describe "a delivery that has been waiting too long" do
     setup do

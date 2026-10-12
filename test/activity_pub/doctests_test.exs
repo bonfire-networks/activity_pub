@@ -3,7 +3,7 @@ defmodule ActivityPub.DocTest do
 
   doctest ActivityPub.Federator.Worker.ReceiverRouter
   doctest ActivityPub.Federator.Workers.PublisherWorker
-  doctest ActivityPub.Utils, only: [ascii_host: 1]
+  doctest ActivityPub.Utils, only: [ascii_host: 1, safe_percent_decode: 1]
   # the ex_confusables fork's own suite doesn't run in the umbrella
   doctest ExConfusables, only: [normalize: 1]
 end

@@ -25,8 +25,8 @@ defmodule ActivityPub.Federator.WebFinger do
   def finger(account, opts \\ []) do
     account =
       case String.split(String.trim_leading(account, "@"), "@") do
-        # the host goes into both the URL and the `acct:` resource, so it must be an A-label
-        [name, domain] -> name <> "@" <> Utils.ascii_host(domain)
+        # in an `acct:` URI (RFC 7565) the userpart is percent-encoded and the host is an A-label, see https://swicg.github.io/activitypub-webfinger/internationalized
+        [name, domain] -> acct_userpart(name) <> "@" <> Utils.ascii_host(domain)
         _ -> String.trim_leading(account, "@")
       end
 
@@ -78,12 +78,18 @@ defmodule ActivityPub.Federator.WebFinger do
     end
   end
 
+  # percent-encodes all but the unreserved and sub-delims characters RFC 7565 allows as is (so `anne.o'neill+notes` stays the same, while `ελπίδα` becomes `%CE%B5…`)
+  defp acct_userpart(name),
+    do: URI.encode(name, &(URI.char_unreserved?(&1) or &1 in ~c"!$&'()*+,;="))
+
   def output(resource) do
     # the username is anchored so only an exact one matches, since a partial match would serve another user (e.g. `jos` for `josé`). It may have a type prefix (`&` for groups, `+` for topics). Any host is accepted, as before, since a handle's domain can differ from the instance's.
+    # the userpart arrives percent-encoded from software following RFC 7565, raw from others
     with %{"username" => username} <-
            Regex.named_captures(
              ~r/^[@&+]?(?<username>[\p{L}\p{M}\p{N}_.-]+)(@[^@]+)?$/u,
-             resource
+             # a malformed escape is left as is, and then matches no user
+             Utils.safe_percent_decode(resource)
            ),
          {:ok, actor} <- Actor.get_cached(username: username) do
       {:ok, represent_user(actor)}

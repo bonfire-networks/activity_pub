@@ -101,6 +101,21 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  @doc """
+  Percent-decodes a string from untrusted input. `URI.decode/1` raises on a malformed escape, so such a string is returned as is.
+
+      iex> ActivityPub.Utils.safe_percent_decode("%D0%B8%D0%B2%D0%B0%D0%BD")
+      "иван"
+
+      iex> ActivityPub.Utils.safe_percent_decode("100%zz")
+      "100%zz"
+  """
+  def safe_percent_decode(string) when is_binary(string) do
+    if String.match?(string, ~r/%(?![0-9A-Fa-f]{2})/),
+      do: string,
+      else: URI.decode(string)
+  end
+
   @doc "Builds a base URL (scheme://host[:port]) from a URI, omitting standard ports."
   def base_url(%{scheme: scheme, host: host} = uri) when is_binary(scheme) and is_binary(host),
     do: scheme <> "://" <> authority(uri)

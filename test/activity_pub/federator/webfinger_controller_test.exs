@@ -61,6 +61,37 @@ defmodule ActivityPub.Web.WebFingerControllerTest do
     assert result == "Could not find user"
   end
 
+  # per RFC 7565 the userpart of an `acct:` URI is percent-encoded (https://swicg.github.io/activitypub-webfinger/internationalized), though some software sends it raw
+  test "webfinger finds a non-ASCII username sent percent-encoded or raw" do
+    Process.put([:bonfire_me, Bonfire.Me.Characters, :unicode_usernames], true)
+    actor = local_actor(%{username: "ελπίδα", name: "Test ελπίδα"})
+    assert actor.username == "ελπίδα"
+
+    for resource <- [
+          "acct:%CE%B5%CE%BB%CF%80%CE%AF%CE%B4%CE%B1@#{endpoint().host()}",
+          "acct:ελπίδα@#{endpoint().host()}"
+        ] do
+      response =
+        build_conn()
+        |> put_req_header("accept", "application/json")
+        |> get("/.well-known/webfinger?" <> URI.encode_query(%{"resource" => resource}))
+
+      assert json_response(response, 200)["subject"] =~ "@#{endpoint().host()}"
+    end
+  end
+
+  test "a malformed percent-encoding in the resource is a 404, not an error" do
+    response =
+      build_conn()
+      |> put_req_header("accept", "application/json")
+      |> get(
+        "/.well-known/webfinger?" <>
+          URI.encode_query(%{"resource" => "acct:%zz@#{endpoint().host()}"})
+      )
+
+    assert json_response(response, 404)
+  end
+
   # handles may carry a type prefix, e.g. `&` for groups or `+` for topics
   for prefix <- ["@", "&", "+"] do
     test "webfinger with a #{prefix} prefix on the username" do

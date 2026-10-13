@@ -463,6 +463,10 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_openness(%{"manuallyApprovesFollowers" => false} = data),
     do: Map.put(data, "openness", "open")
 
+  # Smithereen's `litepub:capabilities.acceptsJoins` (which we send too) says people JOIN it, the least specific of the three, so it fills `openness` in only when neither of the above did: joinable, with nothing saying approval is needed. `false` says it is follow-only, which no `openness` value means, so it sets none
+  def fix_openness(%{"capabilities" => %{"acceptsJoins" => true}} = data),
+    do: Map.put(data, "openness", "open")
+
   def fix_openness(data), do: data
 
   def fix_actor(data) do

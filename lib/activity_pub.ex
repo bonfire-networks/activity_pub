@@ -775,7 +775,8 @@ defmodule ActivityPub do
            }
            |> Utils.maybe_put("summary", opts[:summary])
            |> Utils.maybe_put("audience", opts[:audience]),
-         {:ok, activity} <- Object.insert(data, is_local?, nil, opts),
+         # the local record it stands for, when the caller gives one (eg. a moderator's removal and its moderation record)
+         {:ok, activity} <- Object.insert(data, is_local?, opts[:pointer], opts),
          :ok <- maybe_federate(actor, activity, opts) |> debug("maybe_federated"),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do

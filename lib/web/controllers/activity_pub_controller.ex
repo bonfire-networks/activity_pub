@@ -257,13 +257,23 @@ defmodule ActivityPub.Web.ActivityPubController do
 
   defp delegate_by_actor_id(conn, id, params, fun) do
     case Actor.get_cached(pointer: id) do
-      {:ok, %{username: username}} when is_binary(username) ->
-        fun.(conn, Map.put(params, "username", username))
+      {:ok, %{username: username} = actor} when is_binary(username) ->
+        fun.(conn, Map.put(params, "username", local_tombstone_username(actor) || username))
 
       _ ->
         Utils.error_json(conn, "not found", 404)
     end
   end
+
+  # a deleted local actor is found by pointer as its tombstone, formatted like a remote actor, so its username is `name@host`, while the username routes look a local one up by its bare name (`actor_json/1` finds the tombstone by `preferredUsername`). Without this a peer re-fetching a deleted actor by its id URL, its AP id since the ULID cutoff, gets a "not found" instead of the tombstone. Only for a local tombstone: for a remote actor the bare name could be someone else here
+  defp local_tombstone_username(%{
+         local: true,
+         data: %{"type" => "Tombstone", "preferredUsername" => username}
+       })
+       when is_binary(username),
+       do: username
+
+  defp local_tombstone_username(_), do: nil
 
   defp actor_with_cache(conn, username) do
     Utils.json_with_cache(conn, &actor_json/1, :ap_actor_cache, username)

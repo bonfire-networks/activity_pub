@@ -145,7 +145,7 @@ defmodule ActivityPub.Config do
   def singleton_collection_types,
     do:
       get([:instance, :singleton_collection_types]) ||
-        ["keyPackages", "featured", "moderators", "members"]
+        ["keyPackages", "featured", "moderators", "members", "narrower"]
 
   @doc "Collection types served as `OrderedCollection` rather than `Collection` (order is significant — e.g. MLS keyPackages, Mastodon featured)."
   def ordered_collection_types,

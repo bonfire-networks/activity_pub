@@ -1190,17 +1190,24 @@ defmodule ActivityPub do
   end
 
   @doc "Reopens a thread closed by `lock/2`, as `Undo{Lock}` — the same shape Lemmy uses to reverse one."
-  def unlock(%{actor: actor, object: object} = params, opts \\ []) do
-    with lock_activity <-
-           Object.get_activity_for_object_ap_id(object.data["id"], "Lock"),
-         true <- not is_nil(lock_activity) || error(object, "found no Lock to undo"),
+  def unlock(%{actor: _, object: _} = params, opts \\ []), do: undo_latest("Lock", params, opts)
+
+  @doc "Takes back the latest `Delete` of `object`, as `Undo{Delete}`: how Lemmy restores a deleted (archived) community, whose `deleted` flag nothing else clears."
+  def undelete(%{actor: _, object: _} = params, opts \\ []),
+    do: undo_latest("Delete", params, opts)
+
+  # an `Undo` of the latest activity of `type` on `object`, addressed as that activity was, so it reaches whoever the original did
+  defp undo_latest(type, %{actor: actor, object: object} = params, opts) do
+    with activity <-
+           Object.get_activity_for_object_ap_id(object.data["id"], type),
+         true <- not is_nil(activity) || error(object, "found no #{type} to undo"),
          undo_data <-
            %{
              "type" => "Undo",
              "actor" => actor.data["id"],
-             "object" => lock_activity.data,
-             "to" => lock_activity.data["to"] || [ActivityPub.Config.public_uri()],
-             "cc" => lock_activity.data["cc"] || []
+             "object" => activity.data,
+             "to" => activity.data["to"] || [ActivityPub.Config.public_uri()],
+             "cc" => activity.data["cc"] || []
            }
            |> Utils.maybe_put("id", params[:activity_id]),
          {:ok, activity} <-

@@ -924,6 +924,19 @@ defmodule ActivityPub.Actor do
     save_actor_tombstone(actor, tombstone)
   end
 
+  @doc """
+  Turns a local actor's tombstone back into the actor, when what it marked is restored (eg. an archived group unarchived): removes the stored tombstone and clears the caches, so lookups reach the adapter's live actor again. Lookups by pointer read a stored object before the adapter (`get/1`), so a leftover tombstone would keep answering for a restored actor.
+  """
+  def undo_tombstone(%Actor{ap_id: ap_id} = actor) when is_binary(ap_id) do
+    with {:ok, %Object{data: %{"type" => "Tombstone"}} = tombstone} <-
+           Object.get_uncached(ap_id: ap_id) do
+      Object.hard_delete(tombstone)
+    end
+
+    invalidate_cache(actor)
+    {:ok, actor}
+  end
+
   def save_actor_tombstone(%Actor{} = actor, tombstone) do
     case update_actor_data(actor, tombstone, false) do
       {:ok, del} ->

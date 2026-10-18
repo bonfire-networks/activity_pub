@@ -2073,6 +2073,32 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # restoring an actor a `Delete` took away, eg. a Lemmy community (or one of our groups) deleted and restored at its origin, as `Undo{Delete}`. Believed only once its origin serves the actor again, as a deletion is only believed once the origin stops serving the object (`handle_remote_delete/4`). The adapter restores its local copy first: a refresh alone would find no copy to update and create a second one
+  def handle_incoming(
+        %{
+          "type" => "Undo",
+          "object" => %{"type" => "Delete", "object" => deleted}
+        } = _data,
+        opts
+      ) do
+    info("Handle incoming undo of a deletion")
+
+    object_id = Object.get_ap_id(deleted)
+
+    with {:ok, %{"type" => type}} when is_in(type, :supported_actor_types) <-
+           Fetcher.fetch_remote_object_from_id(object_id) |> debug("served again?"),
+         {:ok, _} <- Adapter.call_or(:undelete_remote_actor, [object_id], {:ok, nil}),
+         {:ok, actor} <- Actor.update_actor(object_id, nil, true) do
+      {:ok, actor}
+    else
+      {:ok, %{"type" => _not_an_actor}} ->
+        error(object_id, "Only the restoring of an actor is supported")
+
+      e ->
+        error(e, "Could not handle an incoming Undo of a Delete")
+    end
+  end
+
   # FEP-400e: adding/removing an object to/from a collection (e.g. keyPackages per MLS-over-AP).
   # Explicit clause so the side-effect runs regardless of the `handle_unknown_activities` flag.
   # TODO: FEP-400e — on an accepted Add to a local collection, fan out the Add to the owner's followers

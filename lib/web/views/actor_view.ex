@@ -96,7 +96,9 @@ defmodule ActivityPub.Web.ActorView do
       fetch: fetch,
       count: count,
       ordered?: false,
-      items_key: "orderedItems"
+      items_key: "orderedItems",
+      # the host may serve how many follow and not who (a group's roster)
+      listed?: which != "followers" or Adapter.items_listed?(actor, "followers")
     )
   end
 end

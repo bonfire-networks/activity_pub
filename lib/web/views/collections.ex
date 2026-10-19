@@ -25,8 +25,24 @@ defmodule ActivityPub.Web.Collections do
   - `:items_key` — override just the items key. The followers collection is a plain `Collection` that has always carried `orderedItems`, and changing that would be a wire change unrelated to this refactor
   - `:extra` — merged into the top-level document
   - `:inline` — serve the items IN the top-level document, with no `first` and a `last` for whatever does not fit. This is the shape a Group's outbox needs
+  - `:listed?` — defaults to true. When false the items are not served: only `id`, `type`, `totalItems` and `:extra`, for the top level and for any page asked for, and `:fetch` is never called. This is the "hidden collection" shape Mastodon uses. An empty page would not do, since `next` is `offset + items < total`, so a count with no items would link on to empty pages for ever
   """
   def collection(iri, opts) do
+    if Keyword.get(opts, :listed?, true),
+      do: listed_collection(iri, opts),
+      else: unlisted_collection(iri, opts)
+  end
+
+  defp unlisted_collection(iri, opts) do
+    %{
+      "id" => iri,
+      "type" => collection_type(Keyword.get(opts, :ordered?, true)),
+      "totalItems" => Keyword.fetch!(opts, :count).()
+    }
+    |> Map.merge(Keyword.get(opts, :extra, %{}))
+  end
+
+  defp listed_collection(iri, opts) do
     fetch = Keyword.fetch!(opts, :fetch)
     page_size = Keyword.get(opts, :page_size, @page_size)
     ordered? = Keyword.get(opts, :ordered?, true)

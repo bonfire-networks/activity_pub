@@ -134,11 +134,20 @@ defmodule ActivityPub.Web.ObjectView do
       extra: maybe_order_type(collection),
       # served whole, items inline and no `first`, for the same reason a GROUP's outbox is (see `render("outbox.json", …)`): the implementations that read these do not follow pages, so a paged one reads as empty
       inline: inline_collection?(collection),
+      # the host may serve a count and not who is in it (a group's members)
+      listed?: items_listed?(collection),
       fetch: fn page, limit ->
         collection_items(collection, page, limit, embed?)
       end
     )
     |> Map.merge(Utils.make_json_ld_header(:object))
+  end
+
+  defp items_listed?(collection) do
+    case ActivityPub.Utils.parse_collection_ap_id(collection.data["id"]) do
+      {:ok, type, _uuid} -> Adapter.items_listed?(collection, type)
+      _ -> true
+    end
   end
 
   defp inline_collection?(collection) do

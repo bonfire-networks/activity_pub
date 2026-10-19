@@ -83,4 +83,49 @@ defmodule ActivityPub.Web.CollectionsTest do
     assert unordered["type"] == "Collection"
     assert unordered["first"]["type"] == "CollectionPage"
   end
+
+  # A host that does not list who is in a collection (a group's members, say) still says how many. Handing back an empty page would link on to page after empty page, since `next` is `offset + items < total` and a total of 5 with no items is always short.
+  describe "a collection whose items are not listed" do
+    defp unlisted(opts) do
+      Collections.collection(
+        "/members",
+        Keyword.merge(
+          [
+            fetch: fn _page, _page_size -> flunk("the items must not even be fetched") end,
+            count: count(5),
+            listed?: false
+          ],
+          opts
+        )
+      )
+    end
+
+    test "serves its id, type and count, and nothing to page through" do
+      assert unlisted([]) == %{
+               "id" => "/members",
+               "type" => "OrderedCollection",
+               "totalItems" => 5
+             }
+    end
+
+    test "serves the same for any page asked for, so the page number reveals nothing" do
+      for page <- [1, 2, 9] do
+        served = unlisted(page: page)
+
+        assert served["totalItems"] == 5
+        refute Map.has_key?(served, "next"), "page #{page} links on"
+        refute Map.has_key?(served, "orderedItems"), "page #{page} lists items"
+      end
+    end
+
+    test "keeps what the caller adds to the top level" do
+      assert unlisted(extra: %{"orderType" => "x"})["orderType"] == "x"
+    end
+
+    test "control: listed by default" do
+      top = Collections.collection("/members", fetch: fetch(5), count: count(5))
+
+      assert top["first"]["orderedItems"] == [1, 2, 3, 4, 5]
+    end
+  end
 end

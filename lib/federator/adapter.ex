@@ -365,6 +365,17 @@ defmodule ActivityPub.Federator.Adapter do
   defp default_collection_total(_collection), do: 0
 
   @doc """
+  Whether to serve the items of a collection, or only how many there are (`totalItems`).
+
+  `subject` is a Collection `%Object{}`, or the `%Actor{}` whose `followers` are asked for, and `kind` is the collection type (`"members"`, `"followers"`, ...). Optional callback, polyfilled as `true`: a host answers `false` for a collection whose list it does not want to publish, such as the roster of a group. See `ActivityPub.Web.Collections.collection/2` (`:listed?`).
+  """
+  @callback items_listed?(Object.t() | Actor.t(), binary()) :: boolean()
+  def items_listed?(subject, kind) do
+    not function_exported?(adapter(), :items_listed?, 2) or
+      adapter().items_listed?(subject, kind) != false
+  end
+
+  @doc """
   Whether the host adapter has a handler registered for the given `query` — a cheap registry lookup
   (no fetching). `query` can be a verb/object type string, a `{verb, object_type}` tuple, a
   `{:collection, type}` tuple, etc. Lets the lib infer routing without querying members — e.g.

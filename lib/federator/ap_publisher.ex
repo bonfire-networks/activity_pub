@@ -463,7 +463,7 @@ defmodule ActivityPub.Federator.APPublisher do
       cond do
         # Accept/Reject, a Follow, a Like, and the Undo of either, are for the one actor they address. Neither is public, so without this they reach the fallback below, which sends to every follower allowed to see the object: all of them, for a public post
         is_in(activity_data["type"], @addressed_only_types) or
-            undo_of_addressed_only?(activity_data) ->
+          undo_of_addressed_only?(activity_data) or group_ban?(activity_data) ->
           []
 
         # When handling Flag activities, we need special recipient handling
@@ -498,6 +498,14 @@ defmodule ActivityPub.Federator.APPublisher do
     do: type in @addressed_only_types
 
   defp undo_of_addressed_only?(_), do: false
+
+  # A group's ban (a `Block`, or the `Undo` of one, naming the group as its `target`) is addressed to Public so the group can relay it, but is not for the moderator's own followers: Mastodon, Pleroma and Akkoma read any `Block` that reaches their inbox as the moderator blocking the person, whatever its `target`
+  defp group_ban?(%{"type" => "Block", "target" => target}), do: not is_nil(target)
+
+  defp group_ban?(%{"type" => "Undo", "object" => %{"type" => "Block", "target" => target}}),
+    do: not is_nil(target)
+
+  defp group_ban?(_), do: false
 
   defp get_external_followers_except(actor, purpose, addressed_pointer_ids) do
     exclude_set = MapSet.new(addressed_pointer_ids)

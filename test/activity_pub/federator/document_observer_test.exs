@@ -171,6 +171,15 @@ defmodule ActivityPub.Web.DocumentObserverTest do
 
       assert context.body == "unknown field `audience`",
              "the body is where a receiver says WHY, and it is the whole point of observing this"
+
+      # the request as sent, which is what a refused delivery has to be compared with an accepted one by
+      json = Jason.encode!(document)
+
+      assert context.request.body_bytes == byte_size(json)
+      assert context.request.headers["content-type"] == "application/activity+json"
+
+      assert context.request.body_sha256 == context.request.headers["digest"],
+             "the digest header we send is the SHA-256 of the exact body bytes"
     end
 
     test "a 2xx is observed too, since acceptance is the answer we are usually looking for" do

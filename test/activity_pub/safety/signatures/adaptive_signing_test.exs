@@ -50,6 +50,46 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       end
     end
 
+    # NodeBB compares a `digest` header, whenever one is present, with the RFC 3230 form of the body's hash (`SHA-256=<base64>`), and refuses the request with a 400 when it differs. An RFC 9421 request signs `content-digest` (`sha-256=:<base64>:`, RFC 9530) and has no need of `digest`, but must not send one in the wrong form. Found against activitypub.space on 20 October: the first request to it (a `Follow`) went out draft-cavage and was accepted, its `Accept-Signature` answer then moved the host to RFC 9421, and every later request was refused.
+    test "an RFC 9421 delivery sends no digest header that disagrees with the body" do
+      actor = local_actor()
+      {:ok, ap_actor} = ActivityPub.Actor.get_cached(username: actor.username)
+
+      host = "rfc-digest-#{System.unique_integer([:positive])}.example.com"
+      inbox = "https://#{host}/inbox"
+      json = ~s[{"type":"Create"}]
+
+      SignaturesAdapter.put_signature_format(host, :rfc9421)
+
+      with_mock ActivityPub.Federator.HTTP,
+        post: fn ^inbox, body, headers ->
+          headers = Map.new(headers, fn {k, v} -> {String.downcase(k), v} end)
+          hash = Base.encode64(:crypto.hash(:sha256, body))
+
+          assert headers["content-digest"] == "sha-256=:#{hash}:",
+                 "control: the RFC 9530 digest that the signature covers is right"
+
+          case headers["digest"] do
+            nil ->
+              :ok
+
+            digest ->
+              assert digest == "SHA-256=#{hash}",
+                     "a `digest` header is RFC 3230, `SHA-256=<base64>`, and not the RFC 9530 value, got #{inspect(digest)}"
+          end
+
+          {:ok, %{status: 202, headers: []}}
+        end do
+        assert {:ok, _} =
+                 APPublisher.publish_one(%{
+                   json: json,
+                   actor: ap_actor,
+                   inbox: inbox,
+                   id: "https://localhost/activities/test-rfc-digest"
+                 })
+      end
+    end
+
     test "uses draft-cavage signing when host format is :cavage" do
       actor = local_actor()
       {:ok, ap_actor} = ActivityPub.Actor.get_cached(username: actor.username)

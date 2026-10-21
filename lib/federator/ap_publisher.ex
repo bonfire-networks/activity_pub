@@ -290,10 +290,11 @@ defmodule ActivityPub.Federator.APPublisher do
       debug(sig_input, "RFC 9421 outgoing signature-input")
       debug(headers, "RFC 9421 outgoing headers/components")
 
+      # no `digest` header: RFC 9530 obsoletes it for `content-digest`, which is what the signature covers, and the RFC 9530 value is not a valid RFC 3230 `digest` (NodeBB compares a `digest` it finds to the RFC 3230 form and refuses the request)
       do_publish_one(
         params,
         Utils.format_date(),
-        content_digest,
+        nil,
         [{"signature-input", sig_input}, {"signature", sig}, {"content-digest", content_digest}]
       )
     else
@@ -327,23 +328,21 @@ defmodule ActivityPub.Federator.APPublisher do
   defp do_publish_one(%{inbox: inbox, json: json, id: id} = params, date, digest, headers \\ []) do
     info(inbox, "Federating #{id} to")
 
+    request_headers =
+      headers ++
+        [
+          {"content-type", "application/activity+json"},
+          {"date", date}
+        ] ++ if(digest, do: [{"digest", digest}], else: [])
+
     with result = {:ok, %{status: code} = response} when code in 200..299 <-
-           HTTP.post(
-             inbox,
-             json,
-             headers ++
-               [
-                 {"content-type", "application/activity+json"},
-                 {"date", date},
-                 {"digest", digest}
-               ]
-           ) do
+           HTTP.post(inbox, json, request_headers) do
       if !Map.has_key?(params, :unreachable_since) ||
            params[:unreachable_since],
          do: Instances.handle_successful_contact(inbox)
 
       SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
-      maybe_observe_delivery(inbox, json, code, Map.get(response, :body))
+      maybe_observe_delivery(inbox, json, code, Map.get(response, :body), request_headers)
       debug(result, "remote responded with #{code}")
     else
       {_post_result, %{status: code, body: body} = response} ->
@@ -358,7 +357,7 @@ defmodule ActivityPub.Federator.APPublisher do
         end
 
         SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
-        maybe_observe_delivery(inbox, json, code, body)
+        maybe_observe_delivery(inbox, json, code, body, request_headers)
 
         delivery_refused(inbox, code, body, Map.get(response, :headers, []))
 
@@ -427,7 +426,7 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   # The outgoing half of `ActivityPub.Observer`: what we sent, where, and what they made of it. Only decodes when someone is watching, since a delivery otherwise never needs the payload parsed. Transport failures with no HTTP response are skipped: there is no answer to record.
-  defp maybe_observe_delivery(inbox, json, status, body) do
+  defp maybe_observe_delivery(inbox, json, status, body, request_headers) do
     if ActivityPub.Observer.observing?() do
       case Jason.decode(json) do
         {:ok, document} ->
@@ -435,7 +434,13 @@ defmodule ActivityPub.Federator.APPublisher do
             source: :delivery,
             url: inbox,
             status: status,
-            body: body
+            body: body,
+            # what we sent, so a refusal can be compared with a request that was accepted: the signed headers as sent, and the size and SHA-256 of the exact body bytes that the `digest` header has to match
+            request: %{
+              headers: Map.new(request_headers, fn {name, value} -> {to_string(name), value} end),
+              body_bytes: byte_size(json),
+              body_sha256: "SHA-256=" <> Base.encode64(:crypto.hash(:sha256, json))
+            }
           })
 
         _ ->

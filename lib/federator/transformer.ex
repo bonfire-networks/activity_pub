@@ -1536,6 +1536,21 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # A group relaying a post of OURS back to us (how a community says it accepted what we published into it) carries our own `Create`. Applying it as a new incoming one would create the post a second time, so it is left as it is, and only the announce of it (the group's boost) is recorded by the caller.
+  defp handle_relayed_inner(inner_activity, true = _relays_a_post?, opts) do
+    case Object.get_cached(ap_id: Object.get_ap_id(inner_activity["object"])) do
+      {:ok, %Object{local: true} = ours} ->
+        info(ours.data["id"], "the relayed post is ours, not creating it again")
+        {:ok, ours}
+
+      _ ->
+        handle_incoming(inner_activity, opts)
+    end
+  end
+
+  defp handle_relayed_inner(inner_activity, _relays_a_post?, opts),
+    do: handle_incoming(inner_activity, opts)
+
   defp handle_relayed_activity(data, inner_activity, relays_a_post?, opts) do
     with false <-
            relays_a_post? and
@@ -1543,8 +1558,9 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
          # who relayed it, so the adapter can tell a post this group accepted from one that only names it
          {:ok, inner} <-
-           handle_incoming(
+           handle_relayed_inner(
              inner_activity,
+             relays_a_post?,
              Keyword.put(opts, :relayed_by, Object.get_ap_id(data["actor"]))
            ) do
       if relays_a_post? do

@@ -2,7 +2,9 @@ defmodule ActivityPub.Test.IntegrityProofHelpers do
   @moduledoc """
   Builds signed documents for tests, with throwaway keys, using the same hashing as verification (`ActivityPub.Safety.IntegrityProofs.Proof`).
 
-  Not the signer: that is a later phase of FEP-8b32 and will live in `lib/`. This only makes inputs, so that a test can change one thing about a document (its owner, the proof's `domain`, its expiry) and sign it again. The spec vectors and the captures from Mitra are what show the construction itself is right.
+  Not the signer, `ActivityPub.Safety.IntegrityProofs.sign/3`, which signs as one of our own actors: this signs as anyone, with a key the test holds, so that a test can play a remote author, or change one thing about a document (its owner, the proof's `domain`, its expiry) and sign it again. The spec vectors and the captures from Mitra are what show the construction itself is right.
+
+  In `lib/testing` rather than `test/support` so the tests of an application using this library can use it too.
   """
 
   alias ActivityPub.Safety.IntegrityProofs.Proof

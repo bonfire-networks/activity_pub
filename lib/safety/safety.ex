@@ -43,7 +43,7 @@ defmodule ActivityPub.Safety do
   Whether a copy of a document should replace the one we hold, as `incoming_data` with the `incoming_authenticated` value it arrived with, against the stored `%ActivityPub.Object{}`.
 
     * a copy somebody vouched for replaces the stored one, whatever that one's value, unless it is provably older: its date (`updated`, else `published`) before the stored copy's. An equal date, or no date on either, replaces
-    * a copy nobody vouched for never replaces one, vouched for or not
+    * a copy nobody vouched for never replaces one somebody did, and replaces another such copy only when it is provably newer: its date after the stored copy's. An equal date, or no date on either, does not
     * an identical copy, with the same value, has nothing to replace
   """
   def replaces?(
@@ -52,18 +52,23 @@ defmodule ActivityPub.Safety do
         incoming_authenticated
       )
       when is_map(incoming_data) do
-    vouched?(incoming_authenticated) and not older?(incoming_data, stored_data) and
-      not (incoming_data == stored_data and incoming_authenticated == stored_authenticated)
+    cond do
+      incoming_data == stored_data and incoming_authenticated == stored_authenticated -> false
+      vouched?(incoming_authenticated) -> compare_dates(incoming_data, stored_data) != :lt
+      vouched?(stored_authenticated) -> false
+      true -> compare_dates(incoming_data, stored_data) == :gt
+    end
   end
 
   def replaces?(_stored, _incoming_data, _incoming_authenticated), do: false
 
-  defp older?(incoming, stored) do
+  # `:lt`, `:eq` or `:gt` for the incoming copy's date against the stored one's; `:unknown` when either has none
+  defp compare_dates(incoming, stored) do
     with {:ok, incoming_date} <- document_date(incoming),
          {:ok, stored_date} <- document_date(stored) do
-      DateTime.compare(incoming_date, stored_date) == :lt
+      DateTime.compare(incoming_date, stored_date)
     else
-      _ -> false
+      _ -> :unknown
     end
   end
 

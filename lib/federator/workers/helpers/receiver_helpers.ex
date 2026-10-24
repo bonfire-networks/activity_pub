@@ -56,12 +56,20 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
     Untangle.debug("Handling incoming AP activity (#{op})")
 
     # carry the identity the signature plugs verified for this delivery: it is the only thing we know about authorship when the document itself names no author
-    ActivityPub.Federator.Transformer.handle_incoming(
+    handle_received(
       params,
       [from_inbox: true] ++ signed_by_http_signature(args["signed_by"])
     )
     |> Untangle.debug("result of handling incoming AP activity")
   end
+
+  # Every delivery we accept goes on with the document as it reached us (`data_received:`), so it can be relayed unchanged (a group's Announce of it): whatever the handling normalises, this stays as the author sent it.
+  defp handle_received(params, opts),
+    do:
+      ActivityPub.Federator.Transformer.handle_incoming(
+        params,
+        Keyword.put(opts, :data_received, params)
+      )
 
   # the job argument is only the signer's id, kept as it is so jobs queued before the mark existed still run
   defp signed_by_http_signature(signer) when is_binary(signer),
@@ -99,7 +107,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         # the proof names who made the document, just as a verified HTTP signature names who sent it, so it stands as the author of one that names none (e.g. relay-forwarded)
         Untangle.info("Valid integrity proof from #{controller}, processing activity")
 
-        ActivityPub.Federator.Transformer.handle_incoming(params,
+        handle_received(params,
           from_inbox: true,
           authenticated: :integrity_proof,
           signed_by: controller
@@ -146,7 +154,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
     if fetch_fresh_public_key? and HTTPSignatures.validate(headers) do
       Untangle.debug("HTTP signature valid after key re-fetch, processing activity")
-      ActivityPub.Federator.Transformer.handle_incoming(params, from_inbox: true)
+      handle_received(params, from_inbox: true)
     else
       if fetch_fresh_public_key? do
         Untangle.warn("HTTP signature still invalid after key re-fetch")
@@ -161,7 +169,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
             # an LD signature verifies an identity just as an HTTP signature does, so it can stand
             # as the author of a document that names none (e.g. relay-forwarded)
-            ActivityPub.Federator.Transformer.handle_incoming(params,
+            handle_received(params,
               from_inbox: true,
               authenticated: :ld_signature,
               signed_by: creator
@@ -195,7 +203,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         "Accept/Reject of Follow - validating against local Follow activity (URLs are typically unfetchable)"
       )
 
-      ActivityPub.Federator.Transformer.handle_incoming(params, from_inbox: true)
+      handle_received(params, from_inbox: true)
     else
       is_deleted? =
         Untangle.debug(
@@ -217,7 +225,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
               "No valid signature and re-fetch failed, but accepting because ACCEPT_UNSIGNED_ACTIVITIES=1"
             )
 
-            ActivityPub.Federator.Transformer.handle_incoming(params, from_inbox: true)
+            handle_received(params, from_inbox: true)
           else
             reason =
               "Rejecting activity: no valid HTTP or LD signature, and re-fetch from source failed"

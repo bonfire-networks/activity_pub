@@ -347,6 +347,29 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
       end)
     end
 
+    test "`verify` stores the ORIGIN's copy over one we already held" do
+      %{data: data, object_id: object_id, inner_object: inner} = relayed_announce()
+      authentic = Map.put(inner, "content", "what the author actually wrote")
+
+      # held from before, as a copy nobody vouched for
+      assert {:ok, _} = Object.insert(Map.put(inner, "content", "a stale copy we held"), false)
+
+      mock(fn
+        %{method: :get, url: url} when url == object_id -> json(authentic)
+        %{method: :get} -> %Tesla.Env{status: 404, body: ""}
+      end)
+
+      with_trust_mode(:verify, fn ->
+        assert {:ok, _} = Transformer.handle_incoming(data)
+
+        assert %Object{data: stored, authenticated: :fetched} =
+                 Object.normalize(object_id, fetch: false)
+
+        assert stored["content"] == "what the author actually wrote",
+               "the refetch went to the origin, so its copy is the one to keep, not the stale one we held"
+      end)
+    end
+
     test "refuses an inlined activity forged from another origin" do
       group = insert(:actor)
       author = insert(:actor)

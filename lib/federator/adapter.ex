@@ -117,8 +117,17 @@ defmodule ActivityPub.Federator.Adapter do
   Passes data to be handled by the host application
   """
   @callback handle_activity(Object.t()) :: :ok | {:ok, any()} | {:error, any()}
-  def handle_activity(activity) do
-    adapter().handle_activity(activity)
+
+  @doc "As `handle_activity/1`, with the options of the delivery (eg. `data_received:`, the activity as it reached our inbox). Optional: an adapter without it gets `handle_activity/1`."
+  @callback handle_activity(Object.t(), keyword()) :: :ok | {:ok, any()} | {:error, any()}
+  @optional_callbacks handle_activity: 2
+
+  def handle_activity(activity, opts \\ []) do
+    adapter = adapter()
+
+    if Code.ensure_loaded?(adapter) and function_exported?(adapter, :handle_activity, 2),
+      do: adapter.handle_activity(activity, opts),
+      else: adapter.handle_activity(activity)
   end
 
   def maybe_handle_activity(activity, opts \\ [])
@@ -128,10 +137,15 @@ defmodule ActivityPub.Federator.Adapter do
       debug("skipping adapter for remote activity as requested")
       {:ok, :skipped}
     else
-      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`) and how they were authenticated (`authenticated`, `signed_by`)
+      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`) and how they were authenticated (`authenticated`, `signed_by`), and the options of the delivery for an adapter that takes them (`data_received`, to relay it unchanged)
       handle_activity(
-        %{mark_embedded_object(activity, opts) | relayed_by: opts[:relayed_by]}
-        |> Object.put_authentication_meta(opts)
+        %{
+          mark_embedded_object(activity, opts)
+          | relayed_by: opts[:relayed_by],
+            data_received: opts[:data_received]
+        }
+        |> Object.put_authentication_meta(opts),
+        opts
       )
     end
   end

@@ -376,7 +376,15 @@ defmodule ActivityPub do
              Map.get(params, :pointer),
              opts
            ),
-         :ok <- maybe_federate(actor, activity),
+         :ok <-
+           maybe_federate(actor, activity,
+             data_received:
+               relayable_received_document(
+                 object,
+                 # given, or on the activity as the adapter was handed it
+                 opts[:data_received] || Map.get(object, :data_received)
+               )
+           ),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
@@ -384,6 +392,62 @@ defmodule ActivityPub do
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
       error -> error(error)
+    end
+  end
+
+  # Somebody else's activity as it reached us (`data_received:`), to send as the object of our Announce of it so their proof or signature still verifies for our followers: only when it is that activity, and its proof or signature holds. Passed on as it is, `bto`/`bcc` included if the author's server left them in: taking them out is the emitting instance's job (ActivityPub 6.11), and doing it here would break the proof, which a follower refuses where an absent one is not.
+  defp relayable_received_document(
+         %Object{data: %{"id" => id}} = announced,
+         %{"id" => id} = received
+       ) do
+    if signature_holds?(announced, received), do: received
+  end
+
+  defp relayable_received_document(_announced, _received), do: nil
+
+  # Accepted by its own proof or signature: nothing to check again. Accepted another way (its HTTP signature, which does not cover what we pass on): its proof or signature is checked once, now, and when it holds, the stored activity, and its object when that is the same author's, are marked as vouched for by it. A broken one is refused by followers where an absent one is not, so one that does not hold is not passed on.
+  defp signature_holds?(%Object{authenticated: authenticated}, _received)
+       when authenticated in [:integrity_proof, :ld_signature],
+       do: true
+
+  defp signature_holds?(announced, received) do
+    case received_signature(received) do
+      {:ok, authenticated} ->
+        mark_vouched_by_signature(announced, authenticated)
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp received_signature(received) do
+    cond do
+      ActivityPub.Safety.IntegrityProofs.has_proof?(received) ->
+        case ActivityPub.Safety.IntegrityProofs.check(received) do
+          {:valid, _controller} -> {:ok, :integrity_proof}
+          other -> other
+        end
+
+      ActivityPub.Safety.LinkedDataSignatures.has_verifiable_signature?(received) ->
+        case ActivityPub.Safety.LinkedDataSignatures.verify(received) do
+          {:ok, _creator} -> {:ok, :ld_signature}
+          other -> other
+        end
+
+      true ->
+        :none
+    end
+  end
+
+  defp mark_vouched_by_signature(%Object{data: data} = activity, authenticated) do
+    Object.do_update_existing(activity, %{authenticated: authenticated})
+
+    # the object is covered by the same signature, and vouched for by it when it is the activity's actor's (as an object embedded by its owner inherits the activity's value at receipt)
+    with object_id when is_binary(object_id) <- Object.get_ap_id(data["object"]),
+         {:ok, %Object{} = object} <- Object.get_cached(ap_id: object_id),
+         true <- Object.actor_from_data(object.data) == data["actor"] do
+      Object.do_update_existing(object, %{authenticated: authenticated})
     end
   end
 
@@ -430,30 +494,42 @@ defmodule ActivityPub do
   #       }) ::
   #         {:ok, Object.t()} | {:error, any()}
   def update(%{to: to, actor: actor, object: object} = params, opts \\ []) do
-    additional = params[:additional] || %{}
+    case received_already(opts, "Update") do
+      %Object{} = existing ->
+        debug(existing.data["id"], "this Update was already received")
+        {:ok, existing}
+
+      nil ->
+        do_update(params, to, actor, object, opts)
+    end
+  end
+
+  defp do_update(params, to, actor, object, opts) do
+    object =
+      object
+      |> Map.put_new_lazy("id", fn ->
+        Map.get(params, :pointer) |> Object.object_url()
+      end)
+      |> Map.put_new_lazy("updated", fn ->
+        Utils.make_date()
+      end)
+      # keep the original creation date instead of letting Object.insert stamp "now"
+      |> Map.put_new_lazy("published", fn ->
+        params[:published] || Utils.make_date()
+      end)
 
     with activity_data <-
-           Map.merge(
-             %{
-               "id" => params[:id] || params[:activity_id] || Utils.generate_object_id(),
-               "to" => to,
-               "type" => "Update",
-               "actor" => Map.get(actor, :data, actor)["id"],
-               "object" =>
-                 object
-                 |> Map.put_new_lazy("id", fn ->
-                   Map.get(params, :pointer) |> Object.object_url()
-                 end)
-                 |> Map.put_new_lazy("updated", fn ->
-                   Utils.make_date()
-                 end)
-                 # keep the original creation date instead of letting Object.insert stamp "now"
-                 |> Map.put_new_lazy("published", fn ->
-                   params[:published] || Utils.make_date()
-                 end)
-             },
-             additional
-           ),
+           incoming_activity(opts, object) ||
+             Map.merge(
+               %{
+                 "id" => params[:id] || params[:activity_id] || Utils.generate_object_id(),
+                 "to" => to,
+                 "type" => "Update",
+                 "actor" => Map.get(actor, :data, actor)["id"],
+                 "object" => object
+               },
+               params[:additional] || %{}
+             ),
          {:ok, activity} <-
            Object.insert(
              activity_data,
@@ -722,13 +798,14 @@ defmodule ActivityPub do
            |> Actor.delete(is_local?)
            |> debug("deleeeted"),
          params <-
-           %{
-             "type" => "Delete",
-             "actor" => subject || id,
-             "object" => id,
-             "to" => to,
-             "bcc" => opts[:bcc]
-           }
+           (incoming_activity(opts, id) ||
+              %{
+                "type" => "Delete",
+                "actor" => subject || id,
+                "object" => id,
+                "to" => to,
+                "bcc" => opts[:bcc]
+              })
            |> debug("delete params"),
          {:ok, activity} <- Object.insert(params, is_local?, nil, opts),
          :ok <- maybe_federate(delete_actor, activity, opts),
@@ -770,15 +847,16 @@ defmodule ActivityPub do
          # prune lib-owned collection memberships (tombstone keeps the row, so cascade won't fire)
          _ <- if(!opts[:keep_object], do: GenericCollectionStore.remove_object_everywhere(id)),
          data <-
-           %{
-             "type" => "Delete",
-             "actor" => opts[:subject] || actor,
-             "object" => id,
-             "to" => to,
-             "bcc" => opts[:bcc]
-           }
-           |> Utils.maybe_put("summary", opts[:summary])
-           |> Utils.maybe_put("audience", opts[:audience]),
+           incoming_activity(opts, id) ||
+             %{
+               "type" => "Delete",
+               "actor" => opts[:subject] || actor,
+               "object" => id,
+               "to" => to,
+               "bcc" => opts[:bcc]
+             }
+             |> Utils.maybe_put("summary", opts[:summary])
+             |> Utils.maybe_put("audience", opts[:audience]),
          # the local record it stands for, when the caller gives one (eg. a moderator's removal and its moderation record)
          {:ok, activity} <- Object.insert(data, is_local?, opts[:pointer], opts),
          :ok <- maybe_federate(actor, activity, opts) |> debug("maybe_federated"),
@@ -798,6 +876,30 @@ defmodule ActivityPub do
       is_local?,
       opts
     )
+  end
+
+  # Somebody else's activity as the transformer normalised it (`incoming_activity:`; not the document exactly as it arrived, which is `data_received`), with the object the caller checked, to store instead of building one: it keeps their id and what they wrote, rather than an id on our host and only what a builder copies. `nil` when there is none, and the caller builds its own. What is done around it (deleting, federating, the adapter) is the same either way.
+  defp incoming_activity(opts, object) do
+    case opts[:incoming_activity] do
+      %{"id" => id} = received when is_binary(id) ->
+        received
+        |> Map.put("object", object)
+        # their proof covers the object as they sent it, not as we checked it
+        |> ActivityPub.Federator.Transformer.drop_stale_signatures(received)
+
+      _ ->
+        nil
+    end
+  end
+
+  # the stored copy of an incoming activity of this type received before, if it was
+  defp received_already(opts, type) do
+    with %{"id" => id} when is_binary(id) <- opts[:incoming_activity],
+         {:ok, %Object{data: %{"type" => ^type}} = existing} <- Object.get_cached(ap_id: id) do
+      existing
+    else
+      _ -> nil
+    end
   end
 
   # Not sure about the types here

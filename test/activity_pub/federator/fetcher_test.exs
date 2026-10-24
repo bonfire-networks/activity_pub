@@ -573,6 +573,9 @@ defmodule ActivityPub.Federator.FetcherTest do
           HttpRequestMock.request(env)
       end)
 
+      # these are about the edit history a received object carries, which is dropped unless kept
+      clear_config([:keep_received_edit_history], true)
+
       %{object1: object1, object2: object2}
     end
 
@@ -618,7 +621,6 @@ defmodule ActivityPub.Federator.FetcherTest do
                refetched.data
     end
 
-    @tag :todo
     test "it replaces formerRepresentations with the one from remote", %{object2: object2} do
       full_object2 =
         object2
@@ -684,6 +686,9 @@ defmodule ActivityPub.Federator.FetcherTest do
 
   describe "fetch with history" do
     setup do
+      # about the edit history a received object carries, which is dropped unless kept
+      clear_config([:keep_received_edit_history], true)
+
       object2 = %{
         "id" => "https://mocked.local/2",
         "actor" => "https://mocked.local/users/emelie",

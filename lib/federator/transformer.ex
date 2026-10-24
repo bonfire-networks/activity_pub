@@ -374,6 +374,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_addressing()
     |> fix_summary()
     |> add_emoji_tags()
+    |> maybe_drop_edit_history()
     |> drop_stale_signatures(object)
 
     # |> fetch_and_create_nested_ap_objects(options)
@@ -382,8 +383,19 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_object(object, _options), do: object
 
-  # A proof or LD signature covers the exact bytes its signer produced, so on a copy we normalised it would no longer verify, and a broken one is refused where an absent one is accepted. A document normalisation left alone keeps them. Verification has already run on the document as received.
-  defp drop_stale_signatures(fixed, original) do
+  # The edit history Pleroma and Akkoma federate inside an edited object (its earlier versions): nothing here reads it, and its origin still has it, so it is not kept unless `keep_received_edit_history: true`. Before `drop_stale_signatures/2`, which then takes out a proof this has made stale
+  defp maybe_drop_edit_history(object) do
+    if Config.get(:keep_received_edit_history, false) == true,
+      do: object,
+      else: Map.delete(object, "formerRepresentations")
+  end
+
+  @doc """
+  `fixed`, a copy we changed of `original`, without the `proof` and `signature` of `original` when the change touched anything they cover.
+
+  A proof or LD signature covers the exact bytes its signer produced, so on a copy we normalised it would no longer verify, and a broken one is refused where an absent one is accepted. A document left alone keeps them. Verification has already run on the document as received.
+  """
+  def drop_stale_signatures(fixed, original) do
     keys = ["proof", "signature"]
 
     if Map.drop(fixed, keys) == Map.drop(original, keys),
@@ -1263,20 +1275,23 @@ defmodule ActivityPub.Federator.Transformer do
            |> Keyword.put(:object_signed_by, object_signed_by),
          {:ok, actor} <- resolve_author(actor_id, opts),
          # after the checks, so a `Create` that is refused leaves nothing behind
-         object = ingest_nested_objects(object, data) do
+         object = ingest_nested_objects(object, data, opts) do
       handle_incoming_create(data, object, actor, opts)
     end
   end
 
   # the objects nested in the fields of the object are stored on their own, leaving their ids in the fields. Nobody is asked for them: the copy embedded is what we store, as `unverified`
-  defp ingest_nested_objects(%{} = object, data) do
-    ActivityPub.Federator.NestedObjects.ingest(object,
-      context: data["@context"],
-      fetch_remote?: false
+  # `opts`: how the delivery was authenticated, which vouches for a nested object of the same owner or origin (`NestedObjects.ingest/2`); what is done with the rest is each field's policy (`default_policy` and `include_fields` in config)
+  defp ingest_nested_objects(object, data, opts \\ [])
+
+  defp ingest_nested_objects(%{} = object, data, opts) do
+    ActivityPub.Federator.NestedObjects.ingest(
+      object,
+      [context: data["@context"]] ++ Keyword.take(opts, [:authenticated, :signed_by])
     )
   end
 
-  defp ingest_nested_objects(object, _data), do: object
+  defp ingest_nested_objects(object, _data, _opts), do: object
 
   # Who this object gets attributed to, in descending order of what we actually know:
   #
@@ -1418,6 +1433,7 @@ defmodule ActivityPub.Federator.Transformer do
   defp embedded_owner(_), do: nil
 
   # The object arrived again (from another delivery, a relay, a fetch). Whether this copy replaces the one we hold is for `ActivityPub.Safety.replaces?/3` to say. `:ok` when there was nothing to replace or it was replaced, else the error.
+  # TODO: when the replaced copy's data changed and the adapter already holds the object, it should be told, as an edit, so what it made of the object (a post) changes too; today only the AP row changes. An adapter edits through its handling of an `Update`, so either we hand it an in-memory `Update` (never stored or federated), or the stored `Create` with `edit: true` and the adapter applies it as an `Update`. The same for a refetch (`Fetcher.replace_with_fetched/3`)
   defp maybe_replace_object(%{"id" => id} = object, opts) when is_binary(id) do
     {authenticated, _signed_by} = ActivityPub.Safety.object_authentication(opts)
 
@@ -1457,7 +1473,8 @@ defmodule ActivityPub.Federator.Transformer do
     }
 
     with nil <- Object.get_activity_for_object_ap_id(object) do
-      ActivityPub.create(params, opts)
+      # an object we hold whose `Create` we never stored (it came nested in another object, in a boost, or by a fetch) is replaced by the same rule as when its `Create` arrives again
+      with :ok <- maybe_replace_object(object, opts), do: ActivityPub.create(params, opts)
     else
       %{data: %{"type" => "Tombstone"}} = _activity ->
         debug("do not save Tombstone in adapter")
@@ -2013,16 +2030,19 @@ defmodule ActivityPub.Federator.Transformer do
          true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized},
          :ok <- check_owner_change(cached_object, object, opts),
          # after the checks, so an `Update` that is refused leaves nothing behind
-         object = ingest_nested_objects(object, data) do
+         object = ingest_nested_objects(object, data, opts) do
       ActivityPub.update(
         %{
           local: local?(opts),
           to: data["to"] || [],
           cc: data["cc"] || [],
           object: object,
-          actor: actor
+          actor: actor,
+          # the post keeps the date it was first published, when the author's copy names none
+          published: cached_object.data["published"]
         },
-        opts
+        # somebody else's is stored as they sent it; ours (C2S) is made here
+        if(local?(opts), do: opts, else: Keyword.put(opts, :incoming_activity, data))
       )
     else
       {:error, :not_found} ->
@@ -2663,7 +2683,12 @@ defmodule ActivityPub.Federator.Transformer do
          {:actor, false} <-
            {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
          {:ok, activity} <-
-           ActivityPub.delete(verified_object || object_id, false, opts) |> debug("deleted!!") do
+           ActivityPub.delete(
+             verified_object || object_id,
+             false,
+             Keyword.put(opts, :incoming_activity, data)
+           )
+           |> debug("deleted!!") do
       {:ok, activity}
     else
       {:error, :not_found} ->

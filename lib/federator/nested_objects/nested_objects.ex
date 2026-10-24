@@ -18,6 +18,9 @@ defmodule ActivityPub.Federator.NestedObjects do
   alias ActivityPub.Config
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Federator.NestedObjects.Terms
+  alias ActivityPub.Object
+  alias ActivityPub.Safety
+  alias ActivityPub.Safety.IntegrityProofs
 
   # how the document that carries a nested object came to us says nothing about the nested object: a signature covers what was signed, and an object we fetched is not the one embedded in it
   @delivery_marks [
@@ -37,19 +40,21 @@ defmodule ActivityPub.Federator.NestedObjects do
   """
   def ingest(object, options \\ []) do
     {context, options} = Keyword.pop(options, :context)
-    {include, options} = Keyword.pop(options, :include_fields, [])
-    {exclude, options} = Keyword.pop(options, :exclude_fields, [])
+    {field_options, options} = Keyword.split(options, [:include_fields, :exclude_fields])
+
+    # how the document carrying the nested objects was authenticated: it vouches for a nested object of the same owner or origin, and is never stored as a nested object's own
+    wrapper = {options[:authenticated], options[:signed_by]}
 
     options =
       options
       |> Keyword.drop(@delivery_marks)
       |> Keyword.put_new(:to, object["to"] || object["cc"] || object["audience"] || [])
 
-    fields = Terms.fields(object, context, include: include, exclude: exclude)
+    policies = Terms.policies(object, context, field_options)
 
     Enum.reduce(object, object, fn {key, value}, acc ->
-      with true <- key in fields,
-           {:ok, ids} <- detect_and_store(value, options) do
+      with policy when not is_nil(policy) <- policies[key],
+           {:ok, ids} <- detect_and_store(value, policy, wrapper, options) do
         Map.put(acc, key, ids)
       else
         _ -> acc
@@ -57,11 +62,11 @@ defmodule ActivityPub.Federator.NestedObjects do
     end)
   end
 
-  defp detect_and_store(value, options) when is_list(value) do
+  defp detect_and_store(value, policy, wrapper, options) when is_list(value) do
     # Handle arrays of potential AP objects
     {:ok,
      Enum.map(value, fn item ->
-       case detect_and_store(item, options) do
+       case detect_and_store(item, policy, wrapper, options) do
          {:ok, id} ->
            id
 
@@ -72,33 +77,74 @@ defmodule ActivityPub.Federator.NestedObjects do
      end)}
   end
 
-  defp detect_and_store(%{"id" => id, "type" => type} = value, options)
+  defp detect_and_store(%{"id" => id, "type" => type} = value, policy, wrapper, options)
        when is_binary(id) and (is_binary(type) or is_list(type)) do
     # Check if this looks like an AP object with an ID and type
     if Config.known_fetchable_type?(type) do
-      with {:ok, stored} <- fetch_or_store_embedded(id, value, options) do
-        {:ok, id_of(stored)}
+      case authentication(value, wrapper) do
+        nil -> not_vouched_for(id, value, policy, options)
+        authenticated -> store_embedded(value, authenticated, options)
       end
     else
       :skip
     end
   end
 
-  defp detect_and_store(_value, _options), do: :skip
+  defp detect_and_store(_value, _policy, _wrapper, _options), do: :skip
+
+  # Vouched for with no request: by its own proof, by a wrapper authenticated as its owner, or by a wrapper authenticated as an actor of the same origin as its id (FEP-fe34: an origin vouches for its own objects). `nil` when none of these
+  defp authentication(%{"id" => id} = object, {wrapper_authenticated, wrapper_signed_by}) do
+    owner = Object.actor_from_data(object)
+    wrapper_vouched? = Safety.vouched?(wrapper_authenticated) and is_binary(wrapper_signed_by)
+
+    cond do
+      IntegrityProofs.has_proof?(object) and match?({:valid, _}, IntegrityProofs.check(object)) ->
+        :integrity_proof
+
+      wrapper_vouched? and owner == wrapper_signed_by ->
+        wrapper_authenticated
+
+      wrapper_vouched? and same_host?(id, wrapper_signed_by) ->
+        wrapper_authenticated
+
+      true ->
+        nil
+    end
+  end
+
+  defp same_host?(one, two), do: URI.parse(one).host == URI.parse(two).host
+
+  # what the field's policy says to do with a nested object nobody vouched for. Refused, nothing is stored and the field keeps its id, so a consumer can still fetch it
+  defp not_vouched_for(id, value, policy, options) do
+    fetch? =
+      policy in [:authenticate_or_fetch_or_store, :authenticate_or_fetch_or_drop] and
+        Keyword.get(options, :fetch_remote?, true) != false
+
+    store? = policy in [:authenticate_or_store, :authenticate_or_fetch_or_store]
+
+    cond do
+      fetch? ->
+        case fetch(id, options) do
+          {:ok, fetched} -> {:ok, id_of(fetched)}
+          _ when store? -> store_embedded(value, :unfetchable, options)
+          _ -> {:ok, id}
+        end
+
+      store? ->
+        store_embedded(value, :unverified, options)
+
+      true ->
+        {:ok, id}
+    end
+  end
 
   defp id_of(%Actor{ap_id: id}), do: id
   defp id_of(%{data: %{"id" => id}}), do: id
 
-  defp fetch_or_store_embedded(id, embedded_object, options) do
-    if Keyword.get(options, :fetch_remote?, true),
-      do: fetch_or_store_embedded_copy(id, embedded_object, options),
-      else: store_embedded(embedded_object, options)
-  end
-
-  defp fetch_or_store_embedded_copy(id, embedded_object, options) do
+  defp fetch(id, options) do
     case Fetcher.fetch_object_from_id(
            id,
-           Keyword.put(options, :triggered_by, "NestedObjects.fetch_or_store_embedded")
+           Keyword.put(options, :triggered_by, "NestedObjects.fetch")
          ) do
       {:ok, %ActivityPub.Object{} = fetched} ->
         debug(fetched, "Fetched Object from ActivityPub")
@@ -109,26 +155,22 @@ defmodule ActivityPub.Federator.NestedObjects do
         {:ok, fetched}
 
       e ->
-        debug(
-          e,
-          "Could not fetch and/or save embedded object, falling back to using embedded data"
-        )
-
-        store_embedded(embedded_object, options)
+        debug(e, "Could not fetch the nested object")
+        e
     end
   end
 
-  defp store_embedded(embedded_object, options) do
+  defp store_embedded(embedded_object, authenticated, options) do
     case embedded_object
          |> Map.put_new("to", options[:to] || [])
          |> Fetcher.cached_or_handle_incoming(
            options
-           |> Keyword.put(:authenticated, :unverified)
+           |> Keyword.put(:authenticated, authenticated)
            |> Keyword.put(:triggered_by, "NestedObjects.store_embedded")
          )
          |> debug("Handled incoming for created embedded object") do
       {:ok, %{} = stored} ->
-        {:ok, stored}
+        {:ok, id_of(stored)}
 
       e ->
         err(e, "Could not insert embedded data as Object, falling back to using as-is")

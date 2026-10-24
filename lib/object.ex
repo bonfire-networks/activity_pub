@@ -22,6 +22,10 @@ defmodule ActivityPub.Object do
 
   schema "ap_object" do
     field(:data, :map)
+
+    # TEMPORARY until received documents are stored unaltered: the activity exactly as it reached our inbox, for whatever the adapter passes the activity to (a group's Announce of it, which relays it unchanged so its author's proof still verifies). A property of the delivery, never stored
+    field(:data_received, :map, virtual: true)
+
     field(:local, :boolean, default: true)
     field(:public, :boolean, default: false)
     # is it an object rather than an activity?

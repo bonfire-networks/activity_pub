@@ -261,6 +261,59 @@ defmodule ActivityPub.Federator.Fetcher do
 
   def fetch_fresh_object_from_id(%{"id" => id}, opts), do: fetch_fresh_object_from_id(id, opts)
 
+  # What a fresh fetch got, stored. An object we already hold is replaced by the same rule as any copy that arrives again (`ActivityPub.Safety.replaces?/3`), the origin's copy being vouched for (`fetched`): so it wins unless provably older, and an identical one only changes the mark. Before this, the held copy was returned and the fetched one dropped. An actor is re-handled anyway (`cached_or_handle_incoming/2`), and an activity we hold is left as it is: it does not change.
+  # deleted at its origin: deleted here too, as if its owner's `Delete` had arrived (the fetch from its origin vouches for it), so the adapter removes what it made of it
+  defp store_fetched(%{"id" => id, "type" => "Tombstone"} = data, opts) when is_binary(id) do
+    case Object.get_cached(ap_id: id) do
+      {:ok, %Object{data: %{"type" => type}} = stored}
+      when type != "Tombstone" and not is_in(type, :supported_actor_types) and
+             not is_in(type, :all_supported_activity_types) ->
+        with {:ok, _delete} <- ActivityPub.delete(stored, false, opts) do
+          Object.get_cached(ap_id: id)
+        end
+
+      _ ->
+        cached_or_handle_incoming(data, opts)
+    end
+  end
+
+  defp store_fetched(%{"id" => id} = data, opts) when is_binary(id) do
+    case Object.get_cached(ap_id: id) do
+      {:ok, %Object{data: %{"type" => type}} = stored}
+      when not is_in(type, :supported_actor_types) and
+             not is_in(type, :all_supported_activity_types) ->
+        replace_with_fetched(stored, data, opts)
+
+      _ ->
+        cached_or_handle_incoming(data, opts)
+    end
+  end
+
+  defp store_fetched(data, opts), do: cached_or_handle_incoming(data, opts)
+
+  defp replace_with_fetched(%Object{data: stored_data} = stored, data, opts) do
+    incoming =
+      data
+      |> Transformer.fix_object(opts)
+      # what we gave the stored copy when the origin's had none, as `Object.insert` would
+      |> Map.put_new("published", stored_data["published"])
+      |> keep_stored_edit_history(stored_data)
+
+    # TODO: tell the adapter when the data changed and it holds the object, as an edit (see the TODO at `Transformer.maybe_replace_object/2`)
+    if ActivityPub.Safety.replaces?(stored, incoming, :fetched),
+      do: Object.replace(stored, incoming, :fetched),
+      else: {:ok, stored}
+  end
+
+  # the stored edit history, when it is kept and the origin's copy has none (`keep_received_edit_history`)
+  defp keep_stored_edit_history(incoming, %{"formerRepresentations" => history}) do
+    if Config.get(:keep_received_edit_history, false) == true,
+      do: Map.put_new(incoming, "formerRepresentations", history),
+      else: incoming
+  end
+
+  defp keep_stored_edit_history(incoming, _stored_data), do: incoming
+
   def fetch_fresh_object_from_id(id, opts) when is_binary(id) do
     opts = opts |> Keyword.put(:triggered_by, "fetch_fresh_object_from_id")
     base_url = ActivityPub.Web.base_url()
@@ -269,8 +322,8 @@ defmodule ActivityPub.Federator.Fetcher do
          false <- String.starts_with?(id, base_url),
          {:ok, data} <- fetch_remote_object_from_id(id, opts) |> debug("fetched"),
          {:ok, object} <-
-           cached_or_handle_incoming(data, Keyword.put(opts, :already_fetched, id))
-           |> debug("fetch_fresh_object_from_id -> cached_or_handled_incoming") do
+           store_fetched(data, Keyword.put(opts, :already_fetched, id))
+           |> debug("fetch_fresh_object_from_id -> stored") do
       {:ok, object}
     else
       true ->

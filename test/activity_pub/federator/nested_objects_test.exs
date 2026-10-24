@@ -54,12 +54,20 @@ defmodule ActivityPub.Federator.NestedObjectsTest do
     name
   end
 
+  # fetching is not the default (`:authenticate_or_store`), so the tests of fetching ask for it
+  defp fetching(field), do: [include_fields: [{field, :authenticate_or_fetch_or_store}]]
+
+  defp stored(id) do
+    assert {:ok, %Object{} = object} = Object.get_cached(ap_id: id)
+    object
+  end
+
   test "a nested object is stored from its origin's copy and replaced by its id", %{host: host} do
     served = place(host, "as the origin serves it")
     embedded = Map.put(served, "name", "as the event embeds it")
     serve([served])
 
-    result = NestedObjects.ingest(event(host, %{"location" => embedded}))
+    result = NestedObjects.ingest(event(host, %{"location" => embedded}), fetching("location"))
 
     id = served["id"]
     assert result["location"] == id
@@ -70,14 +78,15 @@ defmodule ActivityPub.Federator.NestedObjectsTest do
     assert_received {:fetched, ^id}
   end
 
-  test "an embedded copy is stored when the origin cannot be asked", %{host: host} do
+  test "an embedded copy is stored as unfetchable when the origin cannot be asked", %{host: host} do
     embedded = place(host, "as the event embeds it")
     serve([])
 
-    result = NestedObjects.ingest(event(host, %{"location" => embedded}))
+    result = NestedObjects.ingest(event(host, %{"location" => embedded}), fetching("location"))
 
     assert result["location"] == embedded["id"]
     assert stored_name(embedded["id"]) == "as the event embeds it"
+    assert stored(embedded["id"]).authenticated == :unfetchable
   end
 
   test "each object of a list is stored and replaced", %{host: host} do
@@ -85,7 +94,7 @@ defmodule ActivityPub.Federator.NestedObjectsTest do
     two = place(host, "two", "b")
     serve([one, two])
 
-    result = NestedObjects.ingest(event(host, %{"location" => [one, two]}))
+    result = NestedObjects.ingest(event(host, %{"location" => [one, two]}), fetching("location"))
 
     assert result["location"] == [one["id"], two["id"]]
     assert stored_name(one["id"]) == "one"
@@ -103,7 +112,7 @@ defmodule ActivityPub.Federator.NestedObjectsTest do
 
     serve([app])
 
-    result = NestedObjects.ingest(event(host, %{"generator" => app}))
+    result = NestedObjects.ingest(event(host, %{"generator" => app}), fetching("generator"))
 
     assert result["generator"] == app["id"]
     assert {:ok, %Actor{}} = Actor.get_cached(ap_id: app["id"])
@@ -200,10 +209,181 @@ defmodule ActivityPub.Federator.NestedObjectsTest do
     embedded = Map.put(served, "name", "as the event embeds it")
     serve([served])
 
-    result = NestedObjects.ingest(event(host, %{"location" => embedded}), fetch_remote?: false)
+    result =
+      NestedObjects.ingest(
+        event(host, %{"location" => embedded}),
+        fetching("location") ++ [fetch_remote?: false]
+      )
 
     assert result["location"] == embedded["id"]
     assert stored_name(embedded["id"]) == "as the event embeds it"
     refute_received {:fetched, _}
+  end
+
+  describe "a field's policy, for a nested object nobody vouched for" do
+    import ActivityPub.Factory
+    import ActivityPub.Test.IntegrityProofHelpers
+
+    # an owner on the nested object's host, with a key a proof can be checked against
+    defp owner(host) do
+      key = new_key(:ed25519)
+      id = "https://#{host}/users/owner"
+      actor(ap_id: id, data: %{"assertionMethod" => [multikey(id, key)]})
+      %{id: id, key: key}
+    end
+
+    defp owned_place(host, owner, name),
+      do: host |> place(name) |> Map.put("attributedTo", owner.id)
+
+    defp policy(field, value), do: [include_fields: [{field, value}]]
+
+    test "by default it is stored as it came, as unverified, and nobody is asked", %{host: host} do
+      embedded = place(host, "unvouched")
+      serve([embedded])
+
+      result = NestedObjects.ingest(event(host, %{"location" => embedded}))
+
+      assert result["location"] == embedded["id"]
+      assert stored(embedded["id"]).authenticated == :unverified
+      refute_received {:fetched, _}
+    end
+
+    test "with a valid proof by its owner, it is stored as vouched for by it", %{host: host} do
+      owner = owner(host)
+      embedded = host |> owned_place(owner, "signed") |> sign(owner.key)
+      serve([])
+
+      NestedObjects.ingest(event(host, %{"location" => embedded}))
+
+      assert stored(embedded["id"]).authenticated == :integrity_proof
+    end
+
+    test "in a wrapper authenticated as its owner, it has the wrapper's value", %{host: host} do
+      owner = owner(host)
+      embedded = owned_place(host, owner, "the wrapper's actor's own")
+      serve([])
+
+      NestedObjects.ingest(event(host, %{"location" => embedded}),
+        authenticated: :http_signature,
+        signed_by: owner.id
+      )
+
+      assert stored(embedded["id"]).authenticated == :http_signature
+    end
+
+    test "on the same host as the wrapper's authenticated actor, it has the wrapper's value", %{
+      host: host
+    } do
+      embedded = place(host, "from the same server, owned by nobody")
+      serve([])
+
+      NestedObjects.ingest(event(host, %{"location" => embedded}),
+        authenticated: :http_signature,
+        signed_by: "https://#{host}/users/someone"
+      )
+
+      assert stored(embedded["id"]).authenticated == :http_signature
+    end
+
+    test "on another host than the wrapper's authenticated actor, it is not vouched for", %{
+      host: host
+    } do
+      embedded = place("elsewhere-#{host}", "from another server")
+      serve([])
+
+      NestedObjects.ingest(event(host, %{"location" => embedded}),
+        authenticated: :http_signature,
+        signed_by: "https://#{host}/users/someone"
+      )
+
+      assert stored(embedded["id"]).authenticated == :unverified
+    end
+
+    test ":authenticate_or_drop refuses it: nothing stored, the field keeps its id", %{host: host} do
+      embedded = place(host, "unvouched")
+      serve([embedded])
+
+      result =
+        NestedObjects.ingest(
+          event(host, %{"location" => embedded}),
+          policy("location", :authenticate_or_drop)
+        )
+
+      assert result["location"] == embedded["id"]
+      assert {:error, :not_found} = Object.get_cached(ap_id: embedded["id"])
+      refute_received {:fetched, _}
+    end
+
+    test ":authenticate_or_drop stores one that is vouched for", %{host: host} do
+      owner = owner(host)
+      embedded = host |> owned_place(owner, "signed") |> sign(owner.key)
+      serve([])
+
+      NestedObjects.ingest(
+        event(host, %{"location" => embedded}),
+        policy("location", :authenticate_or_drop)
+      )
+
+      assert stored(embedded["id"]).authenticated == :integrity_proof
+    end
+
+    test ":authenticate_or_fetch_or_store stores the origin's copy as fetched", %{host: host} do
+      served = place(host, "as the origin serves it")
+      serve([served])
+
+      NestedObjects.ingest(
+        event(host, %{"location" => Map.put(served, "name", "as embedded")}),
+        policy("location", :authenticate_or_fetch_or_store)
+      )
+
+      assert stored_name(served["id"]) == "as the origin serves it"
+      assert stored(served["id"]).authenticated == :fetched
+    end
+
+    test "a fetching policy does not fetch one that is vouched for", %{host: host} do
+      owner = owner(host)
+      embedded = host |> owned_place(owner, "signed") |> sign(owner.key)
+      serve([embedded])
+
+      NestedObjects.ingest(
+        event(host, %{"location" => embedded}),
+        policy("location", :authenticate_or_fetch_or_drop)
+      )
+
+      assert stored(embedded["id"]).authenticated == :integrity_proof
+      id = embedded["id"]
+      refute_received {:fetched, ^id}
+    end
+
+    test ":authenticate_or_fetch_or_drop refuses it when the origin cannot be asked", %{
+      host: host
+    } do
+      embedded = place(host, "unvouched, and its origin is down")
+      serve([])
+
+      result =
+        NestedObjects.ingest(
+          event(host, %{"location" => embedded}),
+          policy("location", :authenticate_or_fetch_or_drop)
+        )
+
+      assert result["location"] == embedded["id"]
+      assert {:error, :not_found} = Object.get_cached(ap_id: embedded["id"])
+    end
+
+    test "with fetching off, :authenticate_or_fetch_or_drop acts as :authenticate_or_drop", %{
+      host: host
+    } do
+      embedded = place(host, "unvouched")
+      serve([embedded])
+
+      NestedObjects.ingest(
+        event(host, %{"location" => embedded}),
+        policy("location", :authenticate_or_fetch_or_drop) ++ [fetch_remote?: false]
+      )
+
+      assert {:error, :not_found} = Object.get_cached(ap_id: embedded["id"])
+      refute_received {:fetched, _}
+    end
   end
 end

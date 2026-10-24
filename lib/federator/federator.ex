@@ -35,7 +35,10 @@ defmodule ActivityPub.Federator do
   def publish(activity_id, opts) when is_binary(activity_id) do
     PublisherWorker.enqueue(
       "publish",
-      build_actor_fields(%{"activity_id" => activity_id}, opts[:actor]),
+      %{"activity_id" => activity_id}
+      # TEMPORARY until received documents are stored unaltered: the job reloads the activity by id, so somebody else's activity as it reached us travels here for an Announce of it (see `APPublisher.prepare_publish_params/3`)
+      |> Utils.maybe_put("data_received", opts[:data_received])
+      |> build_actor_fields(opts[:actor]),
       PublisherWorker.maybe_schedule_worker_args(opts[:activity_data], opts[:worker_args] || [])
     )
   end
@@ -52,7 +55,7 @@ defmodule ActivityPub.Federator do
       if opts[:federate_inline] do
         ActivityPub.Federator.APPublisher.publish(actor, activity, opts)
       else
-        Publisher.publish(actor, activity)
+        Publisher.publish(actor, activity, opts)
       end
     else
       e ->

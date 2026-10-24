@@ -41,8 +41,8 @@ defmodule ActivityPub.Federator.Publisher do
   """
   @callback publish(Map.t(), Map.t()) :: :ok | {:error, any()}
 
-  @spec publish(Map.t(), Map.t()) :: :ok
-  def publish(user, activity) do
+  @spec publish(Map.t(), Map.t(), keyword()) :: :ok
+  def publish(user, activity, opts \\ []) do
     (Application.get_env(:activity_pub, :instance)[
        :federation_publisher_modules
      ] ||
@@ -50,7 +50,10 @@ defmodule ActivityPub.Federator.Publisher do
     |> Enum.each(fn module ->
       if module.is_representable?(activity) do
         info("Publishing #{activity.data["id"]} using #{inspect(module)}")
-        module.publish(user, activity)
+        # the options (eg. `data_received:`) to a module that takes them
+        if function_exported?(module, :publish, 3),
+          do: module.publish(user, activity, opts),
+          else: module.publish(user, activity)
       else
         {:error, "activity is not representable"}
       end

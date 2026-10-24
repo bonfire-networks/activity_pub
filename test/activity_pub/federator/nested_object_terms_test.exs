@@ -165,7 +165,7 @@ defmodule ActivityPub.Federator.NestedObjects.TermsTest do
     test "include fields no context defines, and fields the never-ingest list names" do
       document = %{"@context" => @as2, "type" => "Event"}
 
-      set = Terms.fields(document, nil, include: ["somethingElse", "inReplyTo"])
+      set = Terms.fields(document, nil, include_fields: ["somethingElse", "inReplyTo"])
 
       assert "somethingElse" in set
       assert "inReplyTo" in set, "an option wins over the config list"
@@ -175,18 +175,19 @@ defmodule ActivityPub.Federator.NestedObjects.TermsTest do
     test "exclude fields a context defines" do
       document = %{"@context" => @as2, "type" => "Event"}
 
-      set = Terms.fields(document, nil, exclude: ["location"])
+      set = Terms.fields(document, nil, exclude_fields: ["location"])
 
       refute "location" in set
       assert "instrument" in set
     end
 
     test "win over config both ways" do
-      clear_config([:nested_objects, :extra_terms], ["ingredients"])
-      clear_config([:nested_objects, :never_ingest], ["location"])
+      clear_config([:nested_objects, :include_fields], ["ingredients"])
+      clear_config([:nested_objects, :exclude_fields], ["location"])
       document = %{"@context" => @as2, "type" => "Event"}
 
-      set = Terms.fields(document, nil, include: ["location"], exclude: ["ingredients"])
+      set =
+        Terms.fields(document, nil, include_fields: ["location"], exclude_fields: ["ingredients"])
 
       assert "location" in set
       refute "ingredients" in set
@@ -194,8 +195,8 @@ defmodule ActivityPub.Federator.NestedObjects.TermsTest do
   end
 
   describe "config" do
-    test "has the never-ingest list in the config file, the same as the code default" do
-      configured = ActivityPub.Config.get([:nested_objects, :never_ingest])
+    test "has the fields to leave alone in the config file, under the same name as the option, the same as the code default" do
+      configured = ActivityPub.Config.get([:nested_objects, :exclude_fields])
 
       assert is_list(configured) and configured != []
 
@@ -204,16 +205,86 @@ defmodule ActivityPub.Federator.NestedObjects.TermsTest do
     end
 
     test "adds terms no context defines" do
-      clear_config([:nested_objects, :extra_terms], ["ingredients"])
+      clear_config([:nested_objects, :include_fields], ["ingredients"])
 
       assert "ingredients" in fields(@as2)
     end
 
     test "removes a term from what is ingested" do
-      clear_config([:nested_objects, :never_ingest], ["location"])
+      clear_config([:nested_objects, :exclude_fields], ["location"])
 
       refute "location" in fields(@as2)
       assert "instrument" in fields(@as2)
+    end
+  end
+
+  describe "policies" do
+    # what is done with a nested object nobody vouched for, per field; `include_fields` carries it, a plain name being the default
+    defp policies(opts \\ []),
+      do: Terms.policies(%{"@context" => @as2, "type" => "Event"}, nil, opts)
+
+    test "are :authenticate_or_store for every field, by default" do
+      policies = policies()
+
+      assert policies["location"] == :authenticate_or_store
+      assert policies["instrument"] == :authenticate_or_store
+    end
+
+    test "default to what config says, for every field not given one" do
+      clear_config([:nested_objects, :default_policy], :authenticate_or_drop)
+
+      clear_config([:nested_objects, :include_fields], [
+        {"location", :authenticate_or_fetch_or_store}
+      ])
+
+      assert policies()["instrument"] == :authenticate_or_drop
+      assert policies()["location"] == :authenticate_or_fetch_or_store
+    end
+
+    test "are the same fields as fields/3" do
+      assert policies() |> Map.keys() |> MapSet.new() == fields(@as2)
+    end
+
+    test "are set per field in config, by a {name, policy} pair in include_fields" do
+      clear_config([:nested_objects, :include_fields], [
+        {"location", :authenticate_or_fetch_or_drop}
+      ])
+
+      assert policies()["location"] == :authenticate_or_fetch_or_drop
+      assert policies()["instrument"] == :authenticate_or_store
+    end
+
+    test "can be given as a map too" do
+      clear_config([:nested_objects, :include_fields], %{"location" => :authenticate_or_drop})
+
+      assert policies()["location"] == :authenticate_or_drop
+    end
+
+    test "add a field no context defines, with its policy" do
+      clear_config([:nested_objects, :include_fields], [
+        {"ingredients", :authenticate_or_fetch_or_store}
+      ])
+
+      assert policies()["ingredients"] == :authenticate_or_fetch_or_store
+    end
+
+    test "of one call win over the config's" do
+      clear_config([:nested_objects, :include_fields], [{"location", :authenticate_or_drop}])
+
+      assert policies(include_fields: [{"location", :authenticate_or_fetch_or_store}])["location"] ==
+               :authenticate_or_fetch_or_store
+    end
+
+    test "a plain name in a call's include_fields keeps the config's policy for it" do
+      clear_config([:nested_objects, :include_fields], [{"location", :authenticate_or_drop}])
+
+      assert policies(include_fields: ["location"])["location"] == :authenticate_or_drop
+    end
+
+    test "leave out what exclude_fields names, whatever its policy" do
+      clear_config([:nested_objects, :include_fields], [{"location", :authenticate_or_drop}])
+
+      refute Map.has_key?(policies(exclude_fields: ["location"]), "location")
     end
   end
 end

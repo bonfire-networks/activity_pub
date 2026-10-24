@@ -186,6 +186,55 @@ defmodule ActivityPub.Safety.SignatureTest do
     end)
   end
 
+  test "without a valid signature, the activity re-fetched from its origin replaces the copy of its object we held",
+       %{conn: conn} do
+    n = System.unique_integer([:positive])
+    author = "https://mastodon.local/users/admin"
+    note_id = "https://mastodon.local/users/admin/statuses/unsigned-#{n}"
+    create_id = note_id <> "/activity"
+
+    note = %{
+      "id" => note_id,
+      "type" => "Note",
+      "attributedTo" => author,
+      "content" => "what the author actually wrote",
+      "to" => ["https://www.w3.org/ns/activitystreams#Public"]
+    }
+
+    create = %{
+      "@context" => "https://www.w3.org/ns/activitystreams",
+      "id" => create_id,
+      "type" => "Create",
+      "actor" => author,
+      "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+      "object" => note
+    }
+
+    # held from before, as a copy nobody vouched for
+    assert {:ok, _} = Object.insert(Map.put(note, "content", "a stale copy we held"), false)
+
+    Tesla.Mock.mock(fn
+      %{method: :get, url: ^create_id} -> Tesla.Mock.json(create)
+      env -> ActivityPub.Test.HttpRequestMock.request(env)
+    end)
+
+    Oban.Testing.with_testing_mode(:inline, fn ->
+      clear_config([:instance, :federating], true)
+
+      assert conn
+             |> put_req_header("content-type", "application/activity+json")
+             # delivered with no signature, so it is confirmed by fetching it from its origin
+             |> post(
+               "#{Utils.ap_base_url()}/shared_inbox",
+               Map.put(create, "object", Map.put(note, "content", "what a forger claims"))
+             )
+             |> json_response(200)
+    end)
+
+    assert {:ok, %Object{data: %{"content" => content}}} = Object.get_cached(ap_id: note_id)
+    assert content == "what the author actually wrote"
+  end
+
   describe "key_id_to_actor_id/1" do
     test "it properly deduces the actor id for misskey" do
       assert Keys.key_id_to_actor_id("https://mastodon.local/users/1234/publickey") ==

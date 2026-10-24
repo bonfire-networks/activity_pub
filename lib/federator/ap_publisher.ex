@@ -25,7 +25,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
   @doc "Publish/federate activity (or usually enqueue for publication) to all desired actors/instances."
   def publish(actor, activity, opts \\ []) do
-    case prepare_publish_params(actor, activity) do
+    case prepare_publish_params(actor, activity, opts) do
       params_list when is_list(params_list) and params_list != [] ->
         Enum.map(params_list, fn params ->
           if opts[:federate_inline] do
@@ -42,8 +42,10 @@ defmodule ActivityPub.Federator.APPublisher do
 
   @doc """
   Builds the list of per-inbox params (including the JSON payload) that would be passed to `publish_one/1` or enqueued for async delivery.
+
+  `data_received:` is somebody else's activity exactly as it reached us, for an `Announce` of it (a group relaying it): it is sent as the Announce's object in place of the copy we stored, so the author's proof or signature still verifies for whoever receives it.
   """
-  def prepare_publish_params(actor, activity) do
+  def prepare_publish_params(actor, activity, opts \\ []) do
     # embed the object in the activity JSON (note: already being done in prepare_outgoing)
     # object_ap_id = activity.data["object"]
     # object = Object.get_cached!(object_ap_id)
@@ -117,6 +119,7 @@ defmodule ActivityPub.Federator.APPublisher do
                   Utils.authority(inbox),
                   meta[:ids]
                 )
+                |> maybe_with_received_object_to_relay(opts[:data_received])
                 |> debug("safe json")
 
               # FEP-8b32: signed last, over exactly the bytes this inbox gets (nothing after this touches the body)
@@ -645,6 +648,19 @@ defmodule ActivityPub.Federator.APPublisher do
       recipients
     end
   end
+
+  # The author's activity as it reached us, unchanged, as the object of our Announce of it, in place of the copy built from what we stored: after the per-inbox privacy step, which would otherwise edit it (`cc`, URLs), and before signing, so our proof covers it. Not even `bto`/`bcc` are taken out: that is the emitting instance's job, and would break the author's proof.
+  defp maybe_with_received_object_to_relay(
+         %{"type" => "Announce", "object" => inner} = data,
+         %{"id" => id} = received
+       )
+       when is_binary(id) do
+    if ActivityPub.Object.get_ap_id(inner) == id,
+      do: Map.put(data, "object", received),
+      else: data
+  end
+
+  defp maybe_with_received_object_to_relay(data, _received), do: data
 
   defp maybe_use_sharedinbox(actor_data),
     do:

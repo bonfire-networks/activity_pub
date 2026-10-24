@@ -3,7 +3,7 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
   An object we already hold can arrive again, from another delivery, a relay or a fetch. Which copy stays:
 
     * a copy somebody vouched for replaces the stored one, whatever the stored one's value, unless it is provably older (by `updated`, else `published`)
-    * a copy nobody vouched for never replaces one somebody did, and does not replace another such copy either
+    * a copy nobody vouched for never replaces one somebody did, and replaces another such copy only when it is provably newer (its date later)
     * an `Update` is outside this rule, and keeps the behaviour it had
   """
   use ActivityPub.DataCase, async: false
@@ -161,12 +161,40 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
       assert row(note_id).authenticated == :http_signature
     end
 
-    test "does not replace another copy nobody vouched for", %{sender: sender, note_id: note_id} do
+    test "replaces another copy nobody vouched for when it is provably newer", %{
+      sender: sender,
+      note_id: note_id
+    } do
       assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}))
 
       not_vouched(create(sender, note_id, "<p>v2</p>", %{"published" => @t0, "updated" => @t1}))
 
-      assert content(note_id) == "<p>v1</p>"
+      assert content(note_id) == "<p>v2</p>"
+      assert row(note_id).authenticated == :unverified
+    end
+
+    test "does not replace another copy nobody vouched for with the same date, or none", %{
+      sender: sender,
+      note_id: note_id
+    } do
+      assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}))
+
+      not_vouched(create(sender, note_id, "<p>v2</p>", %{"published" => @t0}))
+      assert content(note_id) == "<p>v1</p>", "the same date says nothing about which is later"
+
+      not_vouched(create(sender, note_id, "<p>v3</p>", %{}))
+      assert content(note_id) == "<p>v1</p>", "no date on the new copy says nothing either"
+    end
+
+    test "does not replace another copy nobody vouched for with an older one", %{
+      sender: sender,
+      note_id: note_id
+    } do
+      assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v2</p>", %{"updated" => @t2}))
+
+      not_vouched(create(sender, note_id, "<p>v1</p>", %{"updated" => @t1}))
+
+      assert content(note_id) == "<p>v2</p>"
     end
   end
 

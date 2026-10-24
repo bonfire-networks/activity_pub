@@ -130,6 +130,31 @@ defmodule ActivityPub.Federator.Adapter do
       else: adapter.handle_activity(activity)
   end
 
+  @doc """
+  Whose followers get `received`, a reply to `post` (or an edit or deletion of one), forwarded to them (ActivityPub 7.1.2, see `ActivityPub.Federator.Forwarder`): the local actors (the forward is signed as the first of them, any of whom will do, since a receiver trusts the author's own signature on it), or `:relayed_by_group` when a group of ours relays it already, or `[]` for nothing to forward. Optional: without it, the lib walks `inReplyTo` as far as it holds the posts, and takes their local authors.
+  """
+  @callback forward_to_followers_of_actors(Object.t(), map()) :: [Actor.t()] | :relayed_by_group
+  @optional_callbacks forward_to_followers_of_actors: 2
+
+  def forward_to_followers_of_actors(post, received) do
+    adapter = adapter()
+
+    if Code.ensure_loaded?(adapter) and
+         function_exported?(adapter, :forward_to_followers_of_actors, 2) do
+      adapter.forward_to_followers_of_actors(post, received)
+    else
+      # the local authors of the post and of every post up its chain we hold
+      [post | Object.held_ancestors(post)]
+      |> Enum.flat_map(fn %Object{data: data} ->
+        case Actor.get_cached(ap_id: Object.actor_from_data(data)) do
+          {:ok, %Actor{local: true} = author} -> [author]
+          _ -> []
+        end
+      end)
+      |> Enum.uniq_by(& &1.data["id"])
+    end
+  end
+
   def maybe_handle_activity(activity, opts \\ [])
 
   def maybe_handle_activity(%Object{local: false} = activity, opts) do

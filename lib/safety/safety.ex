@@ -84,6 +84,36 @@ defmodule ActivityPub.Safety do
   defp document_date(_), do: :error
 
   @doc """
+  Whether a document as it reached us carries its author's own signature, one that holds wherever it is passed on to (unlike the HTTP signature of its delivery): `{:ok, :integrity_proof}` or `{:ok, :ld_signature}` once checked, `:none` with neither, or why it does not hold.
+
+  With the `authenticated` value its delivery was accepted by, nothing is checked again when that was this signature.
+  """
+  def author_signature(received, authenticated \\ nil)
+
+  def author_signature(_received, authenticated)
+      when authenticated in [:integrity_proof, :ld_signature],
+      do: {:ok, authenticated}
+
+  def author_signature(received, _authenticated) do
+    cond do
+      ActivityPub.Safety.IntegrityProofs.has_proof?(received) ->
+        case ActivityPub.Safety.IntegrityProofs.check(received) do
+          {:valid, _controller} -> {:ok, :integrity_proof}
+          other -> other
+        end
+
+      ActivityPub.Safety.LinkedDataSignatures.has_verifiable_signature?(received) ->
+        case ActivityPub.Safety.LinkedDataSignatures.verify(received) do
+          {:ok, _creator} -> {:ok, :ld_signature}
+          other -> other
+        end
+
+      true ->
+        :none
+    end
+  end
+
+  @doc """
   What how a document arrived says on its own: `:fetched` when we fetched it from its origin (`already_fetched:`), `:unverified` when it was delivered (`from_inbox:`) and nobody vouched for it, otherwise `nil`: ours, or by no delivery.
   """
   def by_arrival(opts) do

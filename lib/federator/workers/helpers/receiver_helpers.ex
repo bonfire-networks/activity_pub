@@ -33,6 +33,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
   import ActivityPub.Config
   alias ActivityPub.Federator.Fetcher
+  alias ActivityPub.Federator.Forwarder
   alias ActivityPub.Object
   alias ActivityPub.Safety.IntegrityProofs
   alias ActivityPub.Safety.LinkedDataSignatures
@@ -64,12 +65,16 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   end
 
   # Every delivery we accept goes on with the document as it reached us (`data_received:`), so it can be relayed unchanged (a group's Announce of it): whatever the handling normalises, this stays as the author sent it.
-  defp handle_received(params, opts),
-    do:
-      ActivityPub.Federator.Transformer.handle_incoming(
-        params,
-        Keyword.put(opts, :data_received, params)
-      )
+  # A reply in one of our users' threads is then forwarded to their followers (`Forwarder`). Whom it goes to is asked before handling it, since a `Delete` takes away the reply it is found through.
+  defp handle_received(params, opts) do
+    opts = Keyword.put(opts, :data_received, params)
+    forwarding = Forwarder.recipients(params, opts)
+
+    result = ActivityPub.Federator.Transformer.handle_incoming(params, opts)
+
+    Forwarder.maybe_forward(params, result, forwarding)
+    result
+  end
 
   # the job argument is only the signer's id, kept as it is so jobs queued before the mark existed still run
   defp signed_by_http_signature(signer) when is_binary(signer),

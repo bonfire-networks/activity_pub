@@ -1064,8 +1064,8 @@ defmodule ActivityPub.Actor do
   def check_actor_is_active(actor) do
     if not is_nil(actor) do
       with {:ok, %{deactivated: true}} <- get_cached(ap_id: actor) do
-        error(actor, "Actor deactivated")
-        :reject
+        warn(actor, "Actor deactivated")
+        {:reject, "Actor deactivated"}
       else
         _ ->
           :ok

@@ -411,32 +411,13 @@ defmodule ActivityPub do
        do: true
 
   defp signature_holds?(announced, received) do
-    case received_signature(received) do
+    case ActivityPub.Safety.author_signature(received) do
       {:ok, authenticated} ->
         mark_vouched_by_signature(announced, authenticated)
         true
 
       _ ->
         false
-    end
-  end
-
-  defp received_signature(received) do
-    cond do
-      ActivityPub.Safety.IntegrityProofs.has_proof?(received) ->
-        case ActivityPub.Safety.IntegrityProofs.check(received) do
-          {:valid, _controller} -> {:ok, :integrity_proof}
-          other -> other
-        end
-
-      ActivityPub.Safety.LinkedDataSignatures.has_verifiable_signature?(received) ->
-        case ActivityPub.Safety.LinkedDataSignatures.verify(received) do
-          {:ok, _creator} -> {:ok, :ld_signature}
-          other -> other
-        end
-
-      true ->
-        :none
     end
   end
 

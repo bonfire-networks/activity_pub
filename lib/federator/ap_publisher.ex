@@ -530,7 +530,8 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp group_ban?(_), do: false
 
-  defp get_external_followers_except(actor, purpose, addressed_pointer_ids) do
+  @doc "The remote followers of a local `actor` we may federate to, leaving out those whose pointer id is in `addressed_pointer_ids`."
+  def get_external_followers_except(actor, purpose, addressed_pointer_ids) do
     exclude_set = MapSet.new(addressed_pointer_ids)
 
     Adapter.get_follower_local_ids(actor, purpose)
@@ -662,7 +663,8 @@ defmodule ActivityPub.Federator.APPublisher do
 
   defp maybe_with_received_object_to_relay(data, _received), do: data
 
-  defp maybe_use_sharedinbox(actor_data),
+  @doc "An actor's shared inbox when it has one, else its own."
+  def maybe_use_sharedinbox(actor_data),
     do:
       (is_map(actor_data["endpoints"]) && Map.get(actor_data["endpoints"], "sharedInbox")) ||
         actor_data["inbox"]

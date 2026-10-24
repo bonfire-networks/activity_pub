@@ -1376,6 +1376,25 @@ defmodule ActivityPub.Object do
   def self_replies_ids(object, limit),
     do: replies_ids(object, limit, self_only: true)
 
+  @doc "The posts up an object's reply chain (its `inReplyTo`, then that one's, and so on), nearest first, as far as we hold them. Nothing is fetched, and a chain that loops back ends there."
+  def held_ancestors(%Object{data: data}), do: held_ancestors(data)
+
+  def held_ancestors(%{} = data),
+    do: held_ancestors(get_ap_id(data["inReplyTo"]), MapSet.new([data["id"]]), [])
+
+  defp held_ancestors(parent_id, seen, ancestors) when is_binary(parent_id) do
+    with false <- MapSet.member?(seen, parent_id),
+         {:ok, %Object{data: data} = parent} <- get_cached(ap_id: parent_id) do
+      held_ancestors(get_ap_id(data["inReplyTo"]), MapSet.put(seen, parent_id), [
+        parent | ancestors
+      ])
+    else
+      _ -> Enum.reverse(ancestors)
+    end
+  end
+
+  defp held_ancestors(_parent_id, _seen, ancestors), do: Enum.reverse(ancestors)
+
   def apply_to_object_and_history(object, fun) do
     with history <- object["formerRepresentations"],
          object <- Map.drop(object, ["formerRepresentations"]),

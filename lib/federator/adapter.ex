@@ -128,8 +128,11 @@ defmodule ActivityPub.Federator.Adapter do
       debug("skipping adapter for remote activity as requested")
       {:ok, :skipped}
     else
-      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`)
-      handle_activity(%{activity | relayed_by: opts[:relayed_by]})
+      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`) and how they were authenticated (`authenticated`, `signed_by`)
+      handle_activity(
+        %{mark_embedded_object(activity, opts) | relayed_by: opts[:relayed_by]}
+        |> Object.put_authentication_meta(opts)
+      )
     end
   end
 
@@ -159,7 +162,10 @@ defmodule ActivityPub.Federator.Adapter do
 
       relayed_by ->
         # one of ours, relayed back by a group (FEP-1b12): the relay says the group accepted it, which the adapter may still have to act on (a moderator's action on a group hosted elsewhere is applied once the group relays it)
-        handle_activity(%{activity | relayed_by: relayed_by})
+        handle_activity(
+          %{activity | relayed_by: relayed_by}
+          |> Object.put_authentication_meta(opts)
+        )
 
       true ->
         # Regular local activities skip adapter (they originated from there)
@@ -170,6 +176,17 @@ defmodule ActivityPub.Federator.Adapter do
   def maybe_handle_activity(activity, _opts) do
     error(activity, "unrecognized activity structure")
   end
+
+  # the object a `Create` carries has its own authentication, which can differ from the activity's (FEP-fe34), so it is set on the object itself. `opts[:object_authenticated]` is only present when the transformer judged the object.
+  defp mark_embedded_object(%Object{object: %Object{} = object} = activity, opts) do
+    if Keyword.has_key?(opts, :object_authenticated) do
+      %{activity | object: Object.put_object_authentication_meta(object, opts)}
+    else
+      activity
+    end
+  end
+
+  defp mark_embedded_object(activity, _opts), do: activity
 
   @doc """
   Get the host application IDs for all `Actor`s following the given `Actor`.

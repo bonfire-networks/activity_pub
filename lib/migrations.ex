@@ -80,6 +80,40 @@ defmodule ActivityPub.Migrations do
     end
   end
 
+  @doc """
+  Adds the `authenticated` column to ap_object: how a stored object was vouched for, `NULL` for every existing row.
+
+  It is a native Postgres enum whose declaration order is the rank the replacement rule compares: the two values that are not vouched for come first, then the vouched ones, so `authenticated >= 'embedded'` means vouched. Postgres can add a value (`ALTER TYPE ... ADD VALUE ... BEFORE/AFTER`, which cannot run inside a transaction block) and rename one, but never remove or reorder one.
+  """
+  def add_object_authenticated do
+    execute("""
+    DO $$ BEGIN
+      CREATE TYPE ap_object_authenticated AS ENUM (
+        'unverified',
+        'unfetchable',
+        'embedded',
+        'http_signature',
+        'ld_signature',
+        'integrity_proof',
+        'fetched'
+      );
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+    """)
+
+    alter(table("ap_object")) do
+      add_if_not_exists(:authenticated, :ap_object_authenticated)
+    end
+  end
+
+  def drop_object_authenticated do
+    alter(table("ap_object")) do
+      remove_if_exists(:authenticated, :ap_object_authenticated)
+    end
+
+    execute("DROP TYPE IF EXISTS ap_object_authenticated")
+  end
+
   def drop_object_boolean do
     alter(table("ap_object")) do
       remove(:is_object)

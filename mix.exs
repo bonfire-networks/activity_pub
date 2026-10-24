@@ -17,7 +17,8 @@ defmodule ActivityPub.MixProject do
       name: "ActivityPub library",
       app: :activity_pub,
       version: "0.1.0",
-      elixir: "~> 1.11",
+      # 1.20.2: what `rfc8785` (RFC 8785 canonical JSON, for FEP-8b32 proofs) requires, and it refuses to compile below OTP 29
+      elixir: ">= 1.20.2",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
       start_permanent: Mix.env() == :prod,
@@ -62,6 +63,11 @@ defmodule ActivityPub.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.0"},
+      # canonical JSON (RFC 8785) for FEP-8b32 object integrity proofs; chosen over `jcs` for refusing what has no canonical form
+      {:rfc8785, "~> 1.0"},
+      # HKDF (RFC 5869), to derive the Ed25519 key of an actor from its RSA key; OTP's `:crypto` has none.
+      # Not a dependency: `hkdf` 0.3.0 does not compile on OTP 29 with OpenSSL 3 (it calls `:crypto.hash(:md4, "")` while compiling, and MD4 is not supported: "Digest type not supported in this cryptolib"), so it is vendored, with its licence, in lib/safety/hkdf.ex
+      # {:hkdf, "~> 0.3"},
       {:mime, "~> 2.0.3"},
       {:oban, "~> 2.17"},
       # {:hackney, "~> 1.16"},

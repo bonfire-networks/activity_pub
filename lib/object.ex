@@ -11,6 +11,7 @@ defmodule ActivityPub.Object do
   alias ActivityPub.Object
   alias ActivityPub.MRF
   alias ActivityPub.Queries
+  alias ActivityPub.Safety
   import ActivityPub.Utils
   alias ActivityPub.Utils
 
@@ -26,13 +27,29 @@ defmodule ActivityPub.Object do
     # is it an object rather than an activity?
     field(:is_object, :boolean, default: false)
 
-    # the group whose FEP-1b12 `Announce` delivered this activity, if any: a property of the DELIVERY rather than of the activity, so never stored, only carried to the adapter, which can then tell a post a group relayed (and so accepted) from one that merely names it
+    # the actor whose `Announce` delivered this activity, if any: a group (FEP-1b12), and in principle a relay or a hashtag service, which an adapter tells apart by the actor's type. A property of the DELIVERY rather than of the activity, so never stored, only carried to the adapter, which can then tell a post a group relayed (and so accepted) from one that merely names it
     field(:relayed_by, :string, virtual: true)
+
+    # how this document was vouched for, kept so a copy that is not can be told from one that is, and a better one replace it. `nil` is nothing recorded (every row from before this column). Ranked, lowest first, which is the order of the Postgres enum behind it (a value can be added to it but never removed or reordered): `nil`, then `:unverified` (checked, no usable proof, nothing fetched) and `:unfetchable` (we asked the origin and could not reach it), then the vouched values. Each document has its own: a group's `Announce`, signed by the group, says nothing about the author's `Create` it carries
+    field(:authenticated, Ecto.Enum,
+      values: [
+        :unverified,
+        :unfetchable,
+        :embedded,
+        :http_signature,
+        :ld_signature,
+        :integrity_proof,
+        :fetched
+      ]
+    )
+
+    # the actor who vouched for this DELIVERY, for the adapter to act on. A property of the delivery rather than of the row, so never stored: a row loaded from the database has `authenticated` from when it was stored and no `signed_by`
+    field(:signed_by, :string, virtual: true)
 
     # TODO: get the table to reference from config? and maybe the type as well
     belongs_to(:pointer, Needle.Pointer, type: Needle.UID)
 
-    # Attention: these is are fake relations, don't try to join them blindly and expect it to work!
+    # Attention: the below are fake relations, don't try to join them blindly and expect it to work!
     # The foreign keys are embedded in a jsonb field.
     # You probably want to do an inner join and a preload, as in `Queries.with_object/2`
     has_one(:object, Object, on_delete: :nothing, foreign_key: :id)
@@ -227,7 +244,9 @@ defmodule ActivityPub.Object do
          {:ok, params} <- MRF.filter(params, opts |> Keyword.put(:is_local, local?)),
          # first insert the object if there is one
          {:ok, activity, object} <-
-           do_insert_object(params, local?, pointer, opts[:upsert] || false),
+           do_insert_object(params, local?, pointer, opts),
+         # how the delivery was vouched for, if it was: each row has its own value
+         {authenticated, _signed_by} <- Safety.authentication(opts),
          # then insert the activity (containing only an ID as object)
          {:ok, activity} <-
            (if not is_nil(activity) do
@@ -238,7 +257,8 @@ defmodule ActivityPub.Object do
                   data: activity,
                   local: local?,
                   public: Utils.public?(activity),
-                  pointer_id: Utils.uid(pointer)
+                  pointer_id: Utils.uid(pointer),
+                  authenticated: authenticated
                 })
               else
                 # insert activity (with the object ID as object)
@@ -246,7 +266,8 @@ defmodule ActivityPub.Object do
                   id: activity_id,
                   data: activity,
                   local: local?,
-                  public: Utils.public?(activity, object)
+                  public: Utils.public?(activity, object),
+                  authenticated: authenticated
                 })
               end
             else
@@ -315,14 +336,14 @@ defmodule ActivityPub.Object do
          activity,
          local \\ false,
          pointer \\ nil,
-         upsert? \\ false
+         opts \\ []
        )
 
   defp do_insert_object(
          %{"object" => %{"type" => type} = object_data} = activity,
          local,
          pointer,
-         upsert?
+         opts
        )
        when is_in(type, :supported_actor_types) == false and
               (is_in(type, :supported_activity_types) == false or
@@ -331,7 +352,7 @@ defmodule ActivityPub.Object do
     # We support two uses of some types (e.g. `Question`): as a bare intransitive *activity* (handled by the intransitive clause below), and, like Mastodon does for polls, as a content *object* wrapped in a `Create`/`Update`. When such a type appears as an activity's `object`, treat it as an object here so it becomes retrievable by its ap_id (e.g. for `Object.normalize`/voting).
     # Other (non-intransitive) activity types stay embedded, so we don't split nested activities like `Announce{Create}` or `Undo{Like}`.
     with {:ok, object} <-
-           actually_do_insert_object(activity, object_data, local, pointer, upsert?) do
+           actually_do_insert_object(activity, object_data, local, pointer, opts) do
       # return an activity that contains the ID as object rather than the actual object
       {:ok, Map.put(activity, "object", object.data["id"]), object}
     end
@@ -341,13 +362,13 @@ defmodule ActivityPub.Object do
          %{"type" => type} = intransitive_object,
          local,
          pointer,
-         upsert?
+         opts
        )
        when is_in(type, :supported_intransitive_types) == true do
     # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
 
     with {:ok, object} <-
-           actually_do_insert_object(nil, intransitive_object, local, pointer, upsert?) do
+           actually_do_insert_object(nil, intransitive_object, local, pointer, opts) do
       # return an activity that contains the ID as object rather than the actual object
       {:ok, nil, object}
     end
@@ -361,8 +382,10 @@ defmodule ActivityPub.Object do
          object_data,
          local,
          pointer,
-         upsert?
+         opts
        ) do
+    upsert? = opts[:upsert] || false
+
     # we're taking a shortcut by assuming that any object that isn't a known actor or activity type is an object (which seems a bit better than only supporting a known list of object types)
     debug(object_data, "object to '#{if upsert?, do: "update", else: "insert"}'")
 
@@ -370,6 +393,8 @@ defmodule ActivityPub.Object do
            normalize(object_data, false, pointer) |> debug("maybe_existing_object"),
          # first check if it already exists
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
+         object_params =
+           Map.put(object_params, :authenticated, row_authentication(activity, object_data, opts)),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> debug("maybe_upserted") do
       # each `maybe_upsert` branch already caches its result (`do_insert` / `update_and_set_cache` /
@@ -381,6 +406,30 @@ defmodule ActivityPub.Object do
 
   # there's no object
   defp actually_do_insert_object(activity, _local, _pointer, _), do: {:ok, activity, nil}
+
+  # The row of an object carries its own value. An object that IS the activity (intransitive) has the activity's. An object inside an activity has the one judged for it (see `object_authentication/1`) or, when none was, the activity's if the object belongs to the activity's actor, else only what its arrival says.
+  defp row_authentication(nil, _object_data, opts), do: elem(Safety.authentication(opts), 0)
+
+  defp row_authentication(activity, object_data, opts) do
+    cond do
+      authenticated = opts[:object_authenticated] ->
+        authenticated
+
+      inherits?(activity, object_data) ->
+        elem(Safety.authentication(opts), 0)
+
+      true ->
+        Safety.by_arrival(opts)
+    end
+  end
+
+  # an object takes the activity's value when it belongs to the activity's actor, or to nobody
+  defp inherits?(activity, object_data) do
+    case actor_id_from_data(object_data) do
+      nil -> true
+      owner -> owner == actor_id_from_data(activity)
+    end
+  end
 
   def do_insert(attrs) do
     with {:ok, %Object{data: %{"id" => _}} = object} <-
@@ -419,6 +468,15 @@ defmodule ActivityPub.Object do
   def maybe_upsert(_, _, attrs) do
     debug("Insert")
     do_insert(attrs)
+  end
+
+  @doc """
+  Replaces the data and the `authenticated` value of an object we hold with a copy of it. Whether a copy should is for `ActivityPub.Safety.replaces?/3` to say; this only does it.
+  """
+  def replace(%__MODULE__{} = stored, data, authenticated) when is_map(data) do
+    stored
+    |> changeset(%{data: data, authenticated: authenticated})
+    |> update_and_set_cache()
   end
 
   # Guarded entry point for explicit write sites (`do_insert`, `update_and_set_cache`, `update_state`):
@@ -483,8 +541,22 @@ defmodule ActivityPub.Object do
 
   def changeset(object, attrs) do
     object
-    |> cast(attrs, [:id, :data, :local, :public, :pointer_id, :is_object])
+    |> cast(attrs, [:id, :data, :local, :public, :pointer_id, :is_object, :authenticated])
     |> common_changeset()
+  end
+
+  @doc """
+  Sets how a delivery was vouched for on a struct, from the options its handling carried (see `ActivityPub.Safety.authentication/1`). For the adapter, which is handed the struct; `signed_by` is not stored.
+  """
+  def put_authentication_meta(%__MODULE__{} = object, opts) when is_list(opts) do
+    {authenticated, signed_by} = Safety.authentication(opts)
+    %{object | authenticated: authenticated, signed_by: signed_by}
+  end
+
+  @doc "Like `put_authentication_meta/2`, for the object a `Create` carries."
+  def put_object_authentication_meta(%__MODULE__{} = object, opts) when is_list(opts) do
+    {authenticated, signed_by} = Safety.object_authentication(opts)
+    %{object | authenticated: authenticated, signed_by: signed_by}
   end
 
   def update_changeset(object, attrs) do

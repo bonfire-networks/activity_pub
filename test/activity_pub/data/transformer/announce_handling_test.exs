@@ -453,6 +453,131 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
     end
   end
 
+  # A group relays what an author did, and the author's own proof (FEP-8b32) travels inside the copy. It is checked the way a legacy LD signature is: a proof that verifies means the author's server made this, whoever passed it on; one that fails is evidence against the copy; one we cannot check (an unknown key or suite) is as good as none.
+  describe "a relayed activity that carries its author's proof" do
+    import ActivityPub.Test.IntegrityProofHelpers
+
+    setup do
+      # the author's server serves nothing: neither a refetch of what was relayed nor a check that a deletion happened would find it
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      author_id = "https://relay-author-#{System.unique_integer([:positive])}.example/users/alice"
+      key = new_key(:ed25519)
+      actor(ap_id: author_id, data: %{"assertionMethod" => [multikey(author_id, key)]})
+
+      %{author_id: author_id, key: key, group: insert(:actor)}
+    end
+
+    defp relayed_by(group, activity) do
+      %{
+        "type" => "Announce",
+        "id" => "#{group.data["id"]}/activities/announce/#{System.unique_integer([:positive])}",
+        "actor" => group.data["id"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => activity
+      }
+    end
+
+    test "a valid proof gets a Create stored in `verify` mode, though its origin will not serve it",
+         %{author_id: author_id, key: key, group: group} do
+      create = author_id |> create_note("<p>proved, not fetched</p>") |> sign(key)
+
+      with_trust_mode(:verify, fn ->
+        assert {:ok, _} = Transformer.handle_incoming(relayed_by(group, create))
+
+        assert %Object{} = Object.normalize(create["object"]["id"], fetch: false),
+               "the proof is what the relay was missing, so the origin need not be asked"
+      end)
+    end
+
+    test "a proof that fails is refused even in `trust` mode, as a broken signature is",
+         %{author_id: author_id, key: key, group: group} do
+      create =
+        author_id
+        |> create_note("<p>as signed</p>")
+        |> sign(key)
+        |> put_in(["object", "content"], "<p>as altered by the relay</p>")
+
+      with_trust_mode(:trust, fn ->
+        assert {:error, _} = Transformer.handle_incoming(relayed_by(group, create))
+        assert is_nil(Object.normalize(create["object"]["id"], fetch: false))
+      end)
+    end
+
+    test "someone else's proof on an activity does not authenticate it", %{
+      author_id: author_id,
+      key: key,
+      group: group
+    } do
+      # same host, so the key is on the document's origin and only the owner is wrong
+      bob_id = String.replace(author_id, "/users/alice", "/users/bob")
+
+      forged =
+        bob_id
+        |> create_note("<p>claims to be bob's</p>")
+        |> sign(key, verification_method: author_id <> "#ed25519-key")
+
+      with_trust_mode(:trust, fn ->
+        assert {:error, _} = Transformer.handle_incoming(relayed_by(group, forged))
+        assert is_nil(Object.normalize(forged["object"]["id"], fetch: false))
+      end)
+    end
+
+    test "a proof bound to the relaying group's host counts, one bound elsewhere does not",
+         %{author_id: author_id, key: key, group: group} do
+      group_host = URI.parse(group.data["id"]).host
+
+      bound_to_group =
+        author_id
+        |> create_note("<p>for the group</p>")
+        |> sign(key, proof: %{"domain" => group_host})
+
+      bound_elsewhere =
+        author_id
+        |> create_note("<p>for somewhere else</p>")
+        |> sign(key, proof: %{"domain" => "somewhere-else.example"})
+
+      with_trust_mode(:verify, fn ->
+        assert {:ok, _} = Transformer.handle_incoming(relayed_by(group, bound_to_group))
+        assert %Object{} = Object.normalize(bound_to_group["object"]["id"], fetch: false)
+
+        assert {:error, _} = Transformer.handle_incoming(relayed_by(group, bound_elsewhere))
+        assert is_nil(Object.normalize(bound_elsewhere["object"]["id"], fetch: false))
+      end)
+    end
+
+    # A deletion is the case a refetch cannot confirm: the object is gone from its origin, which `verify` mode reads as the relay inventing it
+    test "a relayed Delete with a valid proof is applied in `verify` mode, one without is not",
+         %{author_id: author_id, key: key, group: group} do
+      create = author_id |> create_note("<p>about to be deleted</p>") |> sign(key)
+      object_id = create["object"]["id"]
+      assert {:ok, _} = Transformer.handle_incoming(create)
+      assert %Object{data: %{"type" => "Note"}} = Object.normalize(object_id, fetch: false)
+
+      delete = fn n ->
+        %{
+          "@context" => "https://www.w3.org/ns/activitystreams",
+          "id" => "#{author_id}/activities/delete/#{n}",
+          "type" => "Delete",
+          "actor" => author_id,
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+          "object" => %{"id" => object_id, "type" => "Tombstone"}
+        }
+      end
+
+      with_trust_mode(:verify, fn ->
+        assert {:error, _} = Transformer.handle_incoming(relayed_by(group, delete.(1))),
+               "control: the same Delete without a proof is refused, since the origin cannot confirm it"
+
+        assert %Object{data: %{"type" => "Note"}} = Object.normalize(object_id, fetch: false)
+
+        assert {:ok, _} = Transformer.handle_incoming(relayed_by(group, sign(delete.(2), key)))
+
+        assert %Object{data: %{"type" => "Tombstone"}} = Object.normalize(object_id, fetch: false)
+      end)
+    end
+  end
+
   defp relayed_announce do
     group = insert(:actor)
     author = insert(:actor)

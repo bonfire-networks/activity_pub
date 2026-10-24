@@ -374,6 +374,7 @@ defmodule ActivityPub.Federator.Transformer do
     |> fix_addressing()
     |> fix_summary()
     |> add_emoji_tags()
+    |> drop_stale_signatures(object)
 
     # |> fetch_and_create_nested_ap_objects(options)
     |> debug("fixed object")
@@ -381,9 +382,18 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_object(object, _options), do: object
 
+  # A proof or LD signature covers the exact bytes its signer produced, so on a copy we normalised it would no longer verify, and a broken one is refused where an absent one is accepted. A document normalisation left alone keeps them. Verification has already run on the document as received.
+  defp drop_stale_signatures(fixed, original) do
+    keys = ["proof", "signature"]
+
+    if Map.drop(fixed, keys) == Map.drop(original, keys),
+      do: fixed,
+      else: Map.drop(fixed, keys)
+  end
+
   def fix_other_object(object, _options) do
-    object
-    # |> fetch_and_create_nested_ap_objects(options)
+    # an activity that is its own content (an `Arrive` with a `location`) has the objects nested in its fields stored on their own, like the object of a `Create`
+    ingest_nested_objects(object, object)
   end
 
   def fix_summary(%{"summary" => nil} = object) do
@@ -1228,6 +1238,9 @@ defmodule ActivityPub.Federator.Transformer do
   def handle_incoming(%{"type" => "Create", "object" => _object} = data, opts) do
     info("Handle incoming creation of an object")
 
+    # a proof covers the object's bytes as its owner signed them, so it is judged before anything below normalises it
+    received_object = data["object"]
+
     %{"object" => object} = data = Object.normalize_actors(data)
 
     # |> debug("with actors normalized")
@@ -1240,11 +1253,30 @@ defmodule ActivityPub.Federator.Transformer do
       Object.actor_id_from_data(data)
       |> debug("the actor_id")
 
-    case resolve_author(actor_id, opts) do
-      {:ok, actor} -> handle_incoming_create(data, object, actor, opts)
-      cancel_or_error -> cancel_or_error
+    with :ok <- check_embedded_origin(received_object, opts),
+         {:ok, {object_authenticated, object_signed_by}} <-
+           embedded_object_authentication(received_object, actor_id, opts),
+         # for the row of the object and for the adapter, which is handed the stored object inside the `Create`
+         opts =
+           opts
+           |> Keyword.put(:object_authenticated, object_authenticated)
+           |> Keyword.put(:object_signed_by, object_signed_by),
+         {:ok, actor} <- resolve_author(actor_id, opts),
+         # after the checks, so a `Create` that is refused leaves nothing behind
+         object = ingest_nested_objects(object, data) do
+      handle_incoming_create(data, object, actor, opts)
     end
   end
+
+  # the objects nested in the fields of the object are stored on their own, leaving their ids in the fields. Nobody is asked for them: the copy embedded is what we store, as `unverified`
+  defp ingest_nested_objects(%{} = object, data) do
+    ActivityPub.Federator.NestedObjects.ingest(object,
+      context: data["@context"],
+      fetch_remote?: false
+    )
+  end
+
+  defp ingest_nested_objects(object, _data), do: object
 
   # Who this object gets attributed to, in descending order of what we actually know:
   #
@@ -1293,6 +1325,118 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # FEP-fe34: an object's id has to be on the origin of its owner, or whoever's origin it is on could put words in the owner's mouth, whatever signed the delivery. Only an object embedded in a DELIVERY (one we fetched went through `Containment` when it was fetched), and only one that names its owner: one that names none is for the rules about objects with no author.
+  defp check_embedded_origin(%{"id" => id} = object, opts) when is_binary(id) do
+    if delivered?(opts) and is_binary(embedded_owner(object)) and
+         not ActivityPub.Safety.Containment.contain_origin(id, object) do
+      error(id, "The object's id is not on the origin of its owner, so it is not stored")
+    else
+      :ok
+    end
+  end
+
+  defp check_embedded_origin(_object, _opts), do: :ok
+
+  # --- an embedded object's authentication (FEP-fe34) ---
+  #
+  # An object inside a `Create` is trusted through the `Create` only when it has the same owner as the `Create` AND the `Create` was itself authenticated as that owner: embedding passes authentication down, it never makes any. A different owner is allowed (a container, a relay, an editor carrying someone else's object), but then the object has to stand on its own:
+  #
+  #   * a valid proof by its owner: authenticated by it (`:integrity_proof`)
+  #   * a proof that fails, or is somebody else's: evidence against the object, so it is refused
+  #   * no proof, or one we cannot check (an unknown suite, a key we cannot fetch): kept, `:unverified`, and nothing is fetched
+  #
+  # Returns `{authenticated, signed_by}`, with `nil` for neither: what an object gets when the `Create` was not authenticated as its owner, which `Object.authentication/1` then settles by how the document arrived. Only for a DELIVERY: a document we fetched ourselves, or a local one, is not for these rules to judge.
+  defp embedded_object_authentication(%{} = object, wrapper_actor_id, opts) do
+    owner = embedded_owner(object)
+
+    cond do
+      !delivered?(opts) ->
+        {:ok, {nil, nil}}
+
+      # the wrapper's signature covers it, but nothing says the wrapper's actor owns it: it rides in a document that actor vouched for
+      is_nil(owner) ->
+        {:ok, embedded_authentication(opts, wrapper_actor_id)}
+
+      owner == wrapper_actor_id ->
+        {:ok, inherited_authentication(opts, wrapper_actor_id)}
+
+      true ->
+        case ActivityPub.Safety.IntegrityProofs.check(object, relayed_by: opts[:relayed_by]) do
+          {:valid, controller} ->
+            {:ok, {:integrity_proof, controller}}
+
+          {:invalid, reason} ->
+            error(
+              reason,
+              "an object embedded in an activity by someone else carries a proof that does not hold, so it is not trusted"
+            )
+
+          _no_proof_or_unverifiable ->
+            {:ok, {:unverified, nil}}
+        end
+    end
+  end
+
+  defp embedded_object_authentication(_not_a_map, _wrapper_actor_id, _opts), do: {:ok, {nil, nil}}
+
+  defp delivered?(opts), do: !!opts[:from_inbox] and !opts[:already_fetched]
+
+  # only a wrapper authenticated as the owner has anything to pass down, and what it passes down is its own value: a signature covers the whole document, the object inside it as much as the activity
+  defp inherited_authentication(opts, owner) do
+    if is_binary(owner) and opts[:signed_by] == owner,
+      do: {opts[:authenticated], owner},
+      else: {nil, nil}
+  end
+
+  # an object that names no owner, in a wrapper authenticated as its own actor: `embedded`, weaker than the wrapper's value, which an owned object gets
+  defp embedded_authentication(opts, wrapper_actor_id) do
+    if is_binary(wrapper_actor_id) and opts[:signed_by] == wrapper_actor_id,
+      do: {:embedded, wrapper_actor_id},
+      else: {nil, nil}
+  end
+
+  # how a document was vouched for, put on the options its handling carries. Each document has its own, so this replaces what the options held, `nil`s included, never adds to it
+  defp put_mark(opts, {authenticated, signed_by}) do
+    opts
+    |> Keyword.put(:authenticated, authenticated)
+    |> Keyword.put(:signed_by, signed_by)
+  end
+
+  # who an object says it belongs to: the one id in `attributedTo`, `nil` when it names none, `:several` when it names more than one (which is nobody's, for this purpose)
+  defp embedded_owner(%{} = object) do
+    case object["attributedTo"]
+         |> List.wrap()
+         |> Enum.map(&Object.get_ap_id/1)
+         |> Enum.reject(&is_nil/1)
+         |> Enum.uniq() do
+      [] -> nil
+      [one] -> one
+      _several -> :several
+    end
+  end
+
+  defp embedded_owner(_), do: nil
+
+  # The object arrived again (from another delivery, a relay, a fetch). Whether this copy replaces the one we hold is for `ActivityPub.Safety.replaces?/3` to say. `:ok` when there was nothing to replace or it was replaced, else the error.
+  defp maybe_replace_object(%{"id" => id} = object, opts) when is_binary(id) do
+    {authenticated, _signed_by} = ActivityPub.Safety.object_authentication(opts)
+
+    with {:ok, %Object{} = stored} <- Object.get_cached(ap_id: id),
+         # a copy with no `published` has the one we gave the stored copy when it had none, as `Object.insert` would
+         incoming = Map.put_new(object, "published", stored.data["published"]),
+         true <- ActivityPub.Safety.replaces?(stored, incoming, authenticated),
+         {:ok, _replaced} <- Object.replace(stored, incoming, authenticated) do
+      :ok
+    else
+      # no copy held, or this one does not replace it
+      {:error, :not_found} -> :ok
+      false -> :ok
+      other -> other
+    end
+  end
+
+  defp maybe_replace_object(_object, _opts), do: :ok
+
   defp handle_incoming_create(data, object, actor, opts) do
     params = %{
       activity_id: data["id"],
@@ -1326,7 +1470,8 @@ defmodule ActivityPub.Federator.Transformer do
           "a Create for this Object already exists, but not in the Adapter, so pass it there now"
         )
 
-        with {:ok, adapter_object} <-
+        with :ok <- maybe_replace_object(object, opts),
+             {:ok, adapter_object} <-
                Adapter.maybe_handle_activity(
                  Map.put(activity, :data, Map.merge(activity.data, %{"object" => object})),
                  opts
@@ -1336,7 +1481,8 @@ defmodule ActivityPub.Federator.Transformer do
 
       %Object{} = activity ->
         debug("a Create for this Object already exists")
-        {:ok, activity}
+
+        with :ok <- maybe_replace_object(object, opts), do: {:ok, activity}
 
       e ->
         error(e)
@@ -1551,22 +1697,28 @@ defmodule ActivityPub.Federator.Transformer do
   defp handle_relayed_inner(inner_activity, _relays_a_post?, opts),
     do: handle_incoming(inner_activity, opts)
 
-  defp handle_relayed_activity(data, inner_activity, relays_a_post?, opts) do
+  defp handle_relayed_activity(outer_activity, inner_activity, relays_a_post?, opts) do
     with false <-
            relays_a_post? and
-             duplicate_announce?(data, Object.get_ap_id(inner_activity["object"])),
-         {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
-         # who relayed it, so the adapter can tell a post this group accepted from one that only names it
+             duplicate_announce?(outer_activity, Object.get_ap_id(inner_activity["object"])),
+         {:ok, inner_activity, mark} <-
+           verify_relayed_activity(
+             inner_activity,
+             Keyword.put(opts, :relayed_by, Object.get_ap_id(outer_activity["actor"]))
+           ),
+         # who relayed it, so the adapter can tell a post this group accepted from one that only names it; and how the inner activity was authenticated, which is its own business: the group's authentication of its `Announce` says nothing about what the announce carries, so it is replaced, not inherited
          {:ok, inner} <-
            handle_relayed_inner(
              inner_activity,
              relays_a_post?,
-             Keyword.put(opts, :relayed_by, Object.get_ap_id(data["actor"]))
+             opts
+             |> Keyword.put(:relayed_by, Object.get_ap_id(outer_activity["actor"]))
+             |> put_mark(mark)
            ) do
       if relays_a_post? do
         # Hand off to the boost clause with the inner OBJECT's id, the announce is of the object, and actor resolution, `public?`, dedup and error handling all already live there.
         handle_incoming(
-          Map.put(data, "object", Object.get_ap_id(inner_activity["object"])),
+          Map.put(outer_activity, "object", Object.get_ap_id(inner_activity["object"])),
           opts
         )
       else
@@ -1598,13 +1750,15 @@ defmodule ActivityPub.Federator.Transformer do
       debug(container, "an Add naming a container on another host is not a 171b relay")
       handle_collection_add_remove(data, "Add", inner_activity, data["target"], opts)
     else
-      with {:ok, inner_activity} <- verify_relayed_activity(inner_activity, opts),
+      with {:ok, inner_activity, mark} <-
+             verify_relayed_activity(inner_activity, Keyword.put(opts, :relayed_by, actor)),
            # the container's own id, so a reply can quote it back
            inner_activity =
              Map.put_new(inner_activity, "context", container),
            # 171b marks belonging by membership of the container, where 1b12 marks it with `audience`. They mean the same thing, and our attribution already understands `audience`, so normalise to it: the container's owner is the group. Without this the container owner is never resolved and the post belongs to nobody locally.
            inner_activity = put_audience(inner_activity, actor),
-           {:ok, _inner} <- handle_incoming(inner_activity, opts) do
+           {:ok, _inner} <-
+             handle_incoming(inner_activity, put_mark(opts, mark)) do
         # Adding to the container IS the act of distribution, the same act an `Announce` performs in 1b12, so record it the same way locally: hand off to the boost clause with the inner OBJECT's id, which also gives us actor resolution, `public?`, dedup and error handling. Nothing synthesised here is ever emitted.
         handle_incoming(
           data
@@ -1630,11 +1784,12 @@ defmodule ActivityPub.Federator.Transformer do
   defp put_audience(activity, _), do: activity
 
   # `:trust` (default) takes the relayed copy at face value, which is 1b12 as designed and what Lemmy/PieFed/NodeBB do themselves; `:verify` refetches from the origin instead. See `relayed_activity_trust/0`.
+  # Returns the activity to go on with and how it was authenticated, as `{authenticated, signed_by}` (see `ActivityPub.Object`): by its own proof or signature, by being fetched from its origin, or not at all (`{nil, nil}`).
   defp verify_relayed_activity(inner_activity, opts) do
-    case signature_check(inner_activity) do
-      :valid ->
+    case relayed_authenticity(inner_activity, opts) do
+      {:valid, mark} ->
         # the origin signed it, so the relay could not have altered or invented it
-        {:ok, inner_activity}
+        {:ok, inner_activity, mark}
 
       :invalid ->
         # A broken signature is evidence against the relayed BYTES, so they are never stored, whatever the trust mode says. But refusing outright also throws away a post the origin is happy to serve, and a relay that reserialised the document is a likelier cause than an attack: our own normalising ingest would do exactly that if we forwarded. So ask the origin, and refuse only if it cannot answer.
@@ -1646,12 +1801,29 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # An object integrity proof (FEP-8b32) first, then a legacy LD signature. Either one means the origin made this, so the relay could not have altered or invented it; and, unlike a refetch, it still works for what the origin no longer has (a deletion).
+  defp relayed_authenticity(activity, opts) do
+    case proof_check(activity, opts) do
+      :none -> signature_check(activity)
+      checked -> checked
+    end
+  end
+
+  # A proof that fails is evidence against the copy, as a broken LD signature is; one we cannot check is as good as none (FEP-8b32 says to carry on as if it were not there). Which is which is for `IntegrityProofs.check/2` to say.
+  defp proof_check(activity, opts) do
+    case ActivityPub.Safety.IntegrityProofs.check(activity, relayed_by: opts[:relayed_by]) do
+      {:valid, controller} -> {:valid, {:integrity_proof, controller}}
+      {:invalid, _reason} -> :invalid
+      _unverifiable_or_none -> :none
+    end
+  end
+
   defp signature_check(activity) do
     case ActivityPub.Safety.LinkedDataSignatures.verify(activity) do
       {:ok, creator} ->
         # a valid signature from SOMEONE only authenticates this activity if that someone is its actor
         if ActivityPub.Safety.Containment.contain_origin(creator, activity),
-          do: :valid,
+          do: {:valid, {:ld_signature, creator}},
           else: :invalid
 
       {:error, :no_signature} ->
@@ -1669,7 +1841,8 @@ defmodule ActivityPub.Federator.Transformer do
     case Fetcher.fetch_fresh_object_from_id(object_id, opts) do
       {:ok, %{data: authentic}} ->
         debug(object_id, "replaced a relayed copy carrying a bad signature with the origin's own")
-        {:ok, Map.put(inner_activity, "object", authentic)}
+
+        {:ok, Map.put(inner_activity, "object", authentic), fetched_from_origin(inner_activity)}
 
       cannot_fetch ->
         error(
@@ -1686,7 +1859,8 @@ defmodule ActivityPub.Federator.Transformer do
       case Fetcher.fetch_fresh_object_from_id(object_id, opts) do
         {:ok, %{data: authentic}} ->
           debug(object_id, "relayed activity verified against its origin")
-          {:ok, Map.put(inner_activity, "object", authentic)}
+
+          {:ok, Map.put(inner_activity, "object", authentic), fetched_from_origin(inner_activity)}
 
         {:error, :not_found} ->
           error(
@@ -1697,12 +1871,16 @@ defmodule ActivityPub.Federator.Transformer do
         cannot_verify ->
           # eg 401 (`:needs_login`): declining to answer US says nothing about whether the object exists, which is precisely the case 1b12 exists for
           debug(cannot_verify, "could not verify relayed activity, accepting the relayed copy")
-          {:ok, inner_activity}
+          {:ok, inner_activity, {nil, nil}}
       end
     else
-      {:ok, inner_activity}
+      {:ok, inner_activity, {nil, nil}}
     end
   end
+
+  # what we fetched ourselves from the origin is the origin speaking, so it is the actor's, as far as the origin vouches for it
+  defp fetched_from_origin(inner_activity),
+    do: {:fetched, Object.get_ap_id(inner_activity["actor"])}
 
   @doc """
   How far to trust an activity handed to us by a relay (FEP-1b12), set with `AP_RELAYED_ACTIVITY_TRUST=trust|verify` or `config :activity_pub, :relayed_activity_trust`.
@@ -1832,7 +2010,10 @@ defmodule ActivityPub.Federator.Transformer do
 
     with {:ok, actor} <- Actor.get_cached(ap_id: actor) |> debug("fetch actor for update"),
          {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
-         true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized} do
+         true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized},
+         :ok <- check_owner_change(cached_object, object, opts),
+         # after the checks, so an `Update` that is refused leaves nothing behind
+         object = ingest_nested_objects(object, data) do
       ActivityPub.update(
         %{
           local: local?(opts),
@@ -2405,6 +2586,25 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp can_delete?(_, _, _), do: false
 
+  # FEP-fe34, ownership transfer: a delivered `Update` may change who an object belongs to only when it was authenticated as the current owner and the new owner is on the same origin. Anything else keeps the object where it is.
+  defp check_owner_change(%Object{data: stored}, updated, opts) do
+    old_owner = embedded_owner(stored)
+    new_owner = embedded_owner(updated)
+
+    cond do
+      !delivered?(opts) or is_nil(new_owner) or new_owner == old_owner ->
+        :ok
+
+      is_binary(old_owner) and is_binary(new_owner) and
+        opts[:signed_by] == old_owner and
+          Utils.origin(new_owner) == Utils.origin(old_owner) ->
+        :ok
+
+      true ->
+        {:error, :owner_change_not_allowed}
+    end
+  end
+
   # Check if the actor can update the object
   defp can_update?(object, actor, opts) do
     actor =
@@ -2435,11 +2635,30 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp actor_owns_object?(_, _), do: false
 
+  # FEP-fe34 lets the owner of an object delete it, so a `Delete` authenticated as that owner needs no word from the origin. Everything else is confirmed with it: an unauthenticated one, one authenticated as somebody else, and the `Delete` of an actor (whose key may be gone, leaving the origin's answer as the only evidence).
+  defp confirm_deletion(object, cached_object, data, opts) do
+    if deleted_by_authenticated_owner?(cached_object, data, opts) do
+      {:ok, nil}
+    else
+      check_remote_object_deleted(object, opts[:already_fetched])
+    end
+  end
+
+  defp deleted_by_authenticated_owner?(%Object{data: stored} = cached_object, data, opts) do
+    owner = embedded_owner(stored)
+
+    delivered?(opts) and is_binary(owner) and not Actor.actor?(cached_object) and
+      Object.actor_id_from_data(data) == owner and opts[:signed_by] == owner and
+      ActivityPub.Safety.by_signature?(opts[:authenticated])
+  end
+
+  defp deleted_by_authenticated_owner?(_cached_object, _data, _opts), do: false
+
   defp handle_remote_delete(data, object, object_id, opts) do
     with {:ok, cached_object} <- Object.get_cached(ap_id: object_id) |> debug("re-fetched"),
          #  {:actor, false} <- {:actor, Actor.actor?(cached_object) || Actor.actor?(object)},
          {:ok, verified_data} <-
-           check_remote_object_deleted(object, opts[:already_fetched]) |> debug("re-fetched"),
+           confirm_deletion(object, cached_object, data, opts) |> debug("re-fetched"),
          verified_object <- Object.normalize(verified_data || object, false) |> debug("normied"),
          {:actor, false} <-
            {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
@@ -2484,6 +2703,11 @@ defmodule ActivityPub.Federator.Transformer do
             error(object_id, "Could not verify incoming deletion")
             {:error, :not_deleted}
         end
+
+      # the same deletion reaching us again (the author's own, then the group's announcement of it): nothing left to do, and an error would only make the sender's job retry
+      {:error, :already_deleted} ->
+        debug(object_id, "already deleted")
+        {:ok, :already_deleted}
 
       {:error, e} ->
         error(e)

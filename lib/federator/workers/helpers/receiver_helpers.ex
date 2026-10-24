@@ -10,10 +10,16 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   When an activity arrives without a valid HTTP signature, verification
   is attempted in this order:
 
-  1. Re-fetch the actor's public key and re-validate the HTTP signature
-  2. Check for a Linked Data Signature (RsaSignature2017) embedded in the body
-  3. Re-fetch the activity from its source URI
-  4. Accept anyway if `ACCEPT_UNSIGNED_ACTIVITIES=1` is set
+  1. Check for an object integrity proof (FEP-8b32) in the body. It goes first because
+     the FEP gives it precedence over an HTTP signature, and because it needs nothing
+     fetched but a key we usually hold
+  2. Re-fetch the actor's public key and re-validate the HTTP signature
+  3. Check for a Linked Data Signature (RsaSignature2017) embedded in the body
+  4. Re-fetch the activity from its source URI
+  5. Accept anyway if `ACCEPT_UNSIGNED_ACTIVITIES=1` is set
+
+  A proof that does not verify is never a reason to refuse: the activity goes on to
+  the rest, as it did before proofs were read.
 
   ## Usage
 
@@ -28,6 +34,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   import ActivityPub.Config
   alias ActivityPub.Federator.Fetcher
   alias ActivityPub.Object
+  alias ActivityPub.Safety.IntegrityProofs
   alias ActivityPub.Safety.LinkedDataSignatures
 
   import Untangle
@@ -49,12 +56,18 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
     Untangle.debug("Handling incoming AP activity (#{op})")
 
     # carry the identity the signature plugs verified for this delivery: it is the only thing we know about authorship when the document itself names no author
-    ActivityPub.Federator.Transformer.handle_incoming(params,
-      from_inbox: true,
-      signed_by: args["signed_by"]
+    ActivityPub.Federator.Transformer.handle_incoming(
+      params,
+      [from_inbox: true] ++ signed_by_http_signature(args["signed_by"])
     )
     |> Untangle.debug("result of handling incoming AP activity")
   end
+
+  # the job argument is only the signer's id, kept as it is so jobs queued before the mark existed still run
+  defp signed_by_http_signature(signer) when is_binary(signer),
+    do: [authenticated: :http_signature, signed_by: signer]
+
+  defp signed_by_http_signature(_), do: []
 
   def perform(
         %Oban.Job{
@@ -76,10 +89,36 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   @doc """
   Handles unsigned or unverified incoming AP docs.
 
-  Attempts HTTP signature re-validation, then Linked Data Signature
-  verification, then falls back to refetching the activity from source.
+  Attempts an integrity proof first, then HTTP signature re-validation, then
+  Linked Data Signature verification, then falls back to refetching the
+  activity from source.
   """
   def maybe_process_unsigned(headers, params) do
+    case IntegrityProofs.check(params) do
+      {:valid, controller} ->
+        # the proof names who made the document, just as a verified HTTP signature names who sent it, so it stands as the author of one that names none (e.g. relay-forwarded)
+        Untangle.info("Valid integrity proof from #{controller}, processing activity")
+
+        ActivityPub.Federator.Transformer.handle_incoming(params,
+          from_inbox: true,
+          authenticated: :integrity_proof,
+          signed_by: controller
+        )
+
+      :none ->
+        maybe_process_unsigned_cascade(headers, params)
+
+      {_invalid_or_unverifiable, reason} ->
+        Untangle.warn(
+          reason,
+          "Integrity proof did not verify, falling back to the other ways to authenticate"
+        )
+
+        maybe_process_unsigned_cascade(headers, params)
+    end
+  end
+
+  defp maybe_process_unsigned_cascade(headers, params) do
     actor = Object.actor_from_data(params)
     signed? = is_binary(headers["signature"]) and is_binary(actor)
 
@@ -124,6 +163,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
             # as the author of a document that names none (e.g. relay-forwarded)
             ActivityPub.Federator.Transformer.handle_incoming(params,
               from_inbox: true,
+              authenticated: :ld_signature,
               signed_by: creator
             )
 

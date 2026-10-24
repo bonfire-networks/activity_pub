@@ -751,6 +751,10 @@ defmodule ActivityPub do
     )
   end
 
+  # Deleted already (an actor's tombstone is dealt with above, which gives it back its type so it can be deleted again): there is no Delete to publish. The same deletion reaches an instance more than once, as the author's own `Delete` and as the group's announcement of it, so this is a result to tell the caller about, not a crash.
+  def delete(%{data: %{"type" => "Tombstone"}}, _is_local?, _opts),
+    do: {:error, :already_deleted}
+
   def delete(
         %{data: %{"id" => id, "attributedTo" => actor}} = object,
         is_local?,

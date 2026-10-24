@@ -29,6 +29,12 @@ defmodule ActivityPub.Application do
                            interval: 60_000
                          )
 
+  @context_expiration Cachex.Spec.expiration(
+                        # a remote JSON-LD context changes rarely; one we could not fetch is given a shorter expiry of its own
+                        default: to_timeout(week: 1),
+                        interval: 60_000
+                      )
+
   @hooks [
     # hook(module: Cachex.Stats),
     Cachex.Spec.hook(
@@ -161,6 +167,18 @@ defmodule ActivityPub.Application do
                :ap_sig_format_cache,
                [
                  expiration: @sig_format_expiration,
+                 hooks: @hooks
+               ]
+             ]}
+        },
+        %{
+          id: :ap_context_cache,
+          start:
+            {Cachex, :start_link,
+             [
+               :ap_context_cache,
+               [
+                 expiration: @context_expiration,
                  hooks: @hooks
                ]
              ]}

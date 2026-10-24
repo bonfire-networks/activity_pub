@@ -1,0 +1,13 @@
+{
+  "source": "https://codeberg.org/fediverse/fep/src/branch/main/fep/8b32/fep-8b32.feature (scenarios 'Signing a document' and 'Verifying a signature'); same key pair as vc_di_eddsa_jcs_2022/vector.json. The documents are unsigned.json, signed.json and actor.json beside this file.",
+  "publicKeyMultibase": "z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+  "secretKeyMultibase": "z3u2en7t5LR2WtQH5PfFqMqwVHBeXouLzo6haApm8XHqvjxq",
+  "currentTime": "2023-02-24T23:36:38Z",
+  "verificationMethod": "https://server.example/users/alice#ed25519-key",
+  "expected": {
+    "canonicalDocument": "{\"@context\":[\"https://www.w3.org/ns/activitystreams\",\"https://w3id.org/security/data-integrity/v2\"],\"actor\":\"https://server.example/users/alice\",\"id\":\"https://server.example/activities/1\",\"object\":{\"attributedTo\":\"https://server.example/users/alice\",\"content\":\"Hello world\",\"id\":\"https://server.example/objects/1\",\"location\":{\"latitude\":25.273962,\"longitude\":-71.184902,\"type\":\"Place\"},\"type\":\"Note\"},\"type\":\"Create\"}",
+    "canonicalProofConfig": "{\"@context\":[\"https://www.w3.org/ns/activitystreams\",\"https://w3id.org/security/data-integrity/v2\"],\"created\":\"2023-02-24T23:36:38Z\",\"cryptosuite\":\"eddsa-jcs-2022\",\"proofPurpose\":\"assertionMethod\",\"type\":\"DataIntegrityProof\",\"verificationMethod\":\"https://server.example/users/alice#ed25519-key\"}",
+    "combinedHash": "cf63e2308ce7d1137667192c5c5e751ba7b1c6e3d5e746a7b717d309654ad1980793e8d97e2de4b989b2b2d7a5fae8cf941f102a03c0ecab00f03eaa2330c650",
+    "proofValue": "z42ffGu6AUKPCFcFPiabmUvnGLPJzC7e4DGWC52NUasSSH37UMa9c58tdgVszUcZfytxa4fQ5TYHaJENCxUDe9SdL"
+  }
+}

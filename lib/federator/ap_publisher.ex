@@ -11,6 +11,7 @@ defmodule ActivityPub.Federator.APPublisher do
   alias ActivityPub.Federator.Transformer
   alias ActivityPub.Utils
   alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
+  alias ActivityPub.Safety.IntegrityProofs
 
   import Untangle
 
@@ -98,31 +99,45 @@ defmodule ActivityPub.Federator.APPublisher do
          |> Instances.filter_reachable()
          |> debug("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
-        Enum.flat_map(recipients, fn {inbox, meta} ->
-          # one entry per shape per inbox: this is the last point before delivery, and the only one where the target host is in scope, so narrowing "both shapes to everyone" to "the shape this host understands" would be a change here rather than a redesign
-          [prepared_activity_data, wrapped_relay_data]
-          |> Enum.reject(&is_nil/1)
-          |> Enum.map(fn data ->
-            json =
-              Transformer.preserve_privacy_of_outgoing(
-                data,
-                Utils.authority(inbox),
-                meta[:ids]
-              )
-              |> debug("safe json")
-              |> Jason.encode!()
+        # one `created` for the whole publish, and a cache so documents that come out the same for several inboxes are signed once
+        created = IntegrityProofs.Outgoing.created_now()
 
-            %{
-              inbox: inbox,
-              json: json,
-              actor_username: Map.get(actor, :username),
-              actor_id: Map.get(actor, :id),
-              actor_ap_id: Map.get(actor, :ap_id) || (Map.get(actor, :data) || %{})["id"],
-              id: data["id"],
-              unreachable_since: meta[:unreachable_since]
-            }
+        signer =
+          if IntegrityProofs.Outgoing.enabled?(), do: IntegrityProofs.Outgoing.signer(actor)
+
+        {payloads, _signed} =
+          Enum.flat_map_reduce(recipients, %{}, fn {inbox, meta}, cache ->
+            # one entry per shape per inbox: this is the last point before delivery, and the only one where the target host is in scope, so narrowing "both shapes to everyone" to "the shape this host understands" would be a change here rather than a redesign
+            [prepared_activity_data, wrapped_relay_data]
+            |> Enum.reject(&is_nil/1)
+            |> Enum.map_reduce(cache, fn data, cache ->
+              safe =
+                Transformer.preserve_privacy_of_outgoing(
+                  data,
+                  Utils.authority(inbox),
+                  meta[:ids]
+                )
+                |> debug("safe json")
+
+              # FEP-8b32: signed last, over exactly the bytes this inbox gets (nothing after this touches the body)
+              {safe, cache} =
+                if signer,
+                  do: IntegrityProofs.Outgoing.sign(safe, signer, created, cache),
+                  else: {safe, cache}
+
+              {%{
+                 inbox: inbox,
+                 json: Jason.encode!(safe),
+                 actor_username: Map.get(actor, :username),
+                 actor_id: Map.get(actor, :id),
+                 actor_ap_id: Map.get(actor, :ap_id) || (Map.get(actor, :data) || %{})["id"],
+                 id: data["id"],
+                 unreachable_since: meta[:unreachable_since]
+               }, cache}
+            end)
           end)
-        end)
+
+        payloads
 
       _other ->
         info(activity, "found nobody to federate this to")

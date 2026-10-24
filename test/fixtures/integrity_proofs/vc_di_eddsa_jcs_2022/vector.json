@@ -1,0 +1,12 @@
+{
+  "source": "https://www.w3.org/TR/vc-di-eddsa/#representation-eddsa-jcs-2022 (Examples 29 to 39). The credential is credential.json and the proof options are proof_options.json beside this file.",
+  "publicKeyMultibase": "z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+  "secretKeyMultibase": "z3u2en7t5LR2WtQH5PfFqMqwVHBeXouLzo6haApm8XHqvjxq",
+  "expected": {
+    "documentHash": "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19",
+    "proofOptionsHash": "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db",
+    "combinedHash": "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19",
+    "signatureHex": "407cd12654b33d718ecbb99179a1506daaa849450bf3fc523cce3e1c96f8b80351da3f253d725c6f00b07c9e5448d50b3ef78012b9ab54255116d069c6dd2808",
+    "proofValue": "z2HnFSSPPBzR36zdDgK8PbEHeXbR56YF24jwMpt3R1eHXQzJDMWS93FCzpvJpwTWd3GAVFuUfjoJdcnTMuVor51aX"
+  }
+}

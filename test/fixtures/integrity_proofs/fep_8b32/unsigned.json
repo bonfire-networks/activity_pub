@@ -1,0 +1,20 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/data-integrity/v2"
+  ],
+  "id": "https://server.example/activities/1",
+  "type": "Create",
+  "actor": "https://server.example/users/alice",
+  "object": {
+    "id": "https://server.example/objects/1",
+    "type": "Note",
+    "attributedTo": "https://server.example/users/alice",
+    "content": "Hello world",
+    "location": {
+      "type": "Place",
+      "longitude": -71.184902,
+      "latitude": 25.273962
+    }
+  }
+}

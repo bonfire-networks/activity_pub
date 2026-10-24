@@ -1,0 +1,49 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    {"Emoji": "toot:Emoji", "Hashtag": "as:Hashtag", "sensitive": "as:sensitive", "toot": "http://joinmastodon.org/ns#"}
+  ],
+  "actor": "https://public.mitra.social/users/mayel",
+  "cc": ["https://public.mitra.social/users/mayel/followers"],
+  "id": "https://public.mitra.social/activities/create/01a15de2-e7f9-7411-8cd7-57c7cadb1fec",
+  "object": {
+    "attributedTo": "https://public.mitra.social/users/mayel",
+    "audience": "https://3.dev.bonfire.cafe/pub/group/01M5EY4SX7SDFGYATXH362HTSX",
+    "cc": ["https://public.mitra.social/users/mayel/followers"],
+    "content": "<p>a reply from mitra 60355</p>",
+    "id": "https://public.mitra.social/objects/01a15de2-e7f9-7411-8cd7-57c7cadb1fec",
+    "inReplyTo": "https://3.dev.bonfire.cafe/pub/objects/01M5EY56RJJAABRNHHMKE5TTJG",
+    "interactionPolicy": {"canQuote": {"automaticApproval": ["https://www.w3.org/ns/activitystreams#Public"]}},
+    "published": "2026-10-21T09:55:14.040751Z",
+    "replies": "https://public.mitra.social/objects/01a15de2-e7f9-7411-8cd7-57c7cadb1fec/replies",
+    "sensitive": false,
+    "tag": [
+      {"href": "https://3.dev.bonfire.cafe/pub/person/01M5DPSMHMKWGGKMBV2S6TMWFD", "name": "@mayel@3.dev.bonfire.cafe", "type": "Mention"},
+      {"href": "https://3.dev.bonfire.cafe/pub/group/01M5EY4SX7SDFGYATXH362HTSX", "name": "@Kemmer_LLC@3.dev.bonfire.cafe", "type": "Mention"}
+    ],
+    "to": [
+      "https://www.w3.org/ns/activitystreams#Public",
+      "https://3.dev.bonfire.cafe/pub/person/01M5DPSMHMKWGGKMBV2S6TMWFD",
+      "https://3.dev.bonfire.cafe/pub/group/01M5EY4SX7SDFGYATXH362HTSX",
+      "https://3.dev.bonfire.cafe/pub/group/01M5EY4SX7SDFGYATXH362HTSX/followers"
+    ],
+    "type": "Note"
+  },
+  "proof": {
+    "created": "2026-10-21T09:55:14.484859648Z",
+    "cryptosuite": "eddsa-jcs-2022",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "zgri2LJcsQhWxpfw7BQuXJCNaMyzS8EvGEHCgpuxeSiVRqHh8tz4r5wSTcQgrRnUj9sbUFRJPZJv7Ue37Hfh6Yad",
+    "type": "DataIntegrityProof",
+    "verificationMethod": "https://public.mitra.social/users/mayel#ed25519-key"
+  },
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://3.dev.bonfire.cafe/pub/person/01M5DPSMHMKWGGKMBV2S6TMWFD",
+    "https://3.dev.bonfire.cafe/pub/group/01M5EY4SX7SDFGYATXH362HTSX",
+    "https://3.dev.bonfire.cafe/pub/group/01M5EY4SX7SDFGYATXH362HTSX/followers"
+  ],
+  "type": "Create"
+}

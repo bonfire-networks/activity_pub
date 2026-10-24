@@ -1,0 +1,27 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    {"Emoji": "toot:Emoji", "Hashtag": "as:Hashtag", "sensitive": "as:sensitive", "toot": "http://joinmastodon.org/ns#"}
+  ],
+  "actor": "https://public.mitra.social/users/mayel",
+  "id": "https://public.mitra.social/activities/undo/01a168de-f69f-7be0-a551-b0418a150a9a",
+  "object": {
+    "actor": "https://public.mitra.social/users/mayel",
+    "id": "https://public.mitra.social/activities/follow/01a168de-f69f-7be0-a551-b0418a150a9a",
+    "object": "https://3.dev.bonfire.cafe/pub/group/01M5MDXRVTA7TBHXEHVXZGSGG2",
+    "to": ["https://3.dev.bonfire.cafe/pub/group/01M5MDXRVTA7TBHXEHVXZGSGG2"],
+    "type": "Follow"
+  },
+  "proof": {
+    "created": "2026-10-23T13:06:57.769405785Z",
+    "cryptosuite": "eddsa-jcs-2022",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "z3xp7wfnMqfVx7mkiBari9LCTJdXpV3ehMVWanHDaHYVybSBVAWFbPYwaBRRxSRW5f8bLA1skXbY3EPMPP4Gn6wHR",
+    "type": "DataIntegrityProof",
+    "verificationMethod": "https://public.mitra.social/users/mayel#ed25519-key"
+  },
+  "to": ["https://3.dev.bonfire.cafe/pub/group/01M5MDXRVTA7TBHXEHVXZGSGG2"],
+  "type": "Undo"
+}

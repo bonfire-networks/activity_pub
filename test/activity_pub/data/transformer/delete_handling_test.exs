@@ -48,6 +48,62 @@ defmodule ActivityPub.Federator.Transformer.DeleteHandlingTest do
     assert object.data["type"] == "Tombstone"
   end
 
+  # The same deletion reaches an instance more than once: the author's own `Delete`, and the group's `Announce` of it for followers who only know the post through the group. The second finds a `Tombstone`, which the delete code had no clause for, so it raised `FunctionClauseError` (found in a two-instance run on 23 October).
+  describe "an object that is already deleted" do
+    setup do
+      # the id the mock origin answers "gone" for, as in the first test of this file
+      note = insert(:note, %{data: %{"id" => "https://fedi.local/objects/410"}})
+      activity = insert(:note_activity, %{note: note})
+      _ = cached_or_handle(activity)
+
+      delete =
+        file("fixtures/mastodon/mastodon-delete.json")
+        |> Jason.decode!()
+        |> put_in(["object", "id"], activity.data["object"])
+        |> Map.put("actor", activity.data["actor"])
+
+      assert {:ok, %Object{local: false}} = Transformer.handle_incoming(delete)
+      assert Object.get_cached!(ap_id: note.data["id"]).data["type"] == "Tombstone"
+
+      %{note: note, delete: delete}
+    end
+
+    test "is not an error when the same deletion arrives again under another id", %{
+      note: note,
+      delete: delete
+    } do
+      repeat = Map.put(delete, "id", delete["id"] <> "-again")
+
+      assert {:ok, _} = Transformer.handle_incoming(repeat)
+
+      assert Object.get_cached!(ap_id: note.data["id"]).data["type"] == "Tombstone",
+             "and it stays deleted"
+    end
+
+    test "is not an error when a group announces the deletion", %{note: note, delete: delete} do
+      group = insert(:actor)
+
+      announce = %{
+        "type" => "Announce",
+        "id" => "#{group.data["id"]}/activities/announce/delete-again",
+        "actor" => group.data["id"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => Map.put(delete, "id", delete["id"] <> "-relayed")
+      }
+
+      assert {:ok, _} = Transformer.handle_incoming(announce)
+
+      assert Object.get_cached!(ap_id: note.data["id"]).data["type"] == "Tombstone"
+    end
+  end
+
+  test "deleting a tombstone is told so by `ActivityPub.delete/3`, which has no activity to return" do
+    tombstone = insert(:note, %{data: %{"id" => "https://fedi.local/objects/412"}})
+    {:ok, tombstone} = Object.delete(tombstone)
+
+    assert {:error, :already_deleted} = ActivityPub.delete(tombstone, false)
+  end
+
   test "delete object fails when note still exists" do
     note_data =
       file("fixtures/pleroma_note.json")

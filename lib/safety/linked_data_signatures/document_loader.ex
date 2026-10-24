@@ -7,45 +7,18 @@ defmodule ActivityPub.Safety.LinkedDataSignatures.DocumentLoader do
 
   @behaviour JSON.LD.DocumentLoader
 
+  alias ActivityPub.JsonLd.Contexts
   alias JSON.LD.DocumentLoader.RemoteDocument
-
-  @bundled_contexts %{
-    "https://www.w3.org/ns/activitystreams" => "activitystreams.json",
-    "https://w3id.org/security/v1" => "security_v1.json",
-    "https://w3id.org/identity/v1" => "identity_v1.json"
-  }
 
   @impl JSON.LD.DocumentLoader
   def load(url, options) do
-    case Map.get(@bundled_contexts, url) do
+    case Contexts.get(url) do
       nil ->
         # through the same checks as other federation requests, since the URL is chosen by whoever sent the document
         RemoteDocument.load(url, options, ActivityPub.Safety.LinkedDataSignatures.HTTPClient)
 
-      filename ->
-        load_bundled(url, filename)
-    end
-  end
-
-  defp load_bundled(url, filename) do
-    path = Path.join(:code.priv_dir(:activity_pub), "json_ld_contexts/#{filename}")
-
-    case File.read(path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, document} ->
-            {:ok,
-             %RemoteDocument{
-               document: document,
-               document_url: url
-             }}
-
-          {:error, reason} ->
-            {:error, {:json_decode_error, reason}}
-        end
-
-      {:error, reason} ->
-        {:error, {:file_read_error, reason}}
+      document ->
+        {:ok, %RemoteDocument{document: document, document_url: url}}
     end
   end
 end

@@ -108,6 +108,7 @@ defmodule ActivityPub.Federator.Transformer.ActorlessObjectTest do
 
       assert {:ok, %{data: %{"actor" => actor_id}}} =
                ActivityPub.Federator.Transformer.handle_incoming(event_doc(),
+                 authenticated: :http_signature,
                  signed_by: signer_ap_id
                )
 

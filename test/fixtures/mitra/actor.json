@@ -1,0 +1,72 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://www.w3.org/ns/cid/v1",
+        "https://w3id.org/security/v1",
+        "https://w3id.org/security/data-integrity/v2",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "schema": "http://schema.org/",
+            "PropertyValue": "schema:PropertyValue",
+            "value": "schema:value",
+            "toot": "http://joinmastodon.org/ns#",
+            "discoverable": "toot:discoverable",
+            "featured": "toot:featured",
+            "Emoji": "toot:Emoji",
+            "mitra": "http://jsonld.mitra.social#",
+            "subscribers": "mitra:subscribers",
+            "VerifiableIdentityStatement": "mitra:VerifiableIdentityStatement",
+            "MitraJcsEip191Signature2022": "mitra:MitraJcsEip191Signature2022",
+            "gateways": "mitra:gateways",
+            "implements": "mitra:implements",
+            "proofValue": "sec:proofValue",
+            "proofPurpose": "sec:proofPurpose"
+        }
+    ],
+    "id": "https://public.mitra.social/users/mayel",
+    "type": "Person",
+    "preferredUsername": "mayel",
+    "inbox": "https://public.mitra.social/users/mayel/inbox",
+    "outbox": "https://public.mitra.social/users/mayel/outbox",
+    "followers": "https://public.mitra.social/users/mayel/followers",
+    "following": "https://public.mitra.social/users/mayel/following",
+    "subscribers": "https://public.mitra.social/users/mayel/subscribers",
+    "featured": "https://public.mitra.social/users/mayel/collections/featured",
+    "assertionMethod": [
+        {
+            "id": "https://public.mitra.social/users/mayel#main-key",
+            "type": "Multikey",
+            "controller": "https://public.mitra.social/users/mayel",
+            "publicKeyMultibase": "z4MXj1wBzi9jUstyQdgjJFY6Tr5TFshNNt4eVKPUTTMFYhPfdZrFUWNWxbMMBUWyeGgBMHUoHcgTyXDH4i1QAKffNumej28oB53gV82yydCzPaaMMVd15f4L6etoagnNuQALTBSPp8PNaTSGAaunQ4V4cmSdKN5N4J6vGZoffdhseipLQL6gewAeHp7p1DAFuqcFQbKXhjpPw5jgoVhzpmMTK4MA49A6tpQbTucuH96qFDaEuYvtdAFbzYWUYpxwYL7YXLDws2Qui9RJfUzfTYmkpSayTGPq9f9Z1MiZdVCYG15cp8qmMj6GVcYivXB7YCPwcrELCGZd6riYp2DPjeHWRXnMszXU3wWSo17NdGPPcvRuEpuaG"
+        },
+        {
+            "id": "https://public.mitra.social/users/mayel#ed25519-key",
+            "type": "Multikey",
+            "controller": "https://public.mitra.social/users/mayel",
+            "publicKeyMultibase": "z6MkkSECjwrpMBj7aHR6cpc8ZBKL9JZCCw3j4MB4byxEc9Cf"
+        }
+    ],
+    "publicKey": {
+        "id": "https://public.mitra.social/users/mayel#main-key",
+        "owner": "https://public.mitra.social/users/mayel",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6VWnO930TFCyEphqDBj8\ndMxeUhOBlz7MZXuzURiwkxsSDRa2N99ZVrpcafQDS/2ZGZDsNHSvGNYdrz55JFJy\nstwgGMoQyvR46I1ELW6kMvjqA/d26WM/M4JHOFuN2z4z3fGfLH0HIrAZch7dVoJQ\nFpu3mUSRc+2o08B6O7F/NR0wldF7vpEoUMS8x9nDLxQfg262FFkOCYS/uHYkIfkG\nkjdEb2B7QeRWejL8woM24hyYyEln2P4fsPM6uaDpBnRrJ7zTs4Y5MRQkAbYqYyI4\nw2MhBhKpGJNrDPMjKfHvp5GW2VSoPAGplrnIOhH9Kx0Amu+RZ5agTkWNsFo8SfsY\nzQIDAQAB\n-----END PUBLIC KEY-----\n"
+    },
+    "generator": {
+        "type": "Application",
+        "implements": [
+            {
+                "name": "RFC-9421: HTTP Message Signatures",
+                "href": "https://datatracker.ietf.org/doc/html/rfc9421"
+            },
+            {
+                "name": "RFC-9421 signatures using the Ed25519 algorithm",
+                "href": "https://datatracker.ietf.org/doc/html/rfc9421#name-eddsa-using-curve-edwards25"
+            }
+        ]
+    },
+    "manuallyApprovesFollowers": false,
+    "discoverable": true,
+    "url": "https://public.mitra.social/users/mayel",
+    "published": "2026-10-21T09:06:54.320049Z",
+    "updated": "2026-10-21T09:06:54.320049Z"
+}

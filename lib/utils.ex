@@ -40,6 +40,28 @@ defmodule ActivityPub.Utils do
     ActivityPub.Web.base_url() <> System.get_env("AP_BASE_PATH", "/pub")
   end
 
+  @doc """
+  The origin of a URL as FEP-fe34 compares them: scheme, host and port, with the default port filled in so `https://a` and `https://a:443` are one origin. `nil` when it is not a URL with a host.
+
+      iex> ActivityPub.Utils.origin("https://Example.com/users/a") == ActivityPub.Utils.origin("https://example.com:443/other")
+      true
+
+      iex> ActivityPub.Utils.origin("http://example.com/a") == ActivityPub.Utils.origin("https://example.com/a")
+      false
+  """
+  def origin(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host, port: port}
+      when is_binary(scheme) and is_binary(host) and is_integer(port) ->
+        {String.downcase(scheme), String.downcase(host), port}
+
+      _ ->
+        nil
+    end
+  end
+
+  def origin(_), do: nil
+
   @doc "Returns host:port for non-standard ports, bare host otherwise."
   def authority(%{host: host, port: port, scheme: scheme}) when is_binary(host) do
     cond do
@@ -178,6 +200,8 @@ defmodule ActivityPub.Utils do
     [
       "https://www.w3.org/ns/activitystreams",
       "https://w3id.org/security/v1",
+      # defines `Multikey` and `assertionMethod`, where the Ed25519 key of an integrity proof is listed
+      "https://www.w3.org/ns/cid/v1",
       do_make_json_ld_context_list(type)
     ]
   end

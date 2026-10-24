@@ -1,0 +1,21 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    {"Emoji": "toot:Emoji", "Hashtag": "as:Hashtag", "sensitive": "as:sensitive", "toot": "http://joinmastodon.org/ns#"}
+  ],
+  "actor": "https://public.mitra.social/users/mayel",
+  "id": "https://public.mitra.social/activities/follow/01a168de-f69f-7be0-a551-b0418a150a9a",
+  "object": "https://3.dev.bonfire.cafe/pub/group/01M5MDXRVTA7TBHXEHVXZGSGG2",
+  "proof": {
+    "created": "2026-10-23T13:06:45.031257866Z",
+    "cryptosuite": "eddsa-jcs-2022",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "z542LtvJ2MUhvDomYaafW7NyjhN2PcetzjjAWA73f4H9eV5XSm8kB51cTqbd6cA3XaA16cRkodAZUapxcE5EhQ8QR",
+    "type": "DataIntegrityProof",
+    "verificationMethod": "https://public.mitra.social/users/mayel#ed25519-key"
+  },
+  "to": ["https://3.dev.bonfire.cafe/pub/group/01M5MDXRVTA7TBHXEHVXZGSGG2"],
+  "type": "Follow"
+}

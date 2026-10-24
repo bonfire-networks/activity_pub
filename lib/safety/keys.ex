@@ -15,7 +15,13 @@ defmodule ActivityPub.Safety.Keys do
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
 
+  alias ActivityPub.Safety.HKDF
+  alias ActivityPub.Safety.Multibase
+
   @known_suffixes ["/publickey", "/main-key"]
+
+  # separates the Ed25519 key from anything else made from the same RSA key; `v1` leaves room to derive another later
+  @ed25519_label "bonfire ed25519 assertion key v1"
 
   @doc """
   Get the public key for given actor AP ID.
@@ -102,9 +108,7 @@ defmodule ActivityPub.Safety.Keys do
     with {:ok, actor} <-
            if(generate_if_missing, do: ensure_keys_present(actor), else: {:ok, actor}),
          {:ok, public_key} <- public_key_from_private_key(actor) do
-      Map.put(
-        actor,
-        :data,
+      data =
         Map.merge(
           actor.data,
           %{
@@ -115,7 +119,8 @@ defmodule ActivityPub.Safety.Keys do
             }
           }
         )
-      )
+
+      Map.put(actor, :data, put_assertion_method(data, actor))
     else
       e ->
         error(e, "Could not add public key")
@@ -130,6 +135,31 @@ defmodule ActivityPub.Safety.Keys do
     actor
   end
 
+  # FEP-521a: our derived Ed25519 key as a `Multikey` in `assertionMethod`, where a verifier of an integrity proof (FEP-8b32) looks for it. Merged into the entries the data already holds, by `id`: other keys (a client's, FEP-ae97) stay, and an entry under OUR key id is always the derived key, whatever the data held there (FEP-fe34: a server must not let a client set or change key objects).
+  defp put_assertion_method(data, actor) do
+    with {:ok, {public, _private}} <- ed25519_keypair(actor),
+         id when is_binary(id) <- data["id"] do
+      entry = %{
+        "id" => id <> "#ed25519-key",
+        "type" => "Multikey",
+        "controller" => id,
+        "publicKeyMultibase" =>
+          Multibase.encode(Multibase.encode_varint(0xED) <> public, :base58btc)
+      }
+
+      others =
+        data["assertionMethod"]
+        |> List.wrap()
+        |> Enum.reject(&(is_map(&1) and &1["id"] == entry["id"]))
+
+      Map.put(data, "assertionMethod", others ++ [entry])
+    else
+      e ->
+        warn(e, "Could not add the Ed25519 key to the actor's assertionMethod")
+        data
+    end
+  end
+
   @doc """
   Checks if an actor struct has a non-nil keys field and generates a PEM if it doesn't.
   """
@@ -142,14 +172,21 @@ defmodule ActivityPub.Safety.Keys do
   end
 
   def ensure_keys_present(%Actor{data: %{"type" => type}} = actor) when type != "Tombstone" do
-    warn(actor, "actor has no keys and is local, generate new ones")
+    # The struct we were given may be older than the actor's key: it stays keyless after a key is made and saved, so a caller that still holds it would make another and replace the saved one. So what is stored is asked first, around the cache, which can be as stale as the struct.
+    case stored_keys(actor) do
+      {:ok, stored} ->
+        {:ok, stored}
 
-    with {:ok, pem} <- generate_rsa_pem(),
-         {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
-         {:ok, actor} <- Actor.set_cache(actor) do
-      {:ok, actor}
-    else
-      e -> error(e, "Could not generate or save keys")
+      :none ->
+        warn(actor, "actor has no keys and is local, generate new ones")
+
+        with {:ok, pem} <- generate_rsa_pem(),
+             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
+             {:ok, actor} <- Actor.set_cache(actor) do
+          {:ok, actor}
+        else
+          e -> error(e, "Could not generate or save keys")
+        end
     end
   end
 
@@ -158,12 +195,49 @@ defmodule ActivityPub.Safety.Keys do
     {:ok, object}
   end
 
+  # the actor as the host app has it now, if that one has a key
+  defp stored_keys(%{username: username}) when is_binary(username) do
+    case Adapter.get_actor_by_username(username) do
+      {:ok, %{keys: keys} = stored} when is_binary(keys) -> {:ok, stored}
+      _ -> :none
+    end
+  end
+
+  defp stored_keys(_actor), do: :none
+
   def generate_rsa_pem() do
     key = :public_key.generate_key({:rsa, 2048, 65_537})
     entry = :public_key.pem_entry_encode(:RSAPrivateKey, key)
     pem = :public_key.pem_encode([entry]) |> String.trim_trailing()
     {:ok, pem}
   end
+
+  @doc """
+  The Ed25519 key of a local actor, for FEP-8b32 integrity proofs, as `{:ok, {public, private}}` (32 bytes each).
+
+  It is derived, not stored: HKDF-SHA256 over the DER of the actor's RSA private key (the DER, not the PEM text, so line wrapping cannot change it), with no salt and a label, gives the seed. So it is the same every time, needs no migration, and changes if the RSA key does. The actor's id is not an input, so a move to another domain keeps the key. A local actor with no RSA key yet gets one first.
+
+  `{:error, _}` for an actor that is not ours, or has no key.
+  """
+  def ed25519_keypair(%{local: true} = actor) do
+    with {:ok, %{keys: pem}} when is_binary(pem) <- ensure_keys_present(actor),
+         {:ok, private_key, _public_key} when not is_nil(private_key) <- keypair_from_pem(pem) do
+      seed =
+        HKDF.derive(
+          :sha256,
+          :public_key.der_encode(:RSAPrivateKey, private_key),
+          32,
+          "",
+          @ed25519_label
+        )
+
+      {:ok, :crypto.generate_key(:eddsa, :ed25519, seed)}
+    else
+      other -> error(other, "no Ed25519 key for this actor")
+    end
+  end
+
+  def ed25519_keypair(_actor), do: {:error, :not_a_local_actor}
 
   def keypair_from_pem(pem) when is_binary(pem) do
     with [private_key_code] <- :public_key.pem_decode(pem),

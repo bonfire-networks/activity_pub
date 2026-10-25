@@ -337,6 +337,54 @@ defmodule ActivityPub.Federator.ForwarderTest do
       assert length(all_enqueued(worker: PublisherWorker)) == first
     end
 
+    test "each decision is told as a telemetry event, forwarded or not, and why", context do
+      test_pid = self()
+      handler = {__MODULE__, make_ref()}
+
+      :telemetry.attach(
+        handler,
+        [:activity_pub, :forwarder, :decided],
+        fn event, measurements, metadata, _ ->
+          send(test_pid, {event, measurements, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      # forwarded, to each inbox
+      received = reply(context, context.post_id)
+      assert {:ok, _} = deliver(received)
+      id = received["id"]
+
+      assert_received {[:activity_pub, :forwarder, :decided], %{inboxes: 2},
+                       %{
+                         activity_id: ^id,
+                         activity_type: "Create",
+                         decision: {:ok, %{inboxes: inboxes}}
+                       }}
+
+      assert inbox(context.follower) in inboxes
+
+      # not forwarded, and why: a reply to a post we do not hold
+      elsewhere = reply(context, "https://elsewhere.local/notes/1")
+      deliver(elsewhere)
+      elsewhere_id = elsewhere["id"]
+
+      assert_received {[:activity_pub, :forwarder, :decided], %{inboxes: 0},
+                       %{activity_id: ^elsewhere_id, decision: {:skip, :not_a_reply_we_hold}}}
+
+      # forwarding was decided, but the handling refused it, so it is not forwarded
+      {:ok, replier} = Actor.get_cached(ap_id: context.replier_id)
+      Actor.deactivate(replier)
+      refused = reply(context, context.post_id)
+      deliver(refused)
+      refused_id = refused["id"]
+
+      assert_received {[:activity_pub, :forwarder, :decided], %{inboxes: 0},
+                       %{activity_id: ^refused_id, decision: {:skip, :not_handled}}}
+    end
+
     test "a Delete of a reply is forwarded, though handling it takes the reply away", context do
       received = reply(context, context.post_id)
       assert {:ok, _} = deliver(received)

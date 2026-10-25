@@ -637,9 +637,23 @@ defmodule ActivityPub.Federator.Transformer do
         |> Map.put("context", context)
 
       "http" <> _ = context ->
-        # FIXME: should this really fetch async?
-        Fetcher.maybe_fetch(context, options |> Keyword.put(:triggered_by, "fix_context"))
-        |> debug("fetched context?")
+        # a thread's posts all carry its context, the opener included, so fetching the opener a context leads to (`fetch_context_opener`) comes back here with the same one: skipped while it is being fetched further up
+        if Process.get({:fetching_context, context}) do
+          debug(context, "context already being fetched")
+        else
+          Process.put({:fetching_context, context}, true)
+
+          try do
+            # FIXME: should this really fetch async?
+            Fetcher.maybe_fetch(
+              context,
+              Keyword.merge(options, triggered_by: "fix_context", fetch_context_opener: context)
+            )
+            |> debug("fetched context?")
+          after
+            Process.delete({:fetching_context, context})
+          end
+        end
 
         object
         |> Map.put("context", context)

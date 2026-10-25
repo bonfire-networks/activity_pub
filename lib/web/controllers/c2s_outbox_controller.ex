@@ -101,6 +101,7 @@ defmodule ActivityPub.Web.C2SOutboxController do
   defp get_activity_url(_), do: nil
 
   # Scope validation - can be extended via adapter callback if needed
+  # TODO: nothing calls this, so the outbox checks no OAuth scopes: a token granted only `read` can post 
   defp validate_authorized_scopes(conn, required_scopes) do
     required_scopes = List.wrap(required_scopes)
 

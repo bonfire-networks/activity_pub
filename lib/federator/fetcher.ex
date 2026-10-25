@@ -209,6 +209,7 @@ defmodule ActivityPub.Federator.Fetcher do
                   "max_depth" => max_items,
                   "fetch_collection" => opts[:fetch_collection],
                   "fetch_collection_entries" => opts[:fetch_collection_entries],
+                  "fetch_context_opener" => opts[:fetch_context_opener],
                   #  just to keep track of who made the request
                   "user_id" => opts[:user_id],
                   "context" => opts[:triggered_by] || "maybe_fetch"
@@ -228,7 +229,8 @@ defmodule ActivityPub.Federator.Fetcher do
 
               fetch_object_from_id(id,
                 depth: entry_depth,
-                user_id: opts[:user_id]
+                user_id: opts[:user_id],
+                fetch_context_opener: opts[:fetch_context_opener]
               )
             end
           end
@@ -523,6 +525,7 @@ defmodule ActivityPub.Federator.Fetcher do
             opts
             |> Keyword.put(:mode, fetch_collection_entries)
           )
+          |> maybe_fetch_context_opener(opts)
 
           {:ok, object}
 
@@ -1036,6 +1039,40 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  # A thread's `context` was fetched (`Transformer.fix_context/2`), and it is a collection of the thread's posts, which per FEP-f228 is chronological and holds the top-level post: so its first item is the opener. Fetched, unless we hold it, so that a reply too deep for the `inReplyTo` climb to reach it still comes with its opener. Only the opener: what is in between joins the thread when it arrives
+  defp maybe_fetch_context_opener([first | _], opts) do
+    if context = opts[:fetch_context_opener] do
+      with opener_id when is_binary(opener_id) <- Object.get_ap_id(first),
+           _ <- remember_context_opener(context, opener_id),
+           {:error, _} <- Object.get_cached(ap_id: opener_id) do
+        debug(opener_id, "fetch the opener of the thread")
+
+        maybe_fetch(
+          opener_id,
+          Keyword.drop(opts, [
+            :fetch_context_opener,
+            :mode,
+            :fetch_collection,
+            :fetch_collection_entries
+          ])
+          |> Keyword.put(:triggered_by, "fetch_context_opener")
+        )
+      end
+    end
+  end
+
+  defp maybe_fetch_context_opener(_entries, _opts), do: nil
+
+  # the context is fetched for every object that carries it (`Transformer.fix_context/2`), so whoever handles that object next in the same process, eg. the adapter placing a reply in its thread, can ask which post opens it
+  defp remember_context_opener(context, opener_id) when is_binary(context),
+    do: Process.put({:context_opener, context}, opener_id)
+
+  defp remember_context_opener(_, _), do: nil
+
+  @doc "The AP id of the post that opens the thread `context` names, as its collection gave it when it was fetched in this process (see `maybe_fetch_context_opener/2`)."
+  def context_opener(context) when is_binary(context), do: Process.get({:context_opener, context})
+  def context_opener(_), do: nil
+
   defp fetch_page(page_id, items \\ [], opts \\ []) do
     max = Config.get([:activity_pub, :max_collection_objects], 10)
 
@@ -1139,6 +1176,19 @@ defmodule ActivityPub.Federator.Fetcher do
       |> Keyword.put_new(:triggered_by, "objects_from_collection")
     )
   end
+
+  # the first page inline, with no `id` of its own to fetch it by: Mastodon's thread `context` (`first: {type: "CollectionPage", items: [...]}`)
+  defp objects_from_collection(%{"type" => type, "first" => %{} = first}, opts)
+       when is_in(type, ["Collection", "OrderedCollection"]) and not is_map_key(first, "id"),
+       do:
+         objects_from_collection(
+           Map.put_new(
+             first,
+             "type",
+             if(type == "Collection", do: "CollectionPage", else: "OrderedCollectionPage")
+           ),
+           opts
+         )
 
   defp objects_from_collection(%{"type" => type, "next" => next}, opts)
        when is_binary(next) and is_in(type, ["CollectionPage"]) do

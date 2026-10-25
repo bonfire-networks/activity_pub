@@ -43,8 +43,30 @@ defmodule ActivityPub.Federator.Forwarder do
 
   @doc """
   Queues `received`, exactly as it reached us, for each inbox of the `recipients/2` asked before handling it, signed as their signer: only when the handling accepted it (`result` is `{:ok, _}`).
+
+  Each decision is told as a telemetry event, `[:activity_pub, :forwarder, :decided]`, with the number of inboxes (`%{inboxes: n}`) and, as metadata, the activity's `activity_id` and `activity_type` and the `decision`: `{:ok, %{inboxes: inboxes}}`, or `{:skip, reason}` (`:not_handled` when the handling refused it), so what was forwarded, and why not, can be seen.
   """
-  def maybe_forward(received, {:ok, _} = _result, {:ok, %{inboxes: inboxes, signer: signer}}) do
+  def maybe_forward(received, result, recipients) do
+    decision = decision(result, recipients)
+
+    :telemetry.execute(
+      [:activity_pub, :forwarder, :decided],
+      %{inboxes: inboxes_count(decision)},
+      %{activity_id: received["id"], activity_type: received["type"], decision: decision}
+    )
+
+    forward(received, recipients, decision)
+  end
+
+  defp inboxes_count({:ok, %{inboxes: inboxes}}), do: length(inboxes)
+  defp inboxes_count(_skip), do: 0
+
+  defp decision({:ok, _}, {:ok, %{inboxes: inboxes}}), do: {:ok, %{inboxes: inboxes}}
+  defp decision(_result, {:ok, _}), do: {:skip, :not_handled}
+  defp decision(_result, {:skip, _} = skip), do: skip
+  defp decision(_result, other), do: {:skip, other}
+
+  defp forward(received, {:ok, %{signer: signer}}, {:ok, %{inboxes: inboxes}}) do
     json = Jason.encode!(received)
 
     for inbox <- inboxes do
@@ -59,7 +81,7 @@ defmodule ActivityPub.Federator.Forwarder do
     end
   end
 
-  def maybe_forward(_received, _result, _recipients), do: []
+  defp forward(_received, _recipients, _decision), do: []
 
   # a copy delivered again, of an activity we hold, was forwarded when it first came
   defp not_held_already(%{"id" => id}) when is_binary(id) do

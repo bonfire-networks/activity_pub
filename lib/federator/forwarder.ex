@@ -22,18 +22,16 @@ defmodule ActivityPub.Federator.Forwarder do
   @doc """
   Whom a received activity is forwarded to, and as whom: `{:ok, %{inboxes: inboxes, signer: actor}}`, or `{:skip, reason}`.
 
-  Asked before the activity is handled, since a `Delete` takes away the reply it is found through. `opts` are the delivery's (`authenticated:`, to not check the author's signature again when it was accepted by it).
+  Asked before the activity is handled, since a `Delete` takes away the reply it is found through. Whether its author signed it is asked after, in `maybe_forward/3`, of the activity as stored, so what the check finds is kept with it.
   """
   def recipients(received, opts \\ [])
 
-  def recipients(%{"type" => type} = received, opts) when type in @forwarded_types do
-    # asked of every received `Create`, `Update` and `Delete`, so the lookups come first and the signature, the costly check, last
+  def recipients(%{"type" => type} = received, _opts) when type in @forwarded_types do
     with {:ok, sender} <- remote_sender(received),
          :ok <- public(received),
          :ok <- not_held_already(received),
          {:ok, post} <- replied_to(received),
          {:ok, [signer | _] = actors} <- forward_to_followers_of(post, received),
-         :ok <- signed(received, opts),
          {:ok, inboxes} <- inboxes(actors, sender, received) do
       {:ok, %{inboxes: inboxes, signer: signer}}
     end
@@ -42,12 +40,12 @@ defmodule ActivityPub.Federator.Forwarder do
   def recipients(_received, _opts), do: {:skip, :not_forwarded_type}
 
   @doc """
-  Queues `received`, exactly as it reached us, for each inbox of the `recipients/2` asked before handling it, signed as their signer: only when the handling accepted it (`result` is `{:ok, _}`).
+  Queues `received`, exactly as it reached us, for each inbox of the `recipients/2` asked before handling it, signed as their signer: only when the handling accepted it (`result` is `{:ok, _}`), and its author's own proof or LD signature holds (`ActivityPub.Safety.vouched_by_signature/2`, which marks the stored activity when it does).
 
-  Each decision is told as a telemetry event, `[:activity_pub, :forwarder, :decided]`, with the number of inboxes (`%{inboxes: n}`) and, as metadata, the activity's `activity_id` and `activity_type` and the `decision`: `{:ok, %{inboxes: inboxes}}`, or `{:skip, reason}` (`:not_handled` when the handling refused it), so what was forwarded, and why not, can be seen.
+  Each decision is told as a telemetry event, `[:activity_pub, :forwarder, :decided]`, with the number of inboxes (`%{inboxes: n}`) and, as metadata, the activity's `activity_id` and `activity_type` and the `decision`: `{:ok, %{inboxes: inboxes}}`, or `{:skip, reason}` (`:not_handled` when the handling refused it, `:unsigned`, `{:signature_does_not_hold, why}`), so what was forwarded, and why not, can be seen.
   """
   def maybe_forward(received, result, recipients) do
-    decision = decision(result, recipients)
+    decision = decision(result, recipients, received)
 
     :telemetry.execute(
       [:activity_pub, :forwarder, :decided],
@@ -61,10 +59,14 @@ defmodule ActivityPub.Federator.Forwarder do
   defp inboxes_count({:ok, %{inboxes: inboxes}}), do: length(inboxes)
   defp inboxes_count(_skip), do: 0
 
-  defp decision({:ok, _}, {:ok, %{inboxes: inboxes}}), do: {:ok, %{inboxes: inboxes}}
-  defp decision(_result, {:ok, _}), do: {:skip, :not_handled}
-  defp decision(_result, {:skip, _} = skip), do: skip
-  defp decision(_result, other), do: {:skip, other}
+  # the signature last: the costly check, asked only of what would be forwarded
+  defp decision({:ok, stored}, {:ok, %{inboxes: inboxes}}, received) do
+    with :ok <- signed(stored, received), do: {:ok, %{inboxes: inboxes}}
+  end
+
+  defp decision(_result, {:ok, _}, _received), do: {:skip, :not_handled}
+  defp decision(_result, {:skip, _} = skip, _received), do: skip
+  defp decision(_result, other, _received), do: {:skip, other}
 
   defp forward(received, {:ok, %{signer: signer}}, {:ok, %{inboxes: inboxes}}) do
     json = Jason.encode!(received)
@@ -106,8 +108,12 @@ defmodule ActivityPub.Federator.Forwarder do
   defp public(received),
     do: if(Utils.public?(received), do: :ok, else: {:skip, :not_public})
 
-  defp signed(received, opts) do
-    case Safety.author_signature(received, opts[:authenticated]) do
+  # checked against the activity as stored, which keeps what the check found; a handling that gives back something else is checked without
+  defp signed(stored, received) do
+    case if(is_struct(stored, Object),
+           do: Safety.vouched_by_signature(stored, received),
+           else: Safety.author_signature(received)
+         ) do
       {:ok, _authenticated} -> :ok
       :none -> {:skip, :unsigned}
       other -> {:skip, {:signature_does_not_hold, other}}

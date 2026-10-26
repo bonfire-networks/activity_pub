@@ -1,8 +1,6 @@
 import Config
 
 config :activity_pub,
-  sign_object_fetches: true,
-  reject_unsigned: true,
   env: config_env(),
   # FEP-844e: capabilities advertised via actor generator.implements
   implements: [
@@ -10,6 +8,10 @@ config :activity_pub,
     %{"href" => "https://datatracker.ietf.org/doc/html/rfc9421"},
     %{"href" => "https://w3id.org/fep/8b32"}
   ],
+  # sign what we send with an HTTP signature:
+  sign_object_fetches: true,
+  # refuse to serve our objects to a fetch that is not signed (Mastodon's "authorized fetch"):
+  reject_unsigned: false,
   # FEP-8b32: sign what we send with an Object Integrity Proof (made by a key derived from the actor's RSA key)
   sign_object_integrity_proofs: true,
   object_integrity_cryptosuite: "eddsa-jcs-2022",
@@ -17,6 +19,16 @@ config :activity_pub,
   object_integrity_domain_check: :relay,
   # the edit history Pleroma and Akkoma federate inside an edited object (`formerRepresentations`, its earlier versions): dropped on receipt unless `true`, since nothing here reads it and its origin still has it
   keep_received_edit_history: false,
+  # how far a delivery is trusted by what signed it (see `ActivityPub.Safety`); a signature we cannot check counts as none
+  incoming_signatures: [
+    # no signature of any kind, and its origin does not serve it: `:reject` or `:accept` (also ACCEPT_UNSIGNED_ACTIVITIES=1, see `runtime.exs`)
+    unsigned: :reject,
+    # a signature that does not hold and nothing else vouches for it, and its origin does not serve it: `:reject` or `:accept`
+    invalid: :reject,
+    # one signature holds and another does not: a valid HTTP signature (always the author's own server's), but the proof or LD signature in the body does not hold: `:accept` (on the HTTP signature), `:refetch` (the origin's copy instead) or `:reject`
+    partly_invalid: :accept
+    # an activity relayed to us (FEP-1b12): `relayed: :trust` the relayed copy, or `:verify` it by refetching from its origin. Left unset here so an older `relayed_activity_trust` setting still counts; `:trust` when neither is set
+  ],
   # Known software that validates RFC 9421 signatures, with minimum version (:any = all versions).
   # Used by nodeinfo-based format inference in Instances.maybe_infer_format_from_nodeinfo/2.
   rfc9421_software: %{

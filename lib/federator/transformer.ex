@@ -1914,7 +1914,7 @@ defmodule ActivityPub.Federator.Transformer do
     do: {:fetched, Object.get_ap_id(inner_activity["actor"])}
 
   @doc """
-  How far to trust an activity handed to us by a relay (FEP-1b12), set with `AP_RELAYED_ACTIVITY_TRUST=trust|verify` or `config :activity_pub, :relayed_activity_trust`.
+  How far to trust an activity handed to us by a relay (FEP-1b12), set with `config :activity_pub, :incoming_signatures, relayed: :trust | :verify` (formerly `config :activity_pub, :relayed_activity_trust`, still read when that is unset).
 
   Lemmy, PieFed and NodeBB do NOT sign relayed activities (verified against real captures), so this governs all threadiverse content rather than some edge case.
 
@@ -1925,11 +1925,7 @@ defmodule ActivityPub.Federator.Transformer do
   **Neither mode applies when the relayed activity carries a signature that FAILS to verify.** Those bytes are never stored: a broken signature is evidence against them. But the activity is not dropped either, since refusing outright loses a post the origin may be glad to serve, and the likeliest cause is a relay that reserialised the document rather than an attack — our own normalising ingest would do the same if we forwarded. So that case always refetches from the origin, and refuses only if the origin cannot answer at all.
   """
   def relayed_activity_trust do
-    case System.get_env("AP_RELAYED_ACTIVITY_TRUST") do
-      "verify" -> :verify
-      "trust" -> :trust
-      _ -> Config.get(:relayed_activity_trust, :trust)
-    end
+    Config.get([:incoming_signatures, :relayed]) || Config.get(:relayed_activity_trust, :trust)
   end
 
   def handle_incoming(

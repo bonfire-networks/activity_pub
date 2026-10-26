@@ -23,8 +23,9 @@ defmodule ActivityPub.Object do
   schema "ap_object" do
     field(:data, :map)
 
-    # TEMPORARY until received documents are stored unaltered: the activity exactly as it reached our inbox, for whatever the adapter passes the activity to (a group's Announce of it, which relays it unchanged so its author's proof still verifies). A property of the delivery, never stored
-    field(:data_received, :map, virtual: true)
+    # a document that carries a proof or a signature, exactly as it arrived, so it still verifies when relayed, forwarded or served; such a row keeps in `data` only what normalisation changed (a merge patch, `ActivityPub.Object.MergePatch`). `nil` for every other row.
+    # TEMPORARY until received documents are stored this way: the adapter handover also sets it on the struct to the activity as it reached our inbox, for whatever the adapter passes the activity to (a group's Announce of it). Not written from there, as nothing casts it
+    field(:data_received, :map)
 
     field(:local, :boolean, default: true)
     field(:public, :boolean, default: false)
@@ -545,7 +546,16 @@ defmodule ActivityPub.Object do
 
   def changeset(object, attrs) do
     object
-    |> cast(attrs, [:id, :data, :local, :public, :pointer_id, :is_object, :authenticated])
+    |> cast(attrs, [
+      :id,
+      :data,
+      :data_received,
+      :local,
+      :public,
+      :pointer_id,
+      :is_object,
+      :authenticated
+    ])
     |> common_changeset()
   end
 

@@ -29,7 +29,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
   def call(%{method: http_method} = conn, opts) do
     Logger.metadata(action: info("HTTPSignaturePlug"))
 
-    reject_unsigned? = Config.get([:activity_pub, :reject_unsigned], false)
+    reject_unsigned? = Config.get(:reject_unsigned, false)
     has_signature? = has_signature_header?(conn)
     has_rfc9421? = has_rfc9421_header?(conn)
 

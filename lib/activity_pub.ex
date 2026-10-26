@@ -400,37 +400,12 @@ defmodule ActivityPub do
          %Object{data: %{"id" => id}} = announced,
          %{"id" => id} = received
        ) do
-    if signature_holds?(announced, received), do: received
+    # a broken proof is refused by followers where an absent one is not, so one that does not hold is not passed on
+    if match?({:ok, _}, ActivityPub.Safety.vouched_by_signature(announced, received)),
+      do: received
   end
 
   defp relayable_received_document(_announced, _received), do: nil
-
-  # Accepted by its own proof or signature: nothing to check again. Accepted another way (its HTTP signature, which does not cover what we pass on): its proof or signature is checked once, now, and when it holds, the stored activity, and its object when that is the same author's, are marked as vouched for by it. A broken one is refused by followers where an absent one is not, so one that does not hold is not passed on.
-  defp signature_holds?(%Object{authenticated: authenticated}, _received)
-       when authenticated in [:integrity_proof, :ld_signature],
-       do: true
-
-  defp signature_holds?(announced, received) do
-    case ActivityPub.Safety.author_signature(received) do
-      {:ok, authenticated} ->
-        mark_vouched_by_signature(announced, authenticated)
-        true
-
-      _ ->
-        false
-    end
-  end
-
-  defp mark_vouched_by_signature(%Object{data: data} = activity, authenticated) do
-    Object.do_update_existing(activity, %{authenticated: authenticated})
-
-    # the object is covered by the same signature, and vouched for by it when it is the activity's actor's (as an object embedded by its owner inherits the activity's value at receipt)
-    with object_id when is_binary(object_id) <- Object.get_ap_id(data["object"]),
-         {:ok, %Object{} = object} <- Object.get_cached(ap_id: object_id),
-         true <- Object.actor_from_data(object.data) == data["actor"] do
-      Object.do_update_existing(object, %{authenticated: authenticated})
-    end
-  end
 
   # @spec unannounce(
   #         Actor.t(),

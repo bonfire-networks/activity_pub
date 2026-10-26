@@ -114,6 +114,21 @@ defmodule ActivityPub.Migrations do
     execute("DROP TYPE IF EXISTS ap_object_authenticated")
   end
 
+  @doc """
+  Adds the `data_received` column to ap_object: a document that carries a proof or a signature, exactly as it arrived, so it still verifies when it is relayed, forwarded or served. Such a row keeps in `data` only what normalisation changed (a merge patch, see `ActivityPub.Object.MergePatch`); every other row has `data` as before and `NULL` here.
+  """
+  def add_object_data_received do
+    alter(table("ap_object")) do
+      add_if_not_exists(:data_received, :map)
+    end
+  end
+
+  def drop_object_data_received do
+    alter(table("ap_object")) do
+      remove_if_exists(:data_received, :map)
+    end
+  end
+
   def drop_object_boolean do
     alter(table("ap_object")) do
       remove(:is_object)

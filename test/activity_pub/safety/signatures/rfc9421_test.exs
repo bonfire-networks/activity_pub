@@ -204,7 +204,7 @@ defmodule ActivityPub.Safety.Signatures.RFC9421Test do
     end
 
     test "EnsureHTTPSignaturePlug halts on invalid RFC 9421 signature when reject_unsigned is enabled" do
-      clear_config([:activity_pub, :reject_unsigned], true)
+      clear_config([:reject_unsigned], true)
 
       conn =
         build_conn(:get, "/pub/shared_inbox")

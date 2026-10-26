@@ -194,10 +194,35 @@ defmodule ActivityPub.Federator.ForwarderTest do
     end
   end
 
+  # the forwarder's decision for `received`, as its telemetry event tells it
+  defp decided(received) do
+    ref = make_ref()
+    test_pid = self()
+
+    :telemetry.attach(
+      {__MODULE__, ref},
+      [:activity_pub, :forwarder, :decided],
+      fn _event, _measurements, meta, _config -> send(test_pid, {ref, meta}) end,
+      nil
+    )
+
+    try do
+      deliver(received)
+      id = received["id"]
+      assert_received {^ref, %{activity_id: ^id, decision: decision}}
+      decision
+    after
+      :telemetry.detach({__MODULE__, ref})
+    end
+  end
+
   describe "is not forwarded" do
+    # the signature is checked once the activity is stored, so what it found is kept with it
     test "unsigned", context do
-      assert {:skip, :unsigned} =
-               context |> reply(context.post_id) |> Map.delete("proof") |> recipients()
+      unsigned = context |> reply(context.post_id) |> Map.delete("proof")
+
+      assert {:skip, :unsigned} = decided(unsigned)
+      assert forwards(unsigned) == %{}
     end
 
     test "with a signature that does not hold", context do
@@ -206,7 +231,8 @@ defmodule ActivityPub.Federator.ForwarderTest do
       broken =
         context |> reply(context.post_id) |> put_in(["object", "content"], "<p>changed</p>")
 
-      assert {:skip, {:signature_does_not_hold, _}} = recipients(broken)
+      assert {:skip, {:signature_does_not_hold, _}} = decided(broken)
+      assert forwards(broken) == %{}
     end
 
     test "when it replies to a post that is not ours", context do
@@ -314,6 +340,19 @@ defmodule ActivityPub.Federator.ForwarderTest do
         assert Enum.any?(http_signature, &String.contains?(&1, context.owner.data["id"]))
         refute Enum.any?(http_signature, &String.contains?(&1, context.replier_id))
       end
+    end
+
+    test "a forwarded reply, delivered over the replier's HTTP signature, is stored as vouched for by their proof, and so is its note",
+         context do
+      received = reply(context, context.post_id)
+      assert {:ok, _} = deliver(received)
+      assert forwards(received) != %{}
+
+      assert {:ok, %Object{authenticated: :integrity_proof}} =
+               Object.get_cached(ap_id: received["id"])
+
+      assert {:ok, %Object{authenticated: :integrity_proof}} =
+               Object.get_cached(ap_id: received["object"]["id"])
     end
 
     test "a reply that is refused is not forwarded", context do

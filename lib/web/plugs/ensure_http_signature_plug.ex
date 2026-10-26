@@ -37,7 +37,7 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
     maybe_reject!(
       conn,
       conn.method != "POST" and Phoenix.Controller.get_format(conn) != "html" and
-        Config.get([:activity_pub, :reject_unsigned], false)
+        Config.get(:reject_unsigned, false)
     )
   end
 

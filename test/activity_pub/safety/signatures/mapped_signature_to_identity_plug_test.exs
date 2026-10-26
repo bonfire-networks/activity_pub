@@ -68,14 +68,14 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
   end
 
   test "it considers a mapped identity to be invalid when the associated instance is blocked" do
-    clear_config([:activity_pub, :reject_unsigned], true)
+    clear_config([:reject_unsigned], true)
 
     clear_config([:mrf_simple, :reject], [
       {"mastodon.local", "anime is banned"}
     ])
 
     on_exit(fn ->
-      Config.put([:activity_pub, :reject_unsigned], false)
+      Config.put([:reject_unsigned], false)
       Config.put([:mrf_simple, :reject], [])
     end)
 
@@ -94,14 +94,14 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
   end
 
   test "allowlist federation: it considers a mapped identity to be valid when the associated instance is allowed" do
-    clear_config([:activity_pub, :reject_unsigned], true)
+    clear_config([:reject_unsigned], true)
 
     clear_config([:mrf_simple, :accept], [
       {"mastodon.local", "anime is allowed"}
     ])
 
     on_exit(fn ->
-      Config.put([:activity_pub, :reject_unsigned], false)
+      Config.put([:reject_unsigned], false)
       Config.put([:mrf_simple, :accept], [])
     end)
 
@@ -122,14 +122,14 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
 
   # TODO: allowlist?
   # test "allowlist federation: it considers a mapped identity to be invalid when the associated instance is not allowed" do
-  #   clear_config([:activity_pub, :reject_unsigned], true)
+  #   clear_config([:reject_unsigned], true)
 
   #   clear_config([:mrf_simple, :accept], [
   #     {"misskey.example.org", "anime is allowed"}
   #   ])
 
   #   on_exit(fn ->
-  #     Config.put([:activity_pub, :reject_unsigned], false)
+  #     Config.put([:reject_unsigned], false)
   #     Config.put([:mrf_simple, :accept], [])
   #   end)
 

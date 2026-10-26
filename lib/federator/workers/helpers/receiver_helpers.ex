@@ -16,10 +16,22 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   2. Re-fetch the actor's public key and re-validate the HTTP signature
   3. Check for a Linked Data Signature (RsaSignature2017) embedded in the body
   4. Re-fetch the activity from its source URI
-  5. Accept anyway if `ACCEPT_UNSIGNED_ACTIVITIES=1` is set
+  5. Accept anyway, as `config :activity_pub, :incoming_signatures` says: `unsigned:`
+     when nothing signed it (`ActivityPub.Safety.accept_unsigned?/0`), `invalid:` when
+     a signature did not hold (`ActivityPub.Safety.accept_invalid?/0`). Both refuse by
+     default
 
-  A proof that does not verify is never a reason to refuse: the activity goes on to
-  the rest, as it did before proofs were read.
+  A proof or LD signature that does not verify goes on to the rest. One we cannot
+  check counts as none.
+
+  ## Over an HTTP signature
+
+  A proof or LD signature in the body is checked too (FEP-8b32: "Recipients of an
+  object SHOULD perform proof verification if it contains integrity proofs"), so what
+  is stored says it vouched for the document (`authenticated:`), and whoever passes it
+  on need not check it again. One that does not hold makes the delivery partly
+  invalid, handled as `ActivityPub.Safety.partly_invalid/0` says: accepted on the
+  HTTP signature by default, refetched from its origin, or refused.
 
   ## Usage
 
@@ -67,6 +79,47 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   # Every delivery we accept goes on with the document as it reached us (`data_received:`), so it can be relayed unchanged (a group's Announce of it): whatever the handling normalises, this stays as the author sent it.
   # A reply in one of our users' threads is then forwarded to their followers (`Forwarder`). Whom it goes to is asked before handling it, since a `Delete` takes away the reply it is found through.
   defp handle_received(params, opts) do
+    case signature_in_body(params, opts) do
+      {:ok, opts} -> do_handle_received(params, opts)
+      :refetch -> refetch_or_cancel(params, "its proof or LD signature does not hold")
+      {:cancel, _reason} = cancel -> cancel
+    end
+  end
+
+  # Accepted over an HTTP signature: a proof or LD signature in the body is checked too, so what is stored says it vouched for the document. Accepted another way, it was what vouched for it, or was checked already.
+  defp signature_in_body(params, opts) do
+    if opts[:authenticated] == :http_signature do
+      case ActivityPub.Safety.author_signature(params) do
+        {:ok, by_signature} ->
+          {:ok, Keyword.put(opts, :authenticated, by_signature)}
+
+        result ->
+          if ActivityPub.Safety.broken_signature?(result),
+            do: broken_signature(result, opts),
+            else: {:ok, opts}
+      end
+    else
+      {:ok, opts}
+    end
+  end
+
+  defp broken_signature(result, opts) do
+    case ActivityPub.Safety.partly_invalid() do
+      :accept ->
+        Untangle.warn(result, "Proof or LD signature does not hold, accepting on the HTTP signature")
+        {:ok, opts}
+
+      :refetch ->
+        :refetch
+
+      :reject ->
+        reason = "Rejecting activity: its proof or LD signature does not hold"
+        Untangle.error(result, reason)
+        {:cancel, reason}
+    end
+  end
+
+  defp do_handle_received(params, opts) do
     opts = Keyword.put(opts, :data_received, params)
     forwarding = Forwarder.recipients(params, opts)
 
@@ -119,19 +172,24 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
         )
 
       :none ->
-        maybe_process_unsigned_cascade(headers, params)
+        maybe_process_unsigned_cascade(headers, params, false)
 
-      {_invalid_or_unverifiable, reason} ->
+      {_invalid_or_unverifiable, reason} = result ->
         Untangle.warn(
           reason,
           "Integrity proof did not verify, falling back to the other ways to authenticate"
         )
 
-        maybe_process_unsigned_cascade(headers, params)
+        maybe_process_unsigned_cascade(
+          headers,
+          params,
+          ActivityPub.Safety.broken_signature?(result)
+        )
     end
   end
 
-  defp maybe_process_unsigned_cascade(headers, params) do
+  # `invalid?`: a signature did not hold (here a proof in the body; then the actor's HTTP signature, or an LD signature), which decides which config says whether it can be accepted anyway at the end (`accept_anyway?/1`)
+  defp maybe_process_unsigned_cascade(headers, params, invalid?) do
     actor = Object.actor_from_data(params)
     signed? = is_binary(headers["signature"]) and is_binary(actor)
 
@@ -161,9 +219,14 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
       Untangle.debug("HTTP signature valid after key re-fetch, processing activity")
       handle_received(params, from_inbox: true)
     else
-      if fetch_fresh_public_key? do
-        Untangle.warn("HTTP signature still invalid after key re-fetch")
-      end
+      # the actor's own HTTP signature, which still fails: a signature that does not hold. One by somebody else (a relay passing it on) says nothing about this actor either way
+      invalid? =
+        if fetch_fresh_public_key? do
+          Untangle.warn("HTTP signature still invalid after key re-fetch")
+          true
+        else
+          invalid?
+        end
 
       # Try Linked Data Signature (RsaSignature2017) embedded in the activity body.
       # This covers relay-forwarded activities and activities from shutting-down servers.
@@ -180,22 +243,25 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
               signed_by: creator
             )
 
-          {:error, reason} ->
+          {:error, reason} = result ->
             Untangle.warn(
               reason,
               "Linked Data Signature verification failed, falling back to activity or object refetch"
             )
 
-            maybe_process_unsigned_fallback(params)
+            maybe_process_unsigned_fallback(
+              params,
+              invalid? or ActivityPub.Safety.broken_signature?(result)
+            )
         end
       else
-        maybe_process_unsigned_fallback(params)
+        maybe_process_unsigned_fallback(params, invalid?)
       end
     end
   end
 
-  # Fallback logic for activities without valid HTTP or LD signatures: tries refetching from source, validates follow responses locally, or accepts if ACCEPT_UNSIGNED_ACTIVITIES is set.
-  defp maybe_process_unsigned_fallback(params) do
+  # Fallback logic for activities without valid HTTP or LD signatures: tries refetching from source, validates follow responses locally, or accepts anyway when the config says so (`accept_anyway?/1`).
+  defp maybe_process_unsigned_fallback(params, invalid?) do
     # Accept/Reject of Follow activities have unfetchable URLs (fragment identifiers like #accepts/follows/)
     # but can be safely validated against our local Follow activity records.
     # This mirrors how Mastodon handles it: https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/accept.rb
@@ -210,24 +276,15 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
       handle_received(params, from_inbox: true)
     else
-      is_deleted? =
-        Untangle.debug(
-          is_in(params["type"], ["Delete", "Tombstone"]) or
-            (is_map(params["object"]) and is_in(params["object"]["type"], ["Tombstone"])),
-          "is_deleted?"
-        )
+      case refetch_from_origin(params) do
+        {:ok, object} ->
+          {:ok, object}
 
-      with id when is_binary(id) <- params["id"],
-           {:ok, object} <-
-             Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
-        Untangle.debug(object, "Activity verified by re-fetching from source")
-        {:ok, object}
-      else
         e ->
-          if System.get_env("ACCEPT_UNSIGNED_ACTIVITIES") == "1" do
+          if accept_anyway?(invalid?) do
             Untangle.warn(
               e,
-              "No valid signature and re-fetch failed, but accepting because ACCEPT_UNSIGNED_ACTIVITIES=1"
+              "No valid signature and re-fetch failed, but accepting because the config says so (incoming_signatures #{if invalid?, do: "invalid", else: "unsigned"}: :accept)"
             )
 
             handle_received(params, from_inbox: true)
@@ -243,6 +300,39 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
             {:cancel, reason}
           end
       end
+    end
+  end
+
+  # unsigned and invalid are told apart: accepting what nobody signed is not accepting what a signature says is not what was signed
+  defp accept_anyway?(true = _invalid?), do: ActivityPub.Safety.accept_invalid?()
+  defp accept_anyway?(false = _invalid?), do: ActivityPub.Safety.accept_unsigned?()
+
+  # the copy its origin serves, in place of the one delivered to us
+  defp refetch_from_origin(params) do
+    is_deleted? =
+      Untangle.debug(
+        is_in(params["type"], ["Delete", "Tombstone"]) or
+          (is_map(params["object"]) and is_in(params["object"]["type"], ["Tombstone"])),
+        "is_deleted?"
+      )
+
+    with id when is_binary(id) <- params["id"],
+         {:ok, object} <-
+           Fetcher.fetch_fresh_object_from_id(id, return_tombstones: is_deleted?) do
+      Untangle.debug(object, "Activity verified by re-fetching from source")
+      {:ok, object}
+    end
+  end
+
+  defp refetch_or_cancel(params, why) do
+    case refetch_from_origin(params) do
+      {:ok, object} ->
+        {:ok, object}
+
+      e ->
+        reason = "Rejecting activity: #{why}, and re-fetch from source failed"
+        Untangle.error(e, reason)
+        {:cancel, reason}
     end
   end
 end

@@ -13,6 +13,10 @@ defmodule ActivityPub.Safety do
     * `:fetched`: we fetched it from its origin
   """
 
+  require Untangle
+  alias ActivityPub.Config
+  alias ActivityPub.Object
+
   # the values of `authenticated` that name a signature of the actor's (a proof, an LD signature, or the HTTP signature of the delivery)
   @by_signature [:http_signature, :ld_signature, :integrity_proof]
   # every value that says somebody vouched for the document
@@ -110,6 +114,74 @@ defmodule ActivityPub.Safety do
 
       true ->
         :none
+    end
+  end
+
+  @doc """
+  Whether a result of `author_signature/2` is evidence against the document: a proof (FEP-8b32) or LD signature that does not hold, as opposed to none, or one we cannot check (a key we cannot find, a cryptosuite we do not support), which counts as none.
+  """
+  def broken_signature?({:invalid, _reason}), do: true
+  def broken_signature?({:error, :invalid_signature}), do: true
+  def broken_signature?(_result), do: false
+
+  # How far a delivery is trusted by what signed it is `config :activity_pub, :incoming_signatures`, one part per case below. A signature we cannot check (a key we cannot find, a cryptosuite we do not support) counts as none.
+
+  @doc """
+  Whether a delivery with no signature of any kind (no HTTP signature, no proof, no LD signature), which its origin does not serve either, is accepted anyway: `incoming_signatures: [unsigned: :accept]`. `:reject` (the default) refuses it.
+  """
+  def accept_unsigned?, do: Config.get([:incoming_signatures, :unsigned], :reject) == :accept
+
+  @doc """
+  Whether a delivery with a signature that does not hold, and nothing else that vouches for it (an HTTP signature still invalid once the key is fetched again, or a broken proof or LD signature with no valid HTTP signature), which its origin does not serve either, is accepted anyway: `incoming_signatures: [invalid: :accept]`. `:reject` (the default) refuses it.
+  """
+  def accept_invalid?, do: Config.get([:incoming_signatures, :invalid], :reject) == :accept
+
+  @doc """
+  What is done with a delivery that is partly invalid: one signature holds and another does not. Its HTTP signature holds, which is always its author's own server's (one by anybody else is not counted as valid, see `ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug`), but its proof or LD signature does not (`broken_signature?/1`): `incoming_signatures: [partly_invalid: ...]`.
+
+    * `:accept` (the default): accepted on the HTTP signature, as Mastodon does with a broken LD signature, so a server whose proofs are broken but whose HTTP signatures work keeps federating. FEP-8b32 says a proof "MUST be given precedence over HTTP signature", which this does not do
+    * `:refetch`: the copy its origin serves instead, refused when it serves none
+    * `:reject`: refused
+  """
+  def partly_invalid do
+    case Config.get([:incoming_signatures, :partly_invalid], :accept) do
+      value when value in [:accept, :refetch, :reject] ->
+        value
+
+      other ->
+        Untangle.warn(other, "unknown incoming_signatures partly_invalid, using :accept")
+        :accept
+    end
+  end
+
+  @doc """
+  Whether `received`, somebody else's activity as it reached us, is vouched for by its author's own proof or LD signature (`author_signature/2`), for whoever passes it on unchanged (a group relaying it, inbox forwarding): `{:ok, :integrity_proof | :ld_signature}`, `:none`, or why it does not hold.
+
+  `stored` is that activity as we hold it (an `ActivityPub.Object`). Accepted by its proof or signature, nothing is checked again. Accepted another way (its HTTP signature, which does not cover what is passed on), it is checked now, and when it holds, `stored`, and its object when that is the same author's, are marked as vouched for by it, so it is checked once whoever asks.
+  """
+  def vouched_by_signature(%Object{authenticated: authenticated} = stored, received) do
+    case author_signature(received, authenticated) do
+      # vouched for by it already
+      {:ok, ^authenticated} = vouched ->
+        vouched
+
+      {:ok, by_signature} = vouched ->
+        mark_vouched_by_signature(stored, by_signature)
+        vouched
+
+      other ->
+        other
+    end
+  end
+
+  defp mark_vouched_by_signature(%Object{data: data} = activity, authenticated) do
+    Object.do_update_existing(activity, %{authenticated: authenticated})
+
+    # the object is covered by the same signature, and vouched for by it when it is the activity's actor's (as an object embedded by its owner inherits the activity's value at receipt)
+    with object_id when is_binary(object_id) <- Object.get_ap_id(data["object"]),
+         {:ok, %Object{} = object} <- Object.get_cached(ap_id: object_id),
+         true <- Object.actor_from_data(object.data) == data["actor"] do
+      Object.do_update_existing(object, %{authenticated: authenticated})
     end
   end
 

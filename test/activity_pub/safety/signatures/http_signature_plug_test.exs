@@ -55,7 +55,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
 
   describe "requires a signature when `reject_unsigned` is enabled" do
     setup do
-      clear_config([:activity_pub, :reject_unsigned], true)
+      clear_config([:reject_unsigned], true)
 
       params = %{"actor" => "https://mastodon.local/users/admin"}
 
@@ -128,7 +128,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
   end
 
   test "does nothing on invalid signature when `reject_unsigned` is disabled" do
-    clear_config([:activity_pub, :reject_unsigned], false)
+    clear_config([:reject_unsigned], false)
 
     conn =
       build_conn(:get, "/doesntmatter")

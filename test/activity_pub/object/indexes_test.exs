@@ -42,6 +42,35 @@ defmodule ActivityPub.Object.IndexesTest do
   end
 
   describe "an actor's inbox" do
+    # The planner's choice depends on what the table holds, so the table is set up rather than left as earlier tests left it (inside the test's transaction, rolled back after). As on an instance: many past activities, addressed to others, so "not in the future" matches nearly every row and only the recipients narrow them down. On a nearly empty table the actor index, read for its order, costs as little, and the planner may take it.
+    setup do
+      repo().query!("DELETE FROM ap_object")
+
+      past = NaiveDateTime.utc_now() |> NaiveDateTime.add(-3600)
+
+      rows =
+        for i <- 1..500 do
+          %{
+            id: Ecto.UUID.generate(),
+            data: %{
+              "id" => "https://others.local/activities/#{i}",
+              "type" => "Create",
+              "actor" => "https://others.local/users/#{rem(i, 20)}",
+              "to" => ["https://others.local/users/#{rem(i, 50)}"]
+            },
+            local: false,
+            public: false,
+            is_object: false,
+            inserted_at: past,
+            updated_at: past
+          }
+        end
+
+      repo().insert_all(Object, rows)
+      repo().query!("ANALYZE ap_object")
+      :ok
+    end
+
     test "a page reads the recipients index", %{actor: actor} do
       Object.get_inbox_for_actor(actor)
 

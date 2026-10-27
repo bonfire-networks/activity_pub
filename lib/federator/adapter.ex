@@ -162,12 +162,12 @@ defmodule ActivityPub.Federator.Adapter do
       debug("skipping adapter for remote activity as requested")
       {:ok, :skipped}
     else
-      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`) and how they were authenticated (`authenticated`, `signed_by`), and the options of the delivery for an adapter that takes them (`data_received`, to relay it unchanged)
+      # remote activities should always go to adapter, carrying who relayed them (see `Object`'s `relayed_by`) and how they were authenticated (`authenticated`, `signed_by`), and the options of the delivery for an adapter that takes them (`data_received`). The activity is handed over as stored: its own original is the one stored with it, and one put on the struct here would be one the row does not hold, which a later write of that struct would take for its original
       handle_activity(
         %{
           mark_embedded_object(activity, opts)
-          | relayed_by: opts[:relayed_by],
-            data_received: opts[:data_received]
+          | relayed_by: opts[:relayed_by]
+            # data_received: opts[:data_received]
         }
         |> Object.put_authentication_meta(opts),
         opts

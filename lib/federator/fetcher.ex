@@ -294,6 +294,10 @@ defmodule ActivityPub.Federator.Fetcher do
   defp store_fetched(data, opts), do: cached_or_handle_incoming(data, opts)
 
   defp replace_with_fetched(%Object{data: stored_data} = stored, data, opts) do
+    # vouched for by its own proof or LD signature when that holds, as a first fetch is (`maybe_with_author_signature/2`)
+    opts = maybe_with_author_signature(opts, data)
+    authenticated = opts[:authenticated] || :fetched
+
     incoming =
       data
       |> Transformer.fix_object(opts)
@@ -302,8 +306,8 @@ defmodule ActivityPub.Federator.Fetcher do
       |> keep_stored_edit_history(stored_data)
 
     # TODO: tell the adapter when the data changed and it holds the object, as an edit (see the TODO at `Transformer.maybe_replace_object/2`)
-    if ActivityPub.Safety.replaces?(stored, incoming, :fetched),
-      do: Object.replace(stored, incoming, :fetched),
+    if ActivityPub.Safety.replaces?(stored, incoming, authenticated),
+      do: Object.replace(stored, incoming, authenticated, opts),
       else: {:ok, stored}
   end
 
@@ -464,6 +468,25 @@ defmodule ActivityPub.Federator.Fetcher do
       else: Keyword.put_new(opts, :already_fetched, Object.get_ap_id(data) || true)
   end
 
+  # A document we fetched is checked for its own proof or LD signature, as a delivered one is (`Safety.with_author_signature/2`). Not what is part of a delivery, or already vouched for: that was checked with its delivery. One that does not hold leaves it `:fetched`, as its origin served it.
+  # Not an actor's: it signs its own document with a key that document lists, so its proof shows only that it was signed by the key it names, and fetching it from its origin is what vouches for it. Checking it would also look up its signer, the very actor being fetched, which is not stored yet, so it would be fetched and checked again, without end.
+  defp maybe_with_author_signature(opts, %{"type" => type})
+       when is_in(type, :supported_actor_types),
+       do: opts
+
+  defp maybe_with_author_signature(opts, %{} = data) do
+    if opts[:from_inbox] || opts[:authenticated] do
+      opts
+    else
+      case ActivityPub.Safety.with_author_signature(opts, data) do
+        {:ok, opts} -> opts
+        _does_not_hold -> opts
+      end
+    end
+  end
+
+  defp maybe_with_author_signature(opts, _data), do: opts
+
   defp handle_fetched(%{data: data}, opts), do: handle_fetched(data, opts)
 
   defp handle_fetched(data, opts) do
@@ -473,6 +496,7 @@ defmodule ActivityPub.Federator.Fetcher do
       opts
       |> Keyword.put(:triggered_by, "handle_fetched")
       |> maybe_mark_fetched(data)
+      |> maybe_with_author_signature(data)
       |> debug("opts")
 
     with {:ok, object} <- Transformer.handle_incoming(data, opts) |> debug("handled") do

@@ -35,7 +35,8 @@ defmodule ActivityPub do
   def create(%{to: _, actor: actor, object: _} = params, opts \\ []) do
     with nil <- Object.normalize(params[:additional]["id"], false),
          create_data <-
-           make_create_data(params) |> debug("create_data"),
+           (incoming_create_data(params, opts) || make_create_data(params))
+           |> debug("create_data"),
          {:ok, activity} <- do_create(params, create_data, opts) do
       {:ok, activity}
     end
@@ -99,7 +100,13 @@ defmodule ActivityPub do
   #       local :: boolean()
   #     ) :: {:ok, Object.t()} | {:error, any()}
   def follow(%{actor: follower, object: followed} = params, opts \\ []) do
-    with data <- make_follow_data(follower, followed, Map.get(params, :activity_id)),
+    # somebody else's with the state we track, and the id of who it follows rather than an actor they embedded
+    with data <-
+           incoming_activity(opts, %{
+             "object" => Object.get_ap_id(followed),
+             "state" => "pending"
+           }) ||
+             make_follow_data(follower, followed, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
          :ok <- maybe_federate(follower, activity),
@@ -124,12 +131,13 @@ defmodule ActivityPub do
            Object.fetch_latest_activity(actor, object, "Follow") |> debug("latest") ||
              basic_follow_data(actor, object),
          unfollow_data <-
-           make_unfollow_data(
-             actor,
-             object,
-             follow_activity,
-             Map.get(params, :activity_id)
-           ),
+           incoming_activity(opts) ||
+             make_unfollow_data(
+               actor,
+               object,
+               follow_activity,
+               Map.get(params, :activity_id)
+             ),
          {:ok, activity} <-
            Object.insert(
              unfollow_data,
@@ -208,13 +216,16 @@ defmodule ActivityPub do
        ) do
     with actor_id <- actor.data["id"],
          {:ok, accepted_activity} <- Object.update_state(activity_to_accept, type, "accept"),
-         data <- %{
-           "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
-           "to" => to,
-           "type" => "Accept",
-           "actor" => actor_id,
-           "object" => accepted_activity.data
-         },
+         # somebody else's as they sent it, its `object` our accepted activity: Bonfire reads that activity's `actor` to know whose blocks and allowlists apply (`object_implied_actor_ids/1`), which an `object` sent as an id would not give
+         data <-
+           incoming_activity(opts, %{"object" => accepted_activity.data}, %{"to" => to}) ||
+             %{
+               "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
+               "to" => to,
+               "type" => "Accept",
+               "actor" => actor_id,
+               "object" => accepted_activity.data
+             },
          # Check if this is a QuoteRequest and create QuoteAuthorization
          data <-
            if(type == "QuoteRequest",
@@ -255,13 +266,15 @@ defmodule ActivityPub do
   @spec reject(%{to: [any()], actor: Actor.t(), object: binary()}) ::
           {:ok, Object.t()} | {:error, any()}
   def reject(%{to: to, actor: actor, object: object} = params, opts \\ []) do
-    with data <- %{
-           "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
-           "to" => to,
-           "type" => "Reject",
-           "actor" => actor.data["id"],
-           "object" => object
-         },
+    with data <-
+           incoming_activity(opts, %{"object" => object}, %{"to" => to}) ||
+             %{
+               "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
+               "to" => to,
+               "type" => "Reject",
+               "actor" => actor.data["id"],
+               "object" => object
+             },
          %Object{data: %{"type" => type}} = activity_to_reject <-
            Object.get_cached!(ap_id: object) |> debug("activity_to_reject"),
          {:ok, activity} <-
@@ -296,7 +309,10 @@ defmodule ActivityPub do
         opts \\ []
       ) do
     with nil <- Object.get_existing_like(ap_id, object_id),
-         like_data <- make_like_data(actor, object, Map.get(params, :activity_id)),
+         # the id of what it is about, not an object the liker embedded
+         like_data <-
+           incoming_activity(opts, %{"object" => object_id}) ||
+             make_like_data(actor, object, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(
              like_data,
@@ -332,7 +348,8 @@ defmodule ActivityPub do
       ) do
     with %Object{} = like_activity <- Object.get_existing_like(ap_id, object_id) |> info(),
          unlike_data <-
-           make_unlike_data(actor, like_activity, Map.get(params, :activity_id)),
+           incoming_activity(opts) ||
+             make_unlike_data(actor, like_activity, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(
              unlike_data,
@@ -368,7 +385,10 @@ defmodule ActivityPub do
       ) do
     # `skip_public_check` is for a caller that judged publicness itself: a group relaying a vote, which is addressed to the author and the group rather than Public, about a post that is public
     with true <- opts[:skip_public_check] == true or Utils.public?(object.data),
-         announce_data <- build_announce_data(params, actor, object),
+         # the id of what is boosted, not an object the booster embedded
+         announce_data <-
+           incoming_activity(opts, %{"object" => object.data["id"]}) ||
+             build_announce_data(params, actor, object),
          {:ok, activity} <-
            Object.insert(
              announce_data,
@@ -425,7 +445,8 @@ defmodule ActivityPub do
     with %Object{} = announce_activity <-
            Object.get_existing_announce(ap_id, object),
          unannounce_data <-
-           make_unannounce_data(actor, announce_activity, Map.get(params, :activity_id)),
+           incoming_activity(opts) ||
+             make_unannounce_data(actor, announce_activity, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(
              unannounce_data,
@@ -475,7 +496,7 @@ defmodule ActivityPub do
       end)
 
     with activity_data <-
-           incoming_activity(opts, object) ||
+           incoming_activity(opts, %{"object" => object}) ||
              Map.merge(
                %{
                  "id" => params[:id] || params[:activity_id] || Utils.generate_object_id(),
@@ -509,7 +530,12 @@ defmodule ActivityPub do
   #       ) :: {:ok, Object.t()} | {:error, any()}
   # Makes and federates the Block, and severs no follows: which follow a block ends, if any, is the adapter's policy and it differs by direction. Bonfire ghosts by severing THEIR follow of me and silences by severing MINE of them, and offers both as an opt-in, none of which this can know. `handle_remote_block/4` does it explicitly for the one case where the decision is ours to make.
   def block(%{actor: blocker, object: blocked} = params, opts \\ []) do
-    with block_data <- make_block_data(blocker, blocked, params),
+    # somebody else's with the id of who it blocks, rather than an actor they embedded
+    with block_data <-
+           incoming_activity(opts, %{"object" => blocked.data["id"]}, %{
+             "to" => params[:to] || [blocked.data["id"]]
+           }) ||
+             make_block_data(blocker, blocked, params),
          {:ok, activity} <-
            Object.insert(
              block_data,
@@ -535,14 +561,16 @@ defmodule ActivityPub do
   #         local :: boolean
   #       ) :: {:ok, Object.t()} | {:error, any()}
   def unblock(%{actor: blocker, object: blocked} = params, opts \\ []) do
-    with block_activity <- Object.fetch_latest_block(blocker, blocked),
+    # only a block we hold can be undone: an `Undo` of nothing is not stored
+    with %Object{} = block_activity <- Object.fetch_latest_block(blocker, blocked),
          unblock_data <-
-           make_unblock_data(
-             blocker,
-             blocked,
-             block_activity,
-             Map.get(params, :activity_id)
-           ),
+           incoming_activity(opts) ||
+             make_unblock_data(
+               blocker,
+               blocked,
+               block_activity,
+               Map.get(params, :activity_id)
+             ),
          {:ok, activity} <-
            Object.insert(
              unblock_data,
@@ -578,8 +606,21 @@ defmodule ActivityPub do
   defp apply_collection_activity(type, op, %{target: target} = params, actor, object, opts) do
     owner = other_collection_owner(actor, target)
 
+    # as its author sent it (a client of ours, C2S: only an owner may change a collection the lib holds, see `Transformer.validate_collection_authority/2`), with `object` and `target` as ids
     with data <-
-           make_add_remove_data(type, actor, object, target, owner, Map.get(params, :activity_id)),
+           incoming_activity(
+             opts,
+             %{"object" => Utils.ap_id(object), "target" => Utils.ap_id(target)},
+             addressing_unless_sent(opts, actor, object, owner)
+           ) ||
+             make_add_remove_data(
+               type,
+               actor,
+               object,
+               target,
+               owner,
+               Map.get(params, :activity_id)
+             ),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
          # C2S activities are federated by the adapter's outgoing path (as in `do_create/3`)
@@ -612,6 +653,15 @@ defmodule ActivityPub do
     }
     |> Map.merge(add_remove_addressing(actor, object, owner))
     |> then(&if activity_id, do: Map.put(&1, "id", activity_id), else: &1)
+  end
+
+  # the addressing to fill in for a received `Add`/`Remove` that names none; worked out only then, as it looks actors up
+  defp addressing_unless_sent(opts, actor, object, owner) do
+    case opts[:incoming_activity] do
+      %{"to" => _} -> %{}
+      %{} -> add_remove_addressing(actor, object, owner)
+      _ -> %{}
+    end
   end
 
   defp add_remove_addressing(actor, _object, nil),
@@ -754,7 +804,7 @@ defmodule ActivityPub do
            |> Actor.delete(is_local?)
            |> debug("deleeeted"),
          params <-
-           (incoming_activity(opts, id) ||
+           (incoming_activity(opts, %{"object" => id}) ||
               %{
                 "type" => "Delete",
                 "actor" => subject || id,
@@ -803,7 +853,7 @@ defmodule ActivityPub do
          # prune lib-owned collection memberships (tombstone keeps the row, so cascade won't fire)
          _ <- if(!opts[:keep_object], do: GenericCollectionStore.remove_object_everywhere(id)),
          data <-
-           incoming_activity(opts, id) ||
+           incoming_activity(opts, %{"object" => id}) ||
              %{
                "type" => "Delete",
                "actor" => opts[:subject] || actor,
@@ -834,13 +884,14 @@ defmodule ActivityPub do
     )
   end
 
-  # Somebody else's activity as the transformer normalised it (`incoming_activity:`; not the document exactly as it arrived, which is `data_received`), with the object the caller checked, to store instead of building one: it keeps their id and what they wrote, rather than an id on our host and only what a builder copies. `nil` when there is none, and the caller builds its own. What is done around it (deleting, federating, the adapter) is the same either way.
-  defp incoming_activity(opts, object) do
+  # Somebody else's activity as the transformer normalised it (`incoming_activity:`; not the document exactly as it arrived, which is `data_received`), to store instead of building one: it keeps their id and what they wrote, rather than an id on our host and only what a builder copies. `ours` are fields we set whatever they sent (eg. the `object` the caller checked, a `state` we track), `defaults` fill what they left out. `nil` when there is none, and the caller builds its own, so a builder runs only for our activities. What is done around it (deleting, federating, the adapter) is the same either way.
+  defp incoming_activity(opts, ours \\ %{}, defaults \\ %{}) do
     case opts[:incoming_activity] do
       %{"id" => id} = received when is_binary(id) ->
-        received
-        |> Map.put("object", object)
-        # their proof covers the object as they sent it, not as we checked it
+        defaults
+        |> Map.merge(received)
+        |> Map.merge(ours)
+        # their proof covers what they sent, not what we set
         |> ActivityPub.Federator.Transformer.drop_stale_signatures(received)
 
       _ ->
@@ -868,19 +919,26 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) :: {:ok, Object.t()} | {:error, any()}
   def flag(%{} = params, opts \\ []) do
-    additional = params[:additional] || %{}
+    objects = [params[:account]] ++ (params[:statuses] || [])
 
-    # the caller's addressing wins over these defaults: a report to a group names the group in `to`, and an incoming report keeps the `cc` it arrived with
-    additional =
-      if is_map(params[:account]) and params[:forward] == true do
-        Map.merge(%{"to" => [], "bcc" => [params[:account].data["id"]]}, additional)
-      else
-        Map.merge(%{"to" => [], "cc" => []}, additional)
-      end
-
-    with {:ok, activity} <-
-           make_flag_data(params, [params[:account]] ++ (params[:statuses] || []), additional)
-           |> Object.insert(Map.get(params, :local, true), Map.get(params, :pointer), opts),
+    # as its author sent it, with what we own in a report: its state, its reason gathered from `summary` and `content`, the list of what it reports, and its addressing: an empty `to`, which keeps one from elsewhere private, or ours for one of our users (C2S), which may forward it
+    with data <-
+           incoming_activity(
+             opts,
+             Map.merge(
+               %{
+                 "state" => "open",
+                 "content" => params[:content],
+                 "object" => flag_object_ids(objects)
+               },
+               if(Map.get(params, :local, true),
+                 do: flag_addressing(params),
+                 else: %{"to" => []}
+               )
+             )
+           ) || make_flag_data(params, objects, flag_addressing(params)),
+         {:ok, activity} <-
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
          :ok <- maybe_federate(params[:actor], activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -924,13 +982,15 @@ defmodule ActivityPub do
         recursing \\ false,
         opts \\ []
       ) do
-    params = %{
-      "type" => "Move",
-      "actor" => origin_ap_id,
-      "object" => origin_ap_id,
-      "target" => target.ap_id,
-      "to" => Map.get(origin_data, "followers", [])
-    }
+    params =
+      incoming_activity(opts, %{}, %{"to" => Map.get(origin_data, "followers", [])}) ||
+        %{
+          "type" => "Move",
+          "actor" => origin_ap_id,
+          "object" => origin_ap_id,
+          "target" => target.ap_id,
+          "to" => Map.get(origin_data, "followers", [])
+        }
 
     with true <-
            Actor.also_known_as?(origin_ap_id, target.data) or
@@ -948,7 +1008,7 @@ defmodule ActivityPub do
 
           with {:ok, refetched} <-
                  ActivityPub.Federator.Fetcher.fetch_fresh_object_from_id(target.ap_id) do
-            move(%{ap_id: origin_ap_id, data: origin_data}, refetched, local, true)
+            move(%{ap_id: origin_ap_id, data: origin_data}, refetched, local, true, opts)
           end
         else
           error("Target account must have the origin in `alsoKnownAs`")
@@ -999,9 +1059,10 @@ defmodule ActivityPub do
     if activity_id, do: Map.put(data, "id", activity_id), else: data
   end
 
+  # a `Like` stored as received has a `context` only if its author sent one
   defp make_unlike_data(
          %{data: %{"id" => ap_id}} = actor,
-         %{data: %{"context" => context}} = activity,
+         %{data: %{} = like_data} = activity,
          activity_id
        ) do
     data = %{
@@ -1010,7 +1071,7 @@ defmodule ActivityPub do
       "object" => activity.data,
       "to" => activity.data["to"] || [],
       "cc" => activity.data["cc"] || [],
-      "context" => context
+      "context" => like_data["context"]
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
@@ -1154,9 +1215,10 @@ defmodule ActivityPub do
   @doc """
   Make unannounce activity data for the given actor and object
   """
+  # an `Announce` stored as received has a `context` only if its author sent one
   defp make_unannounce_data(
          %{data: %{"id" => ap_id}} = actor,
-         %Object{data: %{"context" => context}} = activity,
+         %Object{data: %{} = announce_data} = activity,
          activity_id
        ) do
     data = %{
@@ -1165,7 +1227,7 @@ defmodule ActivityPub do
       "object" => activity.data,
       "to" => [actor.data["followers"], activity.data["actor"]],
       "cc" => [ActivityPub.Config.public_uri()],
-      "context" => context
+      "context" => announce_data["context"]
     }
 
     if activity_id, do: Map.put(data, "id", activity_id), else: data
@@ -1337,6 +1399,25 @@ defmodule ActivityPub do
     |> Map.put_new_lazy("context", fn -> params[:context] end)
   end
 
+  # somebody else's `Create` as they sent it (`incoming_activity/2`), with what `make_create_data/1` adds that an author may leave out: the author we resolved, which is theirs unless we had to fall back to the signer, and the dates
+  defp incoming_create_data(params, opts) do
+    with %{"id" => _} = received <- opts[:incoming_activity] do
+      published = received["published"] || params[:published] || Utils.make_date()
+
+      object =
+        case params.object do
+          %{} = object -> Map.put_new(object, "published", published)
+          other -> other
+        end
+
+      incoming_activity(
+        opts,
+        %{"actor" => actor_id_from_params(params), "object" => object},
+        %{"published" => published}
+      )
+    end
+  end
+
   defp make_create_data(params) do
     published = params[:published] || Utils.make_date()
 
@@ -1358,36 +1439,48 @@ defmodule ActivityPub do
   end
 
   #### Flag-related helpers
+  # the caller's addressing wins over these defaults: a report to a group names the group in `to`
+  defp flag_addressing(params) do
+    additional = params[:additional] || %{}
+
+    if is_map(params[:account]) and params[:forward] == true do
+      Map.merge(%{"to" => [], "bcc" => [params[:account].data["id"]]}, additional)
+    else
+      Map.merge(%{"to" => [], "cc" => []}, additional)
+    end
+  end
+
+  defp flag_object_ids(objects) do
+    Enum.map(objects || [], fn
+      %Actor{data: data} ->
+        data["id"]
+
+      %Object{data: data} ->
+        data["id"]
+
+      %{"id" => id} ->
+        id
+
+      act when is_binary(act) ->
+        act
+
+      nil ->
+        nil
+
+      other ->
+        err(other, "dunno how to flag this")
+        nil
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
   defp make_flag_data(params, objects, additional) do
-    objects =
-      Enum.map(objects || [], fn
-        %Actor{data: data} ->
-          data["id"]
-
-        %Object{data: data} ->
-          data["id"]
-
-        %{"id" => id} ->
-          id
-
-        act when is_binary(act) ->
-          act
-
-        nil ->
-          nil
-
-        other ->
-          err(other, "dunno how to flag this")
-          nil
-      end)
-      |> Enum.reject(&is_nil/1)
-
     data =
       %{
         "type" => "Flag",
         "actor" => actor_id_from_params(params) || Utils.service_actor!(),
         "content" => params[:content],
-        "object" => objects,
+        "object" => flag_object_ids(objects),
         "context" => params[:context],
         "state" => "open"
       }

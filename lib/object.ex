@@ -2,6 +2,7 @@ defmodule ActivityPub.Object do
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
+  import ActivityPub.Queries.Fragments
   import Untangle
   use Arrows
   import ActivityPub.Config, only: [is_in: 2]
@@ -12,8 +13,10 @@ defmodule ActivityPub.Object do
   alias ActivityPub.MRF
   alias ActivityPub.Queries
   alias ActivityPub.Safety
-  import ActivityPub.Utils
+  # `one/1` is this module's own, which loads rows with their data merged (`one/1`, `many/1`)
+  import ActivityPub.Utils, except: [one: 1]
   alias ActivityPub.Utils
+  alias ActivityPub.Object.MergePatch
 
   @type t :: %__MODULE__{}
 
@@ -60,7 +63,8 @@ defmodule ActivityPub.Object do
     has_one(:object, Object, on_delete: :nothing, foreign_key: :id)
     has_one(:activity, Object, on_delete: :nothing, foreign_key: :id)
 
-    timestamps()
+    # to the microsecond, as the column holds: lists are ordered by `inserted_at`, and rows stored within one second keep their order
+    timestamps(type: :naive_datetime_usec)
   end
 
   def get_cached(id: id) when is_binary(id), do: do_get_cached(:id, id)
@@ -112,7 +116,22 @@ defmodule ActivityPub.Object do
   # the generic batching + per-kind query/key/cache-key handling all live in `Utils.list_with_cache`
   # (overridable defaults); for the `ap_object` schema we only need to point it at our `query/1`.
   def list_cached(refs, opts \\ []) when is_list(refs),
-    do: Utils.list_with_cache(refs, :ap_object_cache, %{query_module: __MODULE__}, opts)
+    do:
+      Utils.list_with_cache(
+        refs,
+        :ap_object_cache,
+        # fetched through `many/1`, so each row's data comes merged
+        %{
+          query_module: __MODULE__,
+          fetch: fn kind, ids -> many(query([{query_key(kind), ids}])) end
+        },
+        opts
+      )
+
+  defp query_key(:pointer), do: :pointer_id
+  defp query_key(:ap_id), do: :ap_id
+  defp query_key(:id), do: :id
+  defp query_key(:username), do: :username
 
   defp get(id) when is_binary(id) do
     get(pointer: id)
@@ -127,23 +146,26 @@ defmodule ActivityPub.Object do
     get(uuid: id)
   end
 
-  defp get(uuid: id) when is_binary(id), do: one(query(id: id))
+  defp get(uuid: id) when is_binary(id), do: one(query(id: id)) |> Arrows.ok_or(:not_found)
 
   defp get(pointer: id) when is_binary(id) do
     # TODO: support prefixed UUIDs?
     if Utils.is_ulid?(id) do
-      one(query(pointer_id: id))
+      one(query(pointer_id: id)) |> Arrows.ok_or(:not_found)
     else
       debug(id, "Expected a valid UID pointer ID, trying as UUID AP object ID instead")
       get(uuid: id)
     end
   end
 
-  defp get(ap_id: ap_id) when is_binary(ap_id), do: one(query(ap_id: ap_id))
+  defp get(ap_id: ap_id) when is_binary(ap_id),
+    do: one(query(ap_id: ap_id)) |> Arrows.ok_or(:not_found)
 
   defp get(ap_id: ap_id), do: get(ap_id)
 
-  defp get(username: username) when is_binary(username), do: one(query(username: username))
+  # unused: actors are looked up by username through `ActivityPub.Actor`, which asks the adapter
+  # defp get(username: username) when is_binary(username),
+  #   do: one(query(username: username)) |> Arrows.ok_or(:not_found)
 
   defp get(%{data: %{"id" => ap_id}}) when is_binary(ap_id), do: get(ap_id: ap_id)
   defp get(%{"id" => ap_id}) when is_binary(ap_id), do: get(ap_id: ap_id)
@@ -152,7 +174,7 @@ defmodule ActivityPub.Object do
     get(pointer: id)
   end
 
-  defp get(filters) when is_list(filters), do: one(query(filters))
+  defp get(filters) when is_list(filters), do: one(query(filters)) |> Arrows.ok_or(:not_found)
 
   defp get(nil) do
     raise "Cannot get an AP object without an ID"
@@ -161,6 +183,31 @@ defmodule ActivityPub.Object do
   defp get(opts) do
     err(opts, "Unexpected args when attempting to get an AP object")
   end
+
+  @doc """
+  Loads the one row `query` finds, or `nil`, as `repo().one/1` does, with its `data` as callers expect it: a signed document is stored as it arrived (`data_received`), with only what normalisation changed in `data`, as a merge patch (`ActivityPub.Object.MergePatch`), so its `data` here is the two merged. Every load of `ap_object` rows goes through this or `many/1`.
+  """
+  def one(query), do: query |> repo().one() |> with_merged_data()
+
+  @doc "Loads every row `query` finds, as `repo().all/1` does, each with its `data` merged as `one/1` says."
+  def many(query), do: query |> repo().all() |> Enum.map(&with_merged_data/1)
+
+  # a row stored as it arrived: the normalised document is the original with the patch applied, made once per load (cheap: the merge walks the patch only), and an object preloaded with it the same way
+  defp with_merged_data(%Object{} = object) do
+    object
+    |> merge_data()
+    |> Map.update!(:object, fn
+      %Object{} = preloaded -> merge_data(preloaded)
+      other -> other
+    end)
+  end
+
+  defp with_merged_data(other), do: other
+
+  defp merge_data(%Object{data_received: %{} = received, data: patch} = object),
+    do: %{object | data: MergePatch.merge_patch(received, patch || %{})}
+
+  defp merge_data(object), do: object
 
   # Each lookup key has a single-value head (optimal `=`) and a list head (batched `IN`),
   # pattern-matched — `get_cached/1` uses the former, the batched `list_cached/2` uses the latter.
@@ -197,11 +244,12 @@ defmodule ActivityPub.Object do
   def query(id: id) when is_binary(id), do: from(object in Object, where: object.id == ^id)
   def query(id: ids) when is_list(ids), do: from(object in Object, where: object.id in ^ids)
 
-  def query(username: username) when is_binary(username),
-    do:
-      from(object in Object,
-        where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
-      )
+  # unused: only the commented-out `get(username:)` above used it; the list form below (the actor batch loader) and `query(username:, local:)` stay
+  # def query(username: username) when is_binary(username),
+  #   do:
+  #     from(object in Object,
+  #       where: fragment("(?)->>'preferredUsername' = ?", object.data, ^username)
+  #     )
 
   def query(username: usernames) when is_list(usernames),
     do:
@@ -231,7 +279,7 @@ defmodule ActivityPub.Object do
     Queries.activity_by_object_ap_id(ap_id, verb)
     |> order_by(desc: :inserted_at)
     |> limit(1)
-    |> repo().one()
+    |> one()
   end
 
   def get_activity_for_object_ap_id(ap_id, _verb) do
@@ -243,7 +291,8 @@ defmodule ActivityPub.Object do
   def insert(params, local?, pointer \\ nil, opts \\ [])
       when is_map(params) and is_boolean(local?) do
     with activity_id <- Ecto.UUID.generate(),
-         params <- normalize_params(params, activity_id, pointer),
+         params <-
+           normalize_params(params, activity_id, pointer) |> drop_json_ld_context(local?),
          :ok <- Actor.check_actor_is_active(params["actor"]),
          # set some healthy boundaries
          {:ok, params} <- MRF.filter(params, opts |> Keyword.put(:is_local, local?)),
@@ -255,25 +304,38 @@ defmodule ActivityPub.Object do
          # then insert the activity (containing only an ID as object)
          {:ok, activity} <-
            (if not is_nil(activity) do
+              # when it happened: its own `published`, else its object's
+              inserted_at =
+                Utils.published_at(
+                  activity["published"] || (object && object.data["published"]),
+                  Utils.arrival(local?, opts, authenticated)
+                )
+
               if is_nil(object) do
                 # insert activity even without an object
-                do_insert(%{
+                %{
                   id: activity_id,
                   data: activity,
                   local: local?,
                   public: Utils.public?(activity),
                   pointer_id: Utils.uid(pointer),
-                  authenticated: authenticated
-                })
+                  authenticated: authenticated,
+                  inserted_at: inserted_at
+                }
+                |> keep_received(opts)
+                |> do_insert()
               else
                 # insert activity (with the object ID as object)
-                do_insert(%{
+                %{
                   id: activity_id,
                   data: activity,
                   local: local?,
                   public: Utils.public?(activity, object),
-                  authenticated: authenticated
-                })
+                  authenticated: authenticated,
+                  inserted_at: inserted_at
+                }
+                |> keep_received(opts)
+                |> do_insert()
               end
             else
               {:ok, nil}
@@ -331,6 +393,19 @@ defmodule ActivityPub.Object do
         info(params, "Error while trying to insert these params")
         err(error, "Error while trying to save the object for federation on repo #{repo()}")
         {:error, "Error while trying to save the object for federation"}
+    end
+  end
+
+  # a received row is stored without its `@context`, the activity's and its embedded object's: nothing reads it from a stored row, and a signed document, where it counts, is kept as received in `data_received`
+  defp drop_json_ld_context(params, true = _local?), do: params
+
+  defp drop_json_ld_context(params, _local?) do
+    case Map.delete(params, "@context") do
+      %{"object" => %{} = object} = params ->
+        Map.put(params, "object", Map.delete(object, "@context"))
+
+      params ->
+        params
     end
   end
 
@@ -398,8 +473,23 @@ defmodule ActivityPub.Object do
            normalize(object_data, false, pointer) |> debug("maybe_existing_object"),
          # first check if it already exists
          {:ok, object_params} <- prepare_data(object_data, local, pointer, activity),
+         authenticated = row_authentication(activity, object_data, opts),
          object_params =
-           Map.put(object_params, :authenticated, row_authentication(activity, object_data, opts)),
+           object_params
+           |> Map.put(:authenticated, authenticated)
+           |> Map.put(
+             :inserted_at,
+             Utils.published_at(
+               object_data["published"],
+               Utils.arrival(local, opts, authenticated)
+             )
+           ),
+         # its original when its own proof or LD signature held; one replacing a copy we hold drops the original of that copy otherwise
+         object_params =
+           if(match?(%Object{}, maybe_existing_object),
+             do: received_or_none(object_params, opts),
+             else: keep_received(object_params, opts)
+           ),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> debug("maybe_upserted") do
       # each `maybe_upsert` branch already caches its result (`do_insert` / `update_and_set_cache` /
@@ -444,14 +534,48 @@ defmodule ActivityPub.Object do
       # cache the freshly inserted row to invalidate any negative (`:not_found`) cache entry for its
       # ap_id (otherwise an activity with no child object — e.g. a Follow — keeps a stale entry that
       # later `get_cached(ap_id:)`/`get_cached!` calls in the same request resolve to nil/not_found)
-      set_cache(object)
+      # merged as a load would give it, as a row stored with its original holds only a patch in `data`
+      set_cache(merge_data(object))
     end
   end
 
+  @always_in_patch ~w(id type actor object inReplyTo url preferredUsername to cc bto bcc audience)
+
+  # A received document whose own proof or LD signature held is stored as it arrived (`data_received`), so it still verifies when relayed, forwarded or served, with only what normalisation changed in `data`. An object covered only by its activity's proof has none of its own, so keeps no original: it is relayed inside its activity's.
+  defp keep_received(
+         %{data: %{"id" => id} = normalised, authenticated: authenticated} = attrs,
+         opts
+       )
+       when authenticated in [:integrity_proof, :ld_signature] do
+    # `data` stays whole: `changeset/2` makes it the patch over the original (`patch_over_received/1`)
+    case received_original(opts[:data_received], id) do
+      %{} = original -> Map.put(attrs, :data_received, original)
+      nil -> attrs
+    end
+  end
+
+  defp keep_received(attrs, _opts), do: attrs
+
+  # the document as it reached us when it is this row's, or the object it embeds when that is
+  defp received_original(%{"id" => id} = document, id), do: signed(document)
+  defp received_original(%{"object" => %{"id" => id} = object}, id), do: signed(object)
+  defp received_original(_received, _id), do: nil
+
+  defp signed(document),
+    do: if(is_map_key(document, "proof") or is_map_key(document, "signature"), do: document)
+
+  # the fields queries read are kept in the patch even when unchanged (`config :activity_pub, :received_documents, always_in_patch:`), so a query reading `data` alone finds the row; a `url` equal to the `id` is found by the `id` index already
+  defp always_in_patch(normalised) do
+    keys = ActivityPub.Config.get([:received_documents, :always_in_patch], @always_in_patch)
+
+    if normalised["url"] == normalised["id"], do: List.delete(keys, "url"), else: keys
+  end
+
+  # a row we hold keeps the date it was first given (`inserted_at`) when updated
   def maybe_upsert(:update, %ActivityPub.Object{} = existing_object, attrs) do
     debug(existing_object, "Object to update")
 
-    update_changeset(existing_object, attrs)
+    update_changeset(existing_object, Map.delete(attrs, :inserted_at))
     |> debug("to upsert")
     |> update_and_set_cache()
   end
@@ -460,7 +584,7 @@ defmodule ActivityPub.Object do
     debug(existing_object, "Object to upsert")
     debug(attrs, "attrs to upsert")
 
-    changeset(existing_object, attrs)
+    changeset(existing_object, Map.delete(attrs, :inserted_at))
     |> update_and_set_cache()
   end
 
@@ -478,11 +602,16 @@ defmodule ActivityPub.Object do
   @doc """
   Replaces the data and the `authenticated` value of an object we hold with a copy of it. Whether a copy should is for `ActivityPub.Safety.replaces?/3` to say; this only does it.
   """
-  def replace(%__MODULE__{} = stored, data, authenticated) when is_map(data) do
+  # With the options it arrived with, it keeps the copy as it arrived when the copy's own proof or LD signature held (`keep_received/2`), as a first sighting would; otherwise the row keeps no original, the one it had being of a version it no longer holds.
+  def replace(%__MODULE__{} = stored, data, authenticated, opts \\ []) when is_map(data) do
     stored
-    |> changeset(%{data: data, authenticated: authenticated})
+    |> changeset(received_or_none(%{data: data, authenticated: authenticated}, opts))
     |> update_and_set_cache()
   end
+
+  # what a copy that replaces the one we hold keeps: its original, else none
+  defp received_or_none(attrs, opts),
+    do: attrs |> keep_received(opts) |> Map.put_new(:data_received, nil)
 
   # Guarded entry point for explicit write sites (`do_insert`, `update_and_set_cache`, `update_state`):
   # honours `cache_enabled?` so cache-off tests don't pollute the global cache. These run in the
@@ -554,7 +683,9 @@ defmodule ActivityPub.Object do
       :public,
       :pointer_id,
       :is_object,
-      :authenticated
+      :authenticated,
+      # when what the row holds happened (`Utils.published_at/2`); left out, it is when it is stored
+      :inserted_at
     ])
     |> common_changeset()
   end
@@ -580,13 +711,34 @@ defmodule ActivityPub.Object do
     new_data = Map.get(attrs, :data) || Map.get(attrs, "data") || %{}
     merged = Map.merge(object.data || %{}, new_data)
 
+    # the original the row keeps from now on, when one is given (`nil` drops it, see `keep_received/2`)
+    original = Map.take(attrs, [:data_received])
+
     object
-    |> cast(%{data: merged}, [:data])
+    |> cast(Map.put(original, :data, merged), [:data, :data_received])
     |> common_changeset()
+  end
+
+  # A row with an original (`data_received`) holds in `data` only what changed from it, normalisation's and our own (a reply count, poll votes), with the fields queries read (`always_in_patch/1`). Callers write `data` whole and it is made a patch here, so no write leaves a whole `data` beside an original, which a load would merge with it, bringing back what was taken out.
+  defp patch_over_received(changeset) do
+    changed? = changed?(changeset, :data) or changed?(changeset, :data_received)
+
+    case {changed?, get_field(changeset, :data_received), get_field(changeset, :data)} do
+      {true, %{} = original, %{} = data} ->
+        put_change(
+          changeset,
+          :data,
+          MergePatch.create_merge_patch(original, data, always_in_patch(data))
+        )
+
+      _ ->
+        changeset
+    end
   end
 
   def common_changeset(object) do
     object
+    |> patch_over_received()
     |> validate_required(:data)
     |> unique_constraint(:pointer_id)
     |> unique_constraint(:_data____id, match: :exact)
@@ -618,13 +770,15 @@ defmodule ActivityPub.Object do
     object
     |> debug("update")
     |> change(attrs)
+    |> patch_over_received()
     |> debug("cs")
     |> update_and_set_cache()
   end
 
   def update_and_set_cache(changeset) do
     with {:ok, object} <- repo().update(changeset) do
-      set_cache(object)
+      # merged as a load would give it (see `do_insert/1`)
+      set_cache(merge_data(object))
     else
       e -> error(e, "Could not update the AP object")
     end
@@ -659,11 +813,11 @@ defmodule ActivityPub.Object do
   # for debugging
   @doc false
   def all() do
-    repo().many(from(object in Object))
+    many(from(object in Object))
   end
 
   def all(filters) do
-    repo().many(query(filters))
+    many(query(filters))
   end
 
   @doc """
@@ -713,7 +867,8 @@ defmodule ActivityPub.Object do
         object_url(pointer)
     end)
     |> Map.put_new_lazy("published", &Utils.make_date/0)
-    |> Utils.maybe_put("context", context)
+    # the activity's `context` only fills in for an object with none: a received activity keeps its own, which may differ from its object's
+    |> Utils.maybe_put("context", map["context"] || context)
     |> debug
   end
 
@@ -988,15 +1143,15 @@ defmodule ActivityPub.Object do
     |> Queries.by_actor(ap_id)
   end
 
+  # not one of our scheduled posts before its time: its `inserted_at` is its `published` (`Utils.published_at/2`)
   defp published_public_activities do
-    now = DateTime.utc_now()
+    now = NaiveDateTime.utc_now()
 
     from(object in Object,
       where:
         object.public == true and
           object.is_object != true and
-          (fragment("(?->>'published') IS NULL", object.data) or
-             fragment("COALESCE((?->>'published')::timestamptz, ?) <= ?", object.data, ^now, ^now))
+          object.inserted_at <= ^now
     )
   end
 
@@ -1076,12 +1231,7 @@ defmodule ActivityPub.Object do
       where: object.is_object != true,
       # match all addressing fields, including blind ones — MLS messages often address recipients via
       # `bto`/`bcc` to keep the recipient list private (consistent with `all_activity_recipients`)
-      where:
-        fragment("(?->'to')::jsonb \\? ?", object.data, ^ap_id) or
-          fragment("(?->'cc')::jsonb \\? ?", object.data, ^ap_id) or
-          fragment("(?->'bto')::jsonb \\? ?", object.data, ^ap_id) or
-          fragment("(?->'bcc')::jsonb \\? ?", object.data, ^ap_id) or
-          fragment("(?->'audience')::jsonb \\? ?", object.data, ^ap_id)
+      where: fragment("? \\? ?", recipients(object.data), ^ap_id)
     )
     |> maybe_filter_types(opts[:activity_types], opts[:object_types])
     |> maybe_published_filter(opts)
@@ -1144,16 +1294,13 @@ defmodule ActivityPub.Object do
   end
 
   # The inbox hides future-scheduled/draft posts; MLS messages opt out via `only_published: false`.
-  # NULL-safe: an activity with no `published` is included (matches the instance-inbox query above);
-  # only a *future* `published` is excluded.
+  # By `inserted_at`, which is when it happened (`Utils.published_at/2`): only our own scheduled posts are in the future; a remote future `published` was given the time it was stored.
   defp maybe_published_filter(query, opts) do
     if Keyword.get(opts, :only_published, true),
       do:
-        where(
-          query,
-          [o],
-          fragment("(?->>'published') IS NULL", o.data) or
-            fragment("(?->>'published')::timestamptz <= now()", o.data)
+        (
+          now = NaiveDateTime.utc_now()
+          where(query, [o], o.inserted_at <= ^now)
         ),
       else: query
   end
@@ -1183,7 +1330,7 @@ defmodule ActivityPub.Object do
     |> limit(^limit)
     |> offset(^offset)
     |> Queries.with_object(:left, load_object)
-    |> repo().all()
+    |> many()
     |> maybe_load_objects_from_cache(load_object)
   end
 
@@ -1267,7 +1414,7 @@ defmodule ActivityPub.Object do
     |> Queries.by_type(verb)
     |> Queries.ordered()
     |> limit(1)
-    |> repo().one()
+    |> one()
   end
 
   #### Like-related helpers
@@ -1279,19 +1426,13 @@ defmodule ActivityPub.Object do
       from(
         object in Object,
         # this is to use the index
-        where:
-          fragment(
-            "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
-            object.data,
-            object.data,
-            ^object_id
-          )
+        where: object_id_of(object.data) == ^object_id
       )
       |> Queries.by_type("Like")
       |> Queries.by_actor(actor)
       |> debug()
 
-    repo().one(query)
+    one(query)
   end
 
   @doc "The `Flag`s `actor` sent about `object_id`. A report names what it is about in a list (an account and statuses, Mastodon's shape) or as one id (Lemmy's), so both are matched."
@@ -1304,7 +1445,7 @@ defmodule ActivityPub.Object do
     )
     |> Queries.by_type("Flag")
     |> Queries.by_actor(actor)
-    |> repo().all()
+    |> many()
   end
 
   #### Announce-related helpers
@@ -1317,18 +1458,15 @@ defmodule ActivityPub.Object do
       from(
         object in Object,
         # this is to use the index
-        where:
-          fragment(
-            "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
-            object.data,
-            object.data,
-            ^id
-          )
+        where: object_id_of(object.data) == ^id
       )
       |> Queries.by_type("Announce")
       |> Queries.by_actor(actor)
+      # the latest: a reboost leaves more than one
+      |> Queries.ordered()
+      |> limit(1)
 
-    repo().one(query)
+    one(query)
   end
 
   #### Block-related helpers
@@ -1338,20 +1476,14 @@ defmodule ActivityPub.Object do
     query =
       from(
         activity in Object,
-        where:
-          fragment(
-            "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
-            activity.data,
-            activity.data,
-            ^blocked_id
-          ),
+        where: object_id_of(activity.data) == ^blocked_id,
         order_by: [fragment("? desc nulls last", activity.inserted_at)],
         limit: 1
       )
       |> Queries.by_type("Block")
       |> Queries.by_actor(blocker_id)
 
-    repo().one(query)
+    one(query)
   end
 
   def hashtags(%{"tag" => tags}) when is_list(tags) and tags != [] do
@@ -1383,8 +1515,9 @@ defmodule ActivityPub.Object do
       |> limit(^limit)
       |> repo().all()
 
-  def self_replies_ids(object, limit),
-    do: replies_ids(object, limit, self_only: true)
+  # unused
+  # def self_replies_ids(object, limit),
+  #   do: replies_ids(object, limit, self_only: true)
 
   @doc "The posts up an object's reply chain (its `inReplyTo`, then that one's, and so on), nearest first, as far as we hold them. Nothing is fetched, and a chain that loops back ends there."
   def held_ancestors(%Object{data: data}), do: held_ancestors(data)

@@ -64,23 +64,24 @@ defmodule ActivityPub.Safety.IntegrityProofs do
     end
   end
 
-  # the spec's way: the proof carries the document's `@context`, when it has one
-  defp proof_to_sign(document, suite, owner, opts) do
-    proof = %{
+  # no copy of the document's `@context` in the proof, as Mitra signs: Mastodon's and Mitra's verifiers hash a proof without one as given, and the document's `@context` is covered anyway, as it is hashed with the document. The copy, which the spec advises, only repeated it on every signed document
+  defp proof_to_sign(_document, suite, owner, opts) do
+    %{
       "type" => "DataIntegrityProof",
       "cryptosuite" => suite,
       "verificationMethod" => owner <> "#ed25519-key",
       "proofPurpose" => "assertionMethod",
-      "created" => opts[:created] || now_iso8601()
+      "created" => opts[:created] || created_now()
     }
 
-    case document["@context"] do
-      nil -> proof
-      context -> Map.put(proof, "@context", context)
-    end
+    # case document["@context"] do
+    #   nil -> proof
+    #   context -> Map.put(proof, "@context", context)
+    # end
   end
 
-  defp now_iso8601, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+  @doc "The time a proof is made at (its `created`): ISO 8601 UTC to the second, the usual form, which strict parsers expect. A publish takes it once, so all its documents get the same."
+  def created_now, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
   @doc "Whether a document carries a proof (or several) to look at."
   @spec has_proof?(term()) :: boolean()
@@ -298,8 +299,10 @@ defmodule ActivityPub.Safety.IntegrityProofs do
 
   # --- who it belongs to ---
 
-  # FEP-fe34: the owner of an actor is the actor itself (its `id`), of an activity its `actor`, of anything else its `attributedTo`. Several owners are not covered by it, and taking the first would let a second one ride on someone else's key
-  defp owner(document) do
+  @doc """
+  Who a document belongs to, so whose signature can vouch for it (FEP-fe34): an actor document's own `id`, an activity's `actor`, anything else's `attributedTo`. `{:ok, owner}`, or `{:error, :multiple_owners}` for several (not covered by FEP-fe34, and taking the first would let a second one ride on someone else's key) or `{:error, :no_owner}`. The rule for an LD signature too (`ActivityPub.Safety.author_signature/2`).
+  """
+  def owner(document) do
     cond do
       actor_document?(document) -> single_owner(document["id"])
       owner = document["actor"] || document["attributedTo"] -> single_owner(owner)

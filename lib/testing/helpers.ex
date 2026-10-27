@@ -165,7 +165,8 @@ defmodule ActivityPub.Test.Helpers do
         a in Object,
         where: fragment("?->>'type' = ?", a.data, "Accept")
       )
-      |> repo().all()
+      # merged, as a signed row holds only a patch in `data`
+      |> Object.many()
 
   def reject_or_no_recipients?(activity) do
     case activity do

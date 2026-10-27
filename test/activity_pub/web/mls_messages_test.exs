@@ -63,7 +63,10 @@ defmodule ActivityPub.Web.MlsMessagesTest do
 
     {:ok, activity} =
       %Object{}
-      |> Ecto.Changeset.change(%{data: data, local: false, public: false, is_object: false})
+      |> Ecto.Changeset.change(
+        %{data: data, local: Keyword.get(opts, :local, false), public: false, is_object: false}
+        |> put_if(:inserted_at, opts[:inserted_at])
+      )
       |> repo().insert()
 
     activity
@@ -73,8 +76,9 @@ defmodule ActivityPub.Web.MlsMessagesTest do
   defp put_if(map, _k, :__omit__), do: map
   defp put_if(map, k, v), do: Map.put(map, k, v)
 
-  defp iso(offset_seconds),
-    do: DateTime.utc_now() |> DateTime.add(offset_seconds, :second) |> DateTime.to_iso8601()
+  # a `to_timeout/1` duration from now, negative for the past
+  defp iso(offset),
+    do: DateTime.utc_now() |> DateTime.add(offset, :millisecond) |> DateTime.to_iso8601()
 
   # Advertising `mls:messages` on an actor is up to the adapter, and an adapter only does so when its E2EE support is part of the build. so these two are tagged `:e2ee` and the host app excludes that tag when it isn't . The collection-serving tests below are the lib's own behaviour and always run.
   describe "actor advertisement" do
@@ -109,8 +113,14 @@ defmodule ActivityPub.Web.MlsMessagesTest do
       la = local_actor()
       ap = la.data["id"]
 
-      mls = insert_inbox_activity(ap, object_type: "PrivateMessage", published: iso(-10))
-      note = insert_inbox_activity(ap, object_type: "Note", published: iso(-5))
+      mls =
+        insert_inbox_activity(ap,
+          object_type: "PrivateMessage",
+          published: iso(-to_timeout(second: 10))
+        )
+
+      note =
+        insert_inbox_activity(ap, object_type: "Note", published: iso(-to_timeout(second: 5)))
 
       resp =
         build_conn()
@@ -153,8 +163,14 @@ defmodule ActivityPub.Web.MlsMessagesTest do
       la = local_actor()
       ap = la.data["id"]
 
-      pm = insert_inbox_activity(ap, object_type: "PrivateMessage", published: iso(-10))
-      _note = insert_inbox_activity(ap, object_type: "Note", published: iso(-5))
+      pm =
+        insert_inbox_activity(ap,
+          object_type: "PrivateMessage",
+          published: iso(-to_timeout(second: 10))
+        )
+
+      _note =
+        insert_inbox_activity(ap, object_type: "Note", published: iso(-to_timeout(second: 5)))
 
       ids = Object.get_mls_messages_for_actor(ap) |> Enum.map(& &1.data["id"])
 
@@ -167,7 +183,12 @@ defmodule ActivityPub.Web.MlsMessagesTest do
       ap = la.data["id"]
 
       no_pub = insert_inbox_activity(ap, object_type: "PrivateMessage", published: nil)
-      future = insert_inbox_activity(ap, object_type: "PrivateMessage", published: iso(3600))
+
+      future =
+        insert_inbox_activity(ap,
+          object_type: "PrivateMessage",
+          published: iso(to_timeout(hour: 1))
+        )
 
       ids = Object.get_mls_messages_for_actor(ap) |> Enum.map(& &1.data["id"])
 
@@ -180,26 +201,41 @@ defmodule ActivityPub.Web.MlsMessagesTest do
       ap = la.data["id"]
 
       bcc =
-        insert_inbox_activity(ap, object_type: "PrivateMessage", field: :bcc, published: iso(-1))
+        insert_inbox_activity(ap,
+          object_type: "PrivateMessage",
+          field: :bcc,
+          published: iso(-to_timeout(second: 1))
+        )
 
       ids = Object.get_mls_messages_for_actor(ap) |> Enum.map(& &1.data["id"])
 
       assert bcc.data["id"] in ids
     end
 
-    test "regular inbox is now NULL-safe but still hides future-published posts" do
+    # a row's `inserted_at` is when it happened (`Utils.published_at/2`): a remote future `published` takes the receive time, so only our own scheduled posts are in the future
+    test "regular inbox hides our own scheduled posts, and lists a remote one dated in the future at its receive time" do
       la = local_actor()
       ap = la.data["id"]
 
       no_pub = insert_inbox_activity(ap, object_type: "Note", published: nil)
-      future = insert_inbox_activity(ap, object_type: "Note", published: iso(3600))
+
+      remote_future =
+        insert_inbox_activity(ap, object_type: "Note", published: iso(to_timeout(hour: 1)))
+
+      scheduled =
+        insert_inbox_activity(ap,
+          object_type: "Note",
+          local: true,
+          published: iso(to_timeout(hour: 1)),
+          inserted_at:
+            NaiveDateTime.utc_now() |> NaiveDateTime.add(to_timeout(hour: 1), :millisecond)
+        )
 
       ids = Object.get_inbox_for_actor(ap) |> Enum.map(& &1.data["id"])
 
-      assert no_pub.data["id"] in ids,
-             "inbox should include activities with no `published` (NULL-safe fix)"
-
-      refute future.data["id"] in ids, "inbox should still hide future-scheduled posts"
+      assert no_pub.data["id"] in ids, "inbox should include activities with no `published`"
+      assert remote_future.data["id"] in ids, "a remote future date takes the receive time"
+      refute scheduled.data["id"] in ids, "inbox should still hide our own scheduled posts"
     end
   end
 end

@@ -43,9 +43,9 @@ defmodule ActivityPub.Federator.APPublisher do
   @doc """
   Builds the list of per-inbox params (including the JSON payload) that would be passed to `publish_one/1` or enqueued for async delivery.
 
-  `data_received:` is somebody else's activity exactly as it reached us, for an `Announce` of it (a group relaying it): it is sent as the Announce's object in place of the copy we stored, so the author's proof or signature still verifies for whoever receives it.
+  An `Announce` of somebody else's activity (a group relaying it) carries that activity as it reached us, when it is stored with its original (`data_received`, kept when its proof or LD signature held), in place of the copy we normalised, so the author's proof or signature still verifies for whoever receives it.
   """
-  def prepare_publish_params(actor, activity, opts \\ []) do
+  def prepare_publish_params(actor, activity, _opts \\ []) do
     # embed the object in the activity JSON (note: already being done in prepare_outgoing)
     # object_ap_id = activity.data["object"]
     # object = Object.get_cached!(object_ap_id)
@@ -61,6 +61,9 @@ defmodule ActivityPub.Federator.APPublisher do
       |> debug("wrapped_relay_data")
 
     # Utils.maybe_forward_activity(prepared_activity_data)
+
+    # read from the row, so a retried job sends it too
+    received = received_object_to_relay(prepared_activity_data)
 
     to = activity.data["to"] || []
     cc = activity.data["cc"] || []
@@ -102,7 +105,7 @@ defmodule ActivityPub.Federator.APPublisher do
          |> debug("reacheable inboxes") do
       recipients when is_map(recipients) and recipients != %{} ->
         # one `created` for the whole publish, and a cache so documents that come out the same for several inboxes are signed once
-        created = IntegrityProofs.Outgoing.created_now()
+        created = IntegrityProofs.created_now()
 
         signer =
           if IntegrityProofs.Outgoing.enabled?(), do: IntegrityProofs.Outgoing.signer(actor)
@@ -119,7 +122,7 @@ defmodule ActivityPub.Federator.APPublisher do
                   Utils.authority(inbox),
                   meta[:ids]
                 )
-                |> maybe_with_received_object_to_relay(opts[:data_received])
+                |> maybe_with_received_object_to_relay(received)
                 |> debug("safe json")
 
               # FEP-8b32: signed last, over exactly the bytes this inbox gets (nothing after this touches the body)
@@ -662,6 +665,19 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   defp maybe_with_received_object_to_relay(data, _received), do: data
+
+  # the activity an Announce relays, as it reached us, when we hold it with its original
+  defp received_object_to_relay(%{"type" => "Announce", "object" => inner}) do
+    with id when is_binary(id) <- ActivityPub.Object.get_ap_id(inner),
+         {:ok, %ActivityPub.Object{data_received: %{"id" => ^id} = received}} <-
+           ActivityPub.Object.get_cached(ap_id: id) do
+      received
+    else
+      _ -> nil
+    end
+  end
+
+  defp received_object_to_relay(_data), do: nil
 
   @doc "An actor's shared inbox when it has one, else its own."
   def maybe_use_sharedinbox(actor_data),

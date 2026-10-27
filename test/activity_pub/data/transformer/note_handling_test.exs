@@ -122,7 +122,10 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
       assert data["id"] ==
                "https://mastodon.local/users/admin/statuses/99512778738411822/activity"
 
-      assert data["context"] ==
+      # a received `Create` keeps only a `context` of its own, and Mastodon puts it on the object
+      refute Map.has_key?(data, "context")
+
+      assert Object.normalize(data["object"], fetch: false).data["context"] ==
                "tag:mastodon.local,2018-02-12:objectId=20:objectType=Conversation"
 
       assert data["to"] == ["https://www.w3.org/ns/activitystreams#Public"]

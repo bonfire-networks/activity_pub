@@ -92,12 +92,12 @@ defmodule ActivityPub.Federator.Transformer do
   def wrapped_relay_data(%{"type" => "Announce", "id" => canonical} = data)
       when is_binary(canonical) do
     with object_id when is_binary(object_id) <- Object.get_ap_id(data["object"]),
-         %Object{data: %{"type" => "Create"} = create} <-
+         %Object{data: %{"type" => "Create"} = create} = stored <-
            Object.get_activity_for_object_ap_id(object_id),
          wrapped_id when is_binary(wrapped_id) <- Object.activity_object_url(canonical) do
       # back through `prepare_outgoing/2` so the inner activity gets its object embedded by the clause above, rather than reimplementing that here
       case prepare_outgoing(Map.merge(data, %{"id" => wrapped_id, "object" => create})) do
-        {:ok, prepared} -> prepared
+        {:ok, prepared} -> with_received_create(prepared, stored)
         _ -> nil
       end
     else
@@ -106,6 +106,15 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def wrapped_relay_data(_), do: nil
+
+  # somebody else's `Create` as it reached us, when we hold it with its original (kept when its proof or LD signature held), in place of the one rebuilt from our copy, so their proof still verifies for whoever receives the group's Announce
+  defp with_received_create(prepared, %Object{
+         data: %{"id" => id},
+         data_received: %{"id" => id} = received
+       }),
+       do: Map.put(prepared, "object", received)
+
+  defp with_received_create(prepared, _stored), do: prepared
 
   def prepare_outgoing(%{"object" => object} = data, opts) do
     data =
@@ -404,8 +413,9 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   def fix_other_object(object, _options) do
-    # an activity that is its own content (an `Arrive` with a `location`) has the objects nested in its fields stored on their own, like the object of a `Create`
+    # an activity that is its own content (an `Arrive` with a `location`) has the objects nested in its fields stored on their own, like the object of a `Create`; a signature over the document with them embedded no longer covers it
     ingest_nested_objects(object, object)
+    |> drop_stale_signatures(object)
   end
 
   def fix_summary(%{"summary" => nil} = object) do
@@ -1237,7 +1247,7 @@ defmodule ActivityPub.Federator.Transformer do
         }
         |> debug("incoming flag params")
 
-      ActivityPub.flag(params, opts)
+      ActivityPub.flag(params, as_received(opts, data))
     else
       e ->
         err(e, "Could not handle incoming Flag")
@@ -1400,8 +1410,13 @@ defmodule ActivityPub.Federator.Transformer do
               "an object embedded in an activity by someone else carries a proof that does not hold, so it is not trusted"
             )
 
+          # no proof, or one we cannot check: its owner's LD signature vouches for it as a proof does (`Safety.author_signature/2`, which requires the signer to be the owner); one that does not hold is no worse than none
           _no_proof_or_unverifiable ->
-            {:ok, {:unverified, nil}}
+            case ActivityPub.Safety.LinkedDataSignatures.has_verifiable_signature?(object) &&
+                   ActivityPub.Safety.author_signature(object) do
+              {:ok, :ld_signature} -> {:ok, {:ld_signature, owner}}
+              _ -> {:ok, {:unverified, nil}}
+            end
         end
     end
   end
@@ -1433,11 +1448,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   # who an object says it belongs to: the one id in `attributedTo`, `nil` when it names none, `:several` when it names more than one (which is nobody's, for this purpose)
   defp embedded_owner(%{} = object) do
-    case object["attributedTo"]
-         |> List.wrap()
-         |> Enum.map(&Object.get_ap_id/1)
-         |> Enum.reject(&is_nil/1)
-         |> Enum.uniq() do
+    case owner_ids(object) do
       [] -> nil
       [one] -> one
       _several -> :several
@@ -1445,6 +1456,16 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp embedded_owner(_), do: nil
+
+  defp owner_ids(%{} = object) do
+    object["attributedTo"]
+    |> List.wrap()
+    |> Enum.map(&Object.get_ap_id/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp owner_ids(_), do: []
 
   # The object arrived again (from another delivery, a relay, a fetch). Whether this copy replaces the one we hold is for `ActivityPub.Safety.replaces?/3` to say. `:ok` when there was nothing to replace or it was replaced, else the error.
   # TODO: when the replaced copy's data changed and the adapter already holds the object, it should be told, as an edit, so what it made of the object (a post) changes too; today only the AP row changes. An adapter edits through its handling of an `Update`, so either we hand it an in-memory `Update` (never stored or federated), or the stored `Create` with `edit: true` and the adapter applies it as an `Update`. The same for a refetch (`Fetcher.replace_with_fetched/3`)
@@ -1455,7 +1476,7 @@ defmodule ActivityPub.Federator.Transformer do
          # a copy with no `published` has the one we gave the stored copy when it had none, as `Object.insert` would
          incoming = Map.put_new(object, "published", stored.data["published"]),
          true <- ActivityPub.Safety.replaces?(stored, incoming, authenticated),
-         {:ok, _replaced} <- Object.replace(stored, incoming, authenticated) do
+         {:ok, _replaced} <- Object.replace(stored, incoming, authenticated, opts) do
       :ok
     else
       # no copy held, or this one does not replace it
@@ -1488,7 +1509,8 @@ defmodule ActivityPub.Federator.Transformer do
 
     with nil <- Object.get_activity_for_object_ap_id(object) do
       # an object we hold whose `Create` we never stored (it came nested in another object, in a boost, or by a fetch) is replaced by the same rule as when its `Create` arrives again
-      with :ok <- maybe_replace_object(object, opts), do: ActivityPub.create(params, opts)
+      with :ok <- maybe_replace_object(object, opts),
+           do: ActivityPub.create(params, as_received(opts, data))
     else
       %{data: %{"type" => "Tombstone"}} = _activity ->
         debug("do not save Tombstone in adapter")
@@ -1539,7 +1561,7 @@ defmodule ActivityPub.Federator.Transformer do
           activity_id: data["id"],
           local: local?(opts)
         },
-        opts
+        as_received(opts, data)
       )
     end
   end
@@ -1571,7 +1593,7 @@ defmodule ActivityPub.Federator.Transformer do
           result: debug(data["result"], "incoming accept result"),
           local: local?(opts)
         },
-        opts
+        as_received(opts, data)
       )
       |> debug("accept result")
     else
@@ -1606,7 +1628,7 @@ defmodule ActivityPub.Federator.Transformer do
           object: follow_activity.data["id"],
           local: local?(opts)
         },
-        opts
+        as_received(opts, data)
       )
       |> debug("reject result")
     else
@@ -1651,7 +1673,7 @@ defmodule ActivityPub.Federator.Transformer do
                activity_id: data["id"],
                local: local?(opts)
              },
-             opts
+             as_received(opts, data)
            ) do
       {:ok, activity}
     else
@@ -1661,18 +1683,34 @@ defmodule ActivityPub.Federator.Transformer do
 
   # Lemmy and its family DUAL-EMIT: the same content arrives twice, once as `Announce{Create{…}}` and once as a compat `Announce{<object>}`, with different activity ids and nothing in common but the actor and the announced object (observed live, 2026-09-04), so the id-based dedup that catches a redelivered activity cannot catch the pair. Without this, the second copy survives until `Boosts.maybe_boost/3`, by which point we have ingested the inner activity, written a second `Announce` row and run two boundary checks.
   # Answered from the host's CURRENT state, so an announce that was undone does not suppress a genuine repeat. Not holding the object locally means there is nothing to have boosted and nothing to skip, so the copy proceeds, which is what makes this safe when the first copy failed to ingest.
+  # Where the host allows reboosts, it says a repeat is not a duplicate, so the pair is also caught by time: a second announce of the same object by the same actor stored within `duplicate_announce_window` is the remote's copy, not a reboost.
   defp duplicate_announce?(data, object_ap_id) when is_binary(object_ap_id) do
-    case Adapter.activity_exists?("Announce", Object.actor_from_data(data), object_ap_id) do
-      true ->
-        info(object_ap_id, "already announced by this actor, discarding the duplicate relay")
-        true
+    actor = Object.actor_from_data(data)
+
+    if Adapter.activity_exists?("Announce", actor, object_ap_id) == true or
+         announced_within_window?(actor, object_ap_id) do
+      info(object_ap_id, "already announced by this actor, discarding the duplicate relay")
+      true
+    else
+      false
+    end
+  end
+
+  defp duplicate_announce?(_data, _object_ap_id), do: false
+
+  # `updated_at`: when we stored it (`inserted_at` is when it happened, see `ActivityPub.Utils.published_at/2`)
+  defp announced_within_window?(actor, object_ap_id) when is_binary(actor) do
+    case Object.get_existing_announce(actor, %{data: %{"id" => object_ap_id}}) do
+      %Object{updated_at: %NaiveDateTime{} = stored_at} ->
+        NaiveDateTime.diff(NaiveDateTime.utc_now(), stored_at, :millisecond) <
+          ActivityPub.Config.get(:duplicate_announce_window, to_timeout(minute: 1))
 
       _ ->
         false
     end
   end
 
-  defp duplicate_announce?(_data, _object_ap_id), do: false
+  defp announced_within_window?(_actor, _object_ap_id), do: false
 
   # FEP-1b12: a group relays by announcing the ACTIVITY (`Announce{Create{Page}}`) rather than the object, so without unwrapping, the embedded `Create` falls through to the boost clause below and is mistaken for the post. Verified against real captures: Lemmy, PieFed and NodeBB all send this shape exclusively.
   def handle_incoming(
@@ -1953,7 +1991,7 @@ defmodule ActivityPub.Federator.Transformer do
                local: local?(opts),
                public: public
              },
-             opts
+             as_received(opts, data)
            ) do
       {:ok, activity}
     else
@@ -1976,13 +2014,16 @@ defmodule ActivityPub.Federator.Transformer do
     debug(actor_id, "update an Actor")
     debug(opts, "opts")
 
-    #  NOTE: we avoid even passing the update_actor_data to avoid accepting invalid updates
+    # the document it carries is applied only when the actor itself vouched for it; otherwise it is not even passed on, and the actor is refetched from its origin
+    vouched_by = actor_update_vouched_by(update_actor_data, actor_id, opts)
+
     with {:ok, actor} <-
            Actor.update_actor(
              actor_id,
-             if(opts[:local], do: update_actor_data),
-             !opts[:already_fetched],
-             opts[:local] || false
+             if(opts[:local] || vouched_by, do: update_actor_data),
+             !(opts[:already_fetched] || vouched_by),
+             opts[:local] || false,
+             vouched_by || :fetched
            ) do
       # Skip all of that because it's handled elsewhere after fetching
       #  {:ok, actor} <- Actor.get_cached(ap_id: actor_id),
@@ -2003,6 +2044,23 @@ defmodule ActivityPub.Federator.Transformer do
 
       e ->
         error(e, "Could not update actor")
+    end
+  end
+
+  # How an actor vouched for the new document its `Update` of itself carries, so it can be applied with no refetch: `:http_signature` when the delivery was signed by the actor itself, or `:integrity_proof`/`:ld_signature` when the document's own signature holds. Both are checked with the key we already hold for the actor (the HTTP signature by the plug before this, the document's by its owner's stored key), never one the new document carries, so an `Update` rotating the key is judged by the old one. `nil` for an actor we do not hold, whose own signature shows only that it was signed by the key it names, so it is fetched from its origin.
+  defp actor_update_vouched_by(document, actor_id, opts) do
+    with false <- opts[:local] || false,
+         {:ok, %Object{}} <- Object.get_cached(ap_id: actor_id) do
+      if opts[:authenticated] == :http_signature and opts[:signed_by] == actor_id do
+        :http_signature
+      else
+        case ActivityPub.Safety.author_signature(document) do
+          {:ok, by_signature} -> by_signature
+          _ -> nil
+        end
+      end
+    else
+      _ -> nil
     end
   end
 
@@ -2036,7 +2094,7 @@ defmodule ActivityPub.Federator.Transformer do
     debug(object, "incoming update data")
 
     with {:ok, actor} <- Actor.get_cached(ap_id: actor) |> debug("fetch actor for update"),
-         {:ok, cached_object} <- Object.get_cached(ap_id: object_id),
+         {:object, {:ok, cached_object}} <- {:object, Object.get_cached(ap_id: object_id)},
          true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized},
          :ok <- check_owner_change(cached_object, object, opts),
          # after the checks, so an `Update` that is refused leaves nothing behind
@@ -2051,10 +2109,18 @@ defmodule ActivityPub.Federator.Transformer do
           # the post keeps the date it was first published, when the author's copy names none
           published: cached_object.data["published"]
         },
-        # somebody else's is stored as they sent it; ours (C2S) is made here
-        if(local?(opts), do: opts, else: Keyword.put(opts, :incoming_activity, data))
+        as_received(opts, data)
       )
     else
+      {:object, {:error, :not_found}} ->
+        if local?(opts) do
+          # C2S: object must exist to update it
+          {:error, :not_found}
+        else
+          # S2S: pass to the adapter, which may still hold what we pruned, and otherwise makes it once (`Bonfire.Federate.ActivityPub.Incoming`, by its AP id)
+          handle_activity_with_pruned_object(data, "Update", opts)
+        end
+
       {:error, :not_found} ->
         if local?(opts) do
           # C2S: object must exist to update it
@@ -2178,7 +2244,7 @@ defmodule ActivityPub.Federator.Transformer do
                activity_id: data["id"],
                local: local?(opts)
              },
-             opts
+             as_received(opts, data)
            ) do
       {:ok, activity}
     else
@@ -2207,7 +2273,7 @@ defmodule ActivityPub.Federator.Transformer do
                activity_id: data["id"],
                local: local?(opts)
              },
-             opts
+             as_received(opts, data)
            ) do
       {:ok, activity}
     else
@@ -2234,7 +2300,7 @@ defmodule ActivityPub.Federator.Transformer do
           activity_id: data["id"],
           local: local?(opts)
         },
-        opts
+        as_received(opts, data)
       )
     else
       e -> error(e)
@@ -2263,7 +2329,7 @@ defmodule ActivityPub.Federator.Transformer do
                activity_id: data["id"],
                local: local?(opts)
              },
-             opts
+             as_received(opts, data)
            ) do
       {:ok, activity}
     else
@@ -2292,7 +2358,7 @@ defmodule ActivityPub.Federator.Transformer do
                activity_id: data["id"],
                local: local?(opts)
              },
-             opts
+             as_received(opts, data)
            ) do
       {:ok, activity}
     else
@@ -2344,12 +2410,12 @@ defmodule ActivityPub.Federator.Transformer do
           "actor" => origin_actor,
           "object" => origin_actor,
           "target" => target_actor
-        },
+        } = data,
         opts
       ) do
     with {:ok, %{} = origin_user} <- Actor.get_cached(ap_id: origin_actor),
          {:ok, %{} = target_user} <- Actor.get_cached_or_fetch(ap_id: target_actor) do
-      ActivityPub.move(origin_user, target_user, local?(opts), opts)
+      ActivityPub.move(origin_user, target_user, local?(opts), false, as_received(opts, data))
     else
       e -> error(e)
     end
@@ -2431,6 +2497,13 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp local?(opts), do: Keyword.get(opts, :local, false)
 
+  # an activity as its author sent it, from another instance or from a client of ours (C2S), is stored as sent (the builder in `ActivityPub` reads `incoming_activity:`); one we make is built. A C2S one has its ids and its actor set by `ActivityPub.C2S` before it gets here
+  defp as_received(opts, data) do
+    if local?(opts) and !opts[:from_c2s],
+      do: opts,
+      else: Keyword.put(opts, :incoming_activity, data)
+  end
+
   # FEP-400e: the activity `actor` must own the `target` collection.
   defp validate_collection_authority(actor, target) do
     owner = ActivityPub.collection_owner_ap_id(target)
@@ -2496,6 +2569,21 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp per_object_activity_id(id, _object), do: id
 
+  # A copy of the object came with the activity (a like or boost of a post we do not hold): one whose own proof or LD signature, by its author, holds is as good as the post fetched from its origin, so it is stored from the copy (marked as vouched for by that signature, kept as it arrived) and nothing is fetched. Any other copy is not trusted, and the object is found or fetched by its id.
+  defp object_normalize_and_maybe_fetch(%{"id" => id} = copy, opts) when is_binary(id) do
+    with nil <- Object.normalize(id, false),
+         {:ok, copy_opts} <- ActivityPub.Safety.with_author_signature(opts, copy),
+         true <- copy_opts[:authenticated] in [:integrity_proof, :ld_signature],
+         {:ok, owner} <- ActivityPub.Safety.IntegrityProofs.owner(copy),
+         {:ok, %Object{} = object} <-
+           handle_incoming(copy, Keyword.put(copy_opts, :signed_by, owner)) do
+      {:ok, object}
+    else
+      %Object{} = held -> {:ok, held}
+      _not_vouched_for -> object_normalize_and_maybe_fetch(id, opts)
+    end
+  end
+
   defp object_normalize_and_maybe_fetch(id, opts) do
     fetch? = opts[:already_fetched] != id and Fetcher.allowed_recursion?(opts[:depth])
 
@@ -2509,6 +2597,12 @@ defmodule ActivityPub.Federator.Transformer do
       {:error, :not_found}
     end
   end
+
+  # not used: fetching an `Update`'s object we have no AP row for treated a pruned object as never seen, and an adapter that still holds it (the post) lost the edit. The adapter, which knows what it holds, finds it or makes it once instead (`Bonfire.Federate.ActivityPub.Incoming`)
+  # defp update_of_object_not_held(object_id, opts) do
+  #   info(object_id, "an Update of an object we do not hold: fetch and store it from its origin")
+  #   Fetcher.fetch_object_from_id(object_id, Keyword.put(opts, :triggered_by, "update_of_object_not_held"))
+  # end
 
   # Helper function to handle activities when objects are pruned from AP cache
   defp handle_activity_with_pruned_object(data, activity_type, opts) do
@@ -2568,8 +2662,8 @@ defmodule ActivityPub.Federator.Transformer do
           opts = Keyword.put(opts, :skip_adapter, true)
 
           case type do
-            "Add" -> ActivityPub.add(params, opts)
-            "Remove" -> ActivityPub.remove(params, opts)
+            "Add" -> ActivityPub.add(params, as_received(opts, data))
+            "Remove" -> ActivityPub.remove(params, as_received(opts, data))
           end
         else
           {:error, :forbidden} = e ->
@@ -2623,6 +2717,10 @@ defmodule ActivityPub.Federator.Transformer do
 
     cond do
       !delivered?(opts) or is_nil(new_owner) or new_owner == old_owner ->
+        :ok
+
+      # an object may name several owners, as a PeerTube video names its account and its channel, while the copy we hold, normalised, names one: still the same owner when that one is among them
+      is_binary(old_owner) and old_owner in owner_ids(updated) ->
         :ok
 
       is_binary(old_owner) and is_binary(new_owner) and
@@ -2795,7 +2893,7 @@ defmodule ActivityPub.Federator.Transformer do
           audience: data["audience"],
           summary: data["summary"]
         },
-        opts
+        as_received(opts, data)
       )
     else
       {:ok, %{local: true}} ->
@@ -2816,7 +2914,7 @@ defmodule ActivityPub.Federator.Transformer do
           activity_id: data["id"],
           local: false
         },
-        opts
+        as_received(opts, data)
       )
     else
       {:ok, %{local: false}} ->

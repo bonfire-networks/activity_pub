@@ -54,7 +54,8 @@ defmodule ActivityPub.Federator.Transformer.QuestionHandlingTest do
 
     assert object.data["endTime"] == "2019-05-11T09:03:36Z"
 
-    assert object.data["context"] == activity.data["context"]
+    # a received `Create` keeps only a `context` of its own, and Mastodon puts it on the object
+    refute Map.has_key?(activity.data, "context")
 
     assert object.data["context"] ==
              "tag:mastodon.sdf.org,2019-05-10:objectId=15095122:objectType=Conversation"

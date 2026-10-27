@@ -106,14 +106,37 @@ defmodule ActivityPub.Safety do
           other -> other
         end
 
+      # by the document's owner, as a proof must be (`IntegrityProofs.owner/1`): one that holds but was made by somebody else vouches for nothing about who wrote it, so it counts as none
       ActivityPub.Safety.LinkedDataSignatures.has_verifiable_signature?(received) ->
-        case ActivityPub.Safety.LinkedDataSignatures.verify(received) do
-          {:ok, _creator} -> {:ok, :ld_signature}
+        with {:ok, creator} <- ActivityPub.Safety.LinkedDataSignatures.verify(received),
+             {:ok, ^creator} <- ActivityPub.Safety.IntegrityProofs.owner(received) do
+          {:ok, :ld_signature}
+        else
+          {:ok, _owner} -> {:error, :signer_not_owner}
           other -> other
         end
 
       true ->
         :none
+    end
+  end
+
+  @doc """
+  The options for handling `document`, as it reached us (delivered or fetched), once its own proof or LD signature is checked (`author_signature/2`): `{:ok, opts}` with `authenticated:` that signature and `data_received:` the document when it holds, so the row says so and keeps the document as it arrived; `{:ok, opts}` unchanged when it has neither; otherwise why it does not hold, for the caller's own policy (`broken_signature?/1`).
+  """
+  def with_author_signature(opts, document) do
+    case author_signature(document) do
+      {:ok, by_signature} ->
+        {:ok,
+         opts
+         |> Keyword.put(:authenticated, by_signature)
+         |> Keyword.put(:data_received, document)}
+
+      :none ->
+        {:ok, opts}
+
+      other ->
+        other
     end
   end
 
@@ -157,16 +180,17 @@ defmodule ActivityPub.Safety do
   @doc """
   Whether `received`, somebody else's activity as it reached us, is vouched for by its author's own proof or LD signature (`author_signature/2`), for whoever passes it on unchanged (a group relaying it, inbox forwarding): `{:ok, :integrity_proof | :ld_signature}`, `:none`, or why it does not hold.
 
-  `stored` is that activity as we hold it (an `ActivityPub.Object`). Accepted by its proof or signature, nothing is checked again. Accepted another way (its HTTP signature, which does not cover what is passed on), it is checked now, and when it holds, `stored`, and its object when that is the same author's, are marked as vouched for by it, so it is checked once whoever asks.
+  `stored` is that activity as we hold it (an `ActivityPub.Object`). Accepted by its proof or signature, nothing is checked again. Accepted another way (its HTTP signature, which does not cover what is passed on), it is checked now, and when it holds, `stored`, and its object when that is the same author's, are marked as vouched for by it, so it is checked once whoever asks. Either way, `received` is then stored with `stored` as its original (`data_received`) when it has none, so whatever passes it on later (a retried publish, a relay after review) reads it from the row.
   """
   def vouched_by_signature(%Object{authenticated: authenticated} = stored, received) do
     case author_signature(received, authenticated) do
       # vouched for by it already
       {:ok, ^authenticated} = vouched ->
+        maybe_keep_original(stored, received)
         vouched
 
       {:ok, by_signature} = vouched ->
-        mark_vouched_by_signature(stored, by_signature)
+        mark_vouched_by_signature(stored, by_signature, received)
         vouched
 
       other ->
@@ -174,8 +198,23 @@ defmodule ActivityPub.Safety do
     end
   end
 
-  defp mark_vouched_by_signature(%Object{data: data} = activity, authenticated) do
-    Object.do_update_existing(activity, %{authenticated: authenticated})
+  # the activity as it reached us, kept with its row when it is that activity and the row keeps none yet
+  defp maybe_keep_original(
+         %Object{data: %{"id" => id}, data_received: nil} = activity,
+         %{"id" => id} = received
+       ),
+       do: Object.do_update_existing(activity, %{data_received: received})
+
+  defp maybe_keep_original(_activity, _received), do: :ok
+
+  defp mark_vouched_by_signature(%Object{data: data} = activity, authenticated, received) do
+    original =
+      case {activity, received} do
+        {%{data: %{"id" => id}, data_received: nil}, %{"id" => id}} -> %{data_received: received}
+        _ -> %{}
+      end
+
+    Object.do_update_existing(activity, Map.put(original, :authenticated, authenticated))
 
     # the object is covered by the same signature, and vouched for by it when it is the activity's actor's (as an object embedded by its owner inherits the activity's value at receipt)
     with object_id when is_binary(object_id) <- Object.get_ap_id(data["object"]),

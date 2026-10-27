@@ -15,6 +15,7 @@ defmodule ActivityPub.Pruner do
   alias ActivityPub.Utils
   import Utils
   import Ecto.Query
+  import ActivityPub.Queries.Fragments
   require Logger
 
   def prune_all(cutoff_days \\ nil) do
@@ -74,7 +75,7 @@ defmodule ActivityPub.Pruner do
       deletable_context =
         if Keyword.get(options, :keep_non_public) do
           Object
-          |> group_by([a], fragment("? ->> 'context'::text", a.data))
+          |> group_by([a], context_of(a))
           |> having(
             [a],
             not fragment(
@@ -89,14 +90,14 @@ defmodule ActivityPub.Pruner do
           )
         else
           Object
-          |> group_by([a], fragment("? ->> 'context'::text", a.data))
+          |> group_by([a], context_of(a))
         end
         |> having([a], max(a.updated_at) < ^time_deadline)
         |> having([a], not fragment("bool_or(?)", a.local))
-        |> select([a], fragment("? ->> 'context'::text", a.data))
+        |> select([a], context_of(a))
 
       Object
-      |> where([o], fragment("? ->> 'context'::text", o.data) in subquery(deletable_context))
+      |> where([o], context_of(o) in subquery(deletable_context))
     else
       if Keyword.get(options, :keep_non_public) do
         Object
@@ -168,7 +169,8 @@ defmodule ActivityPub.Pruner do
     before_time = cutoff(cutoff_days)
 
     from(a in Object,
-      where: fragment("?->>'type' = ?", a.data, "Delete") and a.inserted_at < ^before_time
+      # `updated_at`: when we stored it (`inserted_at` is when it happened, see `ActivityPub.Utils.published_at/2`)
+      where: fragment("?->>'type' = ?", a.data, "Delete") and a.updated_at < ^before_time
     )
     |> repo().delete_all(timeout: :infinity)
     |> IO.inspect(label: "removed Delete activities")
@@ -178,7 +180,7 @@ defmodule ActivityPub.Pruner do
     before_time = cutoff(cutoff_days)
 
     from(a in Object,
-      where: fragment("?->>'type' = ?", a.data, "Undo") and a.inserted_at < ^before_time
+      where: fragment("?->>'type' = ?", a.data, "Undo") and a.updated_at < ^before_time
     )
     |> repo().delete_all(timeout: :infinity)
     |> IO.inspect(label: "removed Undo activities")
@@ -188,7 +190,7 @@ defmodule ActivityPub.Pruner do
     before_time = cutoff(cutoff_days)
 
     from(a in Object,
-      where: fragment("?->>'type' = ?", a.data, "Remove") and a.inserted_at < ^before_time
+      where: fragment("?->>'type' = ?", a.data, "Remove") and a.updated_at < ^before_time
     )
     |> repo().delete_all(timeout: :infinity)
     |> IO.inspect(label: "removed Remove activities")
@@ -199,7 +201,7 @@ defmodule ActivityPub.Pruner do
 
     from(a in Object,
       where:
-        fragment("?->>'type' = ?", a.data, "Follow") and a.inserted_at < ^before_time and
+        fragment("?->>'type' = ?", a.data, "Follow") and a.updated_at < ^before_time and
           fragment("?->>'state' = ?", a.data, "reject")
     )
     |> repo().delete_all(timeout: :infinity)
@@ -210,7 +212,7 @@ defmodule ActivityPub.Pruner do
     before_time = cutoff(cutoff_days)
 
     from(o in Object,
-      where: fragment("?->>'type' = ?", o.data, "Tombstone") and o.inserted_at < ^before_time
+      where: fragment("?->>'type' = ?", o.data, "Tombstone") and o.updated_at < ^before_time
     )
     |> repo().delete_all(timeout: :infinity, on_delete: :delete_all)
     |> IO.inspect(label: "removed old Tombstone activities")

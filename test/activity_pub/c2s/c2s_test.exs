@@ -726,6 +726,71 @@ defmodule ActivityPub.Web.C2SOutboxControllerTest do
   end
 
   describe "POST /actors/:username/outbox - spec compliance" do
+    # stored as the client sent it, normalised but not rebuilt, as an activity from another instance is: the server sets only what it owns (the ids, the authenticated actor)
+    test "keeps what the client wrote on the activity", %{conn: conn} do
+      actor = local_actor()
+      user = user_by_ap_id(actor)
+      audience = ap_id(local_actor())
+
+      activity_data = %{
+        "type" => "Create",
+        "actor" => ap_id(actor),
+        "audience" => audience,
+        "extension" => "an extension field",
+        "object" => %{
+          "type" => "Note",
+          "content" => "Testing what the client wrote",
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"]
+        }
+      }
+
+      conn =
+        conn
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), activity_data)
+
+      assert conn.status == 201
+
+      {:ok, %Object{data: stored}} =
+        Object.get_cached(ap_id: get_object_id(json_response(conn, 201)))
+
+      assert stored["extension"] == "an extension field",
+             "the Create was rebuilt, losing what the client wrote"
+
+      # a list: `C2S.copy_addressing` unions the activity's and the object's
+      assert audience in List.wrap(stored["audience"])
+
+      assert stored["actor"] == ap_id(actor)
+    end
+
+    test "the actor is the authenticated one, whatever the client wrote", %{conn: conn} do
+      actor = local_actor()
+      user = user_by_ap_id(actor)
+
+      activity_data = %{
+        "type" => "Create",
+        "object" => %{
+          "type" => "Note",
+          "content" => "Testing the actor",
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"]
+        }
+      }
+
+      conn =
+        conn
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), activity_data)
+
+      assert conn.status == 201
+
+      {:ok, %Object{data: stored}} =
+        Object.get_cached(ap_id: get_object_id(json_response(conn, 201)))
+
+      assert stored["actor"] == ap_id(actor)
+    end
+
     test "server ignores client-provided activity id", %{conn: conn} do
       actor = local_actor()
       user = user_by_ap_id(actor)

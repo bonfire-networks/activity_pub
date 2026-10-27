@@ -226,6 +226,16 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
       assert row(update["id"]).authenticated == :http_signature
     end
 
+    test "a valid one is then stored with the activity, as it arrived", context do
+      update = signed_update(context)
+      assert {:ok, _} = delivered(update, context.author_id)
+      assert row(update["id"]).data_received == nil
+
+      published(context, update, data_received: update)
+
+      assert row(update["id"]).data_received == update
+    end
+
     test "one accepted by its proof is not checked again", context do
       update = signed_update(context)
 
@@ -277,11 +287,70 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
       end
     end
 
-    test "is found on the announced activity itself, as the adapter hands it on", context do
+    # The adapter no longer puts the delivery's document on the activity it hands over (`received_document_handover_test.exs`): an activity's original is the one stored with its row, so a struct carrying one its row does not hold is not a shape anything makes. Superseded by "a stored original is relayed with nothing handed on" below.
+    # test "is found on the announced activity itself, as the adapter hands it on", context do
+    #   update = signed_update(context)
+    #   assert {:ok, _} = delivered(update, context.author_id)
+    #
+    #   for inner <- inners(published(context, update, [], &%{&1 | data_received: update})) do
+    #     assert inner == update
+    #     assert IntegrityProofs.verify(inner) == {:ok, context.author_id}
+    #   end
+    # end
+
+    test "the publish job carries no copy of it: the original is read from the row, so a retry sends it too",
+         context do
       update = signed_update(context)
       assert {:ok, _} = delivered(update, context.author_id)
 
-      for inner <- inners(published(context, update, [], &%{&1 | data_received: update})) do
+      stored = Object.get_activity_for_object_ap_id(context.note["id"], "Update")
+
+      {:ok, announce} =
+        ActivityPub.announce(%{actor: context.group, object: stored},
+          skip_public_check: true,
+          data_received: update
+        )
+
+      # the job as queued, before it runs
+      assert [job] =
+               all_enqueued(worker: PublisherWorker)
+               |> Enum.filter(
+                 &(&1.args["op"] == "publish" and &1.args["activity_id"] == announce.id)
+               )
+
+      refute Map.has_key?(job.args, "data_received")
+
+      ObanHelpers.perform([job])
+
+      inners =
+        for %{args: %{"op" => "publish_one", "params" => params}} <-
+              all_enqueued(worker: PublisherWorker),
+            %{"type" => "Announce", "object" => inner} <- [Jason.decode!(params["json"])],
+            do: inner
+
+      assert length(inners) == 2
+      for inner <- inners, do: assert(inner == update)
+    end
+
+    test "a stored original is relayed with nothing handed on, as when the group approves a post later",
+         context do
+      update = signed_update(context)
+
+      # delivered through the receiver, whose proof check keeps the original with the row
+      assert {:ok, _} =
+               ActivityPub.Federator.Worker.ReceiverHelpers.perform(
+                 %Oban.Job{
+                   args: %{
+                     "op" => "incoming_ap_doc",
+                     "params" => update,
+                     "signed_by" => context.author_id,
+                     "repo" => ActivityPub.Utils.repo()
+                   }
+                 },
+                 :verified
+               )
+
+      for inner <- inners(published(context, update, [])) do
         assert inner == update
         assert IntegrityProofs.verify(inner) == {:ok, context.author_id}
       end

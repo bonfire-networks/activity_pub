@@ -485,7 +485,7 @@ defmodule ActivityPub.Utils do
   so a caller usually only passes `%{query_module: MySchema}`:
   - `query_module` — its `query/1` accepts `[{:ap_id|:pointer_id|:id|:username, value_or_list}]`
   - `classify.(ref) -> {kind, id}` — default `classify_ref/1`
-  - `fetch.(kind, ids) -> [row]` — default: `repo().all(query_module.query([{query_key(kind), ids}]))`
+  - `fetch.(kind, ids) -> [row]` — default: `query_module.query([{query_key(kind), ids}])` loaded by `query_module.many/1` when it has one, else `repo().all/1`
   - `kind_key.(kind, row) -> id` — default keys a row back by its `:ap_id`/`:pointer`/`:id`/`:username`
   - `cache_keys.(row) -> [cache_key]` — default: the `id`/`ap_id`/`pointer` alias keys (mirrors `set_cache`)
   """
@@ -565,8 +565,15 @@ defmodule ActivityPub.Utils do
   end
 
   # default `funs` for an `ap_object`-backed schema (Object/Actor) — overridable per call
-  defp default_fetch(query_module) when not is_nil(query_module),
-    do: fn kind, ids -> repo().all(query_module.query([{query_key(kind), ids}])) end
+  # through the schema's own `many/1` when it has one (`Object`'s merges a row stored as it arrived with its patch)
+  defp default_fetch(query_module) when not is_nil(query_module) do
+    load =
+      if function_exported?(query_module, :many, 1),
+        do: &query_module.many/1,
+        else: &repo().all/1
+
+    fn kind, ids -> load.(query_module.query([{query_key(kind), ids}])) end
+  end
 
   defp query_key(:pointer), do: :pointer_id
   defp query_key(:ap_id), do: :ap_id
@@ -1090,6 +1097,55 @@ defmodule ActivityPub.Utils do
       iex> ActivityPub.Utils.to_datetime("not a date")
       nil
   """
+  @doc """
+  When what a document holds happened, from its `published`, for the `inserted_at` of its row, so lists can be ordered by a column; `nil` when the current date should be used instead.
+
+  By how the document reached us (`arrival`):
+
+    * `:ours`: as given, a future one included, so a scheduled post stays out of lists until its time
+    * `:fetched` from its origin: however old, as the origin is the authority on it (an old thread, a profile's history), but not a future one
+    * `:delivered` to us: only within the last `config :activity_pub, :published_within` (a duration in milliseconds, `to_timeout(day: 4)` by default), so a sender cannot float a post to the top, or bury it among old ones, with a date it chose
+
+  Otherwise, and when missing or unreadable, `nil`.
+
+      iex> ActivityPub.Utils.published_at(DateTime.utc_now() |> DateTime.add(-to_timeout(hour: 1), :millisecond) |> DateTime.to_iso8601(), :delivered) |> is_struct(DateTime)
+      true
+
+      iex> ActivityPub.Utils.published_at(DateTime.utc_now() |> DateTime.add(to_timeout(day: 1), :millisecond) |> DateTime.to_iso8601(), :delivered)
+      nil
+  """
+  def published_at(published, :ours), do: to_datetime(published)
+
+  def published_at(published, arrival) do
+    with %DateTime{} = date <- to_datetime(published),
+         now = DateTime.utc_now(),
+         :lt <- DateTime.compare(date, now),
+         true <-
+           arrival == :fetched or
+             DateTime.compare(
+               date,
+               DateTime.add(
+                 now,
+                 -ActivityPub.Config.get(:published_within, to_timeout(day: 4)),
+                 :millisecond
+               )
+             ) == :gt do
+      date
+    else
+      _ -> nil
+    end
+  end
+
+  @doc "How a document being stored reached us, for `published_at/2`, from the options its handling carries and the row's own `authenticated` value: `:ours`, `:fetched` from its origin (`already_fetched:`) or vouched for by its author's own proof or LD signature (its date is then the author's word, as good as its origin's), else `:delivered`."
+  def arrival(local?, opts, authenticated \\ nil)
+  def arrival(true = _local?, _opts, _authenticated), do: :ours
+
+  def arrival(_local?, opts, authenticated) do
+    if opts[:already_fetched] || authenticated in [:integrity_proof, :ld_signature],
+      do: :fetched,
+      else: :delivered
+  end
+
   def to_datetime(%DateTime{} = datetime), do: datetime
   def to_datetime(%NaiveDateTime{} = naive), do: DateTime.from_naive!(naive, "Etc/UTC")
 

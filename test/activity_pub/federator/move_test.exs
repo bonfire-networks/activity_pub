@@ -102,6 +102,42 @@ defmodule ActivityPub.MoveTest do
     assert activity.data["type"] == "Move"
   end
 
+  describe "an incoming Move" do
+    setup do
+      old_user = actor(local: false)
+      new_user = local_actor().actor
+      {:ok, _new_user} = add_alias(new_user, old_user.ap_id)
+
+      message = %{
+        "@context" => "https://www.w3.org/ns/activitystreams",
+        "id" => "#{old_user.ap_id}/moves/#{System.unique_integer([:positive])}",
+        "type" => "Move",
+        "actor" => old_user.ap_id,
+        "object" => old_user.ap_id,
+        "target" => new_user.ap_id
+      }
+
+      %{message: message}
+    end
+
+    test "is stored under its author's id", %{message: message} do
+      assert {:ok, %Object{data: %{"id" => id}}} = Transformer.handle_incoming(message)
+      assert id == message["id"], "stored under an id minted on our host"
+    end
+
+    # `Transformer` passes its options to `ActivityPub.move/5` as the 4th argument, which is `recursing`, so they never reached the insert or the adapter
+    test "is stored with how it was authenticated", %{message: message} do
+      assert {:ok, %Object{id: id}} =
+               Transformer.handle_incoming(message,
+                 authenticated: :http_signature,
+                 signed_by: message["actor"]
+               )
+
+      assert {:ok, %Object{authenticated: :http_signature}} = Object.get_uncached(id: id),
+             "the options the Move was received with did not reach the insert"
+    end
+  end
+
   test "accepts incoming Move activities for an (old) local actor to a (new) remote actor" do
     old_user = local_actor().actor
     old_ap_id = ap_id(old_user)

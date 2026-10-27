@@ -261,7 +261,21 @@ defmodule ActivityPub.Web.ActivityPubController do
         fun.(conn, Map.put(params, "username", local_tombstone_username(actor) || username))
 
       _ ->
-        Utils.error_json(conn, "not found", 404)
+        case local_tombstone_username(local_tombstone_by_ap_id(conn, id)) do
+          username when is_binary(username) -> fun.(conn, Map.put(params, "username", username))
+          nil -> Utils.error_json(conn, "not found", 404)
+        end
+    end
+  end
+
+  # a deleted local actor's tombstone can lose its link to the actor's id: `pointer_id` is set null when the actor's pointer row is deleted, as it is for a deleted user. Its AP id is the id URL (for actors created since the ULID cutoff), so it is found by that instead
+  defp local_tombstone_by_ap_id(conn, id) do
+    with [segment | _] <- conn.path_info |> Enum.take_while(&(&1 != id)) |> Enum.reverse(),
+         {:ok, %Object{local: true, data: %{"type" => "Tombstone"}} = tombstone} <-
+           Object.get_cached(ap_id: "#{Utils.ap_base_url()}/#{segment}/#{id}") do
+      tombstone
+    else
+      _ -> nil
     end
   end
 

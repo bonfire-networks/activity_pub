@@ -8,6 +8,7 @@ defmodule ActivityPub.Queries do
   """
 
   import Ecto.Query
+  import ActivityPub.Queries.Fragments
   alias ActivityPub.Object
 
   @type query :: Ecto.Queryable.t() | Object.t()
@@ -17,14 +18,15 @@ defmodule ActivityPub.Queries do
     where(query, [a], a.id == ^id)
   end
 
-  @spec by_ap_id(query, String.t()) :: query
-  def by_ap_id(query \\ Object, ap_id) do
-    where(
-      query,
-      [a],
-      fragment("(?)->>'id' = ?", a.data, ^to_string(ap_id))
-    )
-  end
+  # unused: `Object.query(ap_id:)` is the lookup by ap_id
+  # @spec by_ap_id(query, String.t()) :: query
+  # def by_ap_id(query \\ Object, ap_id) do
+  #   where(
+  #     query,
+  #     [a],
+  #     fragment("(?)->>'id' = ?", a.data, ^to_string(ap_id))
+  #   )
+  # end
 
   def by_actor(query \\ Object, ap_id) do
     where(
@@ -34,40 +36,23 @@ defmodule ActivityPub.Queries do
     )
   end
 
-  def find_by_object_ap_id(activities, object_ap_id) do
-    Enum.find(
-      activities,
-      &(object_ap_id in [is_map(&1.data["object"]) && &1.data["object"]["id"], &1.data["object"]])
-    )
-  end
+  # unused
+  # def find_by_object_ap_id(activities, object_ap_id) do
+  #   Enum.find(
+  #     activities,
+  #     &(object_ap_id in [is_map(&1.data["object"]) && &1.data["object"]["id"], &1.data["object"]])
+  #   )
+  # end
 
   @spec by_object_id(query, String.t() | [String.t()]) :: query
   def by_object_id(query \\ Object, object_id)
 
   def by_object_id(query, object_ids) when is_list(object_ids) do
-    where(
-      query,
-      [a],
-      fragment(
-        "coalesce((?)->'object'->>'id', (?)->>'object') = ANY(?)",
-        a.data,
-        a.data,
-        ^object_ids
-      )
-    )
+    where(query, [a], object_id_of(a.data) in ^object_ids)
   end
 
   def by_object_id(query, object_id) when is_binary(object_id) do
-    where(
-      query,
-      [a],
-      fragment(
-        "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
-        a.data,
-        a.data,
-        ^object_id
-      )
-    )
+    where(query, [a], object_id_of(a.data) == ^object_id)
   end
 
   def activity_by_object_ap_id(ap_id, verb \\ "Create") do
@@ -76,14 +61,15 @@ defmodule ActivityPub.Queries do
     |> by_type(verb)
   end
 
-  @spec by_object_in_reply_to_id(query, String.t(), keyword()) :: query
-  def by_object_in_reply_to_id(query, in_reply_to_id, opts \\ []) do
-    with_object(query, :inner, opts[:load_object])
-    |> where(
-      [a, object: o],
-      fragment("(?)->>'inReplyTo' = ?", o.data, ^to_string(in_reply_to_id))
-    )
-  end
+  # unused: `replies/2` is the replies query
+  # @spec by_object_in_reply_to_id(query, String.t(), keyword()) :: query
+  # def by_object_in_reply_to_id(query, in_reply_to_id, opts \\ []) do
+  #   with_object(query, :inner, opts[:load_object])
+  #   |> where(
+  #     [a, object: o],
+  #     fragment("(?)->>'inReplyTo' = ?", o.data, ^to_string(in_reply_to_id))
+  #   )
+  # end
 
   @spec by_type(query, String.t() | List.t()) :: query
   def by_type(query \\ Object, activity_type)
@@ -104,14 +90,15 @@ defmodule ActivityPub.Queries do
     )
   end
 
-  @spec exclude_type(query, String.t()) :: query
-  def exclude_type(query \\ Object, type) do
-    where(
-      query,
-      [a],
-      fragment("(?)->>'type' != ?", a.data, ^type)
-    )
-  end
+  # unused
+  # @spec exclude_type(query, String.t()) :: query
+  # def exclude_type(query \\ Object, type) do
+  #   where(
+  #     query,
+  #     [a],
+  #     fragment("(?)->>'type' != ?", a.data, ^type)
+  #   )
+  # end
 
   def with_object(query, join_type \\ :left, load_object \\ :preload)
 
@@ -138,45 +125,31 @@ defmodule ActivityPub.Queries do
 
   def with_joined_object(query, join_type \\ :inner) do
     join(query, join_type, [a], o in Object,
-      on:
-        fragment(
-          "(?->>'id') = COALESCE(?->'object'->>'id', ?->>'object')",
-          o.data,
-          a.data,
-          a.data
-        ),
+      on: fragment("(?->>'id')", o.data) == object_id_of(a.data),
       as: :object
     )
   end
 
-  def with_joined_activity(query, activity_type \\ "Create", join_type \\ :left) do
-    object_position = Map.get(query.aliases, :object, 0)
-
-    join(query, join_type, [{object, object_position}], a in Object,
-      on:
-        fragment(
-          "COALESCE(?->'object'->>'id', ?->>'object') = (? ->> 'id') AND (?->>'type' = ?) ",
-          a.data,
-          a.data,
-          object.data,
-          a.data,
-          ^activity_type
-        ),
-      as: :activity
-    )
-  end
+  # unused
+  # def with_joined_activity(query, activity_type \\ "Create", join_type \\ :left) do
+  #   object_position = Map.get(query.aliases, :object, 0)
+  #
+  #   join(query, join_type, [{object, object_position}], a in Object,
+  #     on:
+  #       fragment(
+  #         "COALESCE(?->'object'->>'id', ?->>'object') = (? ->> 'id') AND (?->>'type' = ?) ",
+  #         a.data,
+  #         a.data,
+  #         object.data,
+  #         a.data,
+  #         ^activity_type
+  #       ),
+  #     as: :activity
+  #   )
+  # end
 
   def by_object(query, object_id) do
-    from(
-      activity in query,
-      where:
-        fragment(
-          "coalesce((?)->'object'->>'id', (?)->>'object') = ?",
-          activity.data,
-          activity.data,
-          ^object_id
-        )
-    )
+    from(activity in query, where: object_id_of(activity.data) == ^object_id)
   end
 
   def replies(object, opts \\ [])
@@ -203,12 +176,9 @@ defmodule ActivityPub.Queries do
     end
   end
 
+  # newest first by when it happened: a row's `inserted_at` takes its `published` (`ActivityPub.Utils.published_at/2`)
   def ordered(query) do
     query
-    |> order_by([activity], [
-      fragment("?->'published' desc nulls last", activity.data),
-      fragment("? desc nulls last", activity.inserted_at),
-      desc: activity.id
-    ])
+    |> order_by([activity], desc: activity.inserted_at, desc: activity.id)
   end
 end

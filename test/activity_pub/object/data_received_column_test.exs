@@ -1,6 +1,6 @@
 defmodule ActivityPub.Object.DataReceivedColumnTest do
   @moduledoc """
-  A signed document is stored as it arrived (`data_received`), with only what normalisation changed beside it in `data`, as a merge patch (`ActivityPub.Object.MergePatch`), which is `%{}` when nothing changed.
+  A signed document is stored as it arrived (`data_received`), with only what normalisation changed beside it in `data`, as a merge patch (`ActivityPub.Object.MergePatch`), plus the fields queries read. `data` is given whole and the changeset makes it the patch.
   """
   use ActivityPub.DataCase, async: false
 
@@ -15,11 +15,15 @@ defmodule ActivityPub.Object.DataReceivedColumnTest do
     }
 
     assert {:ok, %Object{id: id}} =
-             %{data: %{}, data_received: received, local: false}
+             %{data: received, data_received: received, local: false}
              |> Object.changeset()
              |> repo().insert()
 
-    assert %Object{data: %{}, data_received: ^received} = repo().get(Object, id)
+    # nothing changed, so the patch is only the fields queries read
+    assert %Object{data: %{"id" => _, "type" => "Note"} = patch, data_received: ^received} =
+             repo().get(Object, id)
+
+    assert map_size(patch) == 2
   end
 
   test "a row without one has none" do

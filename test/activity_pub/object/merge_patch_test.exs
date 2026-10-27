@@ -46,9 +46,63 @@ defmodule ActivityPub.Object.MergePatchTest do
 
     test "holds the new value when its shape changed" do
       received = %{"object" => %{"id" => "o"}, "actor" => "a", "attachment" => %{"url" => "u"}}
-      normalised = %{"object" => "o", "actor" => %{"id" => "a"}, "attachment" => [%{"url" => "u"}]}
+
+      normalised = %{
+        "object" => "o",
+        "actor" => %{"id" => "a"},
+        "attachment" => [%{"url" => "u"}]
+      }
 
       assert MergePatch.create_merge_patch(received, normalised) == normalised
+    end
+  end
+
+  describe "create_merge_patch/3" do
+    test "holds each listed key even when unchanged, and leaves the others out" do
+      doc = %{"id" => "x", "type" => "Note", "content" => "hi", "to" => ["a"]}
+
+      assert MergePatch.create_merge_patch(doc, doc, ["id", "type", "to"]) ==
+               %{"id" => "x", "type" => "Note", "to" => ["a"]}
+    end
+
+    test "holds a listed key with its normalised value, whole" do
+      assert MergePatch.create_merge_patch(
+               %{"id" => "x", "object" => %{"id" => "o", "content" => "hi"}},
+               %{"id" => "x", "object" => "o"},
+               ["object"]
+             ) == %{"object" => "o"}
+    end
+
+    test "holds a listed map whole, with what was taken out of it as nil, so it merges back" do
+      received = %{"object" => %{"id" => "o", "content" => "hi", "proof" => %{"type" => "p"}}}
+      normalised = %{"object" => %{"id" => "o", "content" => "hi"}}
+
+      patch = MergePatch.create_merge_patch(received, normalised, ["object"])
+
+      assert patch == %{"object" => %{"id" => "o", "content" => "hi", "proof" => nil}}
+      assert MergePatch.merge_patch(received, patch) == normalised
+    end
+
+    test "does not add a listed key the normalised document has not" do
+      assert MergePatch.create_merge_patch(%{"id" => "x"}, %{"id" => "x"}, ["id", "inReplyTo"]) ==
+               %{"id" => "x"}
+    end
+
+    test "still removes and changes what is not listed" do
+      assert MergePatch.create_merge_patch(
+               %{"id" => "x", "conversation" => "tag:1", "content" => "hi"},
+               %{"id" => "x", "content" => "hello"},
+               ["id"]
+             ) == %{"id" => "x", "conversation" => nil, "content" => "hello"}
+    end
+
+    test "merged back onto the original gives the normalised document" do
+      received = %{"id" => "x", "type" => "Note", "conversation" => "tag:1", "to" => ["a"]}
+      normalised = %{"id" => "x", "type" => "Note", "context" => "tag:1", "to" => ["a"]}
+
+      patch = MergePatch.create_merge_patch(received, normalised, ["id", "type", "to"])
+
+      assert MergePatch.merge_patch(received, patch) == normalised
     end
   end
 

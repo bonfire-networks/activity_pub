@@ -55,7 +55,8 @@ defmodule ActivityPub.Safety.IntegrityProofsSigningTest do
     note = create_note(actor_id)
 
     assert {:ok, signed} = IntegrityProofs.sign(note, actor, created: @created)
-    assert signed == sign(note, key, created: @created)
+    # we sign as Mitra does, with no copy of the document's `@context` in the proof
+    assert signed == sign(note, key, created: @created, context_style: :mitra)
   end
 
   test "adds a proof and changes nothing else", %{actor: actor, actor_id: actor_id} do
@@ -65,10 +66,11 @@ defmodule ActivityPub.Safety.IntegrityProofsSigningTest do
     assert Map.delete(signed, "proof") == note
   end
 
-  test "the proof names the suite, the purpose, the key and the time, and carries the context", %{
-    actor: actor,
-    actor_id: actor_id
-  } do
+  test "the proof names the suite, the purpose, the key and the time, and no copy of the context",
+       %{
+         actor: actor,
+         actor_id: actor_id
+       } do
     note = create_note(actor_id)
 
     assert {:ok, %{"proof" => proof}} = IntegrityProofs.sign(note, actor, created: @created)
@@ -81,7 +83,9 @@ defmodule ActivityPub.Safety.IntegrityProofsSigningTest do
            } = proof
 
     assert proof["verificationMethod"] == actor_id <> "#ed25519-key"
-    assert proof["@context"] == note["@context"]
+
+    # no copy of the document's `@context`, as Mitra signs: Mastodon's and Mitra's verifiers hash a proof without one as given, and the document's is hashed with the document
+    refute Map.has_key?(proof, "@context")
     assert String.starts_with?(proof["proofValue"], "z")
   end
 

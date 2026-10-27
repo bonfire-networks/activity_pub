@@ -89,9 +89,9 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   # Accepted over an HTTP signature: a proof or LD signature in the body is checked too, so what is stored says it vouched for the document. Accepted another way, it was what vouched for it, or was checked already.
   defp signature_in_body(params, opts) do
     if opts[:authenticated] == :http_signature do
-      case ActivityPub.Safety.author_signature(params) do
-        {:ok, by_signature} ->
-          {:ok, Keyword.put(opts, :authenticated, by_signature)}
+      case ActivityPub.Safety.with_author_signature(opts, params) do
+        {:ok, opts} ->
+          {:ok, opts}
 
         result ->
           if ActivityPub.Safety.broken_signature?(result),
@@ -106,7 +106,11 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
   defp broken_signature(result, opts) do
     case ActivityPub.Safety.partly_invalid() do
       :accept ->
-        Untangle.warn(result, "Proof or LD signature does not hold, accepting on the HTTP signature")
+        Untangle.warn(
+          result,
+          "Proof or LD signature does not hold, accepting on the HTTP signature"
+        )
+
         {:ok, opts}
 
       :refetch ->

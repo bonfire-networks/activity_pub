@@ -221,7 +221,8 @@ defmodule ActivityPub.Actor do
 
   defp actors_from_objects(query) do
     query
-    |> repo().all()
+    # through `Object.many/1`, so a row stored as it arrived (`data_received`) comes with its data merged
+    |> ActivityPub.Object.many()
     |> Enum.flat_map(fn
       %{data: %{"type" => type}} = object
       when is_in(type, :supported_actor_types) or type == "Tombstone" ->
@@ -486,12 +487,19 @@ defmodule ActivityPub.Actor do
   @doc """
   Updates an existing actor struct by its AP ID.
   """
-  def update_actor(actor_id, data, fetch_remote? \\ nil, local? \\ false)
+  # `authenticated` is how the data given (with no refetch) was vouched for: by default it was fetched from the actor's origin
+  def update_actor(
+        actor_id,
+        data,
+        fetch_remote? \\ nil,
+        local? \\ false,
+        authenticated \\ :fetched
+      )
 
-  def update_actor(actor_id, %{data: data}, fetch_remote?, local?),
-    do: update_actor(actor_id, data, fetch_remote?, local?)
+  def update_actor(actor_id, %{data: data}, fetch_remote?, local?, authenticated),
+    do: update_actor(actor_id, data, fetch_remote?, local?, authenticated)
 
-  def update_actor(actor_id, data, _fetch_remote?, _local? = true) do
+  def update_actor(actor_id, data, _fetch_remote?, _local? = true, _authenticated) do
     with {:ok, actor} <-
            Adapter.update_local_actor(
              actor_id,
@@ -507,7 +515,8 @@ defmodule ActivityPub.Actor do
         actor_id,
         %{"id" => ap_id, "type" => "Tombstone"} = data,
         _fetch_remote?,
-        _local?
+        _local?,
+        _authenticated
       ) do
     debug(actor_id, "Making tombstone for actor")
 
@@ -521,8 +530,8 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  def update_actor(actor_id, data, fetch_remote?, _local?) do
-    with {:ok, object} <- update_actor_data(actor_id, data, fetch_remote?),
+  def update_actor(actor_id, data, fetch_remote?, _local?, authenticated) do
+    with {:ok, object} <- update_actor_data(actor_id, data, fetch_remote?, authenticated),
          Adapter.update_remote_actor(object),
          {:ok, actor} <- get(ap_id: actor_id) do
       set_cache(actor)
@@ -710,7 +719,8 @@ defmodule ActivityPub.Actor do
     with {:error, :not_found} <- Object.get_cached(ap_id: id),
          #  don't have to do manually since it gets processed after fetch?
          {:ok, object} <- Object.prepare_data(data),
-         {:ok, object} <- Object.do_insert(object) do
+         # fetched from its origin, which is what vouches for it, as for any document we fetch (`Safety.by_arrival/1`)
+         {:ok, object} <- Object.do_insert(Map.put(object, :authenticated, :fetched)) do
       {:ok, object}
     else
       {:ok, _cached_data} ->
@@ -980,25 +990,30 @@ defmodule ActivityPub.Actor do
       |> repo().insert()
   end
 
-  defp update_actor_data(actor, data, fetch_remote? \\ true)
+  # `authenticated`: how the data given was vouched for (`update_actor/5`), or `nil` for our own writes (a tombstone, deactivating), which leave it as it was
+  defp update_actor_data(actor, data, fetch_remote? \\ true, authenticated \\ nil)
 
-  defp update_actor_data(%{ap_id: ap_id}, data, fetch_remote?) when is_binary(ap_id) do
-    update_actor_data(ap_id, data, fetch_remote?)
+  defp update_actor_data(%{ap_id: ap_id}, data, fetch_remote?, authenticated)
+       when is_binary(ap_id) do
+    update_actor_data(ap_id, data, fetch_remote?, authenticated)
   end
 
-  defp update_actor_data(%{"actor" => ap_id}, data, fetch_remote?) when is_binary(ap_id) do
-    update_actor_data(ap_id, data, fetch_remote?)
+  defp update_actor_data(%{"actor" => ap_id}, data, fetch_remote?, authenticated)
+       when is_binary(ap_id) do
+    update_actor_data(ap_id, data, fetch_remote?, authenticated)
   end
 
-  defp update_actor_data(%{"id" => ap_id}, data, fetch_remote?) when is_binary(ap_id) do
-    update_actor_data(ap_id, data, fetch_remote?)
+  defp update_actor_data(%{"id" => ap_id}, data, fetch_remote?, authenticated)
+       when is_binary(ap_id) do
+    update_actor_data(ap_id, data, fetch_remote?, authenticated)
   end
 
-  defp update_actor_data(ap_id, update_data, fetch_remote?) when is_binary(ap_id) do
+  defp update_actor_data(ap_id, update_data, fetch_remote?, authenticated)
+       when is_binary(ap_id) do
     with {:ok, %{data: existing_data} = object} when existing_data != update_data <-
            Object.get_uncached(ap_id: ap_id),
          {:ok, %{data: updated_data} = object} when updated_data != existing_data <-
-           maybe_update_actor_data(ap_id, object, update_data, fetch_remote?) do
+           maybe_update_actor_data(ap_id, object, update_data, fetch_remote?, authenticated) do
       debug("updated")
       {:ok, object}
     else
@@ -1010,30 +1025,40 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp update_actor_data(%Object{} = object, %{} = data, false) do
-    do_update_actor_data(object, data)
+  defp update_actor_data(%Object{} = object, %{} = data, false, authenticated) do
+    do_update_actor_data(object, data, authenticated)
   end
 
-  defp update_actor_data(object, _data, _) do
+  defp update_actor_data(object, _data, _, _) do
     error(object, "Could not find the actor to update")
   end
 
-  defp maybe_update_actor_data(ap_id, object, data, fetch_remote?) do
+  defp maybe_update_actor_data(ap_id, object, data, fetch_remote?, authenticated) do
     if fetch_remote? do
       debug("re-fetch remote actor before updating for safety")
       Fetcher.fetch_fresh_object_from_id(ap_id, [])
     else
       debug("insert")
-      do_update_actor_data(object, data)
+      do_update_actor_data(object, data, authenticated)
     end
   end
 
-  defp do_update_actor_data(%Object{} = object, data) do
+  defp do_update_actor_data(%Object{} = object, data, authenticated) do
     object
-    |> Ecto.Changeset.change(%{
-      data: data,
-      updated_at: NaiveDateTime.utc_now(Calendar.ISO) |> NaiveDateTime.truncate(:second)
-    })
+    |> Ecto.Changeset.change(
+      %{
+        data: data,
+        # to the microsecond, as `ActivityPub.Object`'s timestamps are
+        updated_at: NaiveDateTime.utc_now(Calendar.ISO)
+      }
+      # how a remote actor's new data was vouched for: fetched from its origin, or by the actor itself (`Transformer.handle_incoming/2` for its `Update`); our own writes leave it as it was
+      |> Map.merge(
+        if(object.local or is_nil(authenticated),
+          do: %{},
+          else: %{authenticated: authenticated}
+        )
+      )
+    )
     |> Object.update_and_set_cache()
   end
 

@@ -156,6 +156,33 @@ defmodule ActivityPub.Federator.Transformer.EmbeddedObjectOwnershipTest do
       assert by == author.id
     end
 
+    test "with a valid LD signature of its own by its owner is accepted as the owner's", %{
+      sender: sender,
+      n: n
+    } do
+      import ActivityPub.Test.LinkedDataSignatureHelpers
+
+      origin_serves_nothing()
+      # an owner who signs as Mastodon does
+      owner = rsa_signer!("https://ld-author-#{n}.example/users/author")
+      create = create_of(sender, %{id: owner.ap_id})
+
+      signed_note =
+        create["object"]
+        |> Map.put("@context", [
+          "https://www.w3.org/ns/activitystreams",
+          "https://w3id.org/security/v1"
+        ])
+        |> ld_sign(owner)
+
+      create = Map.put(create, "object", signed_note)
+
+      assert {:ok, _} = delivered(create, :http_signature, sender.id)
+
+      assert %Object{authenticated: :ld_signature, signed_by: by} = handed_over_note(create["id"])
+      assert by == owner.ap_id
+    end
+
     test "with a proof that is the SENDER's is evidence against it, and it is not stored", %{
       sender: sender,
       author: author

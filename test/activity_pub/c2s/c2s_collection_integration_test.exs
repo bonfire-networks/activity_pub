@@ -77,6 +77,35 @@ defmodule ActivityPub.Web.C2SCollectionIntegrationTest do
       assert kp_id in served["orderedItems"]
     end
 
+    # stored as the client sent it, as any C2S activity is: the server sets only what it owns (the ids, the actor, the `object` and `target` as ids)
+    test "an Add via outbox keeps what the client wrote", %{conn: conn} do
+      actor = local_actor()
+      user = user_by_ap_id(actor)
+      target = Utils.collection_ap_id("keyPackages", actor.actor.id)
+      kp_id = create_key_package(conn, actor, user)
+
+      resp =
+        build_conn()
+        |> assign(:current_user, user)
+        |> put_req_header("content-type", @content_type)
+        |> post(outbox_endpoint(actor), %{
+          "type" => "Add",
+          "object" => kp_id,
+          "target" => target,
+          "extension" => "an extension field"
+        })
+        |> json_response(201)
+
+      {:ok, %ActivityPub.Object{data: stored}} = ActivityPub.Object.get_cached(ap_id: resp["id"])
+
+      assert stored["extension"] == "an extension field",
+             "the Add was rebuilt, losing what the client wrote"
+
+      assert stored["object"] == kp_id
+      assert stored["target"] == target
+      assert stored["to"], "control: addressing is filled in when the client sends none"
+    end
+
     test "Remove via outbox: disappears from store and served collection", %{conn: conn} do
       actor = local_actor()
       user = user_by_ap_id(actor)

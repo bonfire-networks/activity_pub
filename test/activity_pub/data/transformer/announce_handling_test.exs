@@ -453,6 +453,28 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
              "and it must be discarded BEFORE it is stored, not cleaned up afterwards"
     end
 
+    # an instance that allows reboosts at any time would otherwise take the compat copy as one: the pair arrives within `duplicate_announce_window` of each other
+    test "the compat copy is discarded even where reboosts are always allowed" do
+      Process.put([:bonfire_social, Bonfire.Social.Boosts, :can_reboost_after], true)
+      mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+      %{data: data, object_id: object_id} = relayed_announce()
+      assert {:ok, _} = Transformer.handle_incoming(data)
+
+      compat = %{
+        "type" => "Announce",
+        "id" => "#{data["actor"]}/activities/announce/compat",
+        "actor" => data["actor"],
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => object_id
+      }
+
+      assert {:ok, :duplicate} = Transformer.handle_incoming(compat),
+             "the compat copy was taken as a reboost"
+
+      refute Object.get_cached!(ap_id: compat["id"])
+    end
+
     test "a different actor announcing the same object is not treated as a duplicate" do
       mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
 

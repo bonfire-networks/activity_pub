@@ -39,9 +39,6 @@ defmodule ActivityPub.Safety.IntegrityProofs.Outgoing do
     end
   end
 
-  @doc "The time one publish is signed at: ISO 8601 UTC to the second."
-  def created_now, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
-
   @doc """
   Signs `document` for `actor`, returning it with the `cache` to pass to the next call.
 

@@ -7,7 +7,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
 
   @impl true
   def perform_job(%Oban.Job{
-        args: %{"op" => "publish" = op, "activity_id" => activity_id, "repo" => repo} = args
+        args: %{"op" => "publish" = op, "activity_id" => activity_id, "repo" => repo}
       }) do
     info(activity_id, "Using queued activity to perform outgoing federation")
 
@@ -15,7 +15,8 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
     Logger.metadata(action: info(op))
 
     with {:ok, activity} <- Object.get_cached(id: activity_id) do
-      Federator.perform(:publish, activity, data_received: args["data_received"])
+      # somebody else's activity as it reached us, for an Announce of it, is read from its row by the publisher
+      Federator.perform(:publish, activity)
     else
       e ->
         error(e)

@@ -36,8 +36,8 @@ defmodule ActivityPub.Federator do
     PublisherWorker.enqueue(
       "publish",
       %{"activity_id" => activity_id}
-      # TEMPORARY until received documents are stored unaltered: the job reloads the activity by id, so somebody else's activity as it reached us travels here for an Announce of it (see `APPublisher.prepare_publish_params/3`)
-      |> Utils.maybe_put("data_received", opts[:data_received])
+      # no longer carries somebody else's activity as it reached us for an Announce of it: the publisher reads it from that activity's row (`data_received`), so a retried job sends it too
+      # |> Utils.maybe_put("data_received", opts[:data_received])
       |> build_actor_fields(opts[:actor]),
       PublisherWorker.maybe_schedule_worker_args(opts[:activity_data], opts[:worker_args] || [])
     )

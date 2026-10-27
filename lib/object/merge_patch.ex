@@ -18,14 +18,47 @@ defmodule ActivityPub.Object.MergePatch do
 
     Enum.reduce(to, removed, fn {key, value}, patch ->
       case from do
-        %{^key => ^value} -> patch
-        %{^key => %{} = old} when is_map(value) -> Map.put(patch, key, create_merge_patch(old, value))
-        _ -> Map.put(patch, key, value)
+        %{^key => ^value} ->
+          patch
+
+        %{^key => %{} = old} when is_map(value) ->
+          Map.put(patch, key, create_merge_patch(old, value))
+
+        _ ->
+          Map.put(patch, key, value)
       end
     end)
   end
 
   def create_merge_patch(_from, to), do: to
+
+  @doc """
+  As `create_merge_patch/2`, but each of the top-level `keep` keys that `to` has is in the patch whole, even when unchanged, so a query reading it from the patch alone finds it. A kept map holds what was taken out of it as `nil`, so it still merges back to `to`.
+
+      iex> create_merge_patch(%{"id" => "x", "content" => "hi"}, %{"id" => "x", "content" => "hi"}, ["id"])
+      %{"id" => "x"}
+  """
+  def create_merge_patch(%{} = from, %{} = to, keep) when is_list(keep) do
+    Enum.reduce(keep, create_merge_patch(from, to), fn key, patch ->
+      case to do
+        %{^key => value} -> Map.put(patch, key, whole(Map.get(from, key), value))
+        _ -> patch
+      end
+    end)
+  end
+
+  def create_merge_patch(from, to, _keep), do: create_merge_patch(from, to)
+
+  # `to` in full, with each key `from` had and `to` has not as `nil`, at any depth
+  defp whole(%{} = from, %{} = to) do
+    removed = for key <- Map.keys(from), not is_map_key(to, key), into: %{}, do: {key, nil}
+
+    Enum.reduce(to, removed, fn {key, value}, acc ->
+      Map.put(acc, key, whole(Map.get(from, key), value))
+    end)
+  end
+
+  defp whole(_from, to), do: to
 
   @doc """
   `patch` applied to `target`, walking the patch only, so the cost grows with the patch rather than the document. A map patched onto something that is not a map starts from an empty one.

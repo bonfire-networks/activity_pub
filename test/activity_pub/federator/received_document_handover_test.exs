@@ -5,6 +5,7 @@ defmodule ActivityPub.Federator.ReceivedDocumentHandoverTest do
     * the receiver puts it in the options of every delivery it hands on
     * an adapter with `handle_activity/2` gets it in its options; one with only `handle_activity/1` is called as before
     * whoever uses it checks it is the activity at hand (`ActivityPub.announce/2` does, see `relayed_received_document_test.exs`): the inner activity of a relayed Announce is handed over with the Announce's
+    * the activity itself is handed over as stored: its own original, when it keeps one, is the one stored with it
   """
   use ActivityPub.DataCase, async: false
   use Repatch.ExUnit
@@ -63,13 +64,14 @@ defmodule ActivityPub.Federator.ReceivedDocumentHandoverTest do
       assert_received {:handed_over, _id}
     end
 
-    test "gets it on the activity too, so it reaches whatever the activity is passed to (a group's Announce of it)" do
+    # The activity's own original is the one stored with it, when its proof held (`unaltered_storage_test.exs`); one put on the struct here would be one the row does not hold, which a later write of that struct would take for its original
+    test "gets the activity as stored, without the delivery's document put on it" do
       with_adapter(CarriedOnTheActivity)
 
       assert {:ok, :one} =
                Adapter.maybe_handle_activity(remote(@document["id"]), data_received: @document)
 
-      assert_received {:on_the_activity, @document}
+      assert_received {:on_the_activity, nil}
     end
   end
 

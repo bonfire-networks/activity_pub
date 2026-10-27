@@ -189,6 +189,92 @@ defmodule ActivityPub.Migrations do
   end
 
   @doc """
+  Adds an index on an activity's actor with its date, for ap_object. An actor's outbox page reads its newest rows straight from it, and its count reads it; without it each scans the whole table.
+  """
+  def add_object_actor_index(concurrently? \\ concurrently?()) do
+    create_if_not_exists(
+      index(:ap_object, ["(data->>'actor')", "inserted_at DESC"],
+        name: :ap_object_actor_inserted_at_index,
+        concurrently: concurrently?
+      )
+    )
+  end
+
+  @doc """
+  Drops the actor index on ap_object.
+  """
+  def drop_object_actor_index do
+    drop_if_exists(index(:ap_object, [], name: :ap_object_actor_inserted_at_index))
+  end
+
+  @doc """
+  Adds an index on an actor's `preferredUsername`, for ap_object, holding actor rows only. Used by the lookup of a deleted local actor's tombstone (which runs for any unknown name requested) and of actors by username.
+
+  Partial on the field not being null rather than on `local`: the tombstone lookup compares `local` with a parameter, which a generic plan cannot match to `WHERE local`, while `preferredUsername = $1` implies the field is not null in any plan.
+  """
+  def add_object_username_index(concurrently? \\ concurrently?()) do
+    create_if_not_exists(
+      index(:ap_object, ["(data->>'preferredUsername')"],
+        name: :ap_object_preferred_username_index,
+        where: "(data->>'preferredUsername') IS NOT NULL",
+        concurrently: concurrently?
+      )
+    )
+  end
+
+  @doc """
+  Drops the username index on ap_object.
+  """
+  def drop_object_username_index do
+    drop_if_exists(index(:ap_object, [], name: :ap_object_preferred_username_index))
+  end
+
+  @doc """
+  Adds a GIN index on everyone an activity is addressed to (the expression of `ActivityPub.Queries.Fragments.recipients/1`, which must stay identical for the index to be used), for ap_object, activities only. An actor's inbox page, its count and its MLS messages read it; without it each scans the whole table.
+  """
+  def add_object_recipients_index(concurrently? \\ concurrently?()) do
+    create_if_not_exists(
+      index(
+        :ap_object,
+        [
+          "(coalesce(data->'to', '[]'::jsonb) || coalesce(data->'cc', '[]'::jsonb) || coalesce(data->'bto', '[]'::jsonb) || coalesce(data->'bcc', '[]'::jsonb) || coalesce(data->'audience', '[]'::jsonb))"
+        ],
+        name: :ap_object_recipients_index,
+        using: "GIN",
+        where: "is_object != true",
+        concurrently: concurrently?
+      )
+    )
+  end
+
+  @doc """
+  Drops the recipients index on ap_object.
+  """
+  def drop_object_recipients_index do
+    drop_if_exists(index(:ap_object, [], name: :ap_object_recipients_index))
+  end
+
+  @doc """
+  Adds an index on when a row was stored, for ap_object, holding only the types `ActivityPub.Pruner` deletes by age (a few thousand rows on a large instance). Each of its daily deletes otherwise scans the whole table, pushing hot pages out of the cache. A type the pruner starts deleting by age goes in this list too.
+  """
+  def add_object_prunable_index(concurrently? \\ concurrently?()) do
+    create_if_not_exists(
+      index(:ap_object, [:updated_at],
+        name: :ap_object_prunable_updated_at_index,
+        where: "(data->>'type') IN ('Delete', 'Undo', 'Remove', 'Tombstone', 'Follow')",
+        concurrently: concurrently?
+      )
+    )
+  end
+
+  @doc """
+  Drops the pruner index on ap_object.
+  """
+  def drop_object_prunable_index do
+    drop_if_exists(index(:ap_object, [], name: :ap_object_prunable_updated_at_index))
+  end
+
+  @doc """
   Membership table backing `ActivityPub.GenericCollectionStore` (the fallback store for
   collections the lib itself owns, e.g. `keyPackages`). One row per member of a collection.
 

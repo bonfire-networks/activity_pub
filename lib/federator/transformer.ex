@@ -2575,9 +2575,10 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, copy_opts} <- ActivityPub.Safety.with_author_signature(opts, copy),
          true <- copy_opts[:authenticated] in [:integrity_proof, :ld_signature],
          {:ok, owner} <- ActivityPub.Safety.IntegrityProofs.owner(copy),
-         {:ok, %Object{} = object} <-
+         {:ok, %Object{} = stored} <-
            handle_incoming(copy, Keyword.put(copy_opts, :signed_by, owner)) do
-      {:ok, object}
+      # the object, not the virtual `Create` it is stored in, as a fetch returns it
+      {:ok, Fetcher.created_object(stored)}
     else
       %Object{} = held -> {:ok, held}
       _not_vouched_for -> object_normalize_and_maybe_fetch(id, opts)

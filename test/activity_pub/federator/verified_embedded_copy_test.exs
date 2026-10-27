@@ -81,11 +81,18 @@ defmodule ActivityPub.Federator.VerifiedEmbeddedCopyTest do
       test "signed by its author: the post is stored from the copy, as vouched for by the proof",
            %{note: note, key: key, author: author, booster: booster} do
         copy = signed(note, key, author)
+        activity = activity(unquote(type), booster, copy)
 
-        assert {:ok, _} = delivered(activity(unquote(type), booster, copy))
+        assert {:ok, _} = delivered(activity)
 
         assert {:ok, %Object{authenticated: :integrity_proof, data_received: ^copy}} =
                  Object.get_uncached(ap_id: note["id"])
+
+        # and the activity is about the post itself, not what storing it was wrapped in
+        assert {:ok, %Object{data: %{"object" => about}}} =
+                 Object.get_uncached(ap_id: activity["id"])
+
+        assert about == note["id"]
       end
 
       test "with no proof: not trusted, so fetched, and not stored when its origin serves nothing",

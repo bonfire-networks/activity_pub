@@ -553,17 +553,8 @@ defmodule ActivityPub.Federator.Fetcher do
 
           {:ok, object}
 
-        # return the object rather than a Create activity (do we want this?)
-        %{
-          data: %{"type" => "Create"},
-          object: %{id: _} = object,
-          pointer_id: created_pointer_id,
-          pointer: created_pointer
-        } = _activity ->
-          {:ok,
-           object
-           |> Utils.maybe_put(:pointer_id, created_pointer_id || Utils.uid(created_pointer))
-           |> Utils.maybe_put(:pointer, created_pointer)}
+        %{data: %{"type" => "Create"}, object: %{id: _}} = created ->
+          {:ok, created_object(created)}
 
         _ ->
           {:ok, object}
@@ -573,6 +564,25 @@ defmodule ActivityPub.Federator.Fetcher do
         error(e)
     end
   end
+
+  @doc """
+  The object a stored `Create` is about, with the `Create`'s pointer (what the adapter made of it): what storing an object returns, as a standalone object is stored inside a virtual `Create` (`Transformer.handle_incoming/2`). Anything else is returned as it is.
+  """
+  # TODO: a fetch of an ACTIVITY's id (a `Create` URL) also gets the object inside it rather than the activity asked for, as this cannot tell a virtual `Create` from a real one
+  def created_object(
+        %{
+          data: %{"type" => "Create"},
+          object: %{id: _} = object,
+          pointer_id: created_pointer_id,
+          pointer: created_pointer
+        } = _activity
+      ) do
+    object
+    |> Utils.maybe_put(:pointer_id, created_pointer_id || Utils.uid(created_pointer))
+    |> Utils.maybe_put(:pointer, created_pointer)
+  end
+
+  def created_object(other), do: other
 
   def fetch_outbox(actor, opts \\ [])
 

@@ -173,6 +173,8 @@ defmodule ActivityPub.Federator.Transformer do
     # `Answer` is the internal marker for a poll vote (set by `fix_type/2` on incoming); on the wire
     # a vote is a plain `Note` (Mastodon has no `Answer` type), so rewrite it back on the way out.
     |> rewrite_answer_to_note()
+    # someone else's object goes out with the nested objects its author embedded, which ingest stored on their own
+    |> ActivityPub.Federator.NestedObjects.reembed(object)
 
     # |> Map.get(:data) # done by set_replies/2
     # |> Map.delete("bto")

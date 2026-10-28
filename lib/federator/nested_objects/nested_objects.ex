@@ -33,6 +33,9 @@ defmodule ActivityPub.Federator.NestedObjects do
     :relayed_by
   ]
 
+  # what `reembed/2` looks fields up in: a stored row has lost its own `@context`
+  @activitystreams_context "https://www.w3.org/ns/activitystreams"
+
   @doc """
   Options: `:context` (the `@context` of the document the object is nested in, which applies when the object has none of its own), `:include_fields` and `:exclude_fields` (fields to ingest, or to leave alone, for this call, winning over the context and the config), `:fetch_remote?` (default `true`; with `false` nobody is asked and each embedded copy is stored as it came), `:to` (the audience a stored embedded copy is given when it has none, default the object's own), and the options of `ActivityPub.Federator.Fetcher.fetch_object_from_id/2`.
 
@@ -61,6 +64,40 @@ defmodule ActivityPub.Federator.NestedObjects do
       end
     end)
   end
+
+  @doc """
+  The inverse of `ingest/2`, for a copy of somebody else's object built from the row we hold (`row`) to send on: each field `ingest/2` would have looked in that holds the id of a nested object we hold is given the object back, as its author sent it, in place. Never asks anybody: an id we do not hold stays an id, and so does one we hold only because we fetched it (the author sent an id there). A nested object that kept its original (its own proof held) is given as that original, so the proof still verifies.
+
+  The fields are those of the ActivityStreams context and the configured ones (`Terms.policies/3` given that context), as a stored row has lost its own `@context`: a term only another context defines stays an id. Our own objects are returned as they are, and so is a document that kept its own original, which a caller sends instead.
+  """
+  def reembed(data, %Object{local: false}) when is_map(data) do
+    data
+    |> Terms.policies(@activitystreams_context)
+    |> Map.keys()
+    |> Enum.reduce(data, fn field, acc ->
+      case acc do
+        %{^field => value} -> Map.put(acc, field, reembed_value(value))
+        _ -> acc
+      end
+    end)
+  end
+
+  def reembed(data, _row), do: data
+
+  defp reembed_value(ids) when is_list(ids), do: Enum.map(ids, &reembed_value/1)
+
+  defp reembed_value(id) when is_binary(id) do
+    case Object.normalize(id, false) do
+      %Object{local: false, authenticated: authenticated} = held
+      when authenticated not in [nil, :fetched] ->
+        held.data_received || held.data
+
+      _ ->
+        id
+    end
+  end
+
+  defp reembed_value(other), do: other
 
   defp detect_and_store(value, policy, wrapper, options) when is_list(value) do
     # Handle arrays of potential AP objects
@@ -161,6 +198,12 @@ defmodule ActivityPub.Federator.NestedObjects do
   end
 
   defp store_embedded(embedded_object, authenticated, options) do
+    # one vouched for by its own signature is stored with the original it arrived as, the `to` we add below being ours, so its signature still verifies when it goes out again (`reembed/2`); the parent's original is not its own
+    options =
+      if authenticated in [:integrity_proof, :ld_signature],
+        do: Keyword.put(options, :data_received, embedded_object),
+        else: Keyword.delete(options, :data_received)
+
     case embedded_object
          |> Map.put_new("to", options[:to] || [])
          |> Fetcher.cached_or_handle_incoming(

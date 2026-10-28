@@ -107,6 +107,35 @@ defmodule ActivityPub.Federator.Transformer do
 
   def wrapped_relay_data(_), do: nil
 
+  @doc """
+  What an `Announce` announces, as it reached us, when we hold it with its original (`data_received`, kept when its proof or LD signature held): an activity (a group relaying it) or an object (a boost of a post). `nil` for anything else. Looked up once, for `with_original_object/2` to apply for each inbox.
+  """
+  def original_object(%{"type" => "Announce", "object" => inner}) do
+    with id when is_binary(id) <- Object.get_ap_id(inner),
+         {:ok, %Object{data_received: %{"id" => ^id} = received}} <-
+           Object.get_cached(ap_id: id) do
+      received
+    else
+      _ -> nil
+    end
+  end
+
+  def original_object(_data), do: nil
+
+  @doc """
+  The original of what an `Announce` announces (see `original_object/1`) in place of the copy built from what we stored, so the author's proof or signature still verifies for whoever gets it: the same whether the `Announce` is delivered or served at its own URL. After the privacy step, which would otherwise edit it (`cc`, URLs), and before signing, so ours covers it. Not even `bto`/`bcc` are taken out: that is the emitting instance's job, and would break the author's proof.
+  """
+  def with_original_object(data), do: with_original_object(data, original_object(data))
+
+  def with_original_object(%{"type" => "Announce", "object" => inner} = data, %{"id" => id} = original)
+      when is_binary(id) do
+    if Object.get_ap_id(inner) == id,
+      do: Map.put(data, "object", original),
+      else: data
+  end
+
+  def with_original_object(data, _original), do: data
+
   # somebody else's `Create` as it reached us, when we hold it with its original (kept when its proof or LD signature held), in place of the one rebuilt from our copy, so their proof still verifies for whoever receives the group's Announce
   defp with_received_create(prepared, %Object{
          data: %{"id" => id},

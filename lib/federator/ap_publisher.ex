@@ -63,7 +63,7 @@ defmodule ActivityPub.Federator.APPublisher do
     # Utils.maybe_forward_activity(prepared_activity_data)
 
     # read from the row, so a retried job sends it too
-    received = received_object_to_relay(prepared_activity_data)
+    received = Transformer.original_object(prepared_activity_data)
 
     to = activity.data["to"] || []
     cc = activity.data["cc"] || []
@@ -122,7 +122,7 @@ defmodule ActivityPub.Federator.APPublisher do
                   Utils.authority(inbox),
                   meta[:ids]
                 )
-                |> maybe_with_received_object_to_relay(received)
+                |> Transformer.with_original_object(received)
                 |> debug("safe json")
 
               # FEP-8b32: signed last, over exactly the bytes this inbox gets (nothing after this touches the body)
@@ -652,32 +652,6 @@ defmodule ActivityPub.Federator.APPublisher do
       recipients
     end
   end
-
-  # The author's activity as it reached us, unchanged, as the object of our Announce of it, in place of the copy built from what we stored: after the per-inbox privacy step, which would otherwise edit it (`cc`, URLs), and before signing, so our proof covers it. Not even `bto`/`bcc` are taken out: that is the emitting instance's job, and would break the author's proof.
-  defp maybe_with_received_object_to_relay(
-         %{"type" => "Announce", "object" => inner} = data,
-         %{"id" => id} = received
-       )
-       when is_binary(id) do
-    if ActivityPub.Object.get_ap_id(inner) == id,
-      do: Map.put(data, "object", received),
-      else: data
-  end
-
-  defp maybe_with_received_object_to_relay(data, _received), do: data
-
-  # the activity an Announce relays, as it reached us, when we hold it with its original
-  defp received_object_to_relay(%{"type" => "Announce", "object" => inner}) do
-    with id when is_binary(id) <- ActivityPub.Object.get_ap_id(inner),
-         {:ok, %ActivityPub.Object{data_received: %{"id" => ^id} = received}} <-
-           ActivityPub.Object.get_cached(ap_id: id) do
-      received
-    else
-      _ -> nil
-    end
-  end
-
-  defp received_object_to_relay(_data), do: nil
 
   @doc "An actor's shared inbox when it has one, else its own."
   def maybe_use_sharedinbox(actor_data),

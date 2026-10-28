@@ -9,11 +9,16 @@ defmodule ActivityPub.Web.ObjectView do
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Web.Collections
 
+  # One we hold with its original (kept when its proof or LD signature held) is served as its author sent it, so the proof still verifies for whoever fetches it. Not rebuilt, and not put through the privacy step below, which edits a copy (`bto`/`bcc`, URLs) and would break the proof: a received document is what we received.
+  def render("object.json", %{object: %Object{data_received: %{} = original}}), do: original
+
   def render("object.json", %{object: object} = assigns) do
     object
     # |> debug
     |> Transformer.prepare_outgoing(assigns[:opts] || [])
     ~> Transformer.preserve_privacy_of_outgoing(nil, :public)
+    # an Announce of something we hold with its original carries it, as the delivered one does
+    ~> Transformer.with_original_object()
   end
 
   def render("outbox.json", %{actor: actor, page: page}) when is_integer(page) do

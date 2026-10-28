@@ -441,6 +441,12 @@ defmodule ActivityPub.Federator.Adapter do
   def adapter_handles?(query), do: call_or(:adapter_handles?, [query], false) == true
 
   @doc """
+  Whether the host requires every fetch of our objects to be signed, whatever `:reject_unsigned` says. Optional callback, polyfilled as `false`: Bonfire answers `true` in archipelago (allowlist-only) mode, where the signature is the only way to tell whether the asker is on the allowlist. See `ActivityPub.Config.reject_unsigned?/0`.
+  """
+  @callback require_signed_fetch?() :: boolean()
+  def require_signed_fetch?(), do: call_or(:require_signed_fetch?, [], false) == true
+
+  @doc """
   The base URL of the application serving `ActivityPub.Web.Endpoint`.
   """
   @callback base_url() :: String.t()
@@ -613,5 +619,6 @@ defmodule ActivityPub.Federator.Adapter do
                       federation_allowed?: 2,
                       collection_items: 2,
                       collection_total: 2,
-                      adapter_handles?: 1
+                      adapter_handles?: 1,
+                      require_signed_fetch?: 0
 end

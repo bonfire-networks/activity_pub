@@ -283,6 +283,11 @@ defmodule ActivityPub.Config do
     Application.get_env(:activity_pub, key, default)
   end
 
+  @doc "Whether our objects may only be fetched with a valid signature: `:reject_unsigned` is set, or the adapter requires it (see `ActivityPub.Federator.Adapter.require_signed_fetch?/0`)."
+  def reject_unsigned? do
+    get(:reject_unsigned, false) == true or ActivityPub.Federator.Adapter.require_signed_fetch?()
+  end
+
   def get!(key) do
     value = get(key, nil)
 

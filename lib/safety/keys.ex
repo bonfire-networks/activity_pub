@@ -123,7 +123,7 @@ defmodule ActivityPub.Safety.Keys do
       Map.put(actor, :data, put_assertion_method(data, actor))
     else
       e ->
-        error(e, "Could not add public key")
+        error(actor, "Could not add public key to actor: #{inspect(e)}")
         actor
     end
   end

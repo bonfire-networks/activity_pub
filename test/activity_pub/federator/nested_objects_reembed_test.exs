@@ -151,7 +151,6 @@ defmodule ActivityPub.Federator.NestedObjectsReembedTest do
       Ecto.Query.from(o in Object, where: fragment("?->>'id' = ?", o.data, ^two["id"]))
     )
 
-
     assert [%{"id" => id, "name" => "one"}, second] = outgoing(create)["object"]["location"]
     assert id == one["id"]
     assert second == two["id"]

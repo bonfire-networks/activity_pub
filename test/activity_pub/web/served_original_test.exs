@@ -75,13 +75,18 @@ defmodule ActivityPub.Web.ServedOriginalTest do
 
     %{"object" => note} = create = create_note(author_id)
     note = Map.put(note, "to", [owner.ap_id])
-    create = create |> Map.put("to", [owner.ap_id]) |> Map.put("object", sign(note, key)) |> sign(key)
+
+    create =
+      create |> Map.put("to", [owner.ap_id]) |> Map.put("object", sign(note, key)) |> sign(key)
+
     assert {:ok, _} = received(create, author_id)
 
     %{"orderedItems" => items} = ObjectView.render("inbox.json", %{actor: owner, page: 1})
 
     assert create in items
-    assert IntegrityProofs.verify(Enum.find(items, &(&1["id"] == create["id"]))) == {:ok, author_id}
+
+    assert IntegrityProofs.verify(Enum.find(items, &(&1["id"] == create["id"]))) ==
+             {:ok, author_id}
   end
 
   test "one we hold unsigned is served rebuilt, with no proof", %{author_id: author_id} do

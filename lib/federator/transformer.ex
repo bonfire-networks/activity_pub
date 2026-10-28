@@ -127,7 +127,10 @@ defmodule ActivityPub.Federator.Transformer do
   """
   def with_original_object(data), do: with_original_object(data, original_object(data))
 
-  def with_original_object(%{"type" => "Announce", "object" => inner} = data, %{"id" => id} = original)
+  def with_original_object(
+        %{"type" => "Announce", "object" => inner} = data,
+        %{"id" => id} = original
+      )
       when is_binary(id) do
     if Object.get_ap_id(inner) == id,
       do: Map.put(data, "object", original),

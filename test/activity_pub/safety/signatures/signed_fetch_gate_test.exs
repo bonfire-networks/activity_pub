@@ -20,7 +20,15 @@ defmodule ActivityPub.Web.Plugs.SignedFetchGateTest do
 
     def get_or_create_service_actor do
       id = ActivityPub.Utils.ap_base_url() <> "/actors/service_actor"
-      {:ok, %ActivityPub.Actor{id: "service_actor", local: true, ap_id: id, username: "service_actor", data: %{"id" => id}}}
+
+      {:ok,
+       %ActivityPub.Actor{
+         id: "service_actor",
+         local: true,
+         ap_id: id,
+         username: "service_actor",
+         data: %{"id" => id}
+       }}
     end
   end
 

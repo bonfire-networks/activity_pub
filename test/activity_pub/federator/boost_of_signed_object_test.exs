@@ -23,7 +23,11 @@ defmodule ActivityPub.Federator.BoostOfSignedObjectTest do
     author_id = "https://author-#{n}.example/users/author"
     actor(ap_id: author_id, data: %{"assertionMethod" => [multikey(author_id, key)]})
 
-    follower = actor(ap_id: "https://follower-#{n}.example/users/follower", shared_inbox: "https://follower-#{n}.example/inbox")
+    follower =
+      actor(
+        ap_id: "https://follower-#{n}.example/users/follower",
+        shared_inbox: "https://follower-#{n}.example/inbox"
+      )
 
     %{username: username} = local_actor()
     {:ok, booster} = Actor.get_cached(username: username)
@@ -86,6 +90,7 @@ defmodule ActivityPub.Federator.BoostOfSignedObjectTest do
     %{"object" => note} = create = author_id |> create_note() |> sign(key)
     signed_note = sign(note, key)
     create = Map.put(create, "object", signed_note) |> Map.delete("proof") |> sign(key)
+
     # as the receiver does: the proofs are checked first, which stores the post as vouched for by its own, with its original
     assert {:ok, _} = received(create, author_id)
 

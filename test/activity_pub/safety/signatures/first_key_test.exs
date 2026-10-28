@@ -30,6 +30,12 @@ defmodule ActivityPub.Safety.FirstKeyTest do
 
     assert %{"publicKey" => %{"publicKeyPem" => pem}} = published.data
     assert pem =~ "BEGIN PUBLIC KEY"
+
+    # and it was saved: the group as it is stored now, asked again, has this key and makes no other
+    {:ok, stored} = ActivityPub.Actor.get_cached(pointer: group)
+    again = Keys.add_public_key(%{stored | keys: nil})
+
+    assert again.data["publicKey"]["publicKeyPem"] == pem
   end
 
   test "asking again finds the key that was made, and makes no other" do

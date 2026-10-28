@@ -61,4 +61,19 @@ defmodule ActivityPub.TestAdapter do
   end
 
   def base_url(), do: ActivityPub.Web.Endpoint.url()
+
+  # lets a test make the adapter require signed fetches, the way Bonfire does in archipelago mode
+  def require_signed_fetch?(), do: ActivityPub.Config.get(:test_require_signed_fetch, false) == true
+
+  # a stand-in: the plugs only need its AP id, to recognise the one actor that stays fetchable unsigned
+  def get_or_create_service_actor() do
+    {:ok,
+     %ActivityPub.Actor{
+       id: "service_actor",
+       local: true,
+       ap_id: ActivityPub.Utils.ap_base_url() <> "/actors/service_actor",
+       username: "service_actor",
+       data: %{"id" => ActivityPub.Utils.ap_base_url() <> "/actors/service_actor"}
+     }}
+  end
 end

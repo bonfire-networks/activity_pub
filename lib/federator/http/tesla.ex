@@ -79,4 +79,7 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
     end
 
   # end
+
+  # last, next to the adapter, so the redirects, `ORF` and retries above wrap the request it repeats
+  plug ActivityPub.Federator.HTTP.TLSFallback
 end

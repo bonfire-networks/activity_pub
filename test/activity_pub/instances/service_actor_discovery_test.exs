@@ -249,7 +249,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
       host = "disc-attempted-#{System.unique_integer([:positive])}.example.com"
 
       # Simulate a previous discovery attempt with no result
-      Cachex.put(:ap_sig_format_cache, "discovery:#{host}", true)
+      Instances.put_host_cache(host, :discovery, true)
 
       assert Instances.get_or_discover_signature_format(host) == :cavage
     end
@@ -285,7 +285,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
       # Should have stored the service actor URI
       assert Instance.get_service_actor_uri(host) == "https://#{host}/actor"
       # Discovery should be marked as attempted
-      assert Cachex.get(:ap_sig_format_cache, "discovery:#{host}") == {:ok, true}
+      assert Instances.get_host_cache(host, :discovery) == true
     end
 
     test "returns cavage for nil host" do

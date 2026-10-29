@@ -130,7 +130,7 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       inbox = "https://#{host}/inbox"
 
       # Mark discovery as attempted so it doesn't try HTTP.get for WebFinger
-      Cachex.put(:ap_sig_format_cache, "discovery:#{host}", true)
+      ActivityPub.Instances.put_host_cache(host, :discovery, true)
 
       with_mock ActivityPub.Federator.HTTP,
         post: fn ^inbox, _body, headers ->
@@ -194,7 +194,7 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       inbox = "https://#{host}/inbox"
 
       # Mark discovery as attempted so it doesn't try HTTP.get for WebFinger
-      Cachex.put(:ap_sig_format_cache, "discovery:#{host}", true)
+      ActivityPub.Instances.put_host_cache(host, :discovery, true)
 
       with_mock ActivityPub.Federator.HTTP,
         post: fn ^inbox, _body, _headers ->

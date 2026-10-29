@@ -37,8 +37,8 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
       host = "hollo.social"
 
       # Clear caches so discovery runs fresh
-      Cachex.del(:ap_sig_format_cache, host)
-      Cachex.del(:ap_sig_format_cache, "discovery:#{host}")
+      Instances.delete_host_cache(host, :signature_format)
+      Instances.delete_host_cache(host, :discovery)
 
       # Run discovery once for all tests in this block
       Instances.get_or_discover_signature_format(host)
@@ -84,7 +84,7 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     end
 
     test "discovery detects RFC 9421 via nodeinfo or FEP-844e", %{host: host} do
-      assert {:ok, true} == Cachex.get(:ap_sig_format_cache, "discovery:#{host}")
+      assert true == Instances.get_host_cache(host, :discovery)
 
       assert SignaturesAdapter.get_signature_format(host) == :rfc9421,
              "Expected :rfc9421 for Fedify instance #{host}"
@@ -102,8 +102,8 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     setup do
       host = "mastodon.social"
 
-      Cachex.del(:ap_sig_format_cache, host)
-      Cachex.del(:ap_sig_format_cache, "discovery:#{host}")
+      Instances.delete_host_cache(host, :signature_format)
+      Instances.delete_host_cache(host, :discovery)
 
       # Discovery + fetch will likely see Accept-Signature from Mastodon 4.5.0+
       Instances.get_or_discover_signature_format(host)
@@ -153,7 +153,7 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     end
 
     test "discovery detects RFC 9421 via nodeinfo version", %{host: host} do
-      assert {:ok, true} == Cachex.get(:ap_sig_format_cache, "discovery:#{host}")
+      assert true == Instances.get_host_cache(host, :discovery)
 
       # Mastodon 4.5.0+ is in our known RFC 9421 software list
       assert SignaturesAdapter.get_signature_format(host) == :rfc9421
@@ -183,8 +183,8 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     setup do
       host = "mitra.social"
 
-      Cachex.del(:ap_sig_format_cache, host)
-      Cachex.del(:ap_sig_format_cache, "discovery:#{host}")
+      Instances.delete_host_cache(host, :signature_format)
+      Instances.delete_host_cache(host, :discovery)
 
       # Mitra supports RFC 9421 natively
       Instances.get_or_discover_signature_format(host)
@@ -207,7 +207,7 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     end
 
     test "discovery detects RFC 9421 via nodeinfo", %{host: host} do
-      assert {:ok, true} == Cachex.get(:ap_sig_format_cache, "discovery:#{host}")
+      assert true == Instances.get_host_cache(host, :discovery)
 
       # Mitra is in our known RFC 9421 software list
       assert SignaturesAdapter.get_signature_format(host) == :rfc9421
@@ -241,8 +241,8 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     setup do
       host = "scholar.social"
 
-      Cachex.del(:ap_sig_format_cache, host)
-      Cachex.del(:ap_sig_format_cache, "discovery:#{host}")
+      Instances.delete_host_cache(host, :signature_format)
+      Instances.delete_host_cache(host, :discovery)
 
       {:ok, host: host}
     end
@@ -305,8 +305,8 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     setup do
       host = "seafoam.space"
 
-      Cachex.del(:ap_sig_format_cache, host)
-      Cachex.del(:ap_sig_format_cache, "discovery:#{host}")
+      Instances.delete_host_cache(host, :signature_format)
+      Instances.delete_host_cache(host, :discovery)
 
       Instances.get_or_discover_signature_format(host)
 

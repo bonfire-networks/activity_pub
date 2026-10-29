@@ -11,7 +11,7 @@ defmodule ActivityPub.Instances do
   alias ActivityPub.Utils
   # alias ActivityPub.Config
 
-  @discovery_cache :ap_sig_format_cache
+  @host_cache :ap_host_cache
 
   @as_application_rel "https://www.w3.org/ns/activitystreams#Application"
 
@@ -175,6 +175,32 @@ defmodule ActivityPub.Instances do
 
   def host(_), do: nil
 
+  @doc "What we learned about a remote host under `key` (eg. `:signature_format`, `:discovery`, `:tls_compat`), or nil. Kept in a cache rather than the database, so it is learned again once it expires."
+  def get_host_cache(url_or_host, key) do
+    with host when is_binary(host) <- host(url_or_host),
+         {:ok, value} <- Cachex.get(@host_cache, host_cache_key(host, key)) do
+      value
+    else
+      _ -> nil
+    end
+  end
+
+  @doc "Remembers `value` about a remote host under `key` (see `get_host_cache/2`)."
+  def put_host_cache(url_or_host, key, value) do
+    with host when is_binary(host) <- host(url_or_host) do
+      Cachex.put(@host_cache, host_cache_key(host, key), value)
+    end
+  end
+
+  @doc "Forgets what we learned about a remote host under `key` (see `get_host_cache/2`)."
+  def delete_host_cache(url_or_host, key) do
+    with host when is_binary(host) <- host(url_or_host) do
+      Cachex.del(@host_cache, host_cache_key(host, key))
+    end
+  end
+
+  defp host_cache_key(host, key), do: "#{key}:#{host}"
+
   def scrape_nodeinfo(instance_uri, opts \\ [])
 
   def scrape_nodeinfo(%URI{} = instance_uri, opts) do
@@ -280,17 +306,11 @@ defmodule ActivityPub.Instances do
 
   def get_or_discover_signature_format(_, _), do: :cavage
 
-  defp discovery_attempted?(host) do
-    Cachex.get(@discovery_cache, "discovery:#{host}") == {:ok, true}
-  end
+  defp discovery_attempted?(host), do: get_host_cache(host, :discovery) == true
 
-  defp mark_discovery_attempted(host) do
-    Cachex.put(@discovery_cache, "discovery:#{host}", true)
-  end
+  defp mark_discovery_attempted(host), do: put_host_cache(host, :discovery, true)
 
-  defp unmark_discovery_attempted(host) do
-    Cachex.del(@discovery_cache, "discovery:#{host}")
-  end
+  defp unmark_discovery_attempted(host), do: delete_host_cache(host, :discovery)
 
   # Step 1: Find the service actor URI via WebFinger (FEP-d556) or nodeinfo (FEP-2677),
   # and infer signature format from nodeinfo software version.

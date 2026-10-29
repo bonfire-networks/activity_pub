@@ -3,7 +3,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   Implementation for behaviour from `HTTPSignatures` library.
 
   Also provides signature format discovery helpers for adaptive signing
-  (RFC 9421 vs draft-cavage), using Cachex for per-host format caching
+  (RFC 9421 vs draft-cavage), using the per-host cache (`ActivityPub.Instances.get_host_cache/2`) for the format
   and FEP-844e for capability detection.
   """
   @behaviour HTTPSignatures.Adapter
@@ -13,8 +13,8 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
 
   alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Fetcher
+  alias ActivityPub.Instances
 
-  @cache :ap_sig_format_cache
   @rfc9421_uri "https://datatracker.ietf.org/doc/html/rfc9421"
 
   @doc "Get public key from local cache/DB"
@@ -95,8 +95,8 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   Returns `:rfc9421`, `:cavage`, or `nil` if unknown.
   """
   def get_signature_format(host) when is_binary(host) do
-    case Cachex.get(@cache, host) do
-      {:ok, format} when format in [:rfc9421, :cavage] -> format
+    case Instances.get_host_cache(host, :signature_format) do
+      format when format in [:rfc9421, :cavage] -> format
       _ -> nil
     end
   end
@@ -107,7 +107,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   Caches the signature format for a host.
   """
   def put_signature_format(host, format) when is_binary(host) and format in [:rfc9421, :cavage] do
-    Cachex.put(@cache, host, format)
+    Instances.put_host_cache(host, :signature_format, format)
   end
 
   def put_signature_format(_, _), do: :ok

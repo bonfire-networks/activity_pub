@@ -23,11 +23,11 @@ defmodule ActivityPub.Application do
                 interval: 1000
               )
 
-  @sig_format_expiration Cachex.Spec.expiration(
-                           # long cache — signature format changes slowly as instances upgrade
-                           default: to_timeout(week: 2),
-                           interval: 60_000
-                         )
+  @host_expiration Cachex.Spec.expiration(
+                     # long cache: what we learn about a host (signature format, TLS quirks) changes slowly as instances upgrade
+                     default: to_timeout(week: 2),
+                     interval: 60_000
+                   )
 
   @context_expiration Cachex.Spec.expiration(
                         # a remote JSON-LD context changes rarely; one we could not fetch is given a shorter expiry of its own
@@ -160,13 +160,13 @@ defmodule ActivityPub.Application do
              ]}
         },
         %{
-          id: :ap_sig_format_cache,
+          id: :ap_host_cache,
           start:
             {Cachex, :start_link,
              [
-               :ap_sig_format_cache,
+               :ap_host_cache,
                [
-                 expiration: @sig_format_expiration,
+                 expiration: @host_expiration,
                  hooks: @hooks
                ]
              ]}

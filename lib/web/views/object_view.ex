@@ -19,6 +19,8 @@ defmodule ActivityPub.Web.ObjectView do
     ~> Transformer.preserve_privacy_of_outgoing(nil, :public)
     # an Announce of something we hold with its original carries it, as the delivered one does
     ~> Transformer.with_original_object()
+    # a `Create` of ours carries the object as stored, with its proof
+    ~> Transformer.with_stored_signed_object()
   end
 
   def render("outbox.json", %{actor: actor, page: page}) when is_integer(page) do

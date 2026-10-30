@@ -488,7 +488,7 @@ defmodule ActivityPub.Object do
          object_params =
            if(match?(%Object{}, maybe_existing_object),
              do: received_or_none(object_params, opts),
-             else: keep_received(object_params, opts)
+             else: object_params |> keep_received(opts) |> keep_signed_original(local)
            ),
          {:ok, object} <-
            maybe_upsert(upsert?, maybe_existing_object, object_params) |> debug("maybe_upserted") do
@@ -555,6 +555,38 @@ defmodule ActivityPub.Object do
   end
 
   defp keep_received(attrs, _opts), do: attrs
+
+  # A new local object is kept with its signed public form: `data_received` is the document as it is served, with our proof, and `changeset/2` makes `data` the patch over it (`patch_over_received/1`), so the data is not stored twice. `bto` and `bcc` stay in `data`, as the public form has neither. Not for one of ours already stored, whose original an edit or a count must renew (plan step 10.2).
+  defp keep_signed_original(%{data: %{"id" => _} = data} = attrs, true = _local) do
+    case Safety.IntegrityProofs.Outgoing.sign_stored(data) do
+      {:ok, signed} -> attrs |> Map.put(:data_received, signed) |> Map.put(:authenticated, :integrity_proof)
+      _ -> attrs
+    end
+  end
+
+  defp keep_signed_original(attrs, _local), do: attrs
+
+  # A local object's signed original is renewed whenever its data changes, in the same write: an edit, a reply count, a poll vote. Otherwise what is served would be the old document, under a proof that still verifies. Signed again from the whole data, and dropped when it cannot be (the actor has no key), so a stale one is never served. An object stored before it had one gets one the next time it changes. Not for an insert (`keep_signed_original/2` did it) nor for a row that is not ours.
+  defp renew_signed_original(changeset) do
+    with %{__meta__: %{state: :loaded}} <- changeset.data,
+         true <- changed?(changeset, :data),
+         false <- changed?(changeset, :data_received),
+         true <- get_field(changeset, :local) == true,
+         true <- get_field(changeset, :is_object) == true,
+         %{"id" => _} = data <- get_field(changeset, :data) do
+      case Safety.IntegrityProofs.Outgoing.sign_stored(data) do
+        {:ok, signed} ->
+          changeset
+          |> put_change(:data_received, signed)
+          |> put_change(:authenticated, :integrity_proof)
+
+        _ ->
+          put_change(changeset, :data_received, nil)
+      end
+    else
+      _ -> changeset
+    end
+  end
 
   # the document as it reached us when it is this row's, or the object it embeds when that is
   defp received_original(%{"id" => id} = document, id), do: signed(document)
@@ -738,6 +770,7 @@ defmodule ActivityPub.Object do
 
   def common_changeset(object) do
     object
+    |> renew_signed_original()
     |> patch_over_received()
     |> validate_required(:data)
     |> unique_constraint(:pointer_id)
@@ -770,6 +803,7 @@ defmodule ActivityPub.Object do
     object
     |> debug("update")
     |> change(attrs)
+    |> renew_signed_original()
     |> patch_over_received()
     |> debug("cs")
     |> update_and_set_cache()

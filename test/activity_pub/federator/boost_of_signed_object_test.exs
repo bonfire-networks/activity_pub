@@ -147,6 +147,38 @@ defmodule ActivityPub.Federator.BoostOfSignedObjectTest do
     end
   end
 
+  # Our own post is stored with our proof too (plan step 10.2, `local_signed_original_test.exs`), so a boost of it, by us or another local actor, carries that document, as one of someone else's does. A guard: the stored original is taken for the post's original here as it is for a received one.
+  test "a post of ours goes out embedded as stored, with our proof", %{booster: booster} do
+    %{username: username} = local_actor()
+    {:ok, author} = Actor.get_cached(username: username)
+    {:ok, author} = ActivityPub.Safety.Keys.ensure_keys_present(author)
+    n = System.unique_integer([:positive])
+
+    assert {:ok, activity} =
+             ActivityPub.create(%{
+               actor: author,
+               context: "#{author.ap_id}/contexts/#{n}",
+               to: [@public],
+               object: %{
+                 "id" => "#{author.ap_id}/objects/#{n}",
+                 "type" => "Note",
+                 "attributedTo" => author.ap_id,
+                 "content" => "a post of ours",
+                 "to" => [@public]
+               }
+             })
+
+    {:ok, row} = Object.get_uncached(ap_id: activity.data["object"])
+    assert %{"proof" => _} = row.data_received
+
+    assert [_ | _] = announces = sent(booster, row.data["id"])
+
+    for announce <- announces do
+      assert announce["object"] == row.data_received
+      assert IntegrityProofs.verify(announce["object"]) == {:ok, author.ap_id}
+    end
+  end
+
   test "a post held unsigned goes out as our normalised copy", %{
     author_id: author_id,
     booster: booster

@@ -36,6 +36,10 @@ defmodule ActivityPub.Web.C2SProofTest do
     n = System.unique_integer([:positive])
     author = local_actor()
 
+    # storing an object never makes the actor's keys, so an author who has published has them already
+    {:ok, actor} = ActivityPub.Actor.get_cached(username: author.username)
+    {:ok, _} = ActivityPub.Safety.Keys.ensure_keys_present(actor)
+
     follower =
       actor(
         ap_id: "https://follower-#{n}.example/users/follower",
@@ -127,14 +131,30 @@ defmodule ActivityPub.Web.C2SProofTest do
     end
   end
 
-  test "is served without a proof today, by id: it is stored as sent and ObjectView signs nothing",
+  # Signed when stored (plan step 10.2), not when served: the object is kept with its proof, and what is served is that document. The `Create` around it is not signed there, as its proof is per inbox.
+  test "the object a Create is served with, by id, is the stored signed one",
        %{conn: conn, author: author, user: user} do
     created = post_create(conn, author, user, note())
     {:ok, create} = Object.get_cached(ap_id: created["id"] || created)
 
     served = ObjectView.render("object.json", %{object: create})
 
-    refute Map.has_key?(served, "proof")
-    refute is_map(served["object"]) and Map.has_key?(served["object"], "proof")
+    assert IntegrityProofs.verify(served["object"]) == {:ok, ap_id(author)}
+  end
+
+  test "and the same in the outbox", %{conn: conn, author: author, user: user} do
+    post_create(conn, author, user, note())
+    {:ok, actor} = ActivityPub.Actor.get_cached(username: author.username)
+
+    assert %{"orderedItems" => [_ | _] = items} =
+             ObjectView.render("outbox.json", %{actor: actor, page: 1})
+
+    creates = Enum.filter(items, &(&1["type"] == "Create"))
+    assert creates != [], "no Create in the outbox, only #{inspect(Enum.map(items, & &1["type"]))}"
+
+    for item <- creates do
+      assert IntegrityProofs.verify(item["object"]) == {:ok, ap_id(author)},
+             "the object of #{item["id"]} does not verify"
+    end
   end
 end

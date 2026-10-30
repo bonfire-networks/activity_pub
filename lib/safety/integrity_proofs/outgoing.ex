@@ -13,7 +13,9 @@ defmodule ActivityPub.Safety.IntegrityProofs.Outgoing do
 
   import Untangle
 
+  alias ActivityPub.Actor
   alias ActivityPub.Config
+  alias ActivityPub.Federator.Transformer
   alias ActivityPub.Safety.IntegrityProofs
   alias ActivityPub.Safety.Keys
 
@@ -40,6 +42,41 @@ defmodule ActivityPub.Safety.IntegrityProofs.Outgoing do
   end
 
   @doc """
+  The signed public form of a local object, to be kept with it (`data_received`) when it is stored: the document as `ActivityPub.Web.ObjectView` serves it (`Transformer.prepare_outgoing/2`, then without `bto` and `bcc`), signed by its owner. `{:ok, signed}`, or `:error` when signing is off, the owner is not a local actor, or it has no key yet.
+
+  Signed once here, and not on each fetch, so what is served is the one document that verifies. Never makes the actor's keys: that saves the actor (and generates an RSA key), which is not for storing an object to do, and which published an `Update` of the actor into its outbox. An actor with no key yet has its objects signed when they are delivered, as before.
+  """
+  def sign_stored(%{} = data) do
+    with true <- enabled?(),
+         {:ok, document} <- Transformer.prepare_outgoing(data),
+         document = Transformer.preserve_privacy_of_outgoing(document, nil, :public),
+         {:ok, owner} <- IntegrityProofs.owner(document),
+         {:ok, %{local: true, keys: keys} = actor} when is_binary(keys) <-
+           Actor.get_cached(ap_id: owner),
+         %{} = signer <- signer(actor),
+         {%{"proof" => _} = signed, _cache} <- sign(document, signer, created_now()) do
+      {:ok, signed}
+    else
+      _ -> :error
+    end
+  end
+
+  # The object of one of our `Create`s as stored with its proof (`sign_stored/1`), when this inbox's copy of it is that document: the same bytes as `GET` serves, and a proof made once. Only when the copy, without its `@context` (the activity's goes in at signing), is the stored one without its `proof` and `@context`; a copy the privacy step changed for this inbox (a hidden recipient folded into `cc`, a rewritten URL) is not, and is signed over its own bytes.
+  defp stored_signed(%{"id" => id} = copy) when is_binary(id) do
+    with {:ok, %{local: true, data_received: %{"id" => ^id, "proof" => _} = stored}} <-
+           ActivityPub.Object.get_cached(ap_id: id),
+         true <- Map.drop(stored, ["proof", "@context"]) == Map.delete(copy, "@context") do
+      stored
+    else
+      _ -> nil
+    end
+  end
+
+  defp stored_signed(_copy), do: nil
+
+  defp created_now, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+  @doc """
   Signs `document` for `actor`, returning it with the `cache` to pass to the next call.
 
   `created` is the time of the proofs, the same for all the documents of one publish.
@@ -51,7 +88,11 @@ defmodule ActivityPub.Safety.IntegrityProofs.Outgoing do
       when type in ["Create", "Update"] do
     context = signing_context(document)
 
-    {object, cache} = sign_one(object, context, actor, created, cache)
+    {object, cache} =
+      case stored_signed(object) do
+        %{} = stored -> {stored, cache}
+        nil -> sign_one(object, context, actor, created, cache)
+      end
 
     document
     |> Map.put("object", object)

@@ -139,6 +139,24 @@ defmodule ActivityPub.Federator.Transformer do
 
   def with_original_object(data, _original), do: data
 
+  @doc """
+  A `Create` or `Update` of a local object, served, carrying the object as it is stored with our proof (`data_received`, see `IntegrityProofs.Outgoing.sign_stored/1`) in place of the copy built from `data`, so that what is fetched verifies. A local object stored without one (its actor had no key yet, or it was stored before this) is left as built.
+
+  Only for serving. Not for delivering, which edits each inbox's copy (file URLs, hidden recipients) after this and so must sign that copy itself: `with_original_object/1,2` runs there.
+  """
+  def with_stored_signed_object(%{"type" => type, "object" => inner} = data)
+      when type in ["Create", "Update"] do
+    with id when is_binary(id) <- Object.get_ap_id(inner),
+         {:ok, %Object{local: true, data_received: %{"id" => ^id} = original}} <-
+           Object.get_cached(ap_id: id) do
+      Map.put(data, "object", original)
+    else
+      _ -> data
+    end
+  end
+
+  def with_stored_signed_object(data), do: data
+
   # somebody else's `Create` as it reached us, when we hold it with its original (kept when its proof or LD signature held), in place of the one rebuilt from our copy, so their proof still verifies for whoever receives the group's Announce
   defp with_received_create(prepared, %Object{
          data: %{"id" => id},

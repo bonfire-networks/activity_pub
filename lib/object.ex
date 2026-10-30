@@ -1284,6 +1284,7 @@ defmodule ActivityPub.Object do
   - skips the draft/scheduled `published <= now()` gate (`only_published: false`) — gating on
     `published` could hide an in-order message and break MLS group/ratchet state.
   """
+  # TODO: check what the MLS-over-ActivityPub spec says of the `mls:messages` order, before this page moves to receive order (`updated_at`): the inbox it reuses sorts by `inserted_at`, which is a post's `published` for a remote one within range, so a sender's drifting clock can list commits out of order
   def get_mls_messages_for_actor(actor_or_ap_id, page \\ 1, opts \\ []) do
     get_inbox_for_actor(
       actor_or_ap_id,

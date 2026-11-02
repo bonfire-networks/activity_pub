@@ -10,6 +10,7 @@ defmodule ActivityPub.Federator.APPublisherSigningTest do
   use ActivityPub.DataCase, async: false
 
   import ActivityPub.Factory
+  import ActivityPub.Test.IntegrityProofHelpers
 
   alias ActivityPub.Actor
   alias ActivityPub.Object
@@ -174,6 +175,77 @@ defmodule ActivityPub.Federator.APPublisherSigningTest do
 
         if is_map(inner["object"]),
           do: refute(Map.has_key?(inner["object"], "proof"), "nor for the author's post")
+      end
+    end
+  end
+
+  describe "a group relaying a remote member's signed post" do
+    # the post is held signed by its author (the receiver stores it with its original); the group's relay of it embeds that original, which keeps the author's proof, and the group adds none of its own to what it did not write
+    setup %{actor: local, first: first} do
+      key = new_key(:ed25519)
+      n = System.unique_integer([:positive])
+      author_id = "https://signed-author-#{n}.example/users/author"
+      actor(ap_id: author_id, data: %{"assertionMethod" => [multikey(author_id, key)]})
+
+      %{"object" => note} = create = author_id |> create_note() |> sign(key)
+      signed_note = sign(note, key)
+      create = Map.put(create, "object", signed_note) |> Map.delete("proof") |> sign(key)
+
+      assert {:ok, _} =
+               ActivityPub.Federator.Worker.ReceiverHelpers.perform(
+                 %Oban.Job{
+                   args: %{
+                     "op" => "incoming_ap_doc",
+                     "params" => create,
+                     "signed_by" => author_id,
+                     "repo" => ActivityPub.Utils.repo()
+                   }
+                 },
+                 :verified
+               )
+
+      group = %{local | data: Map.put(local.data, "type", "Group")}
+
+      {:ok, announce} =
+        ActivityPub.announce(%{actor: group, object: Object.get_cached!(ap_id: note["id"])})
+
+      # the author's inbox is addressed too, so there is somewhere to deliver to
+      announce = %{announce | data: Map.update!(announce.data, "cc", &[first.ap_id | &1])}
+
+      %{group: group, announce: announce, author_id: author_id, note_id: note["id"]}
+    end
+
+    test "the post inside keeps the author's proof, and none is the group's", %{
+      group: group,
+      actor_id: group_id,
+      announce: announce,
+      author_id: author_id,
+      note_id: note_id
+    } do
+      payloads = payloads(group, announce)
+
+      assert payloads != []
+
+      for payload <- payloads do
+        # control: the Announce is the group's own
+        assert IntegrityProofs.verify(payload) == {:ok, group_id}
+
+        inner = payload["object"]
+        post = if inner["type"] == "Create", do: inner["object"], else: inner
+
+        assert post["id"] == note_id
+
+        assert IntegrityProofs.verify(post) == {:ok, author_id},
+               "the author's proof travels with the post"
+
+        refute IntegrityProofs.verify(post) == {:ok, group_id}
+
+        if inner["type"] == "Create",
+          do:
+            refute(
+              IntegrityProofs.verify(inner) == {:ok, group_id},
+              "nor is the Create the group's"
+            )
       end
     end
   end

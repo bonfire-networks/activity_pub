@@ -194,12 +194,14 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
   # `invalid?`: a signature did not hold (here a proof in the body; then the actor's HTTP signature, or an LD signature), which decides which config says whether it can be accepted anyway at the end (`accept_anyway?/1`)
   defp maybe_process_unsigned_cascade(headers, params, invalid?) do
-    actor = Object.actor_from_data(params)
-    signed? = is_binary(headers["signature"]) and is_binary(actor)
+    actor = Object.actor_id_from_data(params)
+    signer = http_signer(headers)
+    signed? = is_binary(signer) and is_binary(actor)
 
     fetch_fresh_public_key? =
       if signed? do
-        if String.contains?(headers["signature"], actor) do
+        # the signature's key has to BELONG to the actor: containing the actor's id as text is not that (an account whose id merely names the actor's would pass)
+        if signer == actor do
           Untangle.warn(
             "HTTP signature validation failed for #{actor}, will start by re-fetching public key"
           )
@@ -237,15 +239,25 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
       if LinkedDataSignatures.has_verifiable_signature?(params) do
         case LinkedDataSignatures.verify(params) do
           {:ok, creator} ->
-            Untangle.info("Valid Linked Data Signature from #{creator}, processing activity")
+            if signer_may_vouch_for?(creator, params) do
+              Untangle.info("Valid Linked Data Signature from #{creator}, processing activity")
 
-            # an LD signature verifies an identity just as an HTTP signature does, so it can stand
-            # as the author of a document that names none (e.g. relay-forwarded)
-            handle_received(params,
-              from_inbox: true,
-              authenticated: :ld_signature,
-              signed_by: creator
-            )
+              # an LD signature verifies an identity just as an HTTP signature does, so it can stand
+              # as the author of a document that names none (e.g. relay-forwarded)
+              handle_received(params,
+                from_inbox: true,
+                authenticated: :ld_signature,
+                signed_by: creator
+              )
+            else
+              Untangle.warn(
+                creator,
+                "Linked Data Signature is not by the activity's actor, so it vouches for nothing"
+              )
+
+              # evidence against the document, as a broken proof is
+              maybe_process_unsigned_fallback(params, true)
+            end
 
           {:error, reason} = result ->
             Untangle.warn(
@@ -261,6 +273,26 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
       else
         maybe_process_unsigned_fallback(params, invalid?)
       end
+    end
+  end
+
+  # the actor an HTTP signature's key belongs to, mapped as the signature plug maps it (the key id without its fragment and known suffixes), or `nil` when there is none to read
+  defp http_signer(headers) do
+    # (`extract_signature/1` loops on headers with no signature in them)
+    with true <- is_binary(headers["signature"]) or is_binary(headers["signature-input"]),
+         %{"keyId" => key_id} when is_binary(key_id) <- HTTPSignatures.extract_signature(headers),
+         {:ok, actor_id} <- ActivityPub.Safety.Keys.key_id_to_actor_id(key_id) do
+      actor_id
+    else
+      _ -> nil
+    end
+  end
+
+  # An LD signature vouches for a document only when its signer is the document's actor (as a proof's controller must be its owner): a valid signature by SOMEONE ELSE says nothing about this actor, and without this check anyone could sign an activity naming another. A document naming no actor is the signer's (e.g. relay-forwarded). `Object.actor_id_from_data/1` is what the author of the activity is resolved from, so the two cannot differ.
+  defp signer_may_vouch_for?(creator, params) do
+    case Object.actor_id_from_data(params) do
+      nil -> true
+      actor_id -> actor_id == creator
     end
   end
 

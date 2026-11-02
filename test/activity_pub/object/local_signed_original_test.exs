@@ -15,6 +15,7 @@ defmodule ActivityPub.Object.LocalSignedOriginalTest do
   setup do
     author = local_actor()
     {:ok, actor} = ActivityPub.Actor.get_cached(username: author.username)
+
     # storing an object never makes the actor's keys (that saves the actor), so it has them already
     {:ok, actor} = ActivityPub.Safety.Keys.ensure_keys_present(actor)
     %{actor: actor}
@@ -47,7 +48,8 @@ defmodule ActivityPub.Object.LocalSignedOriginalTest do
                      "id" => "#{actor.ap_id}/objects/#{n}",
                      "type" => "Note",
                      "attributedTo" => actor.ap_id,
-                     "content" => String.duplicate("a long enough post to be worth not copying ", 30),
+                     "content" =>
+                       String.duplicate("a long enough post to be worth not copying ", 30),
                      "to" => [@public]
                    },
                    object
@@ -89,7 +91,9 @@ defmodule ActivityPub.Object.LocalSignedOriginalTest do
 
   describe "when a local object's data changes, its signed original is renewed in the same write" do
     # `do_update_existing/2` is how a reply count (`Transformer.maybe_invalidate_reply_to_cache/1`) and a poll vote are written
-    test "an edit: the original holds the new content, with a proof that verifies", %{actor: actor} do
+    test "an edit: the original holds the new content, with a proof that verifies", %{
+      actor: actor
+    } do
       row = stored_note(actor)
 
       assert {:ok, _} =
@@ -102,7 +106,9 @@ defmodule ActivityPub.Object.LocalSignedOriginalTest do
       assert IntegrityProofs.verify(after_edit.data_received) == {:ok, actor.ap_id}
     end
 
-    test "a count that changes (a poll vote): the original holds it, and verifies", %{actor: actor} do
+    test "a count that changes (a poll vote): the original holds it, and verifies", %{
+      actor: actor
+    } do
       row = stored_note(actor)
 
       assert {:ok, _} =

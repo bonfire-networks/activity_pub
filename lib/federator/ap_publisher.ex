@@ -489,7 +489,8 @@ defmodule ActivityPub.Federator.APPublisher do
       cond do
         # Accept/Reject, a Follow, a Like, and the Undo of either, are for the one actor they address. Neither is public, so without this they reach the fallback below, which sends to every follower allowed to see the object: all of them, for a public post
         is_in(activity_data["type"], @addressed_only_types) or
-          undo_of_addressed_only?(activity_data) or group_ban?(activity_data) ->
+          undo_of_addressed_only?(activity_data) or group_ban?(activity_data) or
+            group_removal?(activity_data) ->
           []
 
         # When handling Flag activities, we need special recipient handling
@@ -532,6 +533,13 @@ defmodule ActivityPub.Federator.APPublisher do
     do: not is_nil(target)
 
   defp group_ban?(_), do: false
+
+  # A moderator's removal from a group (the threadiverse's mod "remove": a `Delete` with the reason as `summary` and the group as `audience`) is addressed to Public so the group can relay it, but, as a ban, is not for the moderator's own followers, who would get the reason too. A mirror's inbox is still reached through `audience`. An author's own `Delete` carries neither, so it still reaches their followers
+  defp group_removal?(%{"type" => "Delete", "summary" => summary, "audience" => audience})
+       when is_binary(summary) and summary != "" and not is_nil(audience),
+       do: true
+
+  defp group_removal?(_), do: false
 
   @doc "The remote followers of a local `actor` we may federate to, leaving out those whose pointer id is in `addressed_pointer_ids`."
   def get_external_followers_except(actor, purpose, addressed_pointer_ids) do

@@ -67,6 +67,49 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlugTest do
     assert %{valid_signature: false} == conn.assigns
   end
 
+  # a payload that names no top-level `actor` still has an author: the `attributedTo` of the object it carries
+  describe "a payload naming no top-level actor" do
+    defp create_with_only(author_id) do
+      %{
+        "type" => "Create",
+        "id" => "https://mastodon.local/users/admin/activities/x",
+        "object" => %{
+          "id" => "https://mastodon.local/users/admin/notes/x",
+          "type" => "Note",
+          "attributedTo" => author_id
+        }
+      }
+    end
+
+    test "control: signed by the author of its object, it is mapped to them" do
+      conn =
+        build_conn(
+          :post,
+          "/doesntmattter",
+          create_with_only("https://mastodon.local/users/admin")
+        )
+        |> set_signature("https://mastodon.local/users/admin")
+
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+      conn = MappedSignatureToIdentityPlug.call(conn, %{})
+
+      refute is_nil(Map.get(conn.assigns, :current_actor))
+    end
+
+    test "signed by somebody who is not the author of its object, it is not mapped to the signer" do
+      conn =
+        build_conn(:post, "/doesntmattter", create_with_only("https://niu.local/users/rye"))
+        |> set_signature("https://mastodon.local/users/admin")
+
+      {:ok, {:RSAPublicKey, _, _}} = Signatures.fetch_fresh_public_key(conn)
+
+      conn = MappedSignatureToIdentityPlug.call(conn, %{})
+
+      assert %{valid_signature: false} == conn.assigns
+    end
+  end
+
   test "it considers a mapped identity to be invalid when the associated instance is blocked" do
     clear_config([:reject_unsigned], true)
 

@@ -347,6 +347,44 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
       end)
     end
 
+    # the refetch proves the OBJECT of a relayed activity, which is the content of a `Create` and only what a `Lock` is about: the relayer still wrote the rest of the `Lock` (who, why, what group), so it is not "fetched from its origin"
+    test "`verify` marks a relayed Create's object as fetched, but not a relayed Lock" do
+      %{data: data, object_id: object_id, inner_object: inner} = relayed_announce()
+      author_id = data["object"]["actor"]
+      lock_id = "#{author_id}/activities/lock/relayed"
+
+      lock_announce =
+        data
+        |> Map.put("id", "#{data["id"]}-lock")
+        |> Map.put("object", %{
+          "type" => "Lock",
+          "id" => lock_id,
+          "actor" => author_id,
+          "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+          "object" => object_id
+        })
+
+      mock(fn
+        %{method: :get, url: url} when url == object_id -> json(inner)
+        %{method: :get} -> %Tesla.Env{status: 404, body: ""}
+      end)
+
+      with_trust_mode(:verify, fn ->
+        assert {:ok, _} = Transformer.handle_incoming(data)
+
+        assert %Object{authenticated: :fetched} = Object.normalize(object_id, fetch: false),
+               "control: what a relayed Create carries is marked as fetched"
+
+        assert {:ok, _} = Transformer.handle_incoming(lock_announce)
+
+        assert {:ok, %Object{authenticated: authenticated}} = Object.get_cached(ap_id: lock_id),
+               "the relayed Lock was not stored, so there is no mark to read"
+
+        refute authenticated == :fetched,
+               "the origin served the post, not the Lock: the relayer's word was taken for it"
+      end)
+    end
+
     test "`verify` stores the ORIGIN's copy over one we already held" do
       %{data: data, object_id: object_id, inner_object: inner} = relayed_announce()
       authentic = Map.put(inner, "content", "what the author actually wrote")

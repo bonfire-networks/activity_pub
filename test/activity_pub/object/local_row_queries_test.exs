@@ -101,7 +101,9 @@ defmodule ActivityPub.Object.LocalRowQueriesTest do
 
   test "another actor's inbox, by an addressing field", %{actor: actor, other: other} do
     {to, _row} = create!(actor, %{"to" => [other.ap_id]}, %{to: [other.ap_id]})
-    {bcc, _row} = create!(actor, %{"to" => [], "bcc" => [other.ap_id]}, %{to: [], bcc: [other.ap_id]})
+
+    {bcc, _row} =
+      create!(actor, %{"to" => [], "bcc" => [other.ap_id]}, %{to: [], bcc: [other.ap_id]})
 
     listed = ids(Object.get_inbox_for_actor(other.ap_id))
     assert to.data["id"] in listed
@@ -143,7 +145,11 @@ defmodule ActivityPub.Object.LocalRowQueriesTest do
   test "a remote thread with a recent local reply keeps its old post", %{actor: actor} do
     n = System.unique_integer([:positive])
     context = "https://remote-#{n}.local/contexts/#{n}"
-    old = NaiveDateTime.utc_now() |> NaiveDateTime.add(-60 * 86_400) |> NaiveDateTime.truncate(:second)
+
+    old =
+      NaiveDateTime.utc_now()
+      |> NaiveDateTime.add(-60 * 86_400)
+      |> NaiveDateTime.truncate(:second)
 
     {:ok, remote} =
       %{

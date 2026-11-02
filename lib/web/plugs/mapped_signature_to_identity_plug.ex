@@ -103,8 +103,29 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
     end
   end
 
+  # a payload that names no top-level `actor` still has an author when its object does (the `attributedTo` of what a `Create` carries): signed by somebody else it is not theirs to deliver as that author's. A document naming none at all is the signer's (relay-forwarded), as below
+  def call(
+        %{assigns: %{valid_signature: true}, method: "POST", params: %{} = params} = conn,
+        opts
+      )
+      when map_size(params) > 0 and not is_map_key(params, "actor") do
+    case Object.actor_id_from_data(params) do
+      author when is_binary(author) ->
+        # judged as if it named that author as its actor, without leaving that in the params the controller sees
+        %{call(%{conn | params: Map.put(params, "actor", author)}, opts) | params: params}
+
+      _ ->
+        map_signer(conn)
+    end
+  end
+
   # no payload, probably a signed fetch
-  def call(%{assigns: %{valid_signature: true}} = conn, _opts) do
+  def call(%{assigns: %{valid_signature: true}} = conn, _opts), do: map_signer(conn)
+
+  # no signature at all
+  def call(conn, _opts), do: conn
+
+  defp map_signer(conn) do
     key_id = key_id_from_conn(conn)
 
     with %Actor{} = actor <- actor_from_key_id(key_id),
@@ -134,9 +155,6 @@ defmodule ActivityPub.Web.Plugs.MappedSignatureToIdentityPlug do
         |> assign(:valid_signature, false)
     end
   end
-
-  # no signature at all
-  def call(conn, _opts), do: conn
 
   defp key_id_from_conn(conn) do
     with %{"keyId" => key_id} <- HTTPSignatures.extract_signature(conn) do

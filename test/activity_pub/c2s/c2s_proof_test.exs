@@ -150,7 +150,9 @@ defmodule ActivityPub.Web.C2SProofTest do
              ObjectView.render("outbox.json", %{actor: actor, page: 1})
 
     creates = Enum.filter(items, &(&1["type"] == "Create"))
-    assert creates != [], "no Create in the outbox, only #{inspect(Enum.map(items, & &1["type"]))}"
+
+    assert creates != [],
+           "no Create in the outbox, only #{inspect(Enum.map(items, & &1["type"]))}"
 
     for item <- creates do
       assert IntegrityProofs.verify(item["object"]) == {:ok, ap_id(author)},

@@ -1519,12 +1519,33 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp owner_ids(_), do: []
 
-  # The object arrived again (from another delivery, a relay, a fetch). Whether this copy replaces the one we hold is for `ActivityPub.Safety.replaces?/3` to say. `:ok` when there was nothing to replace or it was replaced, else the error.
+  # Whether a copy of an object that reached us in a delivery may take the place of the one we hold. Whose copy it is matters as much as how well it is vouched for (`ActivityPub.Safety.replaces?/3`): a copy of somebody's object, sent by somebody else, is not theirs to put in the place of what we hold, whatever its date, and a signature by an account that is not the object's author vouches for that account only.
+  # So when a signature vouches for the copy (a proof, an LD signature, or the HTTP signature of the delivery), its signer has to be an owner of the object we hold (an `attributedTo` of the STORED copy, not of the incoming one, which names whom its sender likes). When nothing vouches for it, only a direct delivery that nobody signed as anyone else, by an owner, counts: one passed on by a relay says nothing about its owner. A copy we fetched ourselves (not delivered) is not judged here. An object that names no owner can be replaced by nobody.
+  defp owner_may_replace?(%Object{data: stored}, sender_id, authenticated, signed_by, opts) do
+    owners = owner_ids(stored)
+
+    cond do
+      not delivered?(opts) ->
+        true
+
+      ActivityPub.Safety.by_signature?(authenticated) ->
+        (signed_by || opts[:signed_by]) in owners
+
+      true ->
+        is_nil(opts[:signed_by]) and is_nil(opts[:relayed_by]) and sender_id in owners
+    end
+  end
+
+  # The object arrived again (from another delivery, a relay, a fetch). Whether this copy replaces the one we hold is for `ActivityPub.Safety.replaces?/3` to say, once `owner_may_replace?/5` has agreed. `:ok` when there was nothing to replace or it was replaced, else the error.
   # TODO: when the replaced copy's data changed and the adapter already holds the object, it should be told, as an edit, so what it made of the object (a post) changes too; today only the AP row changes. An adapter edits through its handling of an `Update`, so either we hand it an in-memory `Update` (never stored or federated), or the stored `Create` with `edit: true` and the adapter applies it as an `Update`. The same for a refetch (`Fetcher.replace_with_fetched/3`)
-  defp maybe_replace_object(%{"id" => id} = object, opts) when is_binary(id) do
-    {authenticated, _signed_by} = ActivityPub.Safety.object_authentication(opts)
+  defp maybe_replace_object(%{"id" => id} = object, sender, opts) when is_binary(id) do
+    {authenticated, signed_by} = ActivityPub.Safety.object_authentication(opts)
 
     with {:ok, %Object{} = stored} <- Object.get_cached(ap_id: id),
+         true <-
+           owner_may_replace?(stored, Map.get(sender, :ap_id), authenticated, signed_by, opts) ||
+             (warn(id, "refusing a copy of this object from somebody who does not own it") &&
+                false),
          # a copy with no `published` has the one we gave the stored copy when it had none, as `Object.insert` would
          incoming = Map.put_new(object, "published", stored.data["published"]),
          true <- ActivityPub.Safety.replaces?(stored, incoming, authenticated),
@@ -1538,7 +1559,7 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  defp maybe_replace_object(_object, _opts), do: :ok
+  defp maybe_replace_object(_object, _sender, _opts), do: :ok
 
   defp handle_incoming_create(data, object, actor, opts) do
     params = %{
@@ -1561,7 +1582,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with nil <- Object.get_activity_for_object_ap_id(object) do
       # an object we hold whose `Create` we never stored (it came nested in another object, in a boost, or by a fetch) is replaced by the same rule as when its `Create` arrives again
-      with :ok <- maybe_replace_object(object, opts),
+      with :ok <- maybe_replace_object(object, actor, opts),
            do: ActivityPub.create(params, as_received(opts, data))
     else
       %{data: %{"type" => "Tombstone"}} = _activity ->
@@ -1575,7 +1596,7 @@ defmodule ActivityPub.Federator.Transformer do
           "a Create for this Object already exists, but not in the Adapter, so pass it there now"
         )
 
-        with :ok <- maybe_replace_object(object, opts),
+        with :ok <- maybe_replace_object(object, actor, opts),
              {:ok, adapter_object} <-
                Adapter.maybe_handle_activity(
                  Map.put(activity, :data, Map.merge(activity.data, %{"object" => object})),
@@ -1587,7 +1608,7 @@ defmodule ActivityPub.Federator.Transformer do
       %Object{} = activity ->
         debug("a Create for this Object already exists")
 
-        with :ok <- maybe_replace_object(object, opts), do: {:ok, activity}
+        with :ok <- maybe_replace_object(object, actor, opts), do: {:ok, activity}
 
       e ->
         error(e)
@@ -1793,14 +1814,30 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # Only the group the stored activity names (its `audience`, and a ban's `target`) can say the group accepted it: the ids of such activities are public (a ban goes to Public and the group relays it), so what we stored came from its sender, and a relay of it by anybody else changes nothing
   defp handle_relayed_stored_activity(stored, data, opts) do
-    with {:ok, adapter_object} <-
-           Adapter.maybe_handle_activity(
-             stored,
-             Keyword.put(opts, :relayed_by, Object.get_ap_id(data["actor"]))
-           ) do
-      {:ok, Map.put(stored, :pointer, adapter_object)}
+    relayer = Object.get_ap_id(data["actor"])
+
+    if relayer in named_groups(stored.data) do
+      with {:ok, adapter_object} <-
+             Adapter.maybe_handle_activity(stored, Keyword.put(opts, :relayed_by, relayer)) do
+        {:ok, Map.put(stored, :pointer, adapter_object)}
+      end
+    else
+      debug(
+        relayer,
+        "not the group the activity we hold names, so its relay of it changes nothing"
+      )
+
+      {:ok, stored}
     end
+  end
+
+  defp named_groups(%{} = data) do
+    [data["audience"], data["target"]]
+    |> Enum.flat_map(&List.wrap/1)
+    |> Enum.map(&Object.get_ap_id/1)
+    |> Enum.reject(&is_nil/1)
   end
 
   # A group relaying a post of OURS back to us (how a community says it accepted what we published into it) carries our own `Create`. Applying it as a new incoming one would create the post a second time, so it is left as it is, and only the announce of it (the group's boost) is recorded by the caller.
@@ -1999,9 +2036,11 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  # what we fetched ourselves from the origin is the origin speaking, so it is the actor's, as far as the origin vouches for it
-  defp fetched_from_origin(inner_activity),
+  # what we fetched ourselves from the origin is the origin speaking, so it is the actor's, as far as the origin vouches for it. But we fetched the OBJECT of the activity: for a `Create` or `Update` that is its content, for a `Lock`, a `Block`, a `Delete` or an `Undo` it is only what the activity is about, and the rest (who acted, why, in which group) is still the relayer's word, so it is not marked as fetched
+  defp fetched_from_origin(%{"type" => type} = inner_activity) when type in ["Create", "Update"],
     do: {:fetched, Object.get_ap_id(inner_activity["actor"])}
+
+  defp fetched_from_origin(_inner_activity), do: {nil, nil}
 
   @doc """
   How far to trust an activity handed to us by a relay (FEP-1b12), set with `config :activity_pub, :incoming_signatures, relayed: :trust | :verify` (formerly `config :activity_pub, :relayed_activity_trust`, still read when that is unset).
@@ -2170,7 +2209,7 @@ defmodule ActivityPub.Federator.Transformer do
           {:error, :not_found}
         else
           # S2S: pass to the adapter, which may still hold what we pruned, and otherwise makes it once (`Bonfire.Federate.ActivityPub.Incoming`, by its AP id)
-          handle_activity_with_pruned_object(data, "Update", opts)
+          update_of_unheld_object(data, opts)
         end
 
       {:error, :not_found} ->
@@ -2179,7 +2218,7 @@ defmodule ActivityPub.Federator.Transformer do
           {:error, :not_found}
         else
           # S2S: pass to adapter in case it was pruned from AP db
-          handle_activity_with_pruned_object(data, "Update", opts)
+          update_of_unheld_object(data, opts)
         end
 
       {:error, :unauthorized} ->
@@ -2430,12 +2469,18 @@ defmodule ActivityPub.Federator.Transformer do
 
     object_id = Object.get_ap_id(deleted)
 
-    with {:ok, %{"type" => type}} when is_in(type, :supported_actor_types) <-
+    # only a deletion we received can be taken back: the origin serving the actor says nothing about who archived our copy, and an admin here may have
+    with {:deleted, %Object{local: false}} <-
+           {:deleted, Object.get_activity_for_object_ap_id(object_id, "Delete")},
+         {:ok, %{"type" => type}} when is_in(type, :supported_actor_types) <-
            Fetcher.fetch_remote_object_from_id(object_id) |> debug("served again?"),
          {:ok, _} <- Adapter.call_or(:undelete_remote_actor, [object_id], {:ok, nil}),
          {:ok, actor} <- Actor.update_actor(object_id, nil, true) do
       {:ok, actor}
     else
+      {:deleted, _} ->
+        error(object_id, "Not the Undo of a Delete of this actor that we received")
+
       {:ok, %{"type" => _not_an_actor}} ->
         error(object_id, "Only the restoring of an actor is supported")
 
@@ -2657,6 +2702,22 @@ defmodule ActivityPub.Federator.Transformer do
   #   Fetcher.fetch_object_from_id(object_id, Keyword.put(opts, :triggered_by, "update_of_object_not_held"))
   # end
 
+  # An `Update` of an object we hold nothing of goes to the adapter, which makes the object when it holds nothing either (PeerTube sends the `Update` of a video before its `Create`). Nothing else looks at the id of an object embedded in an `Update` (FEP-fe34 does for a `Create`, `check_embedded_origin/2`), so it has to be one the sender can speak for: otherwise whoever sends one takes the id of a post on another server before we ever hear of the real one, and what the real one says is refused as already held. Judged against the SENDER's origin, not the object's `attributedTo`, which the sender writes, and which may name several owners.
+  defp update_of_unheld_object(data, opts) do
+    object_id = Object.get_ap_id(data["object"])
+    actor_id = Object.actor_id_from_data(data)
+
+    if is_binary(object_id) and is_binary(actor_id) and
+         ActivityPub.Safety.Containment.contain_origin(object_id, %{"actor" => actor_id}) do
+      handle_activity_with_pruned_object(data, "Update", opts)
+    else
+      error(
+        object_id,
+        "Not handing on an Update of an object we do not hold whose id is not on its sender's origin"
+      )
+    end
+  end
+
   # Helper function to handle activities when objects are pruned from AP cache
   defp handle_activity_with_pruned_object(data, activity_type, opts) do
     object_id = Object.get_ap_id(data["object"])
@@ -2859,9 +2920,7 @@ defmodule ActivityPub.Federator.Transformer do
         debug("it's an actor!")
 
         case Actor.get_cached(ap_id: object_id) do
-          # FIXME: This is supposed to prevent unauthorized deletes
-          # but we currently use delete activities where the activity
-          # actor isn't the deleted object so we need to disable it.
+          # Not checked against the activity's actor, since the threadiverse sends the `Delete` of a community from its moderator (the activity's actor is not the deleted object). What authorises it is the origin: we get here only once it answered 410 or with a Tombstone (`confirm_deletion/4`), and an actor is never owner-shortcut (`deleted_by_authenticated_owner?/3`)
           # {:ok, %Actor{data: %{"id" => ^actor}} = actor} ->
           {:ok, %Actor{} = actor} ->
             ActivityPub.delete(actor, false, opts)
@@ -2878,11 +2937,24 @@ defmodule ActivityPub.Federator.Transformer do
           opts[:local] ->
             {:error, :not_deleted}
 
+          # an actor is never "removed from a group": its origin still serves it, so it stays whatever the sender calls it
+          held_actor?(object_id) ->
+            error(
+              object_id,
+              "Could not verify incoming deletion of an actor its origin still serves"
+            )
+
+            {:error, :not_deleted}
+
           # a moderator's REMOVAL, which Lemmy marks with the reason in `summary` ("if summary is present, this is a mod action"): it takes the object out of a community and leaves it in place at its origin, so re-fetching cannot verify it the way it verifies a deletion. Handed to the adapter to judge the moderator's standing and apply it, as for a `Lock`, rather than refused as a forged delete
           # Lemmy's marker, or (from senders that don't set it) an actor who is not the object's author: only its origin can delete an object, and the origin still has it, so someone else's `Delete` can only be a removal
           (is_binary(data["summary"]) and data["summary"] != "") or
               removal_by_someone_else?(data, object_id) ->
-            store_and_hand_to_adapter(data, opts)
+            # a removal says nothing about what its object IS: the adapter reads the object we hold, never the sender's word for it (`formerType`, or an embedded copy)
+            store_and_hand_to_adapter(
+              data |> Map.delete("formerType") |> Map.put("object", object_id),
+              opts
+            )
 
           # the origin still has it, so re-fetching again will not change the answer: `:not_deleted` makes the worker cancel the job rather than retry it
           true ->
@@ -2900,6 +2972,13 @@ defmodule ActivityPub.Federator.Transformer do
 
       e ->
         error(e, "Could not handle incoming deletion")
+    end
+  end
+
+  defp held_actor?(object_id) do
+    case Object.get_cached(ap_id: object_id) do
+      {:ok, object} -> Actor.actor?(object)
+      _ -> false
     end
   end
 

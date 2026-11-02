@@ -24,9 +24,38 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
 
     n = System.unique_integer([:positive])
     id = "https://sender-#{n}.example/users/sender"
-    actor(ap_id: id, data: %{"assertionMethod" => [multikey(id, new_key(:ed25519))]})
+    key = new_key(:ed25519)
+    actor(ap_id: id, data: %{"assertionMethod" => [multikey(id, key)]})
 
-    %{sender: id, note_id: "#{id}/notes/#{n}"}
+    %{sender: id, key: key, note_id: "#{id}/notes/#{n}"}
+  end
+
+  # a remote actor with a key of its own, on `host`
+  defp new_actor(host, name) do
+    id = "https://#{host}/users/#{name}"
+    actor(ap_id: id, data: %{"assertionMethod" => [multikey(id, new_key(:ed25519))]})
+    id
+  end
+
+  # a Create by `by` of the note, which `owner` is the author of
+  defp create_by(by, owner, note_id, content, dates),
+    do: put_in(create(by, note_id, content, dates), ["object", "attributedTo"], owner)
+
+  # a group passing a document on, as it reaches us: an Announce by the group, which came in with a verified HTTP signature
+  defp relayed(document, group_id) do
+    announce = %{
+      "type" => "Announce",
+      "id" => "#{group_id}/activities/announce/#{System.unique_integer([:positive])}",
+      "actor" => group_id,
+      "to" => [@public],
+      "object" => document
+    }
+
+    Transformer.handle_incoming(announce,
+      from_inbox: true,
+      authenticated: :http_signature,
+      signed_by: group_id
+    )
   end
 
   # a Create of the note, with a fresh activity id each time (the same note arriving again, not the same activity)
@@ -193,6 +222,93 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
       assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v2</p>", %{"updated" => @t2}))
 
       not_vouched(create(sender, note_id, "<p>v1</p>", %{"updated" => @t1}))
+
+      assert content(note_id) == "<p>v2</p>"
+    end
+  end
+
+  # Whose copy it is matters as much as how well it is vouched for: a copy of somebody's object, sent by somebody else, is not theirs to put in the place of what we hold. Only the object's owner (or a relay carrying the owner's own signature) replaces it
+  describe "a copy from somebody who does not own the object" do
+    setup %{sender: sender} do
+      n = System.unique_integer([:positive])
+
+      %{
+        other: new_actor("other-#{n}.example", "mallory"),
+        same_host: new_actor(URI.parse(sender).host, "mallory-#{n}"),
+        group: insert(:actor).data["id"]
+      }
+    end
+
+    test "sent by another actor, signed as itself, does not replace one nobody vouched for", %{
+      sender: sender,
+      other: other,
+      note_id: note_id
+    } do
+      assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}))
+
+      vouched(
+        create_by(other, sender, note_id, "<p>forged</p>", %{
+          "published" => @t0,
+          "updated" => @t2
+        }),
+        other
+      )
+
+      assert content(note_id) == "<p>v1</p>"
+      assert row(note_id).authenticated == :unverified
+    end
+
+    test "sent by another account on the owner's host, naming itself the author, does not replace even a vouched one",
+         %{sender: sender, same_host: mallory, note_id: note_id} do
+      assert {:ok, _} =
+               vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}), sender)
+
+      vouched(create(mallory, note_id, "<p>forged</p>", %{}), mallory)
+
+      assert content(note_id) == "<p>v1</p>"
+      assert row(note_id).authenticated == :http_signature
+    end
+
+    test "naming the owner as its actor, but relayed by a group with nothing vouching for it, does not replace one nobody vouched for",
+         %{sender: sender, group: group, note_id: note_id} do
+      assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}))
+
+      relayed(
+        create(sender, note_id, "<p>forged</p>", %{"published" => @t0, "updated" => @t2}),
+        group
+      )
+
+      assert content(note_id) == "<p>v1</p>"
+    end
+
+    # the other side of the three above: what is allowed, so a refusal is the check and not a replacement that never works
+    test "carrying the owner's own proof, though a group relays it, replaces", %{
+      sender: sender,
+      key: key,
+      group: group,
+      note_id: note_id
+    } do
+      assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}))
+
+      signed =
+        create(sender, note_id, "<p>v2</p>", %{"published" => @t0, "updated" => @t1})
+        |> Map.put("@context", [
+          "https://www.w3.org/ns/activitystreams",
+          "https://w3id.org/security/data-integrity/v2"
+        ])
+        |> sign(key)
+
+      assert {:ok, _} = relayed(signed, group)
+
+      assert content(note_id) == "<p>v2</p>"
+      assert row(note_id).authenticated == :integrity_proof
+    end
+
+    test "the owner's own unsigned copy, delivered directly, still replaces one nobody vouched for",
+         %{sender: sender, note_id: note_id} do
+      assert {:ok, _} = not_vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}))
+
+      not_vouched(create(sender, note_id, "<p>v2</p>", %{"published" => @t0, "updated" => @t1}))
 
       assert content(note_id) == "<p>v2</p>"
     end

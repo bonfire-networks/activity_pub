@@ -9,6 +9,7 @@ defmodule ActivityPub.Federator.AuthenticatedMarkTest do
 
   import ActivityPub.Factory
   import ActivityPub.Test.IntegrityProofHelpers
+  import ActivityPub.Test.LinkedDataSignatureHelpers
 
   alias ActivityPub.Federator.Adapter
   alias ActivityPub.Federator.Transformer
@@ -137,6 +138,154 @@ defmodule ActivityPub.Federator.AuthenticatedMarkTest do
 
       assert %Object{authenticated: :integrity_proof, signed_by: ^author_id} =
                handed_over()[create["id"]]
+    end
+  end
+
+  describe "a document with a Linked Data signature" do
+    setup do
+      n = System.unique_integer([:positive])
+
+      %{
+        alice: rsa_signer!("https://ld-alice-#{n}.example/users/alice"),
+        mallory: rsa_signer!("https://ld-mallory-#{n}.example/users/mallory")
+      }
+    end
+
+    # the context the other LD tests use, so canonicalising it does not depend on the data-integrity one
+    defp ld_create(%{ap_id: author_id}) do
+      author_id
+      |> create_note()
+      |> Map.put("@context", [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+      ])
+    end
+
+    test "signed by its own actor, is accepted and marked as made by that actor", %{alice: alice} do
+      create = alice |> ld_create() |> ld_sign(alice)
+      alice_id = alice.ap_id
+
+      assert {:ok, _} = ReceiverHelpers.maybe_process_unsigned(%{}, create)
+
+      assert %Object{authenticated: :ld_signature, signed_by: ^alice_id} =
+               handed_over()[create["id"]]
+    end
+
+    test "signed by somebody else is not taken as its actor's", %{alice: alice, mallory: mallory} do
+      create = alice |> ld_create() |> ld_sign(mallory)
+
+      refute match?({:ok, _}, ReceiverHelpers.maybe_process_unsigned(%{}, create))
+
+      refute Map.has_key?(handed_over(), create["id"]),
+             "an activity naming Alice was handled as hers on the strength of Mallory's signature"
+
+      assert {:error, :not_found} = Object.get_cached(ap_id: create["id"])
+    end
+
+    test "forwarded by another server, signed by its actor, is still accepted", %{alice: alice} do
+      create = alice |> ld_create() |> ld_sign(alice)
+      alice_id = alice.ap_id
+
+      # the delivery's HTTP signature is the relay's, not Alice's
+      headers = %{"signature" => ~s(keyId="https://relay.example/actor#main-key",signature="x")}
+
+      assert {:ok, _} = ReceiverHelpers.maybe_process_unsigned(headers, create)
+
+      assert %Object{authenticated: :ld_signature, signed_by: ^alice_id} =
+               handed_over()[create["id"]]
+    end
+  end
+
+  # A delivery whose HTTP signature is not its actor's lands in the unverified fallback, which asks the signature's key to belong to the activity's actor. It once only asked the signature to contain the actor's id as text
+  describe "an HTTP signature by somebody other than the activity's actor" do
+    setup do
+      n = System.unique_integer([:positive])
+
+      %{
+        n: n,
+        group: rsa_signer!("https://g-#{n}.example/c/group"),
+        note_id: insert(:note).data["id"]
+      }
+    end
+
+    # the job's headers, with the `(request-target)` the plug adds before it queues them
+    defp signed_headers(%{ap_id: ap_id, private_key: key}) do
+      headers = [
+        "(request-target)": "post /pub/shared_inbox",
+        host: "localhost",
+        date: ActivityPub.Utils.format_date()
+      ]
+
+      headers
+      |> Map.new(fn {name, value} -> {to_string(name), value} end)
+      |> Map.put("signature", HTTPSignatures.sign(key, ap_id <> "#main-key", headers))
+    end
+
+    defp announce_by(actor_id, note_id) do
+      %{
+        "@context" => "https://www.w3.org/ns/activitystreams",
+        "type" => "Announce",
+        "id" => "#{actor_id}/activities/announce/#{System.unique_integer([:positive])}",
+        "actor" => actor_id,
+        "to" => ["https://www.w3.org/ns/activitystreams#Public"],
+        "object" => note_id
+      }
+    end
+
+    test "control: signed by the actor itself, it is accepted", %{group: group, note_id: note_id} do
+      announce = announce_by(group.ap_id, note_id)
+
+      assert {:ok, _} = ReceiverHelpers.maybe_process_unsigned(signed_headers(group), announce)
+      assert Map.has_key?(handed_over(), announce["id"])
+    end
+
+    test "signed by another account on the actor's host, it is refused", %{
+      n: n,
+      group: group,
+      note_id: note_id
+    } do
+      announce = announce_by(group.ap_id, note_id)
+      carol = rsa_signer!("https://g-#{n}.example/u/carol")
+
+      refute match?(
+               {:ok, _},
+               ReceiverHelpers.maybe_process_unsigned(signed_headers(carol), announce)
+             )
+
+      refute Map.has_key?(handed_over(), announce["id"])
+    end
+
+    test "signed by an account whose id starts with the actor's, it is refused", %{
+      group: group,
+      note_id: note_id
+    } do
+      announce = announce_by(group.ap_id, note_id)
+      lookalike = rsa_signer!(group.ap_id <> "_mod")
+
+      refute match?(
+               {:ok, _},
+               ReceiverHelpers.maybe_process_unsigned(signed_headers(lookalike), announce)
+             )
+
+      refute Map.has_key?(handed_over(), announce["id"]),
+             "an account whose id merely starts with the group's was handled as the group"
+    end
+
+    test "signed on another host by an account whose id contains the actor's, it is refused", %{
+      n: n,
+      group: group,
+      note_id: note_id
+    } do
+      announce = announce_by(group.ap_id, note_id)
+      lookalike = rsa_signer!("https://evil-#{n}.example/u/m?of=#{group.ap_id}")
+
+      refute match?(
+               {:ok, _},
+               ReceiverHelpers.maybe_process_unsigned(signed_headers(lookalike), announce)
+             )
+
+      refute Map.has_key?(handed_over(), announce["id"]),
+             "an account on another host was handled as the group because its id names it"
     end
   end
 

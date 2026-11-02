@@ -559,8 +559,11 @@ defmodule ActivityPub.Object do
   # A new local object is kept with its signed public form: `data_received` is the document as it is served, with our proof, and `changeset/2` makes `data` the patch over it (`patch_over_received/1`), so the data is not stored twice. `bto` and `bcc` stay in `data`, as the public form has neither. Not for one of ours already stored, whose original an edit or a count must renew (plan step 10.2).
   defp keep_signed_original(%{data: %{"id" => _} = data} = attrs, true = _local) do
     case Safety.IntegrityProofs.Outgoing.sign_stored(data) do
-      {:ok, signed} -> attrs |> Map.put(:data_received, signed) |> Map.put(:authenticated, :integrity_proof)
-      _ -> attrs
+      {:ok, signed} ->
+        attrs |> Map.put(:data_received, signed) |> Map.put(:authenticated, :integrity_proof)
+
+      _ ->
+        attrs
     end
   end
 

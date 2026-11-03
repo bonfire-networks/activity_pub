@@ -487,8 +487,11 @@ defmodule ActivityPub do
       |> Map.put_new_lazy("id", fn ->
         Map.get(params, :pointer) |> Object.object_url()
       end)
-      |> Map.put_new_lazy("updated", fn ->
-        Utils.make_date()
+      # dated now only when it is our own edit: one we received keeps only the dates its sender gave
+      |> then(fn object ->
+        if opts[:incoming_activity],
+          do: object,
+          else: Map.put_new_lazy(object, "updated", &Utils.make_date/0)
       end)
       # keep the original creation date instead of letting Object.insert stamp "now"
       |> Map.put_new_lazy("published", fn ->

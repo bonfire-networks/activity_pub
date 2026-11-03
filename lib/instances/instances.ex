@@ -177,7 +177,8 @@ defmodule ActivityPub.Instances do
 
   @doc "What we learned about a remote host under `key` (eg. `:signature_format`, `:discovery`, `:tls_compat`), or nil. Kept in a cache rather than the database, so it is learned again once it expires."
   def get_host_cache(url_or_host, key) do
-    with host when is_binary(host) <- host(url_or_host),
+    with true <- Utils.cache_running?(@host_cache),
+         host when is_binary(host) <- host(url_or_host),
          {:ok, value} <- Cachex.get(@host_cache, host_cache_key(host, key)) do
       value
     else
@@ -185,17 +186,23 @@ defmodule ActivityPub.Instances do
     end
   end
 
-  @doc "Remembers `value` about a remote host under `key` (see `get_host_cache/2`)."
+  @doc "Remembers `value` about a remote host under `key` (see `get_host_cache/2`). Does nothing when the cache isn't running."
   def put_host_cache(url_or_host, key, value) do
-    with host when is_binary(host) <- host(url_or_host) do
+    with true <- Utils.cache_running?(@host_cache),
+         host when is_binary(host) <- host(url_or_host) do
       Cachex.put(@host_cache, host_cache_key(host, key), value)
+    else
+      _ -> nil
     end
   end
 
-  @doc "Forgets what we learned about a remote host under `key` (see `get_host_cache/2`)."
+  @doc "Forgets what we learned about a remote host under `key` (see `get_host_cache/2`). Does nothing when the cache isn't running."
   def delete_host_cache(url_or_host, key) do
-    with host when is_binary(host) <- host(url_or_host) do
+    with true <- Utils.cache_running?(@host_cache),
+         host when is_binary(host) <- host(url_or_host) do
       Cachex.del(@host_cache, host_cache_key(host, key))
+    else
+      _ -> nil
     end
   end
 

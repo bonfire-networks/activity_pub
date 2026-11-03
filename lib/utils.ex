@@ -452,6 +452,9 @@ defmodule ActivityPub.Utils do
   def cache_enabled?,
     do: @cache_always_on or ProcessTree.get(:activity_pub_enable_cache) == true
 
+  @doc "Whether the Cachex `cache` exists. Mix tasks (eg. `mix changelog`) make HTTP requests without starting the application, and Cachex raises on a cache that isn't running."
+  def cache_running?(cache), do: :ets.whereis(cache) != :undefined
+
   @doc """
   Classify a `ref` into `{kind, normalised_id}` for cache/query dispatch: `:pointer` (ULID/UID) |
   `:ap_id` (URI) | `:id` (uuid) | `:username`, or `{nil, nil}` if unresolvable. Accepts a binary id

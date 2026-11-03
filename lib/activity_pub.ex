@@ -383,7 +383,7 @@ defmodule ActivityPub do
         } = params,
         opts \\ []
       ) do
-    # `skip_public_check` is for a caller that judged publicness itself: a group relaying a vote, which is addressed to the author and the group rather than Public, about a post that is public
+    # `skip_public_check` is for a caller that judged publicness itself: a group relaying a like (an upvote), which is addressed to the author and the group rather than Public, about a post that is public
     with true <- opts[:skip_public_check] == true or Utils.public?(object.data),
          # the id of what is boosted, not an object the booster embedded
          announce_data <-
@@ -402,7 +402,7 @@ defmodule ActivityPub do
                relayable_received_document(
                  object,
                  # given, or on the activity as the adapter was handed it
-                 opts[:data_received] || Map.get(object, :data_received)
+                 opts[:data_received] || Object.received_document(object)
                )
            ),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),

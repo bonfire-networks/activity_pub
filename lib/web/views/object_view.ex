@@ -10,7 +10,13 @@ defmodule ActivityPub.Web.ObjectView do
   alias ActivityPub.Web.Collections
 
   # One we hold with its original (kept when its proof or LD signature held) is served as its author sent it, so the proof still verifies for whoever fetches it. Not rebuilt, and not put through the privacy step below, which edits a copy (`bto`/`bcc`, URLs) and would break the proof: a received document is what we received.
-  def render("object.json", %{object: %Object{data_received: %{} = original}}), do: original
+  def render("object.json", %{object: %Object{data_received: %{}} = row} = assigns) do
+    # a `Create` or `Update` gets its object put back (`Object.received_document/1`)
+    case Object.received_document(row) do
+      %{} = original -> original
+      nil -> render("object.json", %{assigns | object: %{row | data_received: nil}})
+    end
+  end
 
   def render("object.json", %{object: object} = assigns) do
     object

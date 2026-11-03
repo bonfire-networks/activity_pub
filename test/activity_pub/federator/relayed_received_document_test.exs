@@ -83,16 +83,17 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
         signed_by: signer
       )
 
-  # the author's edit of the post, embedding the post as edited, signed by the author
+  # the author's edit of the post, embedding the post as edited, signed by the author; dated after we received the post (which, naming no `published`, is stored as published when it arrived), as an edit is: an Update provably older than what we hold is refused
   defp signed_update(%{author_id: author_id, key: key, note: note}) do
+    edited_at = DateTime.utc_now() |> DateTime.add(1, :minute) |> DateTime.to_iso8601()
+
     %{
       "@context" => @context,
       "id" => "#{author_id}/activities/update-#{System.unique_integer([:positive])}",
       "type" => "Update",
       "actor" => author_id,
       "to" => [@public],
-      "object" =>
-        note |> Map.put("content", "<p>edited</p>") |> Map.put("updated", "2026-10-24T12:00:00Z")
+      "object" => note |> Map.put("content", "<p>edited</p>") |> Map.put("updated", edited_at)
     }
     |> sign(key)
   end

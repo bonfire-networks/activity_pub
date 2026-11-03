@@ -119,6 +119,67 @@ defmodule ActivityPub.Federator.BoostOfSignedObjectTest do
     assert IntegrityProofs.verify(served["object"]) == {:ok, author_id}
   end
 
+  # a boost made before the post was deleted is still served and sent later: it must carry what is held of the post now, a Tombstone, not the original
+  test "a boost of a post held signed carries no original once its author deleted it", %{
+    key: key,
+    author_id: author_id,
+    booster: booster
+  } do
+    content = "<p>to be deleted #{System.unique_integer([:positive])}</p>"
+    %{"object" => note} = create = author_id |> create_note(content) |> sign(key)
+    signed_note = sign(note, key)
+    create = Map.put(create, "object", signed_note) |> Map.delete("proof") |> sign(key)
+    assert {:ok, _} = received(create, author_id)
+
+    {:ok, post} = Object.get_cached(ap_id: note["id"])
+    {:ok, boost} = ActivityPub.announce(%{actor: booster, object: post}, skip_public_check: true)
+
+    assert Transformer.original_object(boost.data) == signed_note, "control: held signed"
+
+    Tesla.Mock.mock(fn %{method: :get} -> %Tesla.Env{status: 404, body: ""} end)
+
+    assert {:ok, _} =
+             delivered(
+               %{
+                 "@context" => "https://www.w3.org/ns/activitystreams",
+                 "id" => "#{author_id}/activities/delete-#{System.unique_integer([:positive])}",
+                 "type" => "Delete",
+                 "actor" => author_id,
+                 "to" => [@public],
+                 "object" => note["id"]
+               },
+               author_id
+             )
+
+    assert is_nil(Transformer.original_object(boost.data))
+
+    served = ActivityPub.Web.ObjectView.render("object.json", %{object: boost.data})
+    refute served["object"] == signed_note
+    refute Jason.encode!(served) =~ content
+  end
+
+  # its row keeps it as it came, but it has no proof of its own: only inside its Create can it be verified, so a boost carries our copy, as of a post held unsigned
+  test "a post with no proof of its own, in a signed Create, goes out as our normalised copy", %{
+    key: key,
+    author_id: author_id,
+    booster: booster
+  } do
+    %{"object" => note} = create = author_id |> create_note() |> sign(key)
+    assert {:ok, _} = received(create, author_id)
+
+    {:ok, post} = Object.get_cached(ap_id: note["id"])
+    {:ok, boost} = ActivityPub.announce(%{actor: booster, object: post}, skip_public_check: true)
+
+    assert is_nil(Transformer.original_object(boost.data))
+
+    assert [_ | _] = announces = sent(booster, note["id"])
+
+    for announce <- announces do
+      assert announce["object"]["id"] == note["id"]
+      refute Map.has_key?(announce["object"], "proof")
+    end
+  end
+
   # The same for a like. Not built yet: today a like goes only to the post's author, whose server has the post, but who it goes to will be configurable, and to anyone else the author's original is what lets them verify the post. Fails as it is: a like of a signed post goes out with our normalised copy, as a boost did. A `QuoteRequest` always goes to the quoted post's own server, so it needs none.
   @tag :todo
   test "a like of a post held signed goes out with the post as its author sent it", %{

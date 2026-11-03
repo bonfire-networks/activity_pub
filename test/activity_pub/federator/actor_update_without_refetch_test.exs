@@ -22,7 +22,16 @@ defmodule ActivityPub.Federator.ActorUpdateWithoutRefetchTest do
     n = System.unique_integer([:positive])
     key = new_key(:ed25519)
     actor_id = "https://held-#{n}.local/users/alice"
-    actor(ap_id: actor_id, data: %{"assertionMethod" => [multikey(actor_id, key)]})
+
+    # dated, as actor documents are (Mastodon's carry `published`), so a newer document can be told from an older one
+    actor(
+      ap_id: actor_id,
+      data: %{
+        "assertionMethod" => [multikey(actor_id, key)],
+        "published" => "2026-01-01T00:00:00Z"
+      }
+    )
+
     {:ok, %Object{data: held}} = Object.get_uncached(ap_id: actor_id)
 
     stranger = "https://stranger-#{n}.local/users/mallory"
@@ -80,17 +89,55 @@ defmodule ActivityPub.Federator.ActorUpdateWithoutRefetchTest do
     assert data["assertionMethod"] == rotated["assertionMethod"]
   end
 
-  test "its document carrying its own proof, by the key we hold: applied, whoever delivered it",
+  defp signed_document(held, actor_id, key, name, dates) do
+    held
+    |> Map.put("name", name)
+    |> Map.merge(dates)
+    |> Map.put("@context", @context)
+    |> sign(key, verification_method: actor_id <> "#ed25519-key")
+  end
+
+  test "its document carrying its own proof, by the key we hold, and newer: applied, whoever delivered it",
        %{actor_id: actor_id, held: held, key: key, stranger: stranger} do
     signed =
-      held
-      |> Map.put("name", "Alice signed")
-      |> Map.put("@context", @context)
-      |> sign(key, verification_method: actor_id <> "#ed25519-key")
+      signed_document(held, actor_id, key, "Alice signed", %{"updated" => "2026-06-01T00:00:00Z"})
 
     delivered(actor_update(actor_id, signed), authenticated: :http_signature, signed_by: stranger)
 
     assert name(actor_id) == "Alice signed"
+  end
+
+  # anyone holding an older document the actor signed can deliver it again, and it still verifies with the key we hold: so a proof is taken for the document only when it is provably newer than what we hold, else the actor is fetched from its origin, which serves nothing here
+  test "its own proof on an older document: not applied", %{
+    actor_id: actor_id,
+    held: held,
+    key: key,
+    stranger: stranger
+  } do
+    older =
+      signed_document(held, actor_id, key, "Alice, years ago", %{
+        "updated" => "2025-01-01T00:00:00Z"
+      })
+
+    delivered(actor_update(actor_id, older), authenticated: :http_signature, signed_by: stranger)
+
+    assert name(actor_id) == held["name"]
+  end
+
+  test "its own proof on a document no newer than what we hold: not applied", %{
+    actor_id: actor_id,
+    held: held,
+    key: key,
+    stranger: stranger
+  } do
+    undated = signed_document(held, actor_id, key, "Alice, undated", %{})
+
+    delivered(actor_update(actor_id, undated),
+      authenticated: :http_signature,
+      signed_by: stranger
+    )
+
+    assert name(actor_id) == held["name"]
   end
 
   test "delivered by somebody else, with no proof of its own: not applied", %{

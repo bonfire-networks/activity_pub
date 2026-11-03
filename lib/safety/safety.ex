@@ -46,27 +46,63 @@ defmodule ActivityPub.Safety do
   @doc """
   Whether a copy of a document should replace the one we hold, as `incoming_data` with the `incoming_authenticated` value it arrived with, against the stored `%ActivityPub.Object{}`.
 
-    * a copy somebody vouched for replaces the stored one, whatever that one's value, unless it is provably older: its date (`updated`, else `published`) before the stored copy's. An equal date, or no date on either, replaces
-    * a copy nobody vouched for never replaces one somebody did, and replaces another such copy only when it is provably newer: its date after the stored copy's. An equal date, or no date on either, does not
+    * a copy held signed by its author (its proof or LD signature kept, `data_received`) is replaced only by a copy signed by its owner too, with the same type and owner (`attributedTo`, or `actor` for an activity), and provably newer: so a server that changes hands, or goes on serving something else, can't rewrite it with an unsigned copy. Deleting it is not this rule's
+    * a copy somebody vouched for replaces one nobody did unless it is provably older: its date (`updated`, else `published`) before the stored copy's
+    * over one somebody vouched for, only a provably newer one replaces: an equal date, or no date on either, keeps the one we hold, so an older copy replayed in a fresh envelope can't put back what an edit replaced
+    * a copy nobody vouched for never replaces one somebody did, and replaces another such copy only when it is provably newer
     * an identical copy, with the same value, has nothing to replace
   """
   def replaces?(
-        %{data: stored_data, authenticated: stored_authenticated},
+        %{data: stored_data, authenticated: stored_authenticated} = stored,
         incoming_data,
         incoming_authenticated
       )
       when is_map(incoming_data) do
     cond do
-      incoming_data == stored_data and incoming_authenticated == stored_authenticated -> false
-      vouched?(incoming_authenticated) -> compare_dates(incoming_data, stored_data) != :lt
-      vouched?(stored_authenticated) -> false
-      true -> compare_dates(incoming_data, stored_data) == :gt
+      incoming_data == stored_data and incoming_authenticated == stored_authenticated ->
+        false
+
+      held_signed?(stored) ->
+        incoming_authenticated in [:integrity_proof, :ld_signature] and
+          same_type_and_owner?(incoming_data, stored_data) and
+          compare_dates(incoming_data, stored_data) == :gt
+
+      vouched?(incoming_authenticated) and not vouched?(stored_authenticated) ->
+        compare_dates(incoming_data, stored_data) != :lt
+
+      vouched?(incoming_authenticated) ->
+        compare_dates(incoming_data, stored_data) == :gt
+
+      vouched?(stored_authenticated) ->
+        false
+
+      true ->
+        compare_dates(incoming_data, stored_data) == :gt
     end
   end
 
   def replaces?(_stored, _incoming_data, _incoming_authenticated), do: false
 
+  # held with the author's own proof or LD signature
+  defp held_signed?(%{data_received: %{}, authenticated: authenticated}),
+    do: authenticated in [:integrity_proof, :ld_signature]
+
+  defp held_signed?(_), do: false
+
+  defp same_type_and_owner?(incoming, stored) do
+    incoming["type"] == stored["type"] and
+      match?({:ok, _}, ActivityPub.Safety.IntegrityProofs.owner(stored)) and
+      ActivityPub.Safety.IntegrityProofs.owner(incoming) ==
+        ActivityPub.Safety.IntegrityProofs.owner(stored)
+  end
+
   # `:lt`, `:eq` or `:gt` for the incoming copy's date against the stored one's; `:unknown` when either has none
+  @doc "Whether a copy of a document is provably older than the one we hold, by `updated`, else `published`. `false` when either has no date."
+  def older?(incoming, stored), do: compare_dates(incoming, stored) == :lt
+
+  @doc "Whether a copy of a document is provably newer than the one we hold, by `updated`, else `published`. `false` when either has no date."
+  def newer?(incoming, stored), do: compare_dates(incoming, stored) == :gt
+
   defp compare_dates(incoming, stored) do
     with {:ok, incoming_date} <- document_date(incoming),
          {:ok, stored_date} <- document_date(stored) do

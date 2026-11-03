@@ -45,8 +45,17 @@ defmodule ActivityPub.Federator.NestedObjects do
     {context, options} = Keyword.pop(options, :context)
     {field_options, options} = Keyword.split(options, [:include_fields, :exclude_fields])
 
-    # how the document carrying the nested objects was authenticated: it vouches for a nested object of the same owner or origin, and is never stored as a nested object's own
-    wrapper = {options[:authenticated], options[:signed_by]}
+    # how the document carrying the nested objects was authenticated: it vouches for a nested object of the same owner or origin, and is never stored as a nested object's own. And whether it was delivered: then a nested object stored from it is part of that delivery, never relabelled as fetched, and one naming no owner is credited to the delivery's signer
+    # a document we fetched has no signer, but its origin answered for it: it vouches for what is on its own host, as a signer's host does
+    wrapper =
+      case {options[:signed_by], options[:already_fetched]} do
+        {nil, fetched_id} when is_binary(fetched_id) ->
+          {:fetched, fetched_id, false}
+
+        _ ->
+          {options[:authenticated], options[:signed_by],
+           !!options[:from_inbox] and !options[:already_fetched]}
+      end
 
     options =
       options
@@ -90,7 +99,8 @@ defmodule ActivityPub.Federator.NestedObjects do
     case Object.normalize(id, false) do
       %Object{local: false, authenticated: authenticated} = held
       when authenticated not in [nil, :fetched] ->
-        held.data_received || held.data
+        # its original only when it can be verified alone (`Object.signed?/1`): one its activity's proof covered has none of its own
+        if(Object.signed?(held.data_received), do: held.data_received, else: held.data)
 
       _ ->
         id
@@ -119,8 +129,8 @@ defmodule ActivityPub.Federator.NestedObjects do
     # Check if this looks like an AP object with an ID and type
     if Config.known_fetchable_type?(type) do
       case authentication(value, wrapper) do
-        nil -> not_vouched_for(id, value, policy, options)
-        authenticated -> store_embedded(value, authenticated, options)
+        nil -> not_vouched_for(id, value, policy, wrapper, options)
+        authenticated -> store_embedded(value, authenticated, wrapper, options)
       end
     else
       :skip
@@ -129,9 +139,12 @@ defmodule ActivityPub.Federator.NestedObjects do
 
   defp detect_and_store(_value, _policy, _wrapper, _options), do: :skip
 
-  # Vouched for with no request: by its own proof, by a wrapper authenticated as its owner, or by a wrapper authenticated as an actor of the same origin as its id (FEP-fe34: an origin vouches for its own objects). `nil` when none of these
-  defp authentication(%{"id" => id} = object, {wrapper_authenticated, wrapper_signed_by}) do
-    owner = Object.actor_from_data(object)
+  # Vouched for with no request: by its own proof, by a wrapper authenticated as its owner, or by a wrapper authenticated as an actor of the same origin as its id, when any owner it names is of that origin too (FEP-fe34: an origin vouches for its own objects, not for one it says is someone else's). `nil` when none of these
+  defp authentication(
+         %{"id" => id} = object,
+         {wrapper_authenticated, wrapper_signed_by, _delivered?}
+       ) do
+    owner = owner_of(object)
     wrapper_vouched? = Safety.vouched?(wrapper_authenticated) and is_binary(wrapper_signed_by)
 
     cond do
@@ -141,7 +154,8 @@ defmodule ActivityPub.Federator.NestedObjects do
       wrapper_vouched? and owner == wrapper_signed_by ->
         wrapper_authenticated
 
-      wrapper_vouched? and same_host?(id, wrapper_signed_by) ->
+      wrapper_vouched? and same_host?(id, wrapper_signed_by) and
+          (is_nil(owner) or same_host?(owner, id)) ->
         wrapper_authenticated
 
       true ->
@@ -149,26 +163,35 @@ defmodule ActivityPub.Federator.NestedObjects do
     end
   end
 
+  defp owner_of(object) do
+    case Object.actor_from_data(object) do
+      owner when is_binary(owner) -> owner
+      _ -> nil
+    end
+  end
+
   defp same_host?(one, two), do: URI.parse(one).host == URI.parse(two).host
 
-  # what the field's policy says to do with a nested object nobody vouched for. Refused, nothing is stored and the field keeps its id, so a consumer can still fetch it
-  defp not_vouched_for(id, value, policy, options) do
+  # what the field's policy says to do with a nested object nobody vouched for. Refused, nothing is stored and the field keeps its id, so a consumer can still fetch it. One that names an owner is never stored from the copy: that would be a post in the owner's name on someone else's word, so only its origin's own copy, fetched, is taken
+  defp not_vouched_for(id, value, policy, wrapper, options) do
     fetch? =
       policy in [:authenticate_or_fetch_or_store, :authenticate_or_fetch_or_drop] and
         Keyword.get(options, :fetch_remote?, true) != false
 
-    store? = policy in [:authenticate_or_store, :authenticate_or_fetch_or_store]
+    store? =
+      policy in [:authenticate_or_store, :authenticate_or_fetch_or_store] and
+        is_nil(owner_of(value))
 
     cond do
       fetch? ->
         case fetch(id, options) do
           {:ok, fetched} -> {:ok, id_of(fetched)}
-          _ when store? -> store_embedded(value, :unfetchable, options)
+          _ when store? -> store_embedded(value, :unfetchable, wrapper, options)
           _ -> {:ok, id}
         end
 
       store? ->
-        store_embedded(value, :unverified, options)
+        store_embedded(value, :unverified, wrapper, options)
 
       true ->
         {:ok, id}
@@ -197,12 +220,18 @@ defmodule ActivityPub.Federator.NestedObjects do
     end
   end
 
-  defp store_embedded(embedded_object, authenticated, options) do
+  defp store_embedded(embedded_object, authenticated, {_, signed_by, delivered?}, options) do
     # one vouched for by its own signature is stored with the original it arrived as, the `to` we add below being ours, so its signature still verifies when it goes out again (`reembed/2`); the parent's original is not its own
     options =
       if authenticated in [:integrity_proof, :ld_signature],
         do: Keyword.put(options, :data_received, embedded_object),
         else: Keyword.delete(options, :data_received)
+
+    # part of a delivery: never relabelled as fetched (`Fetcher.maybe_mark_fetched/2`), and one naming no owner is credited to the delivery's signer, who asserted it, not to our service actor (`Transformer.resolve_author`)
+    options =
+      if delivered?,
+        do: options |> Keyword.put(:from_inbox, true) |> Keyword.put(:signed_by, signed_by),
+        else: options
 
     case embedded_object
          |> Map.put_new("to", options[:to] || [])

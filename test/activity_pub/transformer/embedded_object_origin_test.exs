@@ -112,6 +112,30 @@ defmodule ActivityPub.Federator.Transformer.EmbeddedObjectOriginTest do
     assert stored?(note_id)
   end
 
+  # an object naming several owners has no one owner to compare its id with, so one of them on another origin must not be a way past the check: the sender names themself and a victim, with the id on the victim's host
+  test "an object of the sender and someone else, on that someone's origin, is not stored", %{
+    n: n,
+    sender: sender
+  } do
+    note_id = "https://victim-#{n}.example/notes/#{n}"
+    owners = [sender.id, "https://victim-#{n}.example/users/victim"]
+
+    assert {:error, _} = deliver(create_of(sender, owners, note_id), sender)
+    refute stored?(note_id)
+  end
+
+  # the control: several owners, the id on the sender's own origin (PeerTube's video, owned by a person and its channel)
+  test "an object of the sender and someone else, on the sender's origin, is stored", %{
+    n: n,
+    sender: sender
+  } do
+    note_id = "#{sender.id}/notes/#{n}"
+    owners = [sender.id, "https://elsewhere-#{n}.example/users/co-author"]
+
+    assert {:ok, _} = deliver(create_of(sender, owners, note_id), sender)
+    assert stored?(note_id)
+  end
+
   test "an object that names no owner is left to the rules for objects with no author", %{
     n: n,
     sender: sender

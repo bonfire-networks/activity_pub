@@ -490,7 +490,7 @@ defmodule ActivityPub.Federator.APPublisher do
         # Accept/Reject, a Follow, a Like, and the Undo of either, are for the one actor they address. Neither is public, so without this they reach the fallback below, which sends to every follower allowed to see the object: all of them, for a public post
         is_in(activity_data["type"], @addressed_only_types) or
           undo_of_addressed_only?(activity_data) or group_ban?(activity_data) or
-            group_removal?(activity_data) ->
+          group_removal?(activity_data) or named_report?(activity_data) ->
           []
 
         # When handling Flag activities, we need special recipient handling
@@ -540,6 +540,14 @@ defmodule ActivityPub.Federator.APPublisher do
        do: true
 
   defp group_removal?(_), do: false
+
+  # A report sent as the reporter, rather than as our service actor (to a group, or a group's moderators elsewhere), names who reported: it goes only to whom it is addressed, never to the reported author's instance, which gets the anonymous one if asked for. One with no `to` (a C2S report) still reaches the author. The service actor is needed to tell them apart, so the delivery fails if it can't be loaded
+  defp named_report?(%{"type" => "Flag", "actor" => actor} = data),
+    do:
+      List.wrap(data["to"]) != [] and
+        ActivityPub.Object.get_ap_id(actor) != Utils.service_actor!().ap_id
+
+  defp named_report?(_), do: false
 
   @doc "The remote followers of a local `actor` we may federate to, leaving out those whose pointer id is in `addressed_pointer_ids`."
   def get_external_followers_except(actor, purpose, addressed_pointer_ids) do

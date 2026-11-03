@@ -143,12 +143,13 @@ defmodule ActivityPub.Safety.IntegrityProofs do
   defp classify({:error, reason}) when reason in @evidence_against, do: {:invalid, reason}
   defp classify({:error, reason}), do: {:unverifiable, reason}
 
-  # A `Create` or `Update` may carry its proof on the object alone (FEP-8b32 allows either), so with no proof of its own the object's proof stands for it. Only when the object belongs to the activity's actor: an object of someone else stands on its own proof and says nothing about the activity.
+  # A `Create` or `Update` may carry its proof on the object alone (FEP-8b32 allows either), so with no proof of its own the object's proof stands for it. Only when the object belongs to the activity's actor: an object of someone else stands on its own proof and says nothing about the activity. And only for an envelope that adds nothing to what was signed: the same addressing as the object, and an id on its owner's origin. Otherwise anyone could wrap someone's signed post in an envelope of their own, addressed as they please (a followers-only post to Public), and have it taken as the owner's
   defp check_object(%{"type" => type, "object" => %{} = object} = document, opts)
        when type in ["Create", "Update"] do
     with true <- has_proof?(object),
          {:ok, owner} <- owner(document),
-         {:ok, ^owner} <- owner(object) do
+         {:ok, ^owner} <- owner(object),
+         true <- envelope_adds_nothing?(document, object, owner) do
       classify(verify(object, opts))
     else
       _ -> :none
@@ -156,6 +157,14 @@ defmodule ActivityPub.Safety.IntegrityProofs do
   end
 
   defp check_object(_document, _opts), do: :none
+
+  defp envelope_adds_nothing?(envelope, object, owner) do
+    Enum.all?(~w(to cc bto bcc), &(recipients(envelope[&1]) == recipients(object[&1]))) and
+      is_binary(envelope["id"]) and
+      ActivityPub.Utils.origin(envelope["id"]) == ActivityPub.Utils.origin(owner)
+  end
+
+  defp recipients(addressing), do: addressing |> List.wrap() |> Enum.sort()
 
   @doc """
   Verifies the proof (or proofs) on a document.

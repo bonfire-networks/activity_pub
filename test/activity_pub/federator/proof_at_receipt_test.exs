@@ -181,11 +181,95 @@ defmodule ActivityPub.Federator.ProofAtReceiptTest do
       refute stored(create) == :not_stored
     end
 
+    # FEP-8b32 allows the proof on the object alone, and then it stands for the Create around it: but only for an envelope that adds nothing to what was signed, or anyone could wrap someone's signed post in an envelope of their own, addressed as they please
+    defp envelope_of_signed_object(%{key: key, actor_id: actor_id}, envelope_changes) do
+      followers = "#{actor_id}/followers"
+      %{"object" => note} = create = create_note(actor_id)
+      signed_note = note |> Map.put("to", [followers]) |> sign(key)
+
+      create
+      |> Map.put("to", [followers])
+      |> Map.put("object", signed_note)
+      |> Map.merge(envelope_changes.(create))
+    end
+
+    test "an envelope adding nothing to the signed object it carries is vouched for by the object's proof",
+         context do
+      create = envelope_of_signed_object(context, fn _ -> %{} end)
+
+      assert {:ok, _} = delivered_unsigned(create)
+      assert stored(create) == :integrity_proof
+    end
+
+    test "an envelope addressed wider than the signed object it carries is not vouched for by it",
+         context do
+      create =
+        envelope_of_signed_object(context, fn _ ->
+          %{"to" => ["https://www.w3.org/ns/activitystreams#Public"]}
+        end)
+
+      refute match?({:ok, _}, delivered_unsigned(create))
+      assert stored(create) == :not_stored
+    end
+
+    test "an envelope with an id on another host than the object's owner is not vouched for by it",
+         context do
+      create =
+        envelope_of_signed_object(context, fn create ->
+          %{"id" => "https://elsewhere.example/activities/#{System.unique_integer([:positive])}"}
+          |> Map.put("cc", create["cc"] || [])
+        end)
+
+      refute match?({:ok, _}, delivered_unsigned(create))
+      assert stored(create) == :not_stored
+    end
+
     test "nothing signed it: refused by default", context do
       create = context.actor_id |> create_note()
       refute match?({:ok, _}, delivered_unsigned(create))
 
       assert stored(create) == :not_stored
+    end
+
+    # `unsigned: :accept` (ACCEPT_UNSIGNED_ACTIVITIES=1) takes anyone's word for who sent what: what it allows, and what other checks still refuse
+    test "nothing signed it: accepted with `unsigned: :accept`, and stored as vouched for by nobody",
+         context do
+      create = context.actor_id |> create_note()
+
+      with_incoming_signatures([unsigned: :accept], fn ->
+        assert {:ok, _} = delivered_unsigned(create)
+      end)
+
+      assert stored(create) == :unverified
+    end
+
+    test "nothing signed it: with `unsigned: :accept`, an Update naming an object on another host than its actor is still refused",
+         context do
+      n = System.unique_integer([:positive])
+
+      update =
+        context.actor_id
+        |> create_note()
+        |> Map.put("type", "Update")
+        |> put_in(["object", "id"], "https://victim-#{n}.example/objects/#{n}")
+
+      with_incoming_signatures([unsigned: :accept], fn ->
+        refute match?({:ok, _}, delivered_unsigned(update))
+      end)
+
+      assert stored(update["object"]) == :not_stored
+    end
+
+    test "nothing signed it: with `unsigned: :accept`, an Update naming an object on its actor's host is accepted",
+         context do
+      update =
+        context.actor_id
+        |> create_note()
+        |> Map.put("type", "Update")
+
+      with_incoming_signatures([unsigned: :accept], fn ->
+        assert {:ok, _} = delivered_unsigned(update)
+      end)
     end
   end
 end

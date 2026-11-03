@@ -51,7 +51,12 @@ defmodule ActivityPub.Safety.Containment do
   def contain_origin(_id, %{"type" => type} = _params)
       when is_in(type, :supported_actor_types) or
              is_in(type, :collection_types) or
-             is_in(type, ["Author", "Tombstone", "Place"]),
+             is_in(type, ["Author", "Tombstone"]),
+      do: true
+
+  # a Place often names no owner (a gazetteer's, eg an OpenStreetMap relation), and is then taken as it is; one that names an owner is held to its owner's origin, as any object is
+  def contain_origin(_id, %{"type" => "Place"} = params)
+      when not is_map_key(params, "actor") and not is_map_key(params, "attributedTo"),
       do: true
 
   def contain_origin(id, %{"type" => types} = params) when is_list(types),

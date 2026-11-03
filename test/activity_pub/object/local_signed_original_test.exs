@@ -149,6 +149,27 @@ defmodule ActivityPub.Object.LocalSignedOriginalTest do
     end
   end
 
+  describe "a local object that is deleted" do
+    # a guard: the Tombstone has no owner to sign it as, so the original is dropped (`renew_signed_original`), and what is served is the bare Tombstone
+    test "keeps no original, and is served as a Tombstone", %{actor: actor} do
+      row = stored_note(actor)
+
+      assert %{} = row.data_received, "control: held with its signed original"
+
+      assert ActivityPub.Web.ObjectView.render("object.json", %{object: row})["type"] == "Note",
+             "control: served as the post"
+
+      assert {:ok, _} = ActivityPub.delete(row, true)
+
+      {:ok, deleted} = Object.get_uncached(ap_id: row.data["id"])
+      assert is_nil(deleted.data_received)
+
+      served = ActivityPub.Web.ObjectView.render("object.json", %{object: deleted})
+      assert served["type"] == "Tombstone"
+      refute Jason.encode!(served) =~ "a long enough post"
+    end
+  end
+
   describe "at delivery, an inbox's copy that is the stored public form gets the stored signed object" do
     alias ActivityPub.Safety.IntegrityProofs.Outgoing
     alias ActivityPub.Federator.Transformer

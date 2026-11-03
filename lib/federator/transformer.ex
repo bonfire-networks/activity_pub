@@ -110,10 +110,13 @@ defmodule ActivityPub.Federator.Transformer do
   @doc """
   What an `Announce` announces, as it reached us, when we hold it with its original (`data_received`, kept when its proof or LD signature held): an activity (a group relaying it) or an object (a boost of a post). `nil` for anything else. Looked up once, for `with_original_object/2` to apply for each inbox.
   """
+  # TODO: for a document an MRF policy rewrote, optionally relay only its id rather than embedding the original (see the TODO at `Object.keep_received/2`)
   def original_object(%{"type" => "Announce", "object" => inner}) do
+    # only one that can be verified alone: an object kept as its activity's proof covered it has none of its own
     with id when is_binary(id) <- Object.get_ap_id(inner),
-         {:ok, %Object{data_received: %{"id" => ^id} = received}} <-
-           Object.get_cached(ap_id: id) do
+         {:ok, %Object{data_received: %{"id" => ^id}} = row} <- Object.get_cached(ap_id: id),
+         %{} = received <- Object.received_document(row),
+         true <- Object.signed?(received) do
       received
     else
       _ -> nil
@@ -158,11 +161,15 @@ defmodule ActivityPub.Federator.Transformer do
   def with_stored_signed_object(data), do: data
 
   # somebody else's `Create` as it reached us, when we hold it with its original (kept when its proof or LD signature held), in place of the one rebuilt from our copy, so their proof still verifies for whoever receives the group's Announce
-  defp with_received_create(prepared, %Object{
-         data: %{"id" => id},
-         data_received: %{"id" => id} = received
-       }),
-       do: Map.put(prepared, "object", received)
+  defp with_received_create(
+         prepared,
+         %Object{data: %{"id" => id}, data_received: %{"id" => id}} = stored
+       ) do
+    case Object.received_document(stored) do
+      %{} = received -> Map.put(prepared, "object", received)
+      nil -> prepared
+    end
+  end
 
   defp with_received_create(prepared, _stored), do: prepared
 
@@ -1252,14 +1259,28 @@ defmodule ActivityPub.Federator.Transformer do
     handle_each_object(data, inner_activities, opts)
   end
 
-  # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them with nil ID.
+  # shorter than "https://" can't be an id; should validate better, but good enough for now
+  @min_id_size byte_size("https://")
+
   # A moderator closing a thread to further replies, and reopening it. Lemmy sends both with the reason in `summary`, exactly as its mod-removal `Delete` does, and the community announces them. Explicit clause so the side effect runs regardless of the `handle_unknown_activities` flag, which is the same reason the collection `Add`/`Remove` clause is explicit.
-  def handle_incoming(%{"type" => "Lock", "object" => _} = data, opts),
-    do: store_and_hand_to_adapter(data, opts)
+  def handle_incoming(%{"type" => "Lock", "object" => _, "id" => id} = data, opts)
+      when is_binary(id) and byte_size(id) >= @min_id_size,
+      do: store_and_hand_to_adapter(data, opts)
 
-  def handle_incoming(%{"type" => "Undo", "object" => %{"type" => "Lock"}} = data, opts),
-    do: store_and_hand_to_adapter(data, opts)
+  def handle_incoming(
+        %{"type" => "Undo", "object" => %{"type" => "Lock"}, "id" => id} = data,
+        opts
+      )
+      when is_binary(id) and byte_size(id) >= @min_id_size,
+      do: store_and_hand_to_adapter(data, opts)
 
+  # with no id, a redelivery can't be told from a new one, and each would write another moderation record
+  def handle_incoming(%{"type" => "Lock"}, _opts), do: {:error, "No object ID"}
+
+  def handle_incoming(%{"type" => "Undo", "object" => %{"type" => "Lock"}}, _opts),
+    do: {:error, "No object ID"}
+
+  # Flag objects are placed ahead of the ID check because Mastodon 2.8 and earlier send them with nil ID.
   def handle_incoming(%{"type" => "Flag", "object" => objects, "actor" => actor} = data, opts) do
     with objects = List.wrap(objects),
          context <- data["context"],
@@ -1309,8 +1330,8 @@ defmodule ActivityPub.Federator.Transformer do
   # disallow objects with bogus IDs
   def handle_incoming(%{"id" => nil}, _opts), do: {:error, "No object ID"}
   def handle_incoming(%{"id" => ""}, _opts), do: {:error, "No object ID"}
-  # length of https:// = 8, should validate better, but good enough for now.
-  def handle_incoming(%{"id" => id}, _opts) when is_binary(id) and byte_size(id) < 8,
+
+  def handle_incoming(%{"id" => id}, _opts) when is_binary(id) and byte_size(id) < @min_id_size,
     do: {:error, "No object ID"}
 
   # Incoming actor create, just fetch from source
@@ -1341,7 +1362,7 @@ defmodule ActivityPub.Federator.Transformer do
       Object.actor_id_from_data(data)
       |> debug("the actor_id")
 
-    with :ok <- check_embedded_origin(received_object, opts),
+    with :ok <- check_embedded_origin(received_object, actor_id, opts),
          {:ok, {object_authenticated, object_signed_by}} <-
            embedded_object_authentication(received_object, actor_id, opts),
          # for the row of the object and for the adapter, which is handed the stored object inside the `Create`
@@ -1363,7 +1384,9 @@ defmodule ActivityPub.Federator.Transformer do
   defp ingest_nested_objects(%{} = object, data, opts) do
     ActivityPub.Federator.NestedObjects.ingest(
       object,
-      [context: data["@context"]] ++ Keyword.take(opts, [:authenticated, :signed_by])
+      # whether it came in a delivery too, so what is stored from it is never relabelled as fetched (`NestedObjects.ingest/2`)
+      [context: data["@context"]] ++
+        Keyword.take(opts, [:authenticated, :signed_by, :from_inbox, :already_fetched])
     )
   end
 
@@ -1417,16 +1440,25 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   # FEP-fe34: an object's id has to be on the origin of its owner, or whoever's origin it is on could put words in the owner's mouth, whatever signed the delivery. Only an object embedded in a DELIVERY (one we fetched went through `Containment` when it was fetched), and only one that names its owner: one that names none is for the rules about objects with no author.
-  defp check_embedded_origin(%{"id" => id} = object, opts) when is_binary(id) do
-    if delivered?(opts) and is_binary(embedded_owner(object)) and
-         not ActivityPub.Safety.Containment.contain_origin(id, object) do
+  # An object naming several owners has no one owner to compare with, so its id has to be on the origin of the activity's actor instead, as for an `Update` of an object we do not hold (`update_of_unheld_object/2`): otherwise a sender naming themself and someone else could take an id on that someone's host. PeerTube's video, owned by a person and their channel on one host, passes.
+  defp check_embedded_origin(%{"id" => id} = object, actor_id, opts) when is_binary(id) do
+    origin_of =
+      case embedded_owner(object) do
+        owner when is_binary(owner) -> object
+        :several when is_binary(actor_id) -> %{"actor" => actor_id}
+        # no owner: for the rules about objects with no author
+        _ -> nil
+      end
+
+    if delivered?(opts) and is_map(origin_of) and
+         not ActivityPub.Safety.Containment.contain_origin(id, origin_of) do
       error(id, "The object's id is not on the origin of its owner, so it is not stored")
     else
       :ok
     end
   end
 
-  defp check_embedded_origin(_object, _opts), do: :ok
+  defp check_embedded_origin(_object, _actor_id, _opts), do: :ok
 
   # --- an embedded object's authentication (FEP-fe34) ---
   #
@@ -1859,6 +1891,7 @@ defmodule ActivityPub.Federator.Transformer do
     with false <-
            relays_a_post? and
              duplicate_announce?(outer_activity, Object.get_ap_id(inner_activity["object"])),
+         {:already_deleted, false} <- {:already_deleted, deletes_a_tombstone?(inner_activity)},
          {:ok, inner_activity, mark} <-
            verify_relayed_activity(
              inner_activity,
@@ -1885,9 +1918,20 @@ defmodule ActivityPub.Federator.Transformer do
     else
       # discarding a duplicate is a success, and says so distinguishably: an error here would be indistinguishable from a real failure, in the log and to anything asserting on the result
       true -> {:ok, :duplicate}
+      {:already_deleted, true} -> {:ok, :already_deleted}
       e -> error(e)
     end
   end
+
+  # the relayed Delete of what we hold as a Tombstone changes nothing, so there is nothing to verify: a Tombstone keeps no `audience`, so its group's relay of the same deletion would otherwise be checked against an origin that no longer has it, and retried
+  defp deletes_a_tombstone?(%{"type" => "Delete", "object" => object}) do
+    match?(
+      {:ok, %Object{data: %{"type" => "Tombstone"}}},
+      Object.get_cached(ap_id: Object.get_ap_id(object))
+    )
+  end
+
+  defp deletes_a_tombstone?(_), do: false
 
   # FEP-171b: the Hubzilla/streams family relays by ADDING the activity into a conversation container (`Add{Create{Note}}` with `context`), where the threadiverse announces it. Same envelope, different verb, so it verifies and unwraps identically — but there is no boost to record afterwards: membership of the container is what marks the object as belonging, and `context` is already carried through by `fix_context/1`.
   def handle_incoming(
@@ -1913,8 +1957,8 @@ defmodule ActivityPub.Federator.Transformer do
            # the container's own id, so a reply can quote it back
            inner_activity =
              Map.put_new(inner_activity, "context", container),
-           # 171b marks belonging by membership of the container, where 1b12 marks it with `audience`. They mean the same thing, and our attribution already understands `audience`, so normalise to it: the container's owner is the group. Without this the container owner is never resolved and the post belongs to nobody locally.
-           inner_activity = put_audience(inner_activity, actor),
+           # 171b marks belonging by membership of the container, where 1b12 marks it with `audience`. They mean the same thing, and our attribution already understands `audience`, so normalise to it: the container's owner is the group, when it is one (`container_group/1`). Without this the container owner is never resolved and the post belongs to nobody locally.
+           inner_activity = put_audience(inner_activity, container_group(actor)),
            {:ok, _inner} <-
              handle_incoming(inner_activity, put_mark(opts, mark)) do
         # Adding to the container IS the act of distribution, the same act an `Announce` performs in 1b12, so record it the same way locally: hand off to the boost clause with the inner OBJECT's id, which also gives us actor resolution, `public?`, dedup and error handling. Nothing synthesised here is ever emitted.
@@ -1927,6 +1971,14 @@ defmodule ActivityPub.Federator.Transformer do
       else
         e -> error(e)
       end
+    end
+  end
+
+  # the container's owner as a group, which only a Group is: a Person owning a conversation (whoever started the thread) relays into it, but has no group's standing over what it relays
+  defp container_group(owner_id) do
+    case Actor.get_cached_or_fetch(ap_id: owner_id) do
+      {:ok, %{data: %{"type" => "Group"}}} -> owner_id
+      _ -> nil
     end
   end
 
@@ -2010,29 +2062,75 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
+  # `:trust` takes a relayed activity as it comes from the post's own group (FEP-1b12), but not from just any relayer: a relay of an activity about a post we hold, by an actor that is not in that post's `audience`, is checked against the origin as under `:verify`, or anyone could close, reopen or rewrite someone else's post by wrapping an `Update` of it in an `Announce`
   defp maybe_refetch_relayed_activity(inner_activity, opts) do
-    if relayed_activity_trust() == :verify do
-      object_id = Object.get_ap_id(inner_activity["object"])
+    its_group? = relayed_by_its_group?(inner_activity, opts[:relayed_by])
 
-      case Fetcher.fetch_fresh_object_from_id(object_id, opts) do
-        {:ok, %{data: authentic}} ->
-          debug(object_id, "relayed activity verified against its origin")
-
-          {:ok, Map.put(inner_activity, "object", authentic), fetched_from_origin(inner_activity)}
-
-        {:error, :not_found} ->
-          error(
-            object_id,
-            "the origin does not have this object, so the relayed copy cannot be trusted"
-          )
-
-        cannot_verify ->
-          # eg 401 (`:needs_login`): declining to answer US says nothing about whether the object exists, which is precisely the case 1b12 exists for
-          debug(cannot_verify, "could not verify relayed activity, accepting the relayed copy")
-          {:ok, inner_activity, {nil, nil}}
-      end
-    else
+    if relayed_activity_trust() != :verify and its_group? do
       {:ok, inner_activity, {nil, nil}}
+    else
+      verify_relayed_against_origin(inner_activity, its_group?, opts)
+    end
+  end
+
+  # a `Lock`, `Delete`, `Like`, `Undo`… from a relayer that is not the post's group: the post refetched proves only the post, so it is the activity that is fetched, by its own id, and refused if its origin won't give it
+  defp verify_relayed_against_origin(
+         %{"type" => type, "id" => activity_id},
+         false = _its_group?,
+         opts
+       )
+       when type not in ["Create", "Update"] and is_binary(activity_id) do
+    case Fetcher.fetch_remote_object_from_id(activity_id, opts) do
+      {:ok, %{"id" => ^activity_id, "type" => ^type} = authentic} ->
+        debug(activity_id, "relayed activity fetched from its origin")
+        {:ok, authentic, {nil, nil}}
+
+      cannot_fetch ->
+        error(
+          cannot_fetch,
+          "a relayed #{type} from a relayer that is not the post's group, which its origin would not confirm"
+        )
+    end
+  end
+
+  defp verify_relayed_against_origin(inner_activity, its_group?, opts) do
+    object_id = Object.get_ap_id(inner_activity["object"])
+
+    case Fetcher.fetch_fresh_object_from_id(object_id, opts) do
+      {:ok, %{data: authentic}} ->
+        debug(object_id, "relayed activity verified against its origin")
+
+        {:ok, Map.put(inner_activity, "object", authentic), fetched_from_origin(inner_activity)}
+
+      {:error, :not_found} ->
+        error(
+          object_id,
+          "the origin does not have this object, so the relayed copy cannot be trusted"
+        )
+
+      cannot_verify when its_group? ->
+        # eg 401 (`:needs_login`): declining to answer US says nothing about whether the object exists, which is precisely the case 1b12 exists for, from the post's own group
+        debug(cannot_verify, "could not verify relayed activity, accepting the relayed copy")
+        {:ok, inner_activity, {nil, nil}}
+
+      cannot_verify ->
+        # from anyone else, the relayed copy is all there would be to go on
+        error(
+          cannot_verify,
+          "could not verify an activity relayed by an actor that is not the post's group"
+        )
+    end
+  end
+
+  # whether the relayer is the group the post is in: named in the `audience` of the copy we HOLD (what the relay writes into the activity proves nothing, as it can name itself). A post we don't hold yet is the 1b12 trade-off, as before: taken from the relay
+  defp relayed_by_its_group?(inner_activity, relayer) do
+    case Object.get_cached(ap_id: Object.get_ap_id(inner_activity["object"])) do
+      {:ok, %Object{data: stored}} ->
+        is_binary(relayer) and
+          relayer in Enum.map(List.wrap(stored["audience"]), &Object.get_ap_id/1)
+
+      _ ->
+        true
     end
   end
 
@@ -2141,12 +2239,15 @@ defmodule ActivityPub.Federator.Transformer do
   # How an actor vouched for the new document its `Update` of itself carries, so it can be applied with no refetch: `:http_signature` when the delivery was signed by the actor itself, or `:integrity_proof`/`:ld_signature` when the document's own signature holds. Both are checked with the key we already hold for the actor (the HTTP signature by the plug before this, the document's by its owner's stored key), never one the new document carries, so an `Update` rotating the key is judged by the old one. `nil` for an actor we do not hold, whose own signature shows only that it was signed by the key it names, so it is fetched from its origin.
   defp actor_update_vouched_by(document, actor_id, opts) do
     with false <- opts[:local] || false,
-         {:ok, %Object{}} <- Object.get_cached(ap_id: actor_id) do
+         {:ok, %Object{data: held}} <- Object.get_cached(ap_id: actor_id) do
       if opts[:authenticated] == :http_signature and opts[:signed_by] == actor_id do
         :http_signature
       else
-        case ActivityPub.Safety.author_signature(document) do
-          {:ok, by_signature} -> by_signature
+        # anyone holding an older document the actor signed can deliver it again, and it still verifies: so its proof stands for it only when it is provably newer than what we hold, else the actor is fetched from its origin
+        with {:ok, by_signature} <- ActivityPub.Safety.author_signature(document),
+             true <- ActivityPub.Safety.newer?(document, held) do
+          by_signature
+        else
           _ -> nil
         end
       end
@@ -2188,6 +2289,10 @@ defmodule ActivityPub.Federator.Transformer do
          {:object, {:ok, cached_object}} <- {:object, Object.get_cached(ap_id: object_id)},
          true <- can_update?(cached_object, actor, opts) || {:error, :unauthorized},
          :ok <- check_owner_change(cached_object, object, opts),
+         # an `Update` is new to us by its id, so an older version of the object can come in a fresh one (its owner's own signed copy, re-sent by anyone): it must not revert an edit. Only a provably older one is refused, as the `Update` itself says the object changed
+         true <-
+           not ActivityPub.Safety.older?(object, cached_object.data) ||
+             {:error, "An Update carrying an older version of the object than the one we hold"},
          # after the checks, so an `Update` that is refused leaves nothing behind
          object = ingest_nested_objects(object, data, opts) do
       ActivityPub.update(
@@ -2635,7 +2740,29 @@ defmodule ActivityPub.Federator.Transformer do
 
   One bad element does not discard the rest: what arrived is kept and what failed is logged. A batch where nothing could be handled is still an error.
   """
+  # Each element may fetch and store, so one delivery could otherwise make any number of fetches and rows: a batch is capped by what the instance takes of any collection (`[:instance, :federation_incoming_max_items]`, as `Fetcher` reads it), the first ones handled and the rest dropped, and a batch inside a batch goes only as deep as incoming threads may (`Fetcher.allowed_recursion?/1`)
   def handle_each_object(data, objects, opts) when is_list(objects) do
+    depth = opts[:batch_depth] || 0
+
+    if Fetcher.allowed_recursion?(depth) do
+      max_items = Config.get([:instance, :federation_incoming_max_items]) || 5
+
+      if length(objects) > max_items,
+        do:
+          warn(
+            length(objects) - max_items,
+            "a batched activity with more objects than are taken of a collection, dropping the rest"
+          )
+
+      objects
+      |> Enum.take(max_items)
+      |> handle_each_object_upto(data, Keyword.put(opts, :batch_depth, depth + 1))
+    else
+      {:cancel, "a batch nested deeper than incoming threads may go"}
+    end
+  end
+
+  defp handle_each_object_upto(objects, data, opts) do
     objects
     |> Enum.map(fn object ->
       data

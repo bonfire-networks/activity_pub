@@ -335,6 +335,7 @@ defmodule ActivityPub.Object do
                   inserted_at: inserted_at
                 }
                 |> keep_received(opts)
+                |> without_held_object(object)
                 |> do_insert()
               end
             else
@@ -541,6 +542,7 @@ defmodule ActivityPub.Object do
 
   @always_in_patch ~w(id type actor object inReplyTo url preferredUsername to cc bto bcc audience)
 
+  # TODO: an instance's MRF policies apply to `data` only, so what is served and relayed is the author's original even when a policy rewrote it (eg. a keyword replaced, media stripped). Make it configurable for a document a policy changed: keep no original (serve and relay the filtered copy, unsigned), or keep it but relay only its id, so receivers fetch it from its origin (`Transformer.original_object/1`)
   # A received document whose own proof or LD signature held is stored as it arrived (`data_received`), so it still verifies when relayed, forwarded or served, with only what normalisation changed in `data`. An object covered only by its activity's proof has none of its own, so keeps no original: it is relayed inside its activity's.
   defp keep_received(
          %{data: %{"id" => id} = normalised, authenticated: authenticated} = attrs,
@@ -591,13 +593,52 @@ defmodule ActivityPub.Object do
     end
   end
 
-  # the document as it reached us when it is this row's, or the object it embeds when that is
+  # the document as it reached us when it is this row's, or the object it embeds when that is: signed itself, or covered by the proof of the activity around it
   defp received_original(%{"id" => id} = document, id), do: signed(document)
-  defp received_original(%{"object" => %{"id" => id} = object}, id), do: signed(object)
+
+  defp received_original(%{"object" => %{"id" => id} = object} = activity, id),
+    do: signed(object) || if(signed(activity), do: object)
+
   defp received_original(_received, _id), do: nil
 
-  defp signed(document),
-    do: if(is_map_key(document, "proof") or is_map_key(document, "signature"), do: document)
+  defp signed(document), do: if(signed?(document), do: document)
+
+  @doc "Whether a document carries a proof or an LD signature of its own, so it can be verified alone."
+  def signed?(%{} = document),
+    do: is_map_key(document, "proof") or is_map_key(document, "signature")
+
+  def signed?(_), do: false
+
+  # A Create or Update whose object's row kept the object as it came in it holds only the object's id in its own original: the object is stored once, and put back when the activity is served or relayed (`received_document/1`). Left whole when the object's row kept something else, or nothing (an object owned by someone other than the activity's actor).
+  defp without_held_object(
+         %{data_received: %{"type" => type, "object" => %{"id" => id} = embedded} = received} =
+           attrs,
+         %Object{data: %{"id" => id}, data_received: embedded}
+       )
+       when type in ["Create", "Update"],
+       do: %{attrs | data_received: Map.put(received, "object", id)}
+
+  defp without_held_object(attrs, _object), do: attrs
+
+  @doc """
+  A row's original (`data_received`) as it reached us. A `Create` or `Update` is stored with only its object's id (`without_held_object/2`), and gets the object's original put back. `nil` when there is no original, or the object's row no longer has one: it was edited or deleted since, and then the activity's original was dropped too.
+  """
+  def received_document(%Object{
+        data_received: %{"type" => type, "object" => object_id} = received
+      })
+      when type in ["Create", "Update"] and is_binary(object_id) do
+    case get_cached(ap_id: object_id) do
+      {:ok, %Object{data_received: %{"id" => ^object_id} = object}} ->
+        Map.put(received, "object", object)
+
+      # one that came with only the object's id, and was never split
+      _ ->
+        received
+    end
+  end
+
+  def received_document(%Object{data_received: %{} = received}), do: received
+  def received_document(_), do: nil
 
   # the fields queries read are kept in the patch even when unchanged (`config :activity_pub, :received_documents, always_in_patch:`), so a query reading `data` alone finds the row; a `url` equal to the `id` is found by the `id` index already
   defp always_in_patch(normalised) do
@@ -771,9 +812,38 @@ defmodule ActivityPub.Object do
     end
   end
 
+  # When a remote object's original changes or goes (an edit, a refetch, a delete), the `Create` and `Update` that carried an earlier one can no longer be put back together (`received_document/1`), and what they hold of it must not be served: they keep no original from then on, in the same transaction. Not for our own objects, whose original is renewed at every change and whose activities keep none.
+  defp drop_originals_carrying(changeset) do
+    with %{__meta__: %{state: :loaded}, data: %{"id" => id}} <- changeset.data,
+         true <- get_field(changeset, :is_object) == true,
+         false <- get_field(changeset, :local) == true,
+         true <- changed?(changeset, :data_received) or tombstoned?(changeset) do
+      prepare_changes(changeset, fn prepared ->
+        Queries.activity_by_object_ap_id(id, ["Create", "Update"])
+        |> where([a], not is_nil(a.data_received))
+        |> many()
+        |> Enum.each(fn activity ->
+          # `data` is the merged whole, so written whole
+          activity
+          |> changeset(%{data_received: nil, data: activity.data})
+          |> prepared.repo.update!()
+
+          invalidate_cache(activity)
+        end)
+
+        prepared
+      end)
+    else
+      _ -> changeset
+    end
+  end
+
+  defp tombstoned?(changeset), do: match?(%{"type" => "Tombstone"}, get_change(changeset, :data))
+
   def common_changeset(object) do
     object
     |> renew_signed_original()
+    |> drop_originals_carrying()
     |> patch_over_received()
     |> validate_required(:data)
     |> unique_constraint(:pointer_id)
@@ -1126,11 +1196,12 @@ defmodule ActivityPub.Object do
     end
   end
 
+  # A Tombstone keeps no document of what it was: an original left on the row would still be served (`ObjectView`) and relayed (`Transformer.original_object/1`) as it arrived. With no original, `data` is written whole (`patch_over_received/1` has nothing to patch over).
   def swap_object_with_tombstone(object) do
     tombstone = make_tombstone(object)
 
     object
-    |> changeset(%{data: tombstone})
+    |> changeset(%{data: tombstone, data_received: nil})
     |> repo().update()
   end
 

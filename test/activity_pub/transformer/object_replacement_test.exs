@@ -2,7 +2,8 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
   @moduledoc """
   An object we already hold can arrive again, from another delivery, a relay or a fetch. Which copy stays:
 
-    * a copy somebody vouched for replaces the stored one, whatever the stored one's value, unless it is provably older (by `updated`, else `published`)
+    * a copy held signed by its author is replaced only by one signed by its owner, of the same type and owner, and provably newer
+    * a copy somebody vouched for replaces one nobody did unless it is provably older (by `updated`, else `published`), and one somebody did only when provably newer
     * a copy nobody vouched for never replaces one somebody did, and replaces another such copy only when it is provably newer (its date later)
     * an `Update` is outside this rule, and keeps the behaviour it had
   """
@@ -125,18 +126,19 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
       assert content(note_id) == "<p>v2</p>"
     end
 
-    test "replaces the stored one when the dates are equal", %{sender: sender, note_id: note_id} do
+    # over one somebody vouched for too, only a provably newer copy: an older copy replayed in a fresh envelope, by a relay or anyone holding it, must not put back what an edit replaced, and with nothing to tell them apart the one we hold stays
+    test "keeps the stored one when the dates are equal", %{sender: sender, note_id: note_id} do
       assert {:ok, _} = vouched(create(sender, note_id, "<p>v1</p>", %{"updated" => @t1}), sender)
-      assert {:ok, _} = vouched(create(sender, note_id, "<p>v2</p>", %{"updated" => @t1}), sender)
+      vouched(create(sender, note_id, "<p>v2</p>", %{"updated" => @t1}), sender)
 
-      assert content(note_id) == "<p>v2</p>"
+      assert content(note_id) == "<p>v1</p>"
     end
 
-    test "replaces the stored one when neither has a date", %{sender: sender, note_id: note_id} do
+    test "keeps the stored one when neither has a date", %{sender: sender, note_id: note_id} do
       assert {:ok, _} = vouched(create(sender, note_id, "<p>v1</p>", %{}), sender)
-      assert {:ok, _} = vouched(create(sender, note_id, "<p>v2</p>", %{}), sender)
+      vouched(create(sender, note_id, "<p>v2</p>", %{}), sender)
 
-      assert content(note_id) == "<p>v2</p>"
+      assert content(note_id) == "<p>v1</p>"
     end
 
     test "is refused when it is provably older", %{sender: sender, note_id: note_id} do
@@ -174,6 +176,179 @@ defmodule ActivityPub.Federator.Transformer.ObjectReplacementTest do
       vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}), sender)
 
       assert content(note_id) == "<p>v2, edited</p>"
+    end
+
+    # an Update is new to us by its id, so an older version of the object, the owner's own and signed, can be wrapped in a fresh one: it must not revert the edit, whoever re-sends it
+    test "an Update carrying an older version than the one we hold does not revert the edit", %{
+      sender: sender,
+      key: key,
+      note_id: note_id
+    } do
+      update_with = fn object ->
+        %{
+          "@context" => "https://www.w3.org/ns/activitystreams",
+          "id" => "#{sender}/activities/update-#{System.unique_integer([:positive])}",
+          "type" => "Update",
+          "actor" => sender,
+          "to" => [@public],
+          "object" => object
+        }
+      end
+
+      assert {:ok, _} =
+               vouched(create(sender, note_id, "<p>v1</p>", %{"published" => @t0}), sender)
+
+      edited =
+        create(sender, note_id, "<p>v2, edited</p>", %{"published" => @t0, "updated" => @t2})[
+          "object"
+        ]
+
+      assert {:ok, _} = vouched(update_with.(edited), sender)
+      assert content(note_id) == "<p>v2, edited</p>", "control: the edit applies"
+
+      older =
+        create(sender, note_id, "<p>v1, replayed</p>", %{"published" => @t0, "updated" => @t1})[
+          "object"
+        ]
+        |> Map.put("@context", [
+          "https://www.w3.org/ns/activitystreams",
+          "https://w3id.org/security/data-integrity/v2"
+        ])
+        |> sign(key)
+
+      Transformer.handle_incoming(update_with.(older),
+        from_inbox: true,
+        authenticated: :integrity_proof,
+        signed_by: sender
+      )
+
+      assert content(note_id) == "<p>v2, edited</p>"
+    end
+  end
+
+  # A copy we hold signed by its author (its proof kept, `data_received`) is rewritten only by another copy signed by its owner, of the same type and owner, and provably newer: a server that changes hands (an expired domain re-registered) or just goes on serving something else can't put words in the author's mouth with an unsigned copy, by delivery or refetch. Deletion is not this rule's: it is honoured as before
+  describe "a copy we hold signed by its author" do
+    # over a verified HTTP signature with the Create's proof, as the receiver worker gets it: what keeps the original
+    defp received(document, signer) do
+      ActivityPub.Federator.Worker.ReceiverHelpers.perform(
+        %Oban.Job{
+          args: %{
+            "op" => "incoming_ap_doc",
+            "params" => document,
+            "signed_by" => signer,
+            "repo" => ActivityPub.Utils.repo()
+          }
+        },
+        :verified
+      )
+    end
+
+    defp signed_create(sender, key, note_id, content, dates, type \\ "Note") do
+      %{"object" => note} = create = create(sender, note_id, content, dates)
+
+      note =
+        note
+        |> Map.put("type", type)
+        |> Map.put("@context", [
+          "https://www.w3.org/ns/activitystreams",
+          "https://w3id.org/security/data-integrity/v2"
+        ])
+        |> sign(key)
+
+      create
+      |> Map.put("@context", [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/data-integrity/v2"
+      ])
+      |> Map.put("object", note)
+      |> sign(key)
+    end
+
+    defp held(note_id) do
+      {:ok, object} = Object.get_uncached(ap_id: note_id)
+      object
+    end
+
+    setup %{sender: sender, key: key, note_id: note_id} do
+      assert {:ok, _} =
+               received(
+                 signed_create(sender, key, note_id, "<p>v1</p>", %{"updated" => @t1}),
+                 sender
+               )
+
+      assert %{"proof" => _} = held(note_id).data_received, "control: held signed"
+      :ok
+    end
+
+    test "is not rewritten by a newer copy its owner's server sends unsigned", %{
+      sender: sender,
+      note_id: note_id
+    } do
+      vouched(create(sender, note_id, "<p>v2, unsigned</p>", %{"updated" => @t2}), sender)
+
+      assert held(note_id).data["content"] == "<p>v1</p>"
+    end
+
+    test "is not rewritten by a newer unsigned copy fetched from its origin", %{
+      sender: sender,
+      note_id: note_id
+    } do
+      newer = create(sender, note_id, "<p>v2, fetched</p>", %{"updated" => @t2})["object"]
+
+      Tesla.Mock.mock(fn
+        %{method: :get, url: ^note_id} -> Tesla.Mock.json(newer)
+        %{method: :get} -> %Tesla.Env{status: 404, body: ""}
+      end)
+
+      ActivityPub.Federator.Fetcher.fetch_fresh_object_from_id(note_id)
+
+      assert held(note_id).data["content"] == "<p>v1</p>"
+    end
+
+    test "stays as it is when its origin can't be reached, or answers 404", %{note_id: note_id} do
+      for answer <- [{:error, :nxdomain}, %Tesla.Env{status: 404, body: ""}] do
+        Tesla.Mock.mock(fn %{method: :get} -> answer end)
+        ActivityPub.Federator.Fetcher.fetch_fresh_object_from_id(note_id)
+
+        assert %{"proof" => _} = held(note_id).data_received
+        assert held(note_id).data["content"] == "<p>v1</p>"
+      end
+    end
+
+    test "is not rewritten by a newer signed copy of another type", %{
+      sender: sender,
+      key: key,
+      note_id: note_id
+    } do
+      received(
+        signed_create(
+          sender,
+          key,
+          note_id,
+          "<p>v2, as an article</p>",
+          %{"updated" => @t2},
+          "Article"
+        ),
+        sender
+      )
+
+      assert held(note_id).data["content"] == "<p>v1</p>"
+      assert held(note_id).data["type"] == "Note"
+    end
+
+    # the control: what may rewrite it
+    test "is rewritten by a newer copy signed by its owner", %{
+      sender: sender,
+      key: key,
+      note_id: note_id
+    } do
+      assert {:ok, _} =
+               received(
+                 signed_create(sender, key, note_id, "<p>v2, signed</p>", %{"updated" => @t2}),
+                 sender
+               )
+
+      assert held(note_id).data["content"] == "<p>v2, signed</p>"
     end
   end
 

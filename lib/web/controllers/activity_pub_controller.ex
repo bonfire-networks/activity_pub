@@ -317,36 +317,41 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   def following(conn, %{"username" => username} = params) do
-    with true <- may_serve_actor?(username, conn),
-         {:ok, actor} <- Actor.get_cached(username: username) do
+    with {:ok, actor} <- Actor.get_cached(username: username),
+         true <- may_serve_actor?(actor, conn) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
       |> render("following.json", %{actor: actor, page: page_number(params["page"])})
+    else
+      # not servable, or not found: the same answer for both, so a refusal says nothing a missing actor wouldn't
+      _ -> Utils.error_json(conn, "not found", 404)
     end
   end
 
   def followers(conn, %{"username" => username} = params) do
-    with true <- may_serve_actor?(username, conn),
-         {:ok, actor} <- Actor.get_cached(username: username) do
+    with {:ok, actor} <- Actor.get_cached(username: username),
+         true <- may_serve_actor?(actor, conn) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ActorView)
       |> render("followers.json", %{actor: actor, page: page_number(params["page"])})
+    else
+      _ -> Utils.error_json(conn, "not found", 404)
     end
   end
 
   def outbox(conn, %{"username" => username} = params) do
-    with true <- may_serve_actor?(username, conn),
-         {:ok, actor} <- Actor.get_cached(username: username) do
+    with {:ok, actor} <- Actor.get_cached(username: username),
+         true <- may_serve_actor?(actor, conn) do
       conn
       |> put_resp_content_type("application/activity+json")
       |> put_view(ObjectView)
       |> render("outbox.json", %{actor: actor, page: page_number(params["page"])})
     else
       e ->
-        error(e, "Invalid actor")
-        Utils.error_json(conn, "Invalid actor", 500)
+        warn(e, "Outbox of an actor that is not servable, or not found")
+        Utils.error_json(conn, "not found", 404)
     end
   end
 
@@ -501,6 +506,7 @@ defmodule ActivityPub.Web.ActivityPubController do
     end
   end
 
+  # `local_actor` is a loaded actor where the route has one (passed on whole, so the host starts from the character it carries rather than looking it up again), else its username or AP id
   defp may_serve_actor?(local_actor, conn) do
     # the local actor whose data is being served is the LOCAL party (`by_actor`); the requesting
     # actor (from the HTTP signature, may be nil) is the `subject` checked against. This honors the

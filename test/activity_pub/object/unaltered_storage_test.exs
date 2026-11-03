@@ -2,7 +2,7 @@ defmodule ActivityPub.Object.UnalteredStorageTest do
   @moduledoc """
   A received document whose own proof or LD signature held is stored as it arrived, in `data_received`, so it still verifies when it is relayed, forwarded or served from the row; `data` holds only what normalisation changed, and a load gives the normalised document as before. Anything else is stored as before, with no original.
 
-  An object takes its activity's `authenticated` when its activity's actor owns it, but keeps an original only when it carries a proof of its own that held: one covered only by its activity's proof is relayed inside its activity's original.
+  An object takes its activity's `authenticated` when its activity's actor owns it, and keeps its original whether the proof is its own or its activity's. A `Create` or `Update` then keeps only its object's id in its own original, and gets the object put back when it is read (`Object.received_document/1`), so the object is stored once.
   """
   use ActivityPub.DataCase, async: false
 
@@ -56,11 +56,14 @@ defmodule ActivityPub.Object.UnalteredStorageTest do
     end
 
     test "keeps the activity as it arrived, @context and proof included", %{signed: signed} do
-      assert %Object{authenticated: :integrity_proof, data_received: ^signed} = row(signed["id"])
+      assert %Object{authenticated: :integrity_proof} = row = row(signed["id"])
+      assert Object.received_document(row) == signed
+      assert row.data_received["object"] == signed["object"]["id"], "its object is kept once"
     end
 
-    test "and that original still verifies, as stored", %{signed: signed, actor_id: actor_id} do
-      assert IntegrityProofs.verify(row(signed["id"]).data_received) == {:ok, actor_id}
+    test "and that original still verifies, as read", %{signed: signed, actor_id: actor_id} do
+      assert IntegrityProofs.verify(Object.received_document(row(signed["id"]))) ==
+               {:ok, actor_id}
     end
 
     test "loads as the normalised activity, as before", %{signed: signed} do
@@ -87,10 +90,13 @@ defmodule ActivityPub.Object.UnalteredStorageTest do
       assert Map.fetch(patch, "@context") == {:ok, nil}
     end
 
-    test "its object, covered only by the activity's proof, keeps no original of its own", %{
+    test "its object, covered only by the activity's proof, keeps the original it came in", %{
       signed: signed
     } do
-      assert %Object{data_received: nil, data: %{"content" => _}} = row(signed["object"]["id"])
+      assert %Object{data_received: received, data: %{"content" => _}} =
+               row(signed["object"]["id"])
+
+      assert received == signed["object"]
     end
   end
 

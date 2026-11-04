@@ -38,6 +38,8 @@ defmodule ActivityPub.Federator do
       %{"activity_id" => activity_id}
       # no longer carries somebody else's activity as it reached us for an Announce of it: the publisher reads it from that activity's row (`data_received`), so a retried job sends it too
       # |> Utils.maybe_put("data_received", opts[:data_received])
+      # `false` for a Follow that is itself a re-send, so its delivery queues no check (see `ActivityPub.Federator.PendingFollows`)
+      |> Utils.maybe_put("resend_pending_follow", opts[:resend_pending_follow])
       |> build_actor_fields(opts[:actor]),
       PublisherWorker.maybe_schedule_worker_args(opts[:activity_data], opts[:worker_args] || [])
     )

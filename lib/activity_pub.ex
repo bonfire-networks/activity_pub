@@ -109,7 +109,8 @@ defmodule ActivityPub do
              make_follow_data(follower, followed, Map.get(params, :activity_id)),
          {:ok, activity} <-
            Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
-         :ok <- maybe_federate(follower, activity),
+         # `resend_pending_follow: false` for a Follow that is itself a re-send (see `ActivityPub.Federator.PendingFollows`)
+         :ok <- maybe_federate(follower, activity, Keyword.take(opts, [:resend_pending_follow])),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          {:ok, activity} <- Object.get_cached(ap_id: activity),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -146,6 +147,8 @@ defmodule ActivityPub do
              opts
            )
            |> debug("insert"),
+         # so a check waiting to re-send the Follow stops (see `ActivityPub.Federator.PendingFollows`)
+         _ <- maybe_mark_undone(follow_activity),
          :ok <- maybe_federate(actor, activity) |> debug("adapt"),
          {:ok, adapter_object} <-
            Adapter.maybe_handle_activity(activity, opts) |> debug("incoming"),
@@ -1242,6 +1245,13 @@ defmodule ActivityPub do
   end
 
   #### Follow-related helpers
+
+  # marks the Follows from that actor to that actor as undone, as an Accept marks them accepted
+  defp maybe_mark_undone(%Object{data: %{"actor" => _, "object" => _}} = follow_activity),
+    do: Object.update_state(follow_activity, "Follow", "undo")
+
+  defp maybe_mark_undone(_), do: nil
+
   defp make_follow_data(
          %{data: %{"id" => follower_id}},
          %{data: %{"id" => followed_id}} = _followed,

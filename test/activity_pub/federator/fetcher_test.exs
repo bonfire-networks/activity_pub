@@ -355,6 +355,53 @@ defmodule ActivityPub.Federator.FetcherTest do
     end
   end
 
+  # a URL whose fetch failed is remembered for as long as the object cache keeps an entry (`cache_fetch_error/1`), so that each thread or collection that names it doesn't fetch it again
+  describe "a URL whose fetch just failed" do
+    setup do
+      # tests bypass the AP caches by default, where prod has them on
+      Process.put(:activity_pub_enable_cache, true)
+      ActivityPub.Utils.cache_clear()
+      on_exit(fn -> ActivityPub.Utils.cache_clear() end)
+
+      test_pid = self()
+
+      mock(fn %{method: :get, url: url} ->
+        send(test_pid, {:requested, url})
+        %Tesla.Env{status: 404, body: ""}
+      end)
+
+      :ok
+    end
+
+    test "is not requested again when its JSON is asked for" do
+      gone = "https://gone.local/objects/json-1"
+      other = "https://gone.local/objects/json-2"
+
+      assert {:error, :not_found} = Fetcher.get_cached_or_fetch_object_json(gone)
+      assert_received {:requested, ^gone}
+
+      assert {:error, :not_found} = Fetcher.get_cached_or_fetch_object_json(other)
+      assert_received {:requested, ^other}, "control: a different URL is still fetched"
+
+      assert {:error, :not_found} = Fetcher.get_cached_or_fetch_object_json(gone)
+      refute_received {:requested, ^gone}, "the URL that just failed is not requested again"
+    end
+
+    test "is not requested again when its object is asked for" do
+      gone = "https://gone.local/objects/object-1"
+      other = "https://gone.local/objects/object-2"
+
+      assert {:error, :not_found} = Fetcher.fetch_object_from_id(gone)
+      assert_received {:requested, ^gone}
+
+      assert {:error, :not_found} = Fetcher.fetch_object_from_id(other)
+      assert_received {:requested, ^other}, "control: a different URL is still fetched"
+
+      assert {:error, :not_found} = Fetcher.fetch_object_from_id(gone)
+      refute_received {:requested, ^gone}, "the URL that just failed is not requested again"
+    end
+  end
+
   # a host that answers is up, whatever it answered, as with deliveries (`APPublisher.unreachable_status?/1`)
   describe "a flagged host that answers a fetch" do
     @answering_id "https://answering.local/objects/gone"

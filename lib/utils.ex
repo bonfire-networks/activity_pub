@@ -728,6 +728,10 @@ defmodule ActivityPub.Utils do
           debug(":not_found was cached for #{cache_key}")
           {:error, :not_found}
 
+        # a fetch error cached by `Fetcher.cache_fetch_error/1`, returned as the error it is rather than as `{:ok, error}`. Not on yet, with the fix there
+        # {:ok, {:error, :remote_error} = cached_error} ->
+        #   cached_error
+
         {:ok, object} ->
           debug("found in cache for #{cache_key}")
           {:ok, object}

@@ -896,9 +896,15 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
+  # FIXME: stored where nothing reads it (the checks read `Object.get_cached(ap_id: id)`, ie. `:ap_object_cache` under `Utils.ap_cache_key(:ap_id, id)`), so a URL that just failed is fetched again every time
   def cache_fetch_error(id) do
     Cachex.put(:ap_actor_cache, id, {:error, :remote_error})
   end
+
+  # Where the checks read it, for the object cache's default expiry (42 minutes). Not on yet: a group's `narrower` that 404s when the mirror is made would then not be read again by a join within that time (`group_or_topic_test.exs` "a group someone here joins…" and "…asks to join…" fail with it), so the lifetime or the key is still to be decided
+  # def cache_fetch_error(id) do
+  #   Cachex.put(:ap_object_cache, Utils.ap_cache_key(:ap_id, id), {:error, :remote_error})
+  # end
 
   def maybe_parse_header_url(str, type) do
     case String.split(str, ">", parts: 2) do
@@ -1122,6 +1128,7 @@ defmodule ActivityPub.Federator.Fetcher do
              get_cached_or_maybe_fetch_json(
                page_id,
                opts
+               |> page_fetch_mode()
                |> Keyword.put_new(:skip_contain_origin_check, true)
                |> Keyword.put_new(:triggered_by, "fetch_page")
              ) do
@@ -1147,6 +1154,14 @@ defmodule ActivityPub.Federator.Fetcher do
         {:error, error} ->
           error(error, "Could not fetch page #{page_id}")
       end
+    end
+  end
+
+  # a collection read here, whose entries are then queued (`mode: :entries_async`), has its pages read here too: `get_cached_or_maybe_fetch_json/2` skips a page for that mode, so a collection that lists its entries on a page it links (as `first`, or as `next`) gave none
+  defp page_fetch_mode(opts) do
+    case opts[:mode] do
+      :entries_async -> Keyword.put(opts, :mode, true)
+      _ -> opts
     end
   end
 

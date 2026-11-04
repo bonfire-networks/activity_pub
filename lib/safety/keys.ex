@@ -181,7 +181,7 @@ defmodule ActivityPub.Safety.Keys do
         warn(actor, "actor has no keys and is local, generate new ones")
 
         with {:ok, pem} <- generate_rsa_pem(),
-             {:ok, actor} <- Adapter.update_local_actor(actor, %{keys: pem}),
+             {:ok, actor} <- save_new_keys(actor, pem),
              {:ok, actor} <- Actor.set_cache(actor) do
           {:ok, actor}
         else
@@ -193,6 +193,15 @@ defmodule ActivityPub.Safety.Keys do
   def ensure_keys_present(object) do
     warn(object, "not an actor, so keys are not applicable")
     {:ok, object}
+  end
+
+  # Several requests can make a key for the same actor at once (the first signed requests of a new instance, all needing our service actor's key), and making one takes long enough that another request saves its key meanwhile. A key that replaced the saved one would leave the requests that use the other signing with a key no one can check. So the adapter is asked to save ours only if the actor has no key yet (`keep_stored_keys`), in one statement, and to return the actor with the key then stored: ours, or the one another request saved first. An adapter that doesn't know `keep_stored_keys` saves ours as any update would, and returns it.
+  defp save_new_keys(actor, pem) do
+    case Adapter.update_local_actor(actor, %{keys: pem, keep_stored_keys: true}) do
+      {:ok, %{keys: keys} = saved} when is_binary(keys) -> {:ok, saved}
+      {:ok, other} -> error(other, "the actor was returned without a key after saving one")
+      e -> e
+    end
   end
 
   # the actor as the host app has it now, if that one has a key

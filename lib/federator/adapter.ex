@@ -97,6 +97,8 @@ defmodule ActivityPub.Federator.Adapter do
 
   @doc """
   Commit new fields to the host application database for the given `Actor`.
+
+  `%{keys: pem, keep_stored_keys: true}` is a new key for an actor that had none: save it only if the actor still has no key, in one statement, and return the actor with the key then stored, so that requests making a key at once all keep the first one saved. An adapter that doesn't do so saves it as any other update.
   """
   @callback update_local_actor(Actor.t(), Map.t()) ::
               {:ok, Actor.t()} | {:error, any()}
@@ -595,6 +597,25 @@ defmodule ActivityPub.Federator.Adapter do
     end
   end
 
+  @doc """
+  Keeps those of `subjects` that `federation_allowed?/2` allows with the same `opts`, eg. the followers a post fans out to.
+
+  An adapter can answer for the whole list at once (with one block lookup for all of them rather than one per subject), which matters when a post fans out to hundreds of followers. Without one, each subject is checked with `federation_allowed?/2`.
+  """
+  @callback filter_federation_allowed([term()], opts :: keyword()) :: [term()]
+  def filter_federation_allowed(subjects, opts \\ []) when is_list(subjects) do
+    if function_exported?(adapter(), :filter_federation_allowed, 2) do
+      allowed = adapter().filter_federation_allowed(subjects, opts)
+
+      # the same as `federation_allowed?/2` does for one subject: the lib's own config-based `SimplePolicy` reject on top of the adapter's decision, when enabled
+      if @also_apply_simple_policy,
+        do: Enum.filter(allowed, &simple_policy_allows?/1),
+        else: allowed
+    else
+      Enum.filter(subjects, &federation_allowed?(&1, opts))
+    end
+  end
+
   defp simple_policy_allows?(subject) do
     # `SimplePolicy.check_reject/2` matches on a `%URI{}` (`%{host: ...}`), so normalise the subject
     # (URI, ap_id string, or actor/object struct) first; allow when no host can be determined
@@ -617,6 +638,7 @@ defmodule ActivityPub.Federator.Adapter do
                       get_multi_tenant_context: 0,
                       set_multi_tenant_context: 1,
                       federation_allowed?: 2,
+                      filter_federation_allowed: 2,
                       collection_items: 2,
                       collection_total: 2,
                       adapter_handles?: 1,

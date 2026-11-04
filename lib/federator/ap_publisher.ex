@@ -45,7 +45,7 @@ defmodule ActivityPub.Federator.APPublisher do
 
   An `Announce` of somebody else's activity (a group relaying it) carries that activity as it reached us, when it is stored with its original (`data_received`, kept when its proof or LD signature held), in place of the copy we normalised, so the author's proof or signature still verifies for whoever receives it.
   """
-  def prepare_publish_params(actor, activity, _opts \\ []) do
+  def prepare_publish_params(actor, activity, opts \\ []) do
     # embed the object in the activity JSON (note: already being done in prepare_outgoing)
     # object_ap_id = activity.data["object"]
     # object = Object.get_cached!(object_ap_id)
@@ -138,8 +138,12 @@ defmodule ActivityPub.Federator.APPublisher do
                  actor_id: Map.get(actor, :id),
                  actor_ap_id: Map.get(actor, :ap_id) || (Map.get(actor, :data) || %{})["id"],
                  id: data["id"],
+                 # so a delivered Follow can queue its check (`PendingFollows`) without decoding `json`
+                 type: data["type"],
                  unreachable_since: meta[:unreachable_since]
-               }, cache}
+               }
+               # `false` for a re-sent Follow, which gets no check of its own
+               |> Utils.maybe_put(:resend_pending_follow, opts[:resend_pending_follow]), cache}
             end)
           end)
 
@@ -364,6 +368,8 @@ defmodule ActivityPub.Federator.APPublisher do
 
       SignaturesAdapter.maybe_cache_accept_signature(inbox, response)
       maybe_observe_delivery(inbox, json, code, Map.get(response, :body), request_headers)
+      # a Follow still pending a few minutes from now is sent once more
+      ActivityPub.Federator.PendingFollows.maybe_queue_check(params)
       debug(result, "remote responded with #{code}")
     else
       {_post_result, %{status: code, body: body} = response} ->
@@ -559,7 +565,8 @@ defmodule ActivityPub.Federator.APPublisher do
     |> Enum.filter(fn x -> !x.local end)
     # apply the same outgoing federation gate as the addressed/non-public path, so e.g. an
     # allowlist-only instance doesn't fan a public post out to non-allowlisted remote followers
-    |> Enum.filter(&Adapter.federation_allowed?(&1, direction: :out, by_actor: actor))
+    # all at once, so the adapter can look the blocks up for every follower together rather than once per follower
+    |> Adapter.filter_federation_allowed(direction: :out, by_actor: actor)
     |> debug("external_followers (excluding already addressed)")
   end
 

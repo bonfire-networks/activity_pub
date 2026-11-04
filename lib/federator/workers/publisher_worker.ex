@@ -7,7 +7,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
 
   @impl true
   def perform_job(%Oban.Job{
-        args: %{"op" => "publish" = op, "activity_id" => activity_id, "repo" => repo}
+        args: %{"op" => "publish" = op, "activity_id" => activity_id, "repo" => repo} = args
       }) do
     info(activity_id, "Using queued activity to perform outgoing federation")
 
@@ -16,7 +16,7 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
 
     with {:ok, activity} <- Object.get_cached(id: activity_id) do
       # somebody else's activity as it reached us, for an Announce of it, is read from its row by the publisher
-      Federator.perform(:publish, activity)
+      Federator.perform(:publish, activity, publish_opts(args))
     else
       e ->
         error(e)
@@ -54,6 +54,21 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
       |> Map.put(:queued_at, inserted_at)
     )
   end
+
+  # the check for re-sending a pending Follow, queued after its delivery (see `ActivityPub.Federator.PendingFollows`)
+  def perform_job(%Oban.Job{
+        args: %{"op" => "resend_pending_follow" = op, "follow_id" => follow_id, "repo" => repo} =
+          args
+      }) do
+    ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
+    Logger.metadata(action: info(op))
+
+    ActivityPub.Federator.PendingFollows.check(follow_id, args["inbox"])
+  end
+
+  # what the `publish` op passes down to each delivery
+  defp publish_opts(%{"resend_pending_follow" => false}), do: [resend_pending_follow: false]
+  defp publish_opts(_args), do: []
 
   @impl Oban.Worker
   def timeout(_job), do: :timer.minutes(5)

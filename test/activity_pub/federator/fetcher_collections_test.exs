@@ -161,4 +161,98 @@ defmodule ActivityPub.Federator.FetcherCollectionsTest do
       assert {:error, _} = result
     end
   end
+
+  # the collection is read here, and a fetch of each entry is queued, wherever the collection lists its entries: on itself, or on pages it links, as Bonfire serves a group's `narrower`
+  describe "fetch_collection with mode: :entries_async" do
+    @entries ["https://paged.local/actors/topic-1", "https://paged.local/actors/topic-2"]
+
+    test "queues a fetch of each entry listed on the collection itself" do
+      collection = "https://paged.local/collections/inline"
+
+      serve(%{
+        collection => ordered_collection(collection, %{"orderedItems" => @entries})
+      })
+
+      assert {:ok, _} = Fetcher.fetch_collection(collection, mode: :entries_async)
+
+      for id <- @entries, do: assert_fetch_enqueued(id)
+    end
+
+    test "queues a fetch of each entry listed on the page the collection links as `first`" do
+      collection = "https://paged.local/collections/linked-first"
+      page = "#{collection}?page=1"
+
+      serve(%{
+        collection => ordered_collection(collection, %{"first" => page}),
+        page => ordered_collection_page(page, collection, %{"orderedItems" => @entries})
+      })
+
+      assert {:ok, _} = Fetcher.fetch_collection(collection, mode: :entries_async)
+
+      for id <- @entries, do: assert_fetch_enqueued(id)
+    end
+
+    test "queues a fetch of each entry on the `next` page of a `first` page embedded in the collection" do
+      [first_entry, next_entry] = @entries
+      collection = "https://paged.local/collections/embedded-first"
+      next_page = "#{collection}?page=2"
+
+      serve(%{
+        collection =>
+          ordered_collection(collection, %{
+            "first" => %{
+              "type" => "OrderedCollectionPage",
+              "orderedItems" => [first_entry],
+              "next" => next_page
+            }
+          }),
+        next_page => ordered_collection_page(next_page, collection, %{"orderedItems" => [next_entry]})
+      })
+
+      assert {:ok, _} = Fetcher.fetch_collection(collection, mode: :entries_async)
+
+      assert_fetch_enqueued(first_entry)
+      assert_fetch_enqueued(next_entry)
+    end
+  end
+
+  defp assert_fetch_enqueued(id) do
+    assert_enqueued(
+      worker: ActivityPub.Federator.Workers.RemoteFetcherWorker,
+      args: %{"op" => "fetch_remote", "id" => id}
+    )
+  end
+
+  defp serve(docs) do
+    mock(fn %{method: :get, url: url} ->
+      case docs[url] do
+        nil -> %Tesla.Env{status: 404, body: ""}
+        doc -> json(doc)
+      end
+    end)
+  end
+
+  defp ordered_collection(id, attrs) do
+    Map.merge(
+      %{
+        "@context" => "https://www.w3.org/ns/activitystreams",
+        "id" => id,
+        "type" => "OrderedCollection",
+        "totalItems" => length(@entries)
+      },
+      attrs
+    )
+  end
+
+  defp ordered_collection_page(id, collection, attrs) do
+    Map.merge(
+      %{
+        "@context" => "https://www.w3.org/ns/activitystreams",
+        "id" => id,
+        "type" => "OrderedCollectionPage",
+        "partOf" => collection
+      },
+      attrs
+    )
+  end
 end

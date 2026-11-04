@@ -70,12 +70,19 @@ defmodule ActivityPub.Federator.WebFinger do
   def output("acct:" <> resource), do: output(resource)
 
   def output("http" <> _ = url) do
-    with {:ok, actor} <- Actor.get_cached(ap_id: url) do
+    with {:ok, actor} <- instance_or_actor(url) do
       {:ok, represent_user(actor)}
     else
       _ ->
         {:error, "Could not find such a user"}
     end
+  end
+
+  # FEP-d556: our own URL names the instance, so it is answered with the actor that signs for it, as `finger_host/2` asks other servers. Any other URL is an actor's id
+  defp instance_or_actor(url) do
+    if String.trim_trailing(url, "/") == String.trim_trailing(ActivityPub.Web.base_url(), "/"),
+      do: Utils.service_actor(),
+      else: Actor.get_cached(ap_id: url)
   end
 
   # percent-encodes all but the unreserved and sub-delims characters RFC 7565 allows as is (so `anne.o'neill+notes` stays the same, while `ελπίδα` becomes `%CE%B5…`)

@@ -94,6 +94,28 @@ defmodule ActivityPub.Web.Plugs.SignedFetchGateTest do
     end
   end
 
+  describe "when `reject_unsigned` requires signatures for everything" do
+    setup do
+      clear_config([:reject_unsigned], :all)
+      with_adapter(DoesNotRequireSignedFetch)
+      :ok
+    end
+
+    test "an actor cannot be fetched unsigned" do
+      conn = build_conn(:get, ap_path("/actors/somebody_else")) |> through_signature_plugs()
+
+      assert conn.halted
+      assert conn.status == 401
+    end
+
+    test "the service actor can still be fetched unsigned" do
+      path = URI.parse(ActivityPub.Utils.service_actor!().ap_id) |> Map.fetch!(:path)
+      conn = build_conn(:get, path) |> through_signature_plugs()
+
+      refute conn.halted
+    end
+  end
+
   describe "when neither `reject_unsigned` nor the adapter requires signed fetches" do
     setup do
       clear_config([:reject_unsigned], false)

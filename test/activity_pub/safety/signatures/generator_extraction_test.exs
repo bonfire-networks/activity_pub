@@ -92,7 +92,7 @@ defmodule ActivityPub.Safety.Signatures.GeneratorExtractionTest do
       host = "actor-skip-#{System.unique_integer([:positive])}.example.com"
 
       # Pre-cache as cavage
-      SignaturesAdapter.put_signature_format(host, :cavage)
+      SignaturesAdapter.maybe_put_signature_format(host, :cavage)
 
       actor_data = %{
         "id" => "https://#{host}/users/alice",

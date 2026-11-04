@@ -1179,11 +1179,16 @@ defmodule ActivityPub do
           do: [ActivityPub.Config.public_uri(), actor.data["followers"]],
           else: [actor.data["followers"]]
         ),
-      "cc" => [object.data["attributedTo"] || object.data["actor"]],
+      "cc" => boost_cc(actor, object),
       "context" => object.data["context"],
       "summary" => summary
     })
   end
+
+  # A group's boost goes to its followers only, as its other Announces do and as Lemmy's community Announce does: addressing the author costs one more delivery and maybe a fetch back from their server, and their server still learns of it when someone there follows the group. A person's boost is addressed to the author so their server can tell them.
+  defp boost_cc(%{data: %{"type" => "Group"}}, _object), do: []
+
+  defp boost_cc(_actor, object), do: [object.data["attributedTo"] || object.data["actor"]]
 
   # The 171b/context of the announced activity, which may carry it itself or only on its inner object.
   defp announced_context(%{"context" => context}) when is_binary(context), do: context

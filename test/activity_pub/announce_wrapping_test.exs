@@ -97,6 +97,41 @@ defmodule ActivityPub.AnnounceWrappingTest do
            "a boost announces the object's id"
   end
 
+  describe "who a boost is addressed to" do
+    # A group's boost goes to its followers only, as Lemmy's community Announce and the group's other Announces do: addressing the author costs one more delivery and maybe a fetch back from their server, for a notification Mastodon already skips when the author follows the group.
+    # A post from another server names its author in `attributedTo`, which the factory's note leaves out.
+    defp remote_post do
+      author = insert(:actor)
+      note = insert(:note, actor: author, data: %{"attributedTo" => author.data["id"]})
+
+      %{author: author.data["id"], note: note}
+    end
+
+    test "a group's boost of a remote post does not address the post's author" do
+      group = insert(:actor, type: "Group")
+      %{author: author, note: note} = remote_post()
+
+      assert {:ok, announce} = ActivityPub.announce(%{actor: group, object: note})
+
+      assert announce.data["to"] == [ActivityPub.Config.public_uri(), group.data["followers"]]
+
+      refute author in (List.wrap(announce.data["to"]) ++ List.wrap(announce.data["cc"])),
+             "a group's boost goes to the group's followers, not to the post's author"
+    end
+
+    test "a person's boost of the same post still addresses its author" do
+      someone = insert(:actor)
+      %{author: author, note: note} = remote_post()
+
+      assert {:ok, announce} = ActivityPub.announce(%{actor: someone, object: note})
+
+      assert announce.data["to"] == [ActivityPub.Config.public_uri(), someone.data["followers"]]
+
+      assert announce.data["cc"] == [author],
+             "a person's boost is still addressed to the author, so their server can tell them"
+    end
+  end
+
   test "announcing an activity wraps it without being asked to" do
     %{group: group, create: create} = group_with_post()
 

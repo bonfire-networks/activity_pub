@@ -45,9 +45,37 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
     maybe_reject!(
       conn,
       conn.method != "POST" and Phoenix.Controller.get_format(conn) != "html" and
-        Config.reject_unsigned?() and not service_actor_request?(conn)
+        signature_required?(conn, Config.signed_fetch_required())
     )
   end
+
+  defp signature_required?(_conn, false), do: false
+  defp signature_required?(conn, :all), do: not service_actor_request?(conn)
+
+  defp signature_required?(conn, :except_public_actors),
+    do: not service_actor_request?(conn) and not public_actor_request?(conn)
+
+  # An actor's own document stays fetchable without a signature when the adapter would serve that actor to an asker it knows nothing about, which is the check the controller makes before serving it. Servers that don't sign their fetches (eg. Lemmy before 1.0) can then find our public groups and people, and read the keys that verify what we send them. The actor's collections, and every object and activity, still need a signature. Only evaluated for a request that would be refused anyway, since it looks the route and the actor up.
+  defp public_actor_request?(%{private: %{phoenix_router: router}} = conn) do
+    with %{plug: ActivityPub.Web.ActivityPubController, plug_opts: action, path_params: params}
+         when action in [:actor, :actor_by_id] <-
+           Phoenix.Router.route_info(router, conn.method, conn.path_info, conn.host),
+         {:ok, %ActivityPub.Actor{local: true} = actor} <- requested_actor(action, params) do
+      ActivityPub.Federator.Adapter.federate_actor?(nil, :out, actor) != false
+    else
+      _ -> false
+    end
+  end
+
+  defp public_actor_request?(_conn), do: false
+
+  defp requested_actor(:actor, %{"username" => username}),
+    do: ActivityPub.Actor.get_cached(username: username)
+
+  defp requested_actor(:actor_by_id, %{"id" => id}),
+    do: ActivityPub.Actor.get_cached(pointer: id)
+
+  defp requested_actor(_action, _params), do: nil
 
   # The service actor stays fetchable without a signature. Other servers read its public key to verify the fetches we sign as it, so if it needed a signature, two servers that both require one could never verify each other. Only evaluated for a request that would be refused anyway, since it may look the actor up.
   defp service_actor_request?(%{request_path: path}) do

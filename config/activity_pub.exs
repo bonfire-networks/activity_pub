@@ -10,7 +10,7 @@ config :activity_pub,
   ],
   # sign what we send with an HTTP signature:
   sign_object_fetches: true,
-  # refuse to serve our objects to a fetch that is not signed (Mastodon's "authorized fetch"):
+  # refuse to serve our objects to a fetch that is not signed (Mastodon's "authorized fetch"): `false`, `true` (all but the documents of public actors, so servers that don't sign their fetches can still find them) or `:all` (see `ActivityPub.Config.signed_fetch_required/0`)
   reject_unsigned: false,
   # FEP-8b32: sign what we send with an Object Integrity Proof (made by a key derived from the actor's RSA key)
   sign_object_integrity_proofs: true,
@@ -30,7 +30,7 @@ config :activity_pub,
     # an activity relayed to us (FEP-1b12): `relayed: :trust` the relayed copy, or `:verify` it by refetching from its origin. Left unset here so an older `relayed_activity_trust` setting still counts; `:trust` when neither is set
   ],
   # Known software that validates RFC 9421 signatures, with minimum version (:any = all versions).
-  # Used by nodeinfo-based format inference in Instances.maybe_infer_format_from_nodeinfo/2.
+  # Used by nodeinfo-based format inference in Instances.maybe_infer_format_from_software/2.
   rfc9421_software: %{
     "mastodon" => "4.5.0",
     "hollo" => :any,

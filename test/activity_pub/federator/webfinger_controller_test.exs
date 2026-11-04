@@ -15,6 +15,29 @@ defmodule ActivityPub.Web.WebFingerControllerTest do
              "acct:#{actor.username}@#{endpoint().host()}"
   end
 
+  # FEP-d556: another server asks for our host's own URL to find the actor that signs for the instance, as `WebFinger.finger_host/2` asks of theirs
+  for resource <- ["base", "base with a trailing slash"] do
+    test "webfinger for the instance's own URL (#{resource}) gives its service actor" do
+      {:ok, service_actor} = ActivityPub.Utils.service_actor()
+      base_url = ActivityPub.Web.base_url()
+      resource = if unquote(resource) == "base", do: base_url, else: base_url <> "/"
+
+      response =
+        build_conn()
+        |> put_req_header("accept", "application/jrd+json")
+        |> get("/.well-known/webfinger?" <> URI.encode_query(%{"resource" => resource}))
+
+      assert %{"links" => links} = json_response(response, 200)
+
+      assert Enum.any?(
+               links,
+               &(&1["rel"] == "self" and &1["type"] == "application/activity+json" and
+                   &1["href"] == service_actor.ap_id)
+             ),
+             "the self link should be the service actor, got #{inspect(links)}"
+    end
+  end
+
   test "webfinger with username only" do
     actor = local_actor()
 

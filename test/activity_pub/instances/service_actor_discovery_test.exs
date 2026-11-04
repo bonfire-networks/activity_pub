@@ -240,7 +240,7 @@ defmodule ActivityPub.Instances.ServiceActorDiscoveryTest do
   describe "get_or_discover_signature_format" do
     test "returns cached format without discovery" do
       host = "disc-cached-#{System.unique_integer([:positive])}.example.com"
-      SignaturesAdapter.put_signature_format(host, :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
 
       assert Instances.get_or_discover_signature_format(host) == :rfc9421
     end

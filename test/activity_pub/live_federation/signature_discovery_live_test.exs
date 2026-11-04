@@ -255,7 +255,7 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     end
 
     test "signed GET with RFC 9421 is accepted (repro: expect 401 before fix)", %{host: host} do
-      SignaturesAdapter.put_signature_format(host, :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
 
       uri = URI.parse("https://#{host}/users/socrates")
 
@@ -278,7 +278,7 @@ defmodule ActivityPub.LiveFederation.SignatureDiscoveryTest do
     end
 
     test "signed GET with cavage succeeds (control)", %{host: host} do
-      SignaturesAdapter.put_signature_format(host, :cavage)
+      SignaturesAdapter.maybe_put_signature_format(host, :cavage)
 
       uri = URI.parse("https://#{host}/users/socrates")
 

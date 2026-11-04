@@ -283,9 +283,26 @@ defmodule ActivityPub.Config do
     Application.get_env(:activity_pub, key, default)
   end
 
-  @doc "Whether our objects may only be fetched with a valid signature: `:reject_unsigned` is set, or the adapter requires it (see `ActivityPub.Federator.Adapter.require_signed_fetch?/0`)."
-  def reject_unsigned? do
-    get(:reject_unsigned, false) == true or ActivityPub.Federator.Adapter.require_signed_fetch?()
+  @doc "Whether our objects may only be fetched with a valid signature, at least in part (see `signed_fetch_required/0`)."
+  def reject_unsigned?, do: signed_fetch_required() != false
+
+  @doc """
+  Which fetches of our objects need a valid signature, from `:reject_unsigned`:
+
+  - `false`: none.
+  - `true`: all of them, except an actor's own document when the adapter would serve that actor to anyone (see `ActivityPub.Federator.Adapter.federate_actor?/3`). Answered as `:except_public_actors`. Servers that don't sign their fetches (eg. Lemmy before 1.0) can then still find our public actors and read the keys that verify what we send them.
+  - `:all`: all of them, actors too. Also what the adapter's `require_signed_fetch?/0` asks for.
+  """
+  def signed_fetch_required do
+    if ActivityPub.Federator.Adapter.require_signed_fetch?() do
+      :all
+    else
+      case get(:reject_unsigned, false) do
+        value when value in [:all, "all"] -> :all
+        value when value in [true, "true"] -> :except_public_actors
+        _ -> false
+      end
+    end
   end
 
   def get!(key) do

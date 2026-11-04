@@ -106,11 +106,11 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   @doc """
   Caches the signature format for a host.
   """
-  def put_signature_format(host, format) when is_binary(host) and format in [:rfc9421, :cavage] do
+  def maybe_put_signature_format(host, format) when is_binary(host) and format in [:rfc9421, :cavage] do
     Instances.put_host_cache(host, :signature_format, format)
   end
 
-  def put_signature_format(_, _), do: :ok
+  def maybe_put_signature_format(_, _), do: :ok
 
   @doc """
   Checks if actor data advertises RFC 9421 support via FEP-844e.
@@ -175,7 +175,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
 
     # Check FEP-844e implements for RFC 9421
     if has_rfc9421_implements?(generator) do
-      put_signature_format(host, :rfc9421)
+      maybe_put_signature_format(host, :rfc9421)
     end
   end
 
@@ -183,7 +183,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   def maybe_extract_generator_info(host, %{"implements" => _} = data)
       when is_binary(host) do
     if has_rfc9421_implements?(data) do
-      put_signature_format(host, :rfc9421)
+      maybe_put_signature_format(host, :rfc9421)
     end
   end
 
@@ -208,7 +208,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
 
   defp check_fep844e(host, %{"generator" => _} = actor_data) do
     if supports_rfc9421?(actor_data) do
-      put_signature_format(host, :rfc9421)
+      maybe_put_signature_format(host, :rfc9421)
       :rfc9421
     else
       false
@@ -224,7 +224,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
       # Check both generator.implements (user actors pointing to the app)
       # and implements directly (the service/Application actor itself)
       if supports_rfc9421?(actor_data) do
-        put_signature_format(host, :rfc9421)
+        maybe_put_signature_format(host, :rfc9421)
         :rfc9421
       else
         false
@@ -248,7 +248,7 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
       host = extract_host(host_or_uri)
 
       if is_binary(host) do
-        put_signature_format(host, :rfc9421)
+        maybe_put_signature_format(host, :rfc9421)
       else
         :ok
       end

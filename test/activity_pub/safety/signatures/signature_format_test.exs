@@ -20,12 +20,12 @@ defmodule ActivityPub.Safety.Signatures.SignatureFormatTest do
 
   describe "signature format cache" do
     test "get/put round-trip for :rfc9421" do
-      SignaturesAdapter.put_signature_format("rfc.example.com", :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format("rfc.example.com", :rfc9421)
       assert SignaturesAdapter.get_signature_format("rfc.example.com") == :rfc9421
     end
 
     test "get/put round-trip for :cavage" do
-      SignaturesAdapter.put_signature_format("cavage.example.com", :cavage)
+      SignaturesAdapter.maybe_put_signature_format("cavage.example.com", :cavage)
       assert SignaturesAdapter.get_signature_format("cavage.example.com") == :cavage
     end
 
@@ -42,7 +42,7 @@ defmodule ActivityPub.Safety.Signatures.SignatureFormatTest do
   describe "determine_signature_format" do
     test "returns cached format when available" do
       host = "cached-#{System.unique_integer([:positive])}.example.com"
-      SignaturesAdapter.put_signature_format(host, :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
       assert SignaturesAdapter.determine_signature_format(host) == :rfc9421
     end
 
@@ -67,7 +67,7 @@ defmodule ActivityPub.Safety.Signatures.SignatureFormatTest do
 
     test "cache takes priority over FEP-844e" do
       host = "priority-#{System.unique_integer([:positive])}.example.com"
-      SignaturesAdapter.put_signature_format(host, :cavage)
+      SignaturesAdapter.maybe_put_signature_format(host, :cavage)
 
       actor_data = %{
         "generator" => %{

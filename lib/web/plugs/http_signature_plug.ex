@@ -60,7 +60,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
       # When valid, validated? is the sender's hostname (from keyId)
       if is_binary(validated?) do
         format = if has_rfc9421?, do: :rfc9421, else: :cavage
-        SignaturesAdapter.put_signature_format(validated?, format)
+        SignaturesAdapter.maybe_put_signature_format(validated?, format)
       end
 
       # Reject signatures with stale Date headers to prevent replay attacks

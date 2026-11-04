@@ -26,7 +26,7 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       inbox = "https://#{host}/inbox"
 
       # Pre-cache the format so discovery is skipped
-      SignaturesAdapter.put_signature_format(host, :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
 
       with_mock ActivityPub.Federator.HTTP,
         post: fn ^inbox, _body, headers ->
@@ -59,7 +59,7 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       inbox = "https://#{host}/inbox"
       json = ~s[{"type":"Create"}]
 
-      SignaturesAdapter.put_signature_format(host, :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
 
       with_mock ActivityPub.Federator.HTTP,
         post: fn ^inbox, body, headers ->
@@ -98,7 +98,7 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       inbox = "https://#{host}/inbox"
 
       # Pre-cache as cavage
-      SignaturesAdapter.put_signature_format(host, :cavage)
+      SignaturesAdapter.maybe_put_signature_format(host, :cavage)
 
       with_mock ActivityPub.Federator.HTTP,
         post: fn ^inbox, _body, headers ->
@@ -160,7 +160,7 @@ defmodule ActivityPub.Federator.AdaptiveSigningTest do
       host = "fallback-#{System.unique_integer([:positive])}.example.com"
       inbox = "https://#{host}/inbox"
 
-      SignaturesAdapter.put_signature_format(host, :rfc9421)
+      SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
 
       # Mock Keys.sign/3 to fail for rfc9421; Keys.sign/2 (cavage) passes through
       with_mocks [

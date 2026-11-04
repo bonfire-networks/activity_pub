@@ -186,11 +186,11 @@ defmodule ActivityPub.Instances do
     end
   end
 
-  @doc "Remembers `value` about a remote host under `key` (see `get_host_cache/2`). Does nothing when the cache isn't running."
-  def put_host_cache(url_or_host, key, value) do
+  @doc "Remembers `value` about a remote host under `key` (see `get_host_cache/2`), for the cache's default lifetime unless `opts` set one (`expire:`, in milliseconds, as `Cachex.put/4` takes it). Does nothing when the cache isn't running."
+  def put_host_cache(url_or_host, key, value, opts \\ []) do
     with true <- Utils.cache_running?(@host_cache),
          host when is_binary(host) <- host(url_or_host) do
-      Cachex.put(@host_cache, host_cache_key(host, key), value)
+      Cachex.put(@host_cache, host_cache_key(host, key), value, Keyword.take(opts, [:expire]))
     else
       _ -> nil
     end
@@ -207,6 +207,38 @@ defmodule ActivityPub.Instances do
   end
 
   defp host_cache_key(host, key), do: "#{key}:#{host}"
+
+  @doc """
+  What software a remote host runs, as `%{name:, version:}` with the name lowercased (eg. `%{name: "mbin", version: "1.8.0"}`), or `nil` when its nodeinfo doesn't say or can't be read.
+
+  Answered from what any earlier nodeinfo fetch learned (`scrape_nodeinfo/2` remembers it, whatever it was fetched for), else fetched once. A host whose nodeinfo gave nothing is remembered as such for a shorter time (`config :activity_pub, :nodeinfo_unknown_expiry`), so it isn't asked on every call, and one that was briefly down is asked again later.
+  """
+  def software(url_or_host, opts \\ []) do
+    host = host(url_or_host)
+
+    case host && get_host_cache(host, :software) do
+      nil when is_binary(host) ->
+        scrape_nodeinfo("https://#{host}", opts)
+
+        case get_host_cache(host, :software) do
+          %{} = software ->
+            software
+
+          _ ->
+            put_host_cache(host, :software, :unknown, expire: nodeinfo_unknown_expiry())
+            nil
+        end
+
+      %{} = software ->
+        software
+
+      _ ->
+        nil
+    end
+  end
+
+  defp nodeinfo_unknown_expiry,
+    do: Application.get_env(:activity_pub, :nodeinfo_unknown_expiry, to_timeout(day: 1))
 
   def scrape_nodeinfo(instance_uri, opts \\ [])
 
@@ -242,8 +274,7 @@ defmodule ActivityPub.Instances do
          #  _ <- ActivityPub.Safety.HTTP.Signatures.maybe_cache_accept_signature(href, headers),
          {:length, true} <- {:length, String.length(data) < 50_000},
          {:ok, nodeinfo} <- Jason.decode(data) do
-      # Infer signature format from known software versions
-      maybe_infer_format_from_nodeinfo(host, nodeinfo)
+      learn_from_nodeinfo(host, nodeinfo)
       nodeinfo
     else
       {:reachable, false} ->
@@ -403,22 +434,27 @@ defmodule ActivityPub.Instances do
     Application.get_env(:activity_pub, :rfc9421_software, %{})
   end
 
-  defp maybe_infer_format_from_nodeinfo(host, %{"software" => %{"name" => name} = software})
+  # everything a host's nodeinfo tells us, learned in one place whatever it was fetched for: its software, kept so `software/1` needn't fetch it again, and the signature format that software implies
+  defp learn_from_nodeinfo(host, %{"software" => %{"name" => name} = software})
        when is_binary(host) and is_binary(name) do
+    software = %{name: String.downcase(name), version: software["version"]}
+    put_host_cache(host, :software, software)
+    maybe_infer_format_from_software(host, software)
+  end
+
+  defp learn_from_nodeinfo(_, _), do: :ok
+
+  defp maybe_infer_format_from_software(host, %{name: name, version: version}) do
     # Skip if format is already cached
     if is_nil(SignaturesAdapter.get_signature_format(host)) do
-      name = String.downcase(name)
-
       case Map.get(rfc9421_software(), name) do
         # All versions support it
         :any ->
-          SignaturesAdapter.put_signature_format(host, :rfc9421)
+          SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
 
         min_version when is_binary(min_version) ->
-          version = software["version"] || ""
-
-          if version_gte?(version, min_version) do
-            SignaturesAdapter.put_signature_format(host, :rfc9421)
+          if version_gte?(version || "", min_version) do
+            SignaturesAdapter.maybe_put_signature_format(host, :rfc9421)
           end
 
         _ ->
@@ -426,8 +462,6 @@ defmodule ActivityPub.Instances do
       end
     end
   end
-
-  defp maybe_infer_format_from_nodeinfo(_, _), do: :ok
 
   defp version_gte?(version, min_version) do
     # Extract leading semver-like portion (e.g. "4.5.0-nightly" -> "4.5.0")

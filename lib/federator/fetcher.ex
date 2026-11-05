@@ -896,15 +896,25 @@ defmodule ActivityPub.Federator.Fetcher do
     end
   end
 
-  # FIXME: stored where nothing reads it (the checks read `Object.get_cached(ap_id: id)`, ie. `:ap_object_cache` under `Utils.ap_cache_key(:ap_id, id)`), so a URL that just failed is fetched again every time
-  def cache_fetch_error(id) do
-    Cachex.put(:ap_actor_cache, id, {:error, :remote_error})
-  end
-
-  # Where the checks read it, for the object cache's default expiry (42 minutes). Not on yet: a group's `narrower` that 404s when the mirror is made would then not be read again by a join within that time (`group_or_topic_test.exs` "a group someone here joins…" and "…asks to join…" fail with it), so the lifetime or the key is still to be decided
+  # Was stored where nothing reads it, so a URL that just failed was fetched again every time
   # def cache_fetch_error(id) do
-  #   Cachex.put(:ap_object_cache, Utils.ap_cache_key(:ap_id, id), {:error, :remote_error})
+  #   Cachex.put(:ap_actor_cache, id, {:error, :remote_error})
   # end
+
+  @doc "Remembers that fetching `id` just failed, where the checks before a fetch read it (`Object.get_cached(ap_id: id)`), so that the threads and collections naming it don't each fetch it again. Kept for `[:activity_pub, :fetch_error_cache_ttl]` (default a minute), short so that a later request, eg. joining a group whose collection could not be read when it was found, tries again; `false` or `0` caches no errors."
+  def cache_fetch_error(id) do
+    case Config.get(:fetch_error_cache_ttl, to_timeout(minute: 1)) do
+      ttl when is_integer(ttl) and ttl > 0 ->
+        if Utils.cache_enabled?(),
+          do:
+            Cachex.put(:ap_object_cache, Utils.ap_cache_key(:ap_id, id), {:error, :remote_error},
+              expire: ttl
+            )
+
+      _ ->
+        nil
+    end
+  end
 
   def maybe_parse_header_url(str, type) do
     case String.split(str, ">", parts: 2) do

@@ -716,7 +716,9 @@ defmodule ActivityPub.Actor do
   defp maybe_extract_generator_from_data(_), do: :ok
 
   defp create_or_update_ap_object_for_actor(%{"id" => id} = data, true = _already_fetched) do
-    with {:error, :not_found} <- Object.get_cached(ap_id: id),
+    # or a fetch of it failed a moment ago (`Fetcher.cache_fetch_error/1`), which this fetch has just answered
+    with {:error, not_held} when not_held in [:not_found, :remote_error] <-
+           Object.get_cached(ap_id: id),
          #  don't have to do manually since it gets processed after fetch?
          {:ok, object} <- Object.prepare_data(data),
          # fetched from its origin, which is what vouches for it, as for any document we fetch (`Safety.by_arrival/1`)

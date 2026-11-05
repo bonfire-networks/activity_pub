@@ -400,6 +400,30 @@ defmodule ActivityPub.Federator.FetcherTest do
       assert {:error, :not_found} = Fetcher.fetch_object_from_id(gone)
       refute_received {:requested, ^gone}, "the URL that just failed is not requested again"
     end
+
+    test "is requested again once the error's lifetime has passed" do
+      previous = Application.get_env(:activity_pub, :fetch_error_cache_ttl)
+      Application.put_env(:activity_pub, :fetch_error_cache_ttl, 5)
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:activity_pub, :fetch_error_cache_ttl, previous),
+          else: Application.delete_env(:activity_pub, :fetch_error_cache_ttl)
+      end)
+
+      gone = "https://gone.local/objects/ttl-1"
+
+      assert {:error, :not_found} = Fetcher.get_cached_or_fetch_object_json(gone)
+      assert_received {:requested, ^gone}
+
+      assert {:error, :not_found} = Fetcher.get_cached_or_fetch_object_json(gone)
+      refute_received {:requested, ^gone}, "control: not requested again within the lifetime"
+
+      Process.sleep(10)
+
+      assert {:error, :not_found} = Fetcher.get_cached_or_fetch_object_json(gone)
+      assert_received {:requested, ^gone}, "requested again once the lifetime has passed"
+    end
   end
 
   # a host that answers is up, whatever it answered, as with deliveries (`APPublisher.unreachable_status?/1`)

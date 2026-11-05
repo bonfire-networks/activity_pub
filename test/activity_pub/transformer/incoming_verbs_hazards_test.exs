@@ -124,6 +124,55 @@ defmodule ActivityPub.Federator.Transformer.IncomingVerbsHazardsTest do
            "the second Like was stored as well"
   end
 
+  describe "with two Likes stored for one actor and object, as a race of incoming workers leaves them" do
+    setup context do
+      like = fn id ->
+        %{
+          "id" => "#{context.other_id}/likes/#{id}-#{context.n}",
+          "type" => "Like",
+          "actor" => context.other_id,
+          "object" => context.note_id
+        }
+      end
+
+      first = like.("first")
+      assert {:ok, _} = delivered(first)
+
+      assert %Object{data: %{"id" => id}} =
+               Object.get_existing_like(context.other_id, context.note_id),
+             "control: the first Like was not stored"
+
+      assert id == first["id"]
+
+      # stored directly, as a worker that ran the lookup at the same time stored it: nothing checks the pair here
+      second = like.("second")
+      assert {:ok, _} = Object.insert(second, false)
+
+      %{like: like, first: first, second: second}
+    end
+
+    test "an incoming Like returns the latest and stores nothing", context do
+      third = context.like.("third")
+
+      assert {:ok, %Object{data: %{"id" => id}}} = delivered(third)
+      assert id == context.second["id"]
+
+      assert {:error, :not_found} = Object.get_uncached(ap_id: third["id"]),
+             "the third Like was stored as well"
+    end
+
+    test "an Undo of the Like removes both", context do
+      assert {:ok, _} = delivered(undo_of(context, context.first))
+
+      for like <- [context.first, context.second] do
+        assert {:error, :not_found} = Object.get_uncached(ap_id: like["id"]),
+               "#{like["id"]} was not taken back"
+      end
+
+      assert Object.get_existing_like(context.other_id, context.note_id) == nil
+    end
+  end
+
   # a reboost leaves two by one actor of one object: the existing one is the latest, rather than a query that expects one raising
   test "with two Announces of an object by one actor, the existing one is the latest", context do
     announce = fn id, published ->

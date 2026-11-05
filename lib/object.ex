@@ -1530,18 +1530,30 @@ defmodule ActivityPub.Object do
   @doc """
   Returns an existing like if a user already liked an object
   """
+  # TODO: `limit(1)` hides the duplicate Likes that incoming workers racing on one actor and object can store; a unique index on actor and object for Likes would prevent them
   def get_existing_like(actor, object_id) do
-    query =
-      from(
-        object in Object,
-        # this is to use the index
-        where: object_id_of(object.data) == ^object_id
-      )
-      |> Queries.by_type("Like")
-      |> Queries.by_actor(actor)
-      |> debug()
+    existing_likes_query(actor, object_id)
+    # the latest: a race of incoming workers can leave more than one
+    |> Queries.ordered()
+    |> limit(1)
+    |> one()
+  end
 
-    one(query)
+  @doc "Every Like `actor` sent of `object_id`: one, unless a race of incoming workers stored more."
+  def get_existing_likes(actor, object_id) do
+    existing_likes_query(actor, object_id)
+    |> many()
+  end
+
+  defp existing_likes_query(actor, object_id) do
+    from(
+      object in Object,
+      # this is to use the index
+      where: object_id_of(object.data) == ^object_id
+    )
+    |> Queries.by_type("Like")
+    |> Queries.by_actor(actor)
+    |> debug()
   end
 
   @doc "The `Flag`s `actor` sent about `object_id`. A report names what it is about in a list (an account and statuses, Mastodon's shape) or as one id (Lemmy's), so both are matched."

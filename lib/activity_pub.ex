@@ -360,7 +360,9 @@ defmodule ActivityPub do
              Map.get(params, :pointer),
              opts
            ),
-         {:ok, _activity} <- Object.hard_delete(like_activity),
+         # every Like of the pair, not only the latest: a race of incoming workers can store more than one, and one left behind would keep the like. One at a time, so each one's cache entry is cleared too
+         #  {:ok, _activity} <- Object.hard_delete(like_activity),
+         :ok <- hard_delete_all(Object.get_existing_likes(ap_id, object_id)),
          :ok <- maybe_federate(actor, activity),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
          activity <- Map.put(activity, :pointer, adapter_object) do
@@ -368,6 +370,15 @@ defmodule ActivityPub do
     else
       error -> error(error)
     end
+  end
+
+  defp hard_delete_all(objects) do
+    Enum.reduce_while(objects, :ok, fn object, :ok ->
+      case Object.hard_delete(object) do
+        {:ok, _} -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
   end
 
   # @spec announce(

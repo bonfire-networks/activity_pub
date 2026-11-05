@@ -65,7 +65,9 @@ defmodule ActivityPub.Instances.NodeinfoSoftwareTest do
     flush_requests()
 
     assert Instances.software(host) == %{name: "mbin", version: "1.8.0"}
-    refute_received {:requested, _}, "what an earlier fetch learned should be answered from the cache"
+
+    refute_received {:requested, _},
+                    "what an earlier fetch learned should be answered from the cache"
   end
 
   test "the software of a server nothing has asked about yet is fetched once" do
@@ -82,6 +84,48 @@ defmodule ActivityPub.Instances.NodeinfoSoftwareTest do
            }
 
     refute_received {:requested, _}, "a second ask should be answered from the cache"
+  end
+
+  test "a server named by a plain HTTP URL has its nodeinfo asked over HTTP, at its port" do
+    host = unique_host("nodeinfo-http")
+    test_pid = self()
+
+    mock(fn %{url: url} = env ->
+      send(test_pid, {:requested, url})
+
+      cond do
+        url == "http://#{host}:4002/.well-known/nodeinfo" ->
+          json(%{
+            "links" => [
+              %{
+                "rel" => "http://nodeinfo.diaspora.software/ns/schema/2.0",
+                "href" => "http://#{host}:4002/nodeinfo/2.0"
+              }
+            ]
+          })
+
+        url == "http://#{host}:4002/nodeinfo/2.0" ->
+          %Tesla.Env{
+            env
+            | status: 200,
+              body:
+                Jason.encode!(%{
+                  "version" => "2.0",
+                  "software" => %{"name" => "bonfire", "version" => "1.0.0"}
+                })
+          }
+
+        true ->
+          %Tesla.Env{env | status: 404, body: ""}
+      end
+    end)
+
+    assert Instances.software("http://#{host}:4002/pub/groups/garden") == %{
+             name: "bonfire",
+             version: "1.0.0"
+           }
+
+    assert_received {:requested, "http://" <> _}
   end
 
   test "a server with no nodeinfo answers nil, and isn't asked again" do

@@ -106,7 +106,8 @@ defmodule ActivityPub.Safety.HTTP.Signatures do
   @doc """
   Caches the signature format for a host.
   """
-  def maybe_put_signature_format(host, format) when is_binary(host) and format in [:rfc9421, :cavage] do
+  def maybe_put_signature_format(host, format)
+      when is_binary(host) and format in [:rfc9421, :cavage] do
     Instances.put_host_cache(host, :signature_format, format)
   end
 

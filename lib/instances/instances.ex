@@ -218,9 +218,12 @@ defmodule ActivityPub.Instances do
 
     case host && get_host_cache(host, :software) do
       nil when is_binary(host) ->
-        scrape_nodeinfo("https://#{host}", opts)
+        # asked at the scheme and port the URL names (a peer on plain HTTP, eg. in development), else HTTPS (`Utils.base_url/1`)
+        # scrape_nodeinfo("https://#{host}", opts)
+        nodeinfo = scrape_nodeinfo(Utils.base_url(url_or_host), opts)
 
-        case get_host_cache(host, :software) do
+        # what the fetch learned, from the cache, else from the document itself when the cache isn't running (eg. `config :activity_pub, :disable_cache`)
+        case get_host_cache(host, :software) || software_from_nodeinfo(nodeinfo) do
           %{} = software ->
             software
 
@@ -435,14 +438,25 @@ defmodule ActivityPub.Instances do
   end
 
   # everything a host's nodeinfo tells us, learned in one place whatever it was fetched for: its software, kept so `software/1` needn't fetch it again, and the signature format that software implies
-  defp learn_from_nodeinfo(host, %{"software" => %{"name" => name} = software})
-       when is_binary(host) and is_binary(name) do
-    software = %{name: String.downcase(name), version: software["version"]}
-    put_host_cache(host, :software, software)
-    maybe_infer_format_from_software(host, software)
+  defp learn_from_nodeinfo(host, nodeinfo) when is_binary(host) do
+    case software_from_nodeinfo(nodeinfo) do
+      %{} = software ->
+        put_host_cache(host, :software, software)
+        maybe_infer_format_from_software(host, software)
+
+      _ ->
+        :ok
+    end
   end
 
   defp learn_from_nodeinfo(_, _), do: :ok
+
+  # a nodeinfo document's software, as `software/2` answers it
+  defp software_from_nodeinfo(%{"software" => %{"name" => name} = software})
+       when is_binary(name),
+       do: %{name: String.downcase(name), version: software["version"]}
+
+  defp software_from_nodeinfo(_), do: nil
 
   defp maybe_infer_format_from_software(host, %{name: name, version: version}) do
     # Skip if format is already cached

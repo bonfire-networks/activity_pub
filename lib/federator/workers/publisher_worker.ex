@@ -57,8 +57,9 @@ defmodule ActivityPub.Federator.Workers.PublisherWorker do
 
   # the check for re-sending a pending Follow, queued after its delivery (see `ActivityPub.Federator.PendingFollows`)
   def perform_job(%Oban.Job{
-        args: %{"op" => "resend_pending_follow" = op, "follow_id" => follow_id, "repo" => repo} =
-          args
+        args:
+          %{"op" => "resend_pending_follow" = op, "follow_id" => follow_id, "repo" => repo} =
+            args
       }) do
     ActivityPub.Federator.Adapter.set_multi_tenant_context(repo)
     Logger.metadata(action: info(op))

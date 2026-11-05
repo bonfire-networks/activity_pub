@@ -206,7 +206,8 @@ defmodule ActivityPub.Federator.FetcherCollectionsTest do
               "next" => next_page
             }
           }),
-        next_page => ordered_collection_page(next_page, collection, %{"orderedItems" => [next_entry]})
+        next_page =>
+          ordered_collection_page(next_page, collection, %{"orderedItems" => [next_entry]})
       })
 
       assert {:ok, _} = Fetcher.fetch_collection(collection, mode: :entries_async)

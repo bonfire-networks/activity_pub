@@ -10,6 +10,12 @@ defmodule ActivityPub.Web.CollectionServingTest do
   Plus a 404 for a non-servable collection type.
   """
   use ActivityPub.Web.ConnCase, async: false
+
+  # these tests check what is served, not who may fetch it (that is `signed_fetch_gate_test.exs`), so they fetch unsigned, under the library's own default, whatever the app's config says
+  setup do
+    clear_config([:reject_unsigned], false)
+  end
+
   import ActivityPub.Factory
   import Tesla.Mock
   import Plug.Conn

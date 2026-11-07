@@ -10,8 +10,17 @@ defmodule ActivityPub.MRF.KeywordMatcherTest do
 
   alias ActivityPub.MRF.KeywordMatcher
 
-  defp matches?(keywords, html_or_fields, opts \\ []),
-    do: KeywordMatcher.match?(KeywordMatcher.compile(keywords), List.wrap(html_or_fields), opts)
+  # every case also runs on prepared text, as a caller with several lists does: same answer
+  defp matches?(keywords, html_or_fields, opts \\ []) do
+    compiled = KeywordMatcher.compile(keywords)
+    fields = List.wrap(html_or_fields)
+    raw = KeywordMatcher.match?(compiled, fields, opts)
+
+    assert KeywordMatcher.match?(compiled, KeywordMatcher.prepare(fields), opts) == raw,
+           "prepared text matched differently from the raw fields"
+
+    raw
+  end
 
   describe "whole words and wildcards" do
     test "a keyword without * matches only as a whole word, whatever the case" do
@@ -106,6 +115,22 @@ defmodule ActivityPub.MRF.KeywordMatcherTest do
 
     test "regex keywords still match" do
       assert matches?([~r/comp[lL][aA][iI][nN]er/], "the compLAINer")
+    end
+  end
+
+  describe "prepared text" do
+    test "is read once, then matched against several lists without reading the HTML again" do
+      prepared = KeywordMatcher.prepare(["<p>buy cheap spam</p>", "a title"])
+      mfa = {ActivityPub.Utils, :text_only, 1}
+      :erlang.trace_pattern(mfa, true, [:call_count])
+
+      try do
+        assert KeywordMatcher.match?(KeywordMatcher.compile(["spam"]), prepared)
+        refute KeywordMatcher.match?(KeywordMatcher.compile(["eggs"]), prepared)
+        assert {:call_count, 0} == :erlang.trace_info(mfa, :call_count)
+      after
+        :erlang.trace_pattern(mfa, false, [:call_count])
+      end
     end
   end
 

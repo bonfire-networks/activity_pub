@@ -127,6 +127,30 @@ defmodule ActivityPub.MRF do
     end
   end
 
+  @doc """
+  Marks an incoming activity's object sensitive, so it is stored and shown closed behind a content warning.
+
+  Options: `tag:` adds a tag (eg. `"nsfw"`), `summary:` sets the warning's text when the object has none of its own.
+  """
+  def mark_sensitive(%{"object" => %{} = object} = activity, opts \\ []) do
+    object =
+      object
+      |> Map.put("sensitive", true)
+      |> then(fn object ->
+        case opts[:tag] do
+          nil -> object
+          tag -> Map.put(object, "tag", (object["tag"] || []) ++ [tag])
+        end
+      end)
+      |> then(fn object ->
+        if opts[:summary] && object["summary"] in [nil, ""],
+          do: Map.put(object, "summary", opts[:summary]),
+          else: object
+      end)
+
+    Map.put(activity, "object", object)
+  end
+
   @spec subdomain_match?([Regex.t()], String.t()) :: boolean()
   def subdomain_match?(domains, host) do
     Enum.any?(domains, fn domain ->

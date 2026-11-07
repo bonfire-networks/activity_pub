@@ -531,8 +531,19 @@ defmodule ActivityPub.Actor do
   end
 
   def update_actor(actor_id, data, fetch_remote?, _local?, authenticated) do
+    # read before the update overwrites it, to tell the adapter when its origin lifted a suspension
+    was_suspended? =
+      case Object.get_cached(ap_id: actor_id) do
+        {:ok, held} -> Object.is_suspended?(held)
+        _ -> false
+      end
+
     with {:ok, object} <- update_actor_data(actor_id, data, fetch_remote?, authenticated),
-         Adapter.update_remote_actor(object),
+         # an adapter that could not apply the update (eg. to the profile's name or avatar) says so, rather than us reporting success
+         :ok <-
+           adapter_applied(
+             Adapter.update_remote_actor(maybe_mark_unsuspended(object, was_suspended?))
+           ),
          {:ok, actor} <- get(ap_id: actor_id) do
       set_cache(actor)
     else
@@ -544,6 +555,20 @@ defmodule ActivityPub.Actor do
         other
     end
   end
+
+  # the `update_remote_actor` callback returns `:ok` or `{:error, _}`, and adapters may also return `{:ok, _}`
+  defp adapter_applied({:error, _} = error), do: error
+  defp adapter_applied(_), do: :ok
+
+  # An actor's document says `suspended: true` while its origin suspends it, and leaves the key out once that is lifted (Mastodon), so the lifting is marked `false` for the adapter, which only knows the new document. Only for the adapter: what is stored is the document as its origin serves it
+  defp maybe_mark_unsuspended(%{data: data} = object, true = _was_suspended?)
+       when is_map(data) do
+    if Object.is_suspended?(data),
+      do: object,
+      else: %{object | data: Map.put(data, "suspended", false)}
+  end
+
+  defp maybe_mark_unsuspended(object, _was_suspended?), do: object
 
   # defp check_if_time_to_update(actor) do
   #   (NaiveDateTime.diff(NaiveDateTime.utc_now(Calendar.ISO), actor.updated_at) >= 86_400)
@@ -1038,7 +1063,12 @@ defmodule ActivityPub.Actor do
   defp maybe_update_actor_data(ap_id, object, data, fetch_remote?, authenticated) do
     if fetch_remote? do
       debug("re-fetch remote actor before updating for safety")
-      Fetcher.fetch_fresh_object_from_id(ap_id, [])
+
+      # a suspended actor is silenced here, which refuses the fetches coming in (`ActivityPub.Safety.ORF`), but its origin is the only way to learn the suspension was lifted: asked as the check on what we send out, which a silence does not touch
+      Fetcher.fetch_fresh_object_from_id(
+        ap_id,
+        if(Object.is_suspended?(object), do: [direction: :out], else: [])
+      )
     else
       debug("insert")
       do_update_actor_data(object, data, authenticated)

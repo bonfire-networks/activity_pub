@@ -4,6 +4,11 @@ defmodule ActivityPub.Web.DeletedObjectServedTest do
   """
   use ActivityPub.Web.ConnCase, async: false
 
+  # these tests check what is served, not who may fetch it (that is `signed_fetch_gate_test.exs`), so they fetch unsigned, under the library's own default, whatever the app's config says
+  setup do
+    clear_config([:reject_unsigned], false)
+  end
+
   import ActivityPub.Factory
   import ActivityPub.Test.IntegrityProofHelpers
   import Plug.Conn

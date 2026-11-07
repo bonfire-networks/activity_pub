@@ -269,7 +269,10 @@ defmodule ActivityPub.Web.ActivityPubController do
   end
 
   # a deleted local actor's tombstone can lose its link to the actor's id: `pointer_id` is set null when the actor's pointer row is deleted, as it is for a deleted user. Its AP id is the id URL (for actors created since the ULID cutoff), so it is found by that instead
-  defp local_tombstone_by_ap_id(conn, id) do
+  # public, as `EnsureHTTPSignaturePlug` finds a deleted actor's tombstone the same way before the controller runs
+  # defp local_tombstone_by_ap_id(conn, id) do
+  @doc false
+  def local_tombstone_by_ap_id(conn, id) do
     with [segment | _] <- conn.path_info |> Enum.take_while(&(&1 != id)) |> Enum.reverse(),
          {:ok, %Object{local: true, data: %{"type" => "Tombstone"}} = tombstone} <-
            Object.get_cached(ap_id: "#{Utils.ap_base_url()}/#{segment}/#{id}") do

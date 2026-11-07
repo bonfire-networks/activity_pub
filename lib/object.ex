@@ -1146,9 +1146,14 @@ defmodule ActivityPub.Object do
     |> normalise_addressing_field("bcc")
   end
 
+  # Public stays in the field it was addressed in: Mastodon's "unlisted" names it only in `cc`, which is what tells it apart from a public post. Only an object that counts as public without naming Public anywhere (eg. BookWyrm's, see `Utils.public?/1`) has it added, to `to`.
   defp normalise_to(map) do
-    extra = if Utils.public?(map), do: [ActivityPub.Config.public_uri()], else: []
-    debug(extra)
+    extra =
+      if Utils.public?(map) and
+           not Utils.has_as_public?([map["to"], map["cc"], map["bto"], map["bcc"]]),
+         do: [ActivityPub.Config.public_uri()],
+         else: []
+
     normalise_addressing_field(map, "to", extra)
   end
 
@@ -1165,7 +1170,8 @@ defmodule ActivityPub.Object do
       true ->
         []
     end
-    |> Enum.reject(&(&1 in ["as:Public", "Public"]))
+    # the short forms of Public become the full URI, where they were
+    |> Enum.map(&if(&1 in ["as:Public", "Public"], do: ActivityPub.Config.public_uri(), else: &1))
     |> Kernel.++(extra)
     |> Enum.uniq()
     |> Utils.maybe_put(map, field, ...)
@@ -1185,9 +1191,10 @@ defmodule ActivityPub.Object do
 
   def is_deleted?(%{data: data}), do: is_deleted?(data)
 
+  # an actor suspended at its origin is not deleted (`is_suspended?/1`): its origin may lift the suspension, so it is kept, hidden
   def is_deleted?(data) do
     case data do
-      %{"suspended" => true} -> true
+      # %{"suspended" => true} -> true
       %{"type" => "Tombstone"} -> true
       %{"type" => "Delete"} -> true
       %{"object" => %{"type" => "Tombstone"}} -> true
@@ -1195,6 +1202,11 @@ defmodule ActivityPub.Object do
       _ -> false
     end
   end
+
+  @doc "Whether an actor's document says its origin suspended it (Mastodon's `suspended: true`), which, unlike a deletion, its origin can lift."
+  def is_suspended?(%{data: data}), do: is_suspended?(data)
+  def is_suspended?(%{"suspended" => true}), do: true
+  def is_suspended?(_), do: false
 
   # A Tombstone keeps no document of what it was: an original left on the row would still be served (`ObjectView`) and relayed (`Transformer.original_object/1`) as it arrived. With no original, `data` is written whole (`patch_over_received/1` has nothing to patch over).
   def swap_object_with_tombstone(object) do

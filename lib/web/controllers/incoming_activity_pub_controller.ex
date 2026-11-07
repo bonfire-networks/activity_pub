@@ -14,11 +14,11 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   use Arrows
 
   alias ActivityPub.Config
-  # alias ActivityPub.Actor
+  alias ActivityPub.Actor
   # alias ActivityPub.Federator.Fetcher
   # alias ActivityPub.Object
   alias ActivityPub.Utils
-  # alias ActivityPub.Federator.Adapter
+  alias ActivityPub.Federator.Adapter
   alias ActivityPub.Instances
   # alias ActivityPub.Safety.Containment
   # alias ActivityPub.Federator
@@ -110,7 +110,8 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
   end
 
   defp process_incoming(conn, params, worker_args \\ []) do
-    if Config.federating?() do
+    # if Config.federating?() do
+    if is_nil(refusal = inbox_refusal(conn)) do
       ReceiverRouter.route_worker(params, true).enqueue(
         "incoming_ap_doc",
         %{
@@ -129,12 +130,14 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       |> Utils.maybe_advertise_accept_signature()
       |> json("ok")
     else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
+      # Utils.error_json(conn, "this instance is not currently federating", 403)
+      Utils.error_json(conn, refusal, 403)
     end
   end
 
   defp maybe_process_unsigned(conn, params, worker_args \\ []) do
-    if Config.federating?() do
+    # if Config.federating?() do
+    if is_nil(refusal = inbox_refusal(conn)) do
       ReceiverRouter.route_worker(params, false).enqueue(
         "incoming_unverified_ap_doc",
         %{
@@ -151,7 +154,31 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
       |> Utils.maybe_advertise_accept_signature()
       |> json("tbd")
     else
-      Utils.error_json(conn, "this instance is not currently federating", 403)
+      # Utils.error_json(conn, "this instance is not currently federating", 403)
+      Utils.error_json(conn, refusal, 403)
     end
   end
+
+  # Why a delivery to this inbox is refused, or nil to accept it: the instance doesn't federate, or the local actor who owns this inbox turned federation off. The shared inbox has no owner: what it receives is filtered per recipient by the adapter when it is processed.
+  defp inbox_refusal(conn) do
+    cond do
+      !Config.federating?() -> "this instance is not currently federating"
+      !inbox_owner_federating?(conn.path_params) -> "this actor is not currently federating"
+      true -> nil
+    end
+  end
+
+  defp inbox_owner_federating?(%{"username" => username}),
+    do: actor_federating?(Actor.get_cached(username: username))
+
+  defp inbox_owner_federating?(%{"actor_id" => actor_id}),
+    do: actor_federating?(Actor.get_cached(pointer: actor_id))
+
+  defp inbox_owner_federating?(_shared_inbox), do: true
+
+  # The adapter's federation check, asked about a local actor, answers whether that actor federates. Blocks are skipped here: they are applied when the activity is processed, without telling the sender.
+  defp actor_federating?({:ok, %Actor{local: true} = actor}),
+    do: Adapter.federation_allowed?(actor, direction: :in, skip_block_check: true)
+
+  defp actor_federating?(_), do: true
 end

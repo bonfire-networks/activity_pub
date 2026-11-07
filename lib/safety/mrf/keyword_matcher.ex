@@ -11,6 +11,8 @@ defmodule ActivityPub.MRF.KeywordMatcher do
   Compile a list once with `compile/1` and match many times with `match?/3`.
   """
 
+  alias ActivityPub.MRF.KeywordMatcher.Prepared
+
   @boundary_before "(?<![\\p{L}\\p{N}_])"
   @boundary_after "(?![\\p{L}\\p{N}_])"
 
@@ -66,29 +68,38 @@ defmodule ActivityPub.MRF.KeywordMatcher do
   defp keyword_source(_), do: []
 
   @doc """
-  Whether any of `fields` matches the compiled keywords. Each field is HTML, a `LazyHTML` document already parsed by the caller, or `nil`.
-
-  Options: `confusables: false` to skip folding look-alike characters.
+  Reads `fields` once for `match?/3`: each one's visible text, and its folded versions unless `confusables: false`. Each field is HTML, a `LazyHTML` document already parsed by the caller, or `nil`. Worth it when the same content is matched against more than one list.
   """
-  @spec match?(compiled, list, keyword) :: boolean
-  def match?(compiled, fields, opts \\ [])
-
-  def match?(nil, _fields, _opts), do: false
-
-  def match?(%{} = compiled, fields, opts) do
+  @spec prepare(list, keyword) :: Prepared.t()
+  def prepare(fields, opts \\ []) do
     texts =
       fields
       |> List.wrap()
       |> Enum.map(&ActivityPub.Utils.text_only/1)
       |> Enum.reject(&(&1 == ""))
 
-    texts != [] and
-      (Enum.any?(texts, &text_matches?(compiled, &1)) or
-         (opts[:confusables] != false and
-            Enum.any?(texts, fn text ->
-              Enum.any?(folded(text), &text_matches?(compiled, &1))
-            end)))
+    %Prepared{
+      texts: texts,
+      folded: if(opts[:confusables] != false, do: Enum.flat_map(texts, &folded/1), else: [])
+    }
   end
+
+  @doc """
+  Whether the compiled keywords match `fields`: raw fields (as for `prepare/2`), or text already read by `prepare/2`.
+
+  Options: `confusables: false` to skip folding look-alike characters.
+  """
+  @spec match?(compiled, list | Prepared.t(), keyword) :: boolean
+  def match?(compiled, fields, opts \\ [])
+
+  def match?(nil, _fields, _opts), do: false
+
+  def match?(%{} = compiled, %Prepared{texts: texts, folded: folded}, opts) do
+    Enum.any?(texts, &text_matches?(compiled, &1)) or
+      (opts[:confusables] != false and Enum.any?(folded, &text_matches?(compiled, &1)))
+  end
+
+  def match?(%{} = compiled, fields, opts), do: match?(compiled, prepare(fields, opts), opts)
 
   defp text_matches?(%{regex: regex, regexes: regexes}, text) do
     (regex != nil and Regex.match?(regex, text)) or Enum.any?(regexes, &Regex.match?(&1, text))

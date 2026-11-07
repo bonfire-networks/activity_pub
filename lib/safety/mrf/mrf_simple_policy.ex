@@ -114,7 +114,7 @@ defmodule ActivityPub.MRF.SimplePolicy do
          %{host: actor_host} = _actor_info,
          %{
            "type" => "Create",
-           "object" => child_object
+           "object" => %{}
          } = object
        ) do
     media_nsfw =
@@ -122,14 +122,9 @@ defmodule ActivityPub.MRF.SimplePolicy do
       |> MRF.subdomains_regex()
 
     object =
-      if MRF.subdomain_match?(media_nsfw, actor_host) do
-        tags = (child_object["tag"] || []) ++ ["nsfw"]
-        child_object = Map.put(child_object, "tag", tags)
-        child_object = Map.put(child_object, "sensitive", true)
-        Map.put(object, "object", child_object)
-      else
-        object
-      end
+      if MRF.subdomain_match?(media_nsfw, actor_host),
+        do: MRF.mark_sensitive(object, tag: "nsfw"),
+        else: object
 
     {:ok, object}
   end

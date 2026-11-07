@@ -325,6 +325,9 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
       assert Utils.public?(data)
       # assert data["to"] == cc # FIXME?
       assert data["cc"] == cc
+
+      # Public only in `cc` is Mastodon's "unlisted", so it stays out of `to`, where it would read as a public post
+      refute "https://www.w3.org/ns/activitystreams#Public" in List.wrap(data["to"])
       # FIXME?
       # assert data["cc"] == [User.ap_followers(user)]
     end

@@ -721,7 +721,8 @@ defmodule ActivityPub.Federator.Fetcher do
              {options[:skip_contain_origin_check] ||
                 Containment.contain_origin(Utils.ap_id(data) || id, data) ||
                 {:error, "Containment error"}, data} do
-        if !options[:return_tombstones] and Object.is_deleted?(data) do
+        if !options[:return_tombstones] and
+             (Object.is_deleted?(data) or Object.is_suspended?(data)) do
           debug(options, "object was marked as deleted/suspended, return as not found")
           cache_fetch_error(id)
           {:error, :not_found}

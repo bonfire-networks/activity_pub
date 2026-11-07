@@ -66,12 +66,25 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   # the fields a reader sees, matched as visible text by `KeywordMatcher`
   defp object_fields(%{} = object), do: [object["content"], object["summary"], object["name"]]
 
-  defp check_reject(%{"object" => %{} = object} = message, mrf_keyword, confusables_enabled) do
-    compiled = compiled(mrf_keyword, :reject)
+  # the text of one version of the object: the current one was read once for every list (`prepared`), an earlier one (in its edit history) is read here
+  defp version_fields(version, current, prepared) when version == current, do: prepared
+  defp version_fields(version, _current, _prepared), do: object_fields(version)
 
+  defp check_reject(message, nil, _prepared, _confusables_enabled), do: {:ok, message}
+
+  defp check_reject(
+         %{"object" => %{} = object} = message,
+         compiled,
+         prepared,
+         confusables_enabled
+       ) do
     with {:ok, _new_object} <-
-           Object.apply_to_object_and_history(object, fn object ->
-             case find_matching_pattern(object_fields(object), compiled, confusables_enabled) do
+           Object.apply_to_object_and_history(object, fn version ->
+             case find_matching_pattern(
+                    version_fields(version, object, prepared),
+                    compiled,
+                    confusables_enabled
+                  ) do
                {:reject, match_type} ->
                  {:reject, match_type_message(match_type)}
 
@@ -84,6 +97,17 @@ defmodule ActivityPub.MRF.KeywordPolicy do
       e -> e
     end
   end
+
+  # a match is accepted, but stored and shown closed behind a content warning: marked sensitive, with a summary to show as the warning when it has none of its own
+  defp check_warn(message, nil, _prepared, _confusables_enabled), do: {:ok, message}
+
+  defp check_warn(%{"object" => %{}} = message, compiled, prepared, confusables_enabled) do
+    if KeywordMatcher.match?(compiled, prepared, confusables: confusables_enabled),
+      do: {:ok, MRF.mark_sensitive(message, summary: warn_summary())},
+      else: {:ok, message}
+  end
+
+  defp warn_summary, do: Config.get([:mrf_keyword, :warn_summary]) || "Hidden by filters"
 
   # `{:reject, :exact}` when the keywords match the text as written, `{:reject, :confusable}` when they match only once look-alike characters are folded, else `false`. One match for the usual post, which matches nothing; a second only to tell which kind of match it was
   defp find_matching_pattern(fields, compiled, confusables_enabled) do
@@ -99,11 +123,11 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  # A list compiled once, not on every activity: Bonfire's settings hook already stores it as `reject_compiled` for the `reject` list; otherwise compiled here and kept by the hash of the list. Lists change rarely (an admin edits them), so few terms ever accumulate.
-  defp compiled(mrf_keyword, :reject) do
-    case mrf_keyword[:reject_compiled] do
+  # A list compiled once, not on every activity: Bonfire's settings hook already stores `reject_compiled` and `warn_compiled`; otherwise compiled here and kept by the hash of the list. Lists change rarely (an admin edits them), so few terms ever accumulate.
+  defp compiled(mrf_keyword, key) when key in [:reject, :warn] do
+    case mrf_keyword[:"#{key}_compiled"] do
       %{regex: _, regexes: _} = compiled -> compiled
-      _ -> compiled_list(mrf_keyword[:reject])
+      _ -> compiled_list(mrf_keyword[key])
     end
   end
 
@@ -129,17 +153,22 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
+  defp check_ftl_removal(message, nil, _prepared, _confusables_enabled), do: {:ok, message}
+
   defp check_ftl_removal(
-         %{"type" => "Create", "to" => to_raw, "object" => %{} = object} = message,
-         mrf_keyword,
+         %{"type" => "Create", "to" => to_raw, "object" => %{} = current} = message,
+         compiled,
+         prepared,
          confusables_enabled
        ) do
     to = normalize_recipients(to_raw)
 
-    compiled = compiled(mrf_keyword, :unlisted_from_feeds)
-
     check_keyword = fn object ->
-      case find_matching_pattern(object_fields(object), compiled, confusables_enabled) do
+      case find_matching_pattern(
+             version_fields(object, current, prepared),
+             compiled,
+             confusables_enabled
+           ) do
         {:reject, match_type} ->
           {:should_delist, match_type}
 
@@ -156,7 +185,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
       end
     end
 
-    if ActivityPub.Config.public_uri() in to and should_delist?.(object) do
+    if ActivityPub.Config.public_uri() in to and should_delist?.(current) do
       to = List.delete(to, ActivityPub.Config.public_uri())
       cc = [ActivityPub.Config.public_uri() | message["cc"] || []]
 
@@ -171,7 +200,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp check_ftl_removal(message, _mrf_keyword, _confusables_enabled) do
+  defp check_ftl_removal(message, _compiled, _prepared, _confusables_enabled) do
     {:ok, message}
   end
 
@@ -223,8 +252,21 @@ defmodule ActivityPub.MRF.KeywordPolicy do
         bool -> bool
       end
 
-    with {:ok, activity} <- check_reject(activity, mrf_keyword, confusables_enabled),
-         {:ok, activity} <- check_ftl_removal(activity, mrf_keyword, confusables_enabled),
+    reject = compiled(mrf_keyword, :reject)
+    warn = compiled(mrf_keyword, :warn)
+    unlisted = compiled(mrf_keyword, :unlisted_from_feeds)
+
+    # the object's visible text, read once for every list, and not at all when there is none
+    prepared =
+      if reject || warn || unlisted,
+        do:
+          KeywordMatcher.prepare(object_fields(activity["object"]),
+            confusables: confusables_enabled
+          )
+
+    with {:ok, activity} <- check_reject(activity, reject, prepared, confusables_enabled),
+         {:ok, activity} <- check_warn(activity, warn, prepared, confusables_enabled),
+         {:ok, activity} <- check_ftl_removal(activity, unlisted, prepared, confusables_enabled),
          {:ok, activity} <- check_replace(activity, mrf_keyword) do
       {:ok, activity}
     else

@@ -28,10 +28,19 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
   def call(%{assigns: %{valid_signature: true}} = conn, _), do: conn
 
   # a delivery from a blocked or non-allowlisted server is answered with a quiet 200, so the sender cannot tell it was refused
+  # but with federation turned off for the whole instance every sender maps as not allowed, and there is no block to hide, so the delivery is refused openly, as the inbox does
   def call(%{assigns: %{valid_signature: nil}, method: "POST"} = conn, _) do
-    info("Rejecting ActivityPub request from blocked actor/instance")
-    debug(conn)
-    ignore(conn)
+    if Config.federating?() do
+      info("Rejecting ActivityPub request from blocked actor/instance")
+      debug(conn)
+      ignore(conn)
+    else
+      info("Refusing ActivityPub delivery since this instance is not currently federating")
+
+      conn
+      |> ActivityPub.Utils.error_json("this instance is not currently federating", 403)
+      |> halt()
+    end
   end
 
   # a fetch is refused with a real status, so the asker does not take the answer for the object
@@ -55,19 +64,43 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
   defp signature_required?(conn, :except_public_actors),
     do: not service_actor_request?(conn) and not public_actor_request?(conn)
 
-  # An actor's own document stays fetchable without a signature when the adapter would serve that actor to an asker it knows nothing about, which is the check the controller makes before serving it. Servers that don't sign their fetches (eg. Lemmy before 1.0) can then find our public groups and people, and read the keys that verify what we send them. The actor's collections, and every object and activity, still need a signature. Only evaluated for a request that would be refused anyway, since it looks the route and the actor up.
+  # An actor's own document stays fetchable without a signature when the adapter would serve that actor to an asker it knows nothing about, which is the check the controller makes before serving it. Servers that don't sign their fetches (eg. Lemmy before 1.0) can then find our public groups and people, and read the keys that verify what we send them. So does a deleted (or archived) local actor's Tombstone, so those servers learn the actor is gone: it says only that. The actor's collections, and every object and activity, still need a signature, a deleted object's Tombstone too. Only evaluated for a request that would be refused anyway, since it looks the route and the actor up.
   defp public_actor_request?(%{private: %{phoenix_router: router}} = conn) do
     with %{plug: ActivityPub.Web.ActivityPubController, plug_opts: action, path_params: params}
          when action in [:actor, :actor_by_id] <-
-           Phoenix.Router.route_info(router, conn.method, conn.path_info, conn.host),
-         {:ok, %ActivityPub.Actor{local: true} = actor} <- requested_actor(action, params) do
-      ActivityPub.Federator.Adapter.federate_actor?(nil, :out, actor) != false
+           Phoenix.Router.route_info(router, conn.method, conn.path_info, conn.host) do
+      # {:ok, %ActivityPub.Actor{local: true} = actor} <- requested_actor(action, params) do
+      # ActivityPub.Federator.Adapter.federate_actor?(nil, :out, actor) != false
+      # a deleted local actor is found as its Tombstone rather than as a live actor, and its Tombstone is served unsigned too, so servers that don't sign learn it's gone
+      case requested_actor(action, params) do
+        {:ok, %ActivityPub.Actor{local: true, data: %{"type" => "Tombstone"}}} ->
+          true
+
+        {:ok, %ActivityPub.Actor{local: true} = actor} ->
+          ActivityPub.Federator.Adapter.federate_actor?(nil, :out, actor) != false
+
+        _ ->
+          local_actor_tombstone?(conn, action, params)
+      end
     else
       _ -> false
     end
   end
 
   defp public_actor_request?(_conn), do: false
+
+  # where the controller finds a deleted local actor's tombstone when no live actor answers to the URL: by its username (`actor_json/1`), or by its AP id for the id URL (`ActivityPubController.local_tombstone_by_ap_id/2`)
+  defp local_actor_tombstone?(_conn, :actor, %{"username" => username}) do
+    match?(
+      {:ok, %{local: true, data: %{"type" => "Tombstone"}}},
+      ActivityPub.Object.get_cached(username: username, local: true)
+    )
+  end
+
+  defp local_actor_tombstone?(conn, :actor_by_id, %{"id" => id}),
+    do: ActivityPub.Web.ActivityPubController.local_tombstone_by_ap_id(conn, id) != nil
+
+  defp local_actor_tombstone?(_conn, _action, _params), do: false
 
   defp requested_actor(:actor, %{"username" => username}),
     do: ActivityPub.Actor.get_cached(username: username)

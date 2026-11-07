@@ -30,7 +30,15 @@ defmodule ActivityPub.Safety.ORF do
     end
   end
 
-  @federation_opts [:direction, :block_types, :by_actor, :user_ids, :current_user]
+  # `:federation_mode` is the mode the caller already settled on (eg. `true` to resolve an actor in order to put it on an allowlist, which a mode computed from the user's settings would refuse)
+  @federation_opts [
+    :direction,
+    :block_types,
+    :by_actor,
+    :user_ids,
+    :current_user,
+    :federation_mode
+  ]
 
   # the context callers pass with the request (`HTTP.get(url, headers, opts)`), so a user's own blocks apply to requests made for them
   def federation_opts_keys, do: @federation_opts

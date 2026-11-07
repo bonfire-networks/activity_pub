@@ -386,8 +386,9 @@ defmodule ActivityPub.Federator.Transformer do
     false
   end
 
+  # an actor its origin suspended is gone from there too, but kept here (hidden), which `handle_remote_delete/4` tells apart
   defp check_remote_object_deleted(data, true = _already_fetched) do
-    if Object.is_deleted?(data) do
+    if Object.is_deleted?(data) or Object.is_suspended?(data) do
       {:ok, data}
     else
       {:error, :not_deleted}
@@ -3029,8 +3030,8 @@ defmodule ActivityPub.Federator.Transformer do
          {:ok, verified_data} <-
            confirm_deletion(object, cached_object, data, opts) |> debug("re-fetched"),
          verified_object <- Object.normalize(verified_data || object, false) |> debug("normied"),
-         {:actor, false} <-
-           {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data)},
+         {:actor, false, _} <-
+           {:actor, Actor.actor?(verified_object) || Actor.actor?(verified_data), verified_data},
          {:ok, activity} <-
            ActivityPub.delete(
              verified_object || object_id,
@@ -3043,14 +3044,17 @@ defmodule ActivityPub.Federator.Transformer do
       {:error, :not_found} ->
         handle_activity_with_pruned_object(data, "Delete", opts)
 
-      {:actor, true} ->
+      {:actor, true, verified_data} ->
         debug("it's an actor!")
 
         case Actor.get_cached(ap_id: object_id) do
           # Not checked against the activity's actor, since the threadiverse sends the `Delete` of a community from its moderator (the activity's actor is not the deleted object). What authorises it is the origin: we get here only once it answered 410 or with a Tombstone (`confirm_deletion/4`), and an actor is never owner-shortcut (`deleted_by_authenticated_owner?/3`)
           # {:ok, %Actor{data: %{"id" => ^actor}} = actor} ->
           {:ok, %Actor{} = actor} ->
-            ActivityPub.delete(actor, false, opts)
+            # suspended at its origin rather than deleted: kept, with the document its origin serves, which the adapter hides until a later one lifts the suspension (`Actor.update_actor/5`)
+            if Object.is_suspended?(verified_data),
+              do: Actor.update_actor(object_id, verified_data, false),
+              else: ActivityPub.delete(actor, false, opts)
 
           {:error, :not_found} ->
             handle_activity_with_pruned_object(data, "Delete", opts)

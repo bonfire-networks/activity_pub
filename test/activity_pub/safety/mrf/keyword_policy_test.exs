@@ -159,6 +159,58 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
     end
   end
 
+  describe "warning about keywords" do
+    defp note(content, extra \\ %{}),
+      do: %{
+        "type" => "Create",
+        "object" => Map.merge(%{"type" => "Note", "content" => content}, extra)
+      }
+
+    test "a match is accepted, marked sensitive and given a summary to show as its warning" do
+      clear_config([:mrf_keyword, :warn], ["spoiler"])
+
+      # the positive first: nothing to warn about, nothing added
+      assert {:ok, %{"object" => object}} = KeywordPolicy.filter(note("nothing to see"))
+      refute object["sensitive"]
+      refute object["summary"]
+
+      assert {:ok, %{"object" => object}} =
+               KeywordPolicy.filter(note("a spoiler about the ending"))
+
+      assert object["sensitive"] == true
+      assert object["summary"] == "Hidden by filters"
+      assert object["content"] == "a spoiler about the ending"
+    end
+
+    test "a post's own summary is kept as its warning" do
+      clear_config([:mrf_keyword, :warn], ["spoiler"])
+
+      assert {:ok, %{"object" => object}} =
+               KeywordPolicy.filter(
+                 note("a spoiler about the ending", %{"summary" => "the author's own warning"})
+               )
+
+      assert object["sensitive"] == true
+      assert object["summary"] == "the author's own warning"
+    end
+
+    test "an edit that adds the keyword is marked too" do
+      clear_config([:mrf_keyword, :warn], ["spoiler"])
+
+      assert {:ok, %{"object" => object}} =
+               KeywordPolicy.filter(Map.put(note("now with a spoiler"), "type", "Update"))
+
+      assert object["sensitive"] == true
+    end
+
+    test "rejecting wins when both lists match" do
+      clear_config([:mrf_keyword, :warn], ["spoiler"])
+      clear_config([:mrf_keyword, :reject], ["ending"])
+
+      assert {:reject, _} = KeywordPolicy.filter(note("a spoiler about the ending"))
+    end
+  end
+
   describe "delisting from ftl based on keywords" do
     test "delists if string matches in content" do
       clear_config([:mrf_keyword, :unlisted_from_feeds], ["pun"])

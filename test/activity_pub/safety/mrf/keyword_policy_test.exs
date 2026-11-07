@@ -14,6 +14,36 @@ defmodule ActivityPub.MRF.KeywordPolicyTest do
   end
 
   describe "rejecting based on keywords" do
+    test "a keyword matches whole words of the visible text, not inside longer words or markup" do
+      clear_config([:mrf_keyword, :reject], ["ass", "href", "spam"])
+
+      message = %{
+        "type" => "Create",
+        "object" => %{
+          "content" => ~s(<p>a class on <a href="https://x.local/spammer">spammers</a></p>),
+          "summary" => ""
+        }
+      }
+
+      assert {:ok, _} = KeywordPolicy.filter(message)
+
+      # the positive, on the same message: the word on its own
+      clear_config([:mrf_keyword, :reject], ["spammers"])
+      assert {:reject, _} = KeywordPolicy.filter(message)
+    end
+
+    test "a local activity is not checked: local posts are decided when published" do
+      clear_config([:mrf_keyword, :reject], ["pun"])
+
+      message = %{
+        "type" => "Create",
+        "object" => %{"content" => "a good pun", "summary" => ""}
+      }
+
+      assert {:reject, _} = KeywordPolicy.filter(message, is_local: false)
+      assert {:ok, _} = KeywordPolicy.filter(message, is_local: true)
+    end
+
     test "rejects if string matches in content" do
       clear_config([:mrf_keyword, :reject], ["pun"])
 

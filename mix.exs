@@ -104,6 +104,8 @@ defmodule ActivityPub.MixProject do
       {:ex_confusables,
       #"~> 0.1"
       git: "https://github.com/bonfire-networks/ex_confusables"},
+      # the visible text of HTML, for matching keywords (`ActivityPub.MRF.KeywordMatcher`)
+      {:lazy_html, "~> 0.1"},
       # JSON-LD canonicalization for Linked Data Signature verification
       {:json_ld, "~> 1.0.1"},
       {:rdf, "~> 3.0.0"}

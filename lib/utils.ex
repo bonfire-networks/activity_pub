@@ -1193,4 +1193,20 @@ defmodule ActivityPub.Utils do
     hash(seed, opts)
     |> binary_part(0, length)
   end
+
+  @doc """
+  The text a reader sees in some HTML: tags left out, entities decoded. Takes HTML or a `LazyHTML` document the caller already parsed.
+
+      iex> ActivityPub.Utils.text_only(~s(<a href="/t/x" class="hashtag">#<span>tag</span></a> &amp; more))
+      "#tag & more"
+  """
+  @spec text_only(String.t() | LazyHTML.t() | nil) :: String.t()
+  def text_only(nil), do: ""
+  def text_only(""), do: ""
+  def text_only(%LazyHTML{} = document), do: LazyHTML.text(document)
+
+  def text_only(html) when is_binary(html),
+    do: html |> LazyHTML.from_fragment() |> LazyHTML.text()
+
+  def text_only(_), do: ""
 end

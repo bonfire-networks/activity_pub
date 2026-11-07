@@ -7,6 +7,7 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   alias ActivityPub.Config
   import ActivityPub.Config
   alias ActivityPub.Object
+  alias ActivityPub.MRF.KeywordMatcher
   import Untangle
 
   @moduledoc "Reject or Word-Replace messages with a keyword or regex"
@@ -62,18 +63,15 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   defp match_type_message(:confusable),
     do: "[KeywordPolicy] Matches rejected keyword (confusable/homoglyph detected)"
 
-  defp object_payload(%{} = object) do
-    [object["content"], object["summary"], object["name"]]
-    |> Enum.filter(& &1)
-    |> Enum.join("\n")
-  end
+  # the fields a reader sees, matched as visible text by `KeywordMatcher`
+  defp object_fields(%{} = object), do: [object["content"], object["summary"], object["name"]]
 
   defp check_reject(%{"object" => %{} = object} = message, mrf_keyword, confusables_enabled) do
+    compiled = compiled(mrf_keyword, :reject)
+
     with {:ok, _new_object} <-
            Object.apply_to_object_and_history(object, fn object ->
-             payload = object_payload(object)
-
-             case find_matching_pattern(payload, mrf_keyword[:reject] || [], confusables_enabled) do
+             case find_matching_pattern(object_fields(object), compiled, confusables_enabled) do
                {:reject, match_type} ->
                  {:reject, match_type_message(match_type)}
 
@@ -87,64 +85,47 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end
   end
 
-  defp find_matching_pattern(string, patterns, confusables_enabled) when is_list(patterns) do
-    # TODO: optimise by splitting patterns when set in config
-    {string_patterns, regex_patterns} = Enum.split_with(patterns, &is_binary/1)
-
-    check_string_patterns(string, string_patterns, confusables_enabled) ||
-      check_regex_patterns(string, regex_patterns, confusables_enabled) ||
-      false
-  end
-
-  defp find_matching_pattern(_string, _, _confusables_enabled), do: false
-
-  defp check_string_patterns(_string, [], _confusables_enabled), do: nil
-
-  defp check_string_patterns(string, string_patterns, confusables_enabled) do
-    downcased_string = String.downcase(string)
-    # TODO: optimise by downcasing patterns when set in config
-    downcased_patterns = Enum.map(string_patterns, &String.downcase/1)
-
+  # `{:reject, :exact}` when the keywords match the text as written, `{:reject, :confusable}` when they match only once look-alike characters are folded, else `false`. One match for the usual post, which matches nothing; a second only to tell which kind of match it was
+  defp find_matching_pattern(fields, compiled, confusables_enabled) do
     cond do
-      String.contains?(downcased_string, downcased_patterns) ->
-        {:reject, :exact}
+      not KeywordMatcher.match?(compiled, fields, confusables: confusables_enabled) ->
+        false
 
-      confusables_enabled ->
-        # folds zero-width characters, NFKC compatibility forms (Ⓐ, Ａ, ﬁ, ²), look-alikes and diacritics, to catch Unicode evasion
-        normalized = string |> ExConfusables.normalize() |> String.downcase()
-
-        # Also check "rn" → "m" reverse homoglyph
-        if String.contains?(normalized, downcased_patterns) or
-             String.contains?(String.replace(normalized || "", "rn", "m"), downcased_patterns) do
-          {:reject, :confusable}
-        end
+      confusables_enabled and not KeywordMatcher.match?(compiled, fields, confusables: false) ->
+        {:reject, :confusable}
 
       true ->
-        nil
+        {:reject, :exact}
     end
   end
 
-  defp check_regex_patterns(_string, [], _confusables_enabled), do: nil
+  # A list compiled once, not on every activity: Bonfire's settings hook already stores it as `reject_compiled` for the `reject` list; otherwise compiled here and kept by the hash of the list. Lists change rarely (an admin edits them), so few terms ever accumulate.
+  defp compiled(mrf_keyword, :reject) do
+    case mrf_keyword[:reject_compiled] do
+      %{regex: _, regexes: _} = compiled -> compiled
+      _ -> compiled_list(mrf_keyword[:reject])
+    end
+  end
 
-  defp check_regex_patterns(string, regex_patterns, confusables_enabled) do
-    # NOTE: we don't downcase here since regexes may have their own i flag
-    cond do
-      Enum.any?(regex_patterns, &String.match?(string, &1)) ->
-        {:reject, :exact}
+  defp compiled(mrf_keyword, key), do: compiled_list(mrf_keyword[key])
 
-      confusables_enabled ->
-        normalized = ExConfusables.normalize(string)
-
-        if Enum.any?(regex_patterns, &String.match?(normalized, &1)) or
-             Enum.any?(
-               regex_patterns,
-               &String.match?(String.replace(normalized || "", "rn", "m"), &1)
-             ) do
-          {:reject, :confusable}
-        end
-
-      true ->
+  defp compiled_list(keywords) do
+    case List.wrap(keywords) do
+      [] ->
         nil
+
+      keywords ->
+        key = {__MODULE__, :compiled, :erlang.phash2(keywords), keywords}
+
+        case :persistent_term.get(key, :not_compiled) do
+          :not_compiled ->
+            compiled = KeywordMatcher.compile(keywords)
+            :persistent_term.put(key, compiled)
+            compiled
+
+          compiled ->
+            compiled
+        end
     end
   end
 
@@ -155,10 +136,10 @@ defmodule ActivityPub.MRF.KeywordPolicy do
        ) do
     to = normalize_recipients(to_raw)
 
-    check_keyword = fn object ->
-      payload = object_payload(object)
+    compiled = compiled(mrf_keyword, :unlisted_from_feeds)
 
-      case find_matching_pattern(payload, mrf_keyword[:unlisted_from_feeds], confusables_enabled) do
+    check_keyword = fn object ->
+      case find_matching_pattern(object_fields(object), compiled, confusables_enabled) do
         {:reject, match_type} ->
           {:should_delist, match_type}
 
@@ -221,10 +202,19 @@ defmodule ActivityPub.MRF.KeywordPolicy do
   @impl true
   def filter(activity, opts \\ [])
 
-  def filter(%{"type" => type, "object" => object} = activity, _opts)
+  def filter(%{"type" => type, "object" => object} = activity, opts)
       when is_in(type, ["Create", "Update"]) and
              (is_map_key(object, "content") or is_map_key(object, "name") or
                 is_map_key(object, "summary")) do
+    # local posts are checked against the same list when they are published or edited (and kept to their author when they match), before they can federate
+    if is_list(opts) and opts[:is_local] == true,
+      do: {:ok, activity},
+      else: filter_remote(activity)
+  end
+
+  def filter(activity, _opts), do: {:ok, activity}
+
+  defp filter_remote(activity) do
     mrf_keyword = Config.get(:mrf_keyword, [])
 
     confusables_enabled =
@@ -255,9 +245,6 @@ defmodule ActivityPub.MRF.KeywordPolicy do
     end)
     |> Enum.reject(&is_nil/1)
   end
-
-  @impl true
-  def filter(activity, _opts), do: {:ok, activity}
 
   @impl true
   def describe do

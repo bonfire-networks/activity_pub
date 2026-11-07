@@ -115,7 +115,8 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
 
     # Note: "раѕѕword" uses Cyrillic р, а and Latin-looking Cyrillic ѕ
     test "rejects Cyrillic homoglyphs for 'pass'" do
-      clear_config([:mrf_keyword, :reject], ["pass"])
+      # `pass*`: a keyword is a whole word unless a `*` lets it run on, and the match here is inside "password"
+      clear_config([:mrf_keyword, :reject], ["pass*"])
 
       # Cyrillic а (U+0430) maps to Latin 'a', Cyrillic ѕ (U+0455) maps to Latin 's'
       message = %{
@@ -416,7 +417,8 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     # Letterlike symbols - ℡ (U+2121) decomposes to "TEL" via NFKC, not "t"
     # This test needs a pattern that works with NFKC decomposition
     test "rejects letterlike symbols" do
-      clear_config([:mrf_keyword, :reject], ["tel"])
+      # `tel*`: the folded text is "tel123", a longer word, which a keyword without `*` doesn't match
+      clear_config([:mrf_keyword, :reject], ["tel*"])
 
       # ℡ (U+2121 TELEPHONE SIGN) decomposes to "TEL" via NFKC normalization
       message = %{
@@ -487,7 +489,8 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     # gets normalised to check out vlrn editor
     @tag :todo
     test "rejects roman numerals as letter substitutes via NFKC normalization" do
-      clear_config([:mrf_keyword, :reject], ["vi"])
+      # `vi*`: the folded text is "vim", a longer word, which a keyword without `*` doesn't match
+      clear_config([:mrf_keyword, :reject], ["vi*"])
 
       # Roman numeral Ⅵ (U+2165) decomposes to "VI" via NFKC
       message = %{
@@ -540,7 +543,8 @@ defmodule ActivityPub.MRF.KeywordConfusablesPolicyTest do
     # TODO: Simplified/Traditional Chinese 
     @tag :todo
     test "rejects Chinese simplified/traditional variants" do
-      clear_config([:mrf_keyword, :reject], ["国"])
+      # `*国*`: Chinese has no spaces between words, so a character inside 中国 is only found with `*` on both sides
+      clear_config([:mrf_keyword, :reject], ["*国*"])
 
       # Traditional: 國, Simplified: 国 - these are semantic not visual equivalences
       # Unicode confusables is for visual similarity, not meaning

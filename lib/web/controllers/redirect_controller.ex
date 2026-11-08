@@ -57,9 +57,10 @@ defmodule ActivityPub.Web.RedirectController do
       end
     else
       _ ->
-        conn
-        |> send_resp(404, "Remote actor or object not found")
-        |> halt
+        # conn
+        # |> send_resp(404, "Remote actor or object not found")
+        # |> halt
+        redirect_back_with_error(conn, "Remote actor or object not found", remote_interaction_path())
     end
   end
 
@@ -124,12 +125,20 @@ defmodule ActivityPub.Web.RedirectController do
         other ->
           error(other)
 
-          conn
-          |> send_resp(
-            404,
-            "Sorry, your actor or remote interaction URL was not found"
+          # conn
+          # |> send_resp(
+          #   404,
+          #   "Sorry, your actor or remote interaction URL was not found"
+          # )
+          # |> halt
+          redirect_back_with_error(
+            conn,
+            "Couldn't find your account, check the address, eg. alice@example.social",
+            remote_interaction_path(
+              type: Map.get(params, "type") || Map.get(outgoing, "type"),
+              url: object
+            )
           )
-          |> halt
       end
     end
   end
@@ -137,12 +146,43 @@ defmodule ActivityPub.Web.RedirectController do
   def remote_interaction(conn, params) do
     error(params, "unrecognised params")
 
-    conn
-    |> send_resp(
-      404,
-      "Sorry, your actor or remote interaction URL was not found"
+    # conn
+    # |> send_resp(
+    #   404,
+    #   "Sorry, your actor or remote interaction URL was not found"
+    # )
+    # |> halt
+    redirect_back_with_error(
+      conn,
+      "Sorry, your actor or remote interaction URL was not found",
+      remote_interaction_path()
     )
-    |> halt
+  end
+
+  # a failure goes back to the form with the reason, as the other browser forms do: a bare 404 with no content type makes mobile browsers offer to download it
+  defp redirect_back_with_error(conn, message, fallback) do
+    conn
+    |> put_flash(:error, message)
+    |> redirect(to: same_host_referer(conn) || fallback)
+    |> halt()
+  end
+
+  # only a page on this host, so the redirect can't be pointed at another site
+  defp same_host_referer(conn) do
+    with [referer | _] <- get_req_header(conn, "referer"),
+         %URI{host: host, path: "/" <> _ = path, query: query} when host == conn.host <-
+           URI.parse(referer) do
+      URI.to_string(%URI{path: path, query: query})
+    else
+      _ -> nil
+    end
+  end
+
+  defp remote_interaction_path(params \\ []) do
+    case Enum.filter(params, fn {_, v} -> is_binary(v) end) do
+      [] -> "/remote_interaction"
+      params -> "/remote_interaction?" <> URI.encode_query(params)
+    end
   end
 
   defp redirect_to_adapter(conn, object_username_or_id) do

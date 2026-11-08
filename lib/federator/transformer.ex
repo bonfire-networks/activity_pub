@@ -1685,7 +1685,8 @@ defmodule ActivityPub.Federator.Transformer do
     with followed_actor <- Object.actor_from_data(data) |> debug("followed_actor"),
          {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug("followed"),
          {:ok, follow_activity} <-
-           Object.get_follow_activity(follow_object, followed) |> debug("follow_activity") do
+           Object.get_follow_activity(follow_object, followed, data["to"])
+           |> debug("follow_activity") do
       # Get follower from follow activity to use as default recipient
       follower_id = follow_activity.data["actor"]
 
@@ -2635,6 +2636,13 @@ defmodule ActivityPub.Federator.Transformer do
       },
       opts
     )
+  end
+
+  # Activity types nothing models (eg. PeerTube `View`): skipped before they are stored, since a repeated one would hit the unique index on its id and be retried
+  def handle_incoming(%{"type" => type}, _opts) when is_in(type, :skip_activity_types) do
+    info(type, "ActivityPub - activity type we do not model, skipping without storing it")
+
+    {:ok, :skip}
   end
 
   # Handle other activity types (and their object)

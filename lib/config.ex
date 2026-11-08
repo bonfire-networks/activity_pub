@@ -64,6 +64,11 @@ defmodule ActivityPub.Config do
           "Lock"
         ]
 
+  # TODO: support PeerTube's stat activities (`View` pings at `/accounts/peertube/views/videos/<id>/<uuid>`, carrying the video's view count) instead of skipping them, eg. to show a view count on the video
+  @doc "Incoming activity types we receive but never store or hand to the adapter, because nothing models them (eg. PeerTube `View` pings, which arrive again and again). They are skipped before `Object.insert`. Read at compile time, since the guards in `Transformer.handle_incoming/2` and the adapter's `Incoming.receive_activity/1` match on it."
+  def skip_activity_types,
+    do: get([:instance, :skip_activity_types]) || ["View", "Listen", "WatchAction"]
+
   def all_supported_activity_types,
     do: supported_activity_types() ++ supported_intransitive_types()
 

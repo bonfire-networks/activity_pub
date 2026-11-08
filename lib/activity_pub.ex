@@ -74,6 +74,10 @@ defmodule ActivityPub do
       %Object{} = object ->
         {:ok, object}
 
+      # the tag stays as it is (`error/1` would turn it into text), so the worker can cancel the job
+      {:error, :already_exists} = already_exists ->
+        already_exists
+
       {:error, error} when is_binary(error) ->
         error(error)
 
@@ -330,6 +334,8 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
+      # the tag stays as it is (`error/1` would turn it into text), so the worker can cancel the job
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error)
     end
   end
@@ -368,6 +374,7 @@ defmodule ActivityPub do
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     else
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error)
     end
   end
@@ -425,6 +432,7 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error)
     end
   end
@@ -567,6 +575,7 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error)
     end
   end
@@ -987,6 +996,7 @@ defmodule ActivityPub do
          activity <- Map.put(activity, :pointer, adapter_object) do
       {:ok, activity}
     else
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error, "Could not withdraw the report")
     end
   end
@@ -1345,6 +1355,7 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error)
     end
   end
@@ -1384,6 +1395,7 @@ defmodule ActivityPub do
     else
       {:ok, %Object{} = object} -> {:ok, object}
       %Object{} = object -> {:ok, object}
+      {:error, :already_exists} = already_exists -> already_exists
       error -> error(error)
     end
   end

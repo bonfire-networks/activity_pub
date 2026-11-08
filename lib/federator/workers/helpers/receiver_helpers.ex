@@ -278,7 +278,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
 
   # the actor an HTTP signature's key belongs to, mapped as the signature plug maps it (the key id without its fragment and known suffixes), or `nil` when there is none to read
   defp http_signer(headers) do
-    # (`extract_signature/1` loops on headers with no signature in them)
+    # (skips parsing when there is no signature header; `extract_signature/1` would return `{:error, :no_signature}`, which the `else` below also handles)
     with true <- is_binary(headers["signature"]) or is_binary(headers["signature-input"]),
          %{"keyId" => key_id} when is_binary(key_id) <- HTTPSignatures.extract_signature(headers),
          {:ok, actor_id} <- ActivityPub.Safety.Keys.key_id_to_actor_id(key_id) do
@@ -301,9 +301,11 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
     # Accept/Reject of Follow activities have unfetchable URLs (fragment identifiers like #accepts/follows/)
     # but can be safely validated against our local Follow activity records.
     # This mirrors how Mastodon handles it: https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/accept.rb
+    # An Accept that names its Follow by id alone (or by one we never sent) is also let through when it comes from an actor we have a Follow pending to and is addressed to the user who sent it: that Follow is what it answers
     is_follow_response? =
-      is_in(params["type"], ["Accept", "Reject"]) and
-        is_map(params["object"]) and params["object"]["type"] == "Follow"
+      (is_in(params["type"], ["Accept", "Reject"]) and
+         is_map(params["object"]) and params["object"]["type"] == "Follow") or
+        answers_pending_follow?(params)
 
     if is_follow_response? do
       Untangle.debug(
@@ -338,6 +340,11 @@ defmodule ActivityPub.Federator.Worker.ReceiverHelpers do
       end
     end
   end
+
+  defp answers_pending_follow?(%{"type" => "Accept", "actor" => actor} = params),
+    do: match?(%Object{}, Object.get_pending_follow(actor, params["to"]))
+
+  defp answers_pending_follow?(_params), do: false
 
   # unsigned and invalid are told apart: accepting what nobody signed is not accepting what a signature says is not what was signed
   defp accept_anyway?(true = _invalid?), do: ActivityPub.Safety.accept_invalid?()

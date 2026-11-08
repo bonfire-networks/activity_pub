@@ -16,7 +16,22 @@ defmodule ActivityPub.Federator.HTTP.SignFetchTest do
   @friendly "https://mastodon.local/post/x"
   @canonical "https://mastodon.local/pub/objects/x"
 
+  # the same, but the redirect points to another host
+  @cross_friendly "https://mastodon.local/post/y"
+  @cross_canonical "https://other.local/pub/objects/y"
+
   setup do
+    # what the host cache holds about these hosts must come from the test only
+    for host <- ["mastodon.local", "other.local"] do
+      ActivityPub.Instances.delete_host_cache(host, :signature_format)
+    end
+
+    on_exit(fn ->
+      for host <- ["mastodon.local", "other.local"] do
+        ActivityPub.Instances.delete_host_cache(host, :signature_format)
+      end
+    end)
+
     test = self()
 
     object = %{
@@ -36,6 +51,12 @@ defmodule ActivityPub.Federator.HTTP.SignFetchTest do
 
         @canonical ->
           {:ok, %{env | status: 200, body: Jason.encode!(object)}}
+
+        @cross_friendly ->
+          {:ok, %{env | status: 302, headers: [{"location", @cross_canonical}], body: ""}}
+
+        @cross_canonical ->
+          {:ok, %{env | status: 200, body: Jason.encode!(%{object | "id" => @cross_canonical})}}
       end
     end)
 
@@ -54,7 +75,7 @@ defmodule ActivityPub.Federator.HTTP.SignFetchTest do
     end
   end
 
-  # the headers as the receiving plug sees them: lowercase names, and the derived values it sets. A request with no signature at all fails here, since `HTTPSignatures.validate_headers/2` does not return for headers that have none
+  # the headers as the receiving plug sees them: lowercase names, and the derived values it sets. A request with no signature at all fails here, with a message that names the URL
   defp as_received(url, headers, format) do
     assert Enum.any?(headers, fn {k, _} -> String.downcase(k) == "signature" end),
            "the request to #{url} is not signed"
@@ -129,6 +150,77 @@ defmodule ActivityPub.Federator.HTTP.SignFetchTest do
                  as_received(@canonical, headers, unquote(format)),
                  public_key
                )
+      end
+    end
+  end
+
+  describe "a redirect to another host" do
+    alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
+
+    defp get_signed(url, signer, format) do
+      HTTP.get(url, [{"accept", "application/activity+json"}],
+        sign_fetch: [current_actor: {:ok, signer}, signature_format: format]
+      )
+    end
+
+    for {first, second} <- [{:cavage, :rfc9421}, {:rfc9421, :cavage}] do
+      test "is signed in the format cached for that host (#{first} then #{second})", %{
+        signer: signer,
+        public_key: public_key
+      } do
+        SignaturesAdapter.maybe_put_signature_format("other.local", unquote(second))
+
+        assert {:ok, %{status: 200}} = get_signed(@cross_friendly, signer, unquote(first))
+
+        assert [{@cross_friendly, first_req}, {@cross_canonical, second_req}] = requests()
+
+        assert HTTPSignatures.validate_headers(
+                 as_received(@cross_friendly, first_req, unquote(first)),
+                 public_key
+               ),
+               "the first request has to be signed in the format asked for"
+
+        assert HTTPSignatures.validate_headers(
+                 as_received(@cross_canonical, second_req, unquote(second)),
+                 public_key
+               ),
+               "the request to the other host has to be signed in the format cached for that host"
+      end
+    end
+
+    test "keeps the format the request used when none is cached for the new host", %{
+      signer: signer,
+      public_key: public_key
+    } do
+      assert SignaturesAdapter.get_signature_format("other.local") == nil
+
+      assert {:ok, %{status: 200}} = get_signed(@cross_friendly, signer, :rfc9421)
+
+      assert [{@cross_friendly, _}, {@cross_canonical, second_req}] = requests()
+
+      assert HTTPSignatures.validate_headers(
+               as_received(@cross_canonical, second_req, :rfc9421),
+               public_key
+             )
+
+      assert SignaturesAdapter.get_signature_format("other.local") == nil,
+             "signing must not discover or cache a format"
+    end
+
+    test "control: a redirect within the same host does not look the format up again", %{
+      signer: signer,
+      public_key: public_key
+    } do
+      # if the host were looked up again after the redirect, the second request would be signed as RFC 9421
+      SignaturesAdapter.maybe_put_signature_format("mastodon.local", :rfc9421)
+
+      assert {:ok, %{status: 200}} = get_signed(@friendly, signer, :cavage)
+
+      assert [{@friendly, first_req}, {@canonical, second_req}] = requests()
+
+      for {url, headers} <- [{@friendly, first_req}, {@canonical, second_req}] do
+        assert HTTPSignatures.validate_headers(as_received(url, headers, :cavage), public_key)
+        refute List.keymember?(headers, "signature-input", 0)
       end
     end
   end

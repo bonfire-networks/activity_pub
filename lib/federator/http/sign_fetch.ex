@@ -9,14 +9,44 @@ defmodule ActivityPub.Federator.HTTP.SignFetch do
   @behaviour Tesla.Middleware
 
   alias ActivityPub.Safety.Keys
+  alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
 
   @signature_headers ["signature", "signature-input", "date"]
 
   @impl Tesla.Middleware
   def call(env, next, _opts) do
     case env.opts[:sign_fetch] do
-      sign_opts when is_list(sign_opts) -> env |> sign(sign_opts) |> Tesla.run(next)
-      _ -> Tesla.run(env, next)
+      sign_opts when is_list(sign_opts) ->
+        sign_opts = sign_opts_for_host(sign_opts, env.url)
+
+        # kept in the request's options, which `FollowRedirects` carries to the next hop, so that hop knows which host and format this one used
+        %{env | opts: Keyword.put(env.opts, :sign_fetch, sign_opts)}
+        |> sign(sign_opts)
+        |> Tesla.run(next)
+
+      _ ->
+        Tesla.run(env, next)
+    end
+  end
+
+  # The signature format is the one the first URL's host was found to take. After a redirect to another host, the format cached for that host is used instead (a cache read only, never a request), else the one the request already uses. Within the same host nothing is looked up.
+  defp sign_opts_for_host(sign_opts, url) do
+    host = ActivityPub.Utils.authority(url)
+
+    case sign_opts[:host] do
+      ^host ->
+        sign_opts
+
+      nil ->
+        Keyword.put(sign_opts, :host, host)
+
+      _previous_host ->
+        sign_opts
+        |> Keyword.put(:host, host)
+        |> Keyword.put(
+          :signature_format,
+          SignaturesAdapter.get_signature_format(host) || sign_opts[:signature_format]
+        )
     end
   end
 

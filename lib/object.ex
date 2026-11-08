@@ -384,11 +384,14 @@ defmodule ActivityPub.Object do
             _ -> params["id"]
           end
 
+        # logged here so operators see which id it was, and returned tagged so a caller can tell a redelivery from a failure that a later attempt may fix (the worker cancels the job rather than retrying it)
         if existing_id do
           error(e, "Object or activity already exists: #{existing_id}")
         else
           error(e, "Object or activity already exists (id unknown)")
         end
+
+        {:error, :already_exists}
 
       error ->
         info(params, "Error while trying to insert these params")
@@ -1497,7 +1500,8 @@ defmodule ActivityPub.Object do
 
   def activity_object_url(_), do: nil
 
-  def get_follow_activity(follow_object, followed) do
+  @doc "The Follow of ours that an Accept or Reject answers: the one its `object` names, else (for an Accept, which gives `to`) the one we have pending to the answering actor, see `get_pending_follow/2`."
+  def get_follow_activity(follow_object, followed, to \\ nil) do
     with object_id when not is_nil(object_id) <- get_ap_id(follow_object),
          {:ok, activity} <- get_cached(ap_id: object_id) do
       {:ok, activity}
@@ -1508,8 +1512,30 @@ defmodule ActivityPub.Object do
           {:ok, activity}
         end
 
+      # (the id is one we never gave: some servers answer with a Follow of their own making, or with only its id)
       e ->
-        error(e, "Could not find a matching follow")
+        case get_pending_follow(followed, to) do
+          %Object{} = activity -> {:ok, activity}
+          _ -> error(e, "Could not find a matching follow")
+        end
+    end
+  end
+
+  @doc "The Follow of ours that is still pending to the actor `followed`, sent by one of the actors `to` names (an id, or a map or actor holding one). `nil` when there is none, so an answer from an actor we never followed, or addressed to somebody else, matches nothing."
+  def get_pending_follow(followed, to) do
+    with followed_id when is_binary(followed_id) <- get_ap_id(followed) do
+      to
+      |> List.wrap()
+      |> Enum.map(&get_ap_id/1)
+      |> Enum.filter(&is_binary/1)
+      |> Enum.find_value(fn follower_id ->
+        case fetch_latest_activity(follower_id, followed_id, "Follow") do
+          %Object{local: true, data: %{"state" => "pending"}} = follow -> follow
+          _ -> nil
+        end
+      end)
+    else
+      _ -> nil
     end
   end
 

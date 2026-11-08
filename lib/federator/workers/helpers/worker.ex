@@ -57,6 +57,10 @@ defmodule ActivityPub.Federator.Worker do
             {:error, :ignore} ->
               {:cancel, "Federation ignored"}
 
+            # the id is stored already (a redelivery): retrying would find the same row
+            {:error, :already_exists} ->
+              {:cancel, "Federation skipped - the activity or object already exists"}
+
             # a `Delete` whose object its origin still serves: retrying re-fetches the same answer
             {:error, :not_deleted} ->
               {:cancel, "The origin still has the object, so the deletion could not be verified"}

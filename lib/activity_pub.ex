@@ -1243,12 +1243,19 @@ defmodule ActivityPub do
          %Object{data: %{} = announce_data} = activity,
          activity_id
        ) do
+    # the Undo reaches who the Announce reached: Public goes in `to` (as Mastodon addresses its own) only when the Announce named it, so undoing a followers-only boost is not sent to Public
+    public? =
+      Utils.has_as_public?(List.wrap(announce_data["to"]) ++ List.wrap(announce_data["cc"]))
+
     data = %{
       "type" => "Undo",
       "actor" => ap_id,
       "object" => activity.data,
-      "to" => [actor.data["followers"], activity.data["actor"]],
-      "cc" => [ActivityPub.Config.public_uri()],
+      # "to" => [actor.data["followers"], activity.data["actor"]],
+      # "cc" => [ActivityPub.Config.public_uri()],
+      "to" =>
+        [actor.data["followers"], activity.data["actor"]] ++
+          if(public?, do: [ActivityPub.Config.public_uri()], else: []),
       "context" => announce_data["context"]
     }
 

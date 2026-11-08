@@ -5,6 +5,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
   import Untangle
   alias ActivityPub.Config
   alias ActivityPub.Safety.HTTP.Signatures, as: SignaturesAdapter
+  alias ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug
 
   def init(options) do
     options
@@ -33,7 +34,8 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     has_signature? = has_signature_header?(conn)
     has_rfc9421? = has_rfc9421_header?(conn)
 
-    if (has_signature? or has_rfc9421?) && (http_method == "POST" or reject_unsigned?) do
+    if (has_signature? or has_rfc9421?) && (http_method == "POST" or reject_unsigned?) &&
+         not served_unsigned_anyway?(conn, http_method) do
       conn = prepare_headers_for_validation(conn, http_method, has_rfc9421?)
 
       if has_rfc9421? do
@@ -91,6 +93,12 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
       conn
     end
   end
+
+  # A signed GET that would be served without a signature anyway is not validated, and flows on as an unsigned one does (no `valid_signature` assign). Validating it means fetching the signer's key, and our fetcher signs every GET as the service actor: two servers that have each lost the other's key would fetch each other's service actor, signed, without end.
+  defp served_unsigned_anyway?(conn, "GET"),
+    do: not EnsureHTTPSignaturePlug.signature_required?(conn, Config.signed_fetch_required())
+
+  defp served_unsigned_anyway?(_conn, _http_method), do: false
 
   # Prepare request headers for signature validation
   defp prepare_headers_for_validation(conn, http_method, true = _rfc9421?) do

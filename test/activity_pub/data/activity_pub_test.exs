@@ -340,6 +340,29 @@ defmodule ActivityPubTest do
 
       assert Object.get_cached!(id: announce_activity.id) == nil
     end
+
+    test "undoing a followers-only boost is not addressed to Public", context do
+      note_activity = insert(:note_activity)
+      object = Object.normalize(note_activity)
+      actor = context[:actor1]
+
+      assert {:ok, announce_activity} =
+               ActivityPub.announce(%{actor: actor, object: object, public: false})
+
+      # control: the boost itself went to followers only
+      refute Utils.has_as_public?(
+               List.wrap(announce_activity.data["to"]) ++ List.wrap(announce_activity.data["cc"])
+             )
+
+      assert {:ok, unannounce_activity} = ActivityPub.unannounce(%{actor: actor, object: object})
+
+      assert actor.data["followers"] in unannounce_activity.data["to"]
+
+      refute Utils.has_as_public?(
+               List.wrap(unannounce_activity.data["to"]) ++
+                 List.wrap(unannounce_activity.data["cc"])
+             )
+    end
   end
 
   describe "hard deleting an object" do

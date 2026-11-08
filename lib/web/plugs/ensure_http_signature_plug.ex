@@ -58,11 +58,32 @@ defmodule ActivityPub.Web.Plugs.EnsureHTTPSignaturePlug do
     )
   end
 
-  defp signature_required?(_conn, false), do: false
-  defp signature_required?(conn, :all), do: not service_actor_request?(conn)
+  @doc """
+  Whether a fetch needs a signature under `mode` (see `ActivityPub.Config.signed_fetch_required/0`), or is served without one anyway: the service actor always, and public actors in `:except_public_actors` mode.
 
-  defp signature_required?(conn, :except_public_actors),
-    do: not service_actor_request?(conn) and not public_actor_request?(conn)
+  `ActivityPub.Web.Plugs.HTTPSignaturePlug` also asks it, so that a signed fetch that would be served unsigned is not validated, which would mean fetching the signer's key. The route is matched first, so a request for anything but an actor costs only that match.
+  """
+  def signature_required?(_conn, false), do: false
+
+  def signature_required?(conn, mode) when mode in [:all, :except_public_actors] do
+    not (actor_route?(conn) and not_required_for_actor?(conn, mode))
+  end
+
+  defp not_required_for_actor?(conn, :all), do: service_actor_request?(conn)
+
+  defp not_required_for_actor?(conn, :except_public_actors),
+    do: service_actor_request?(conn) or public_actor_request?(conn)
+
+  # whether the request is for an actor's own document. Without a router (eg. a conn built in a test) it cannot be told, so the checks that follow decide.
+  defp actor_route?(%{private: %{phoenix_router: router}} = conn) do
+    match?(
+      %{plug: ActivityPub.Web.ActivityPubController, plug_opts: action}
+      when action in [:actor, :actor_by_id],
+      Phoenix.Router.route_info(router, conn.method, conn.path_info, conn.host)
+    )
+  end
+
+  defp actor_route?(_conn), do: true
 
   # An actor's own document stays fetchable without a signature when the adapter would serve that actor to an asker it knows nothing about, which is the check the controller makes before serving it. Servers that don't sign their fetches (eg. Lemmy before 1.0) can then find our public groups and people, and read the keys that verify what we send them. So does a deleted (or archived) local actor's Tombstone, so those servers learn the actor is gone: it says only that. The actor's collections, and every object and activity, still need a signature, a deleted object's Tombstone too. Only evaluated for a request that would be refused anyway, since it looks the route and the actor up.
   defp public_actor_request?(%{private: %{phoenix_router: router}} = conn) do

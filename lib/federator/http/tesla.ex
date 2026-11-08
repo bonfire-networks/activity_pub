@@ -14,6 +14,9 @@ defmodule ActivityPub.Federator.HTTP.Tesla do
   # after the redirects middleware so every hop is checked, and before `Retry` so a refused request isn't retried
   plug ActivityPub.Safety.ORF
 
+  # also after the redirects middleware, so every hop is signed for the URL it is sent to
+  plug ActivityPub.Federator.HTTP.SignFetch
+
   # if ActivityPub.Config.env() != :test do
   # retry failed outgoing HTTP requests
   plug ActivityPub.Federator.HTTP.RetryAfter

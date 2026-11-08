@@ -111,6 +111,7 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     |> put_req_header("@method", String.upcase("#{http_method}"))
     |> put_req_header("@authority", get_authority(base_uri))
     |> put_req_header("@path", conn.request_path)
+    |> maybe_put_query()
     |> put_req_header("@scheme", get_scheme(base_uri))
     |> put_req_header("(request-target)", request_target)
     |> maybe_put_content_digest()
@@ -125,6 +126,12 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
     |> put_req_header("(request-target)", request_target)
     |> maybe_put_legacy_digest()
   end
+
+  # the signer covers the query in `@target-uri` (without the leading `?`), so the check has to include it too. With no query there is nothing to add.
+  defp maybe_put_query(%{query_string: query} = conn) when is_binary(query) and query != "",
+    do: put_req_header(conn, "@query", query)
+
+  defp maybe_put_query(conn), do: conn
 
   defp maybe_put_content_digest(%{assigns: %{content_digest: content_digest}} = conn) do
     put_req_header(conn, "content-digest", content_digest |> debug("content-digest"))

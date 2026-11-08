@@ -14,7 +14,7 @@ defmodule ActivityPub.Federator.Fetcher do
   alias ActivityPub.Safety.Containment
   alias ActivityPub.Instances
   alias ActivityPub.Federator.Workers
-  alias ActivityPub.Safety.Keys
+  # alias ActivityPub.Safety.Keys
   alias ActivityPub.Federator.Adapter
 
   import Untangle
@@ -691,19 +691,25 @@ defmodule ActivityPub.Federator.Fetcher do
                uri,
                Keyword.take(options, ActivityPub.Safety.ORF.federation_opts_keys())
              ),
-         headers <-
-           [{"Accept", "application/activity+json"}]
-           |> Keys.maybe_add_fetch_signature_headers(
-             uri,
-             Keyword.put(options, :signature_format, format)
-           )
-           |> debug("ready to fetch #{inspect(id)} with signature headers"),
+         # headers <-
+         #   [{"Accept", "application/activity+json"}]
+         #   |> Keys.maybe_add_fetch_signature_headers(
+         #     uri,
+         #     Keyword.put(options, :signature_format, format)
+         #   )
+         #   |> debug("ready to fetch #{inspect(id)} with signature headers"),
+         headers <- [{"Accept", "application/activity+json"}],
          {:ok, %{body: body, status: code, headers: resp_headers}} when code in 200..299 <-
            HTTP.get(
              id,
              headers,
              # `ActivityPub.Safety.ORF` checks the instance's (and this user's) block/allow lists, on every hop
              Keyword.take(options, ActivityPub.Safety.ORF.federation_opts_keys())
+             # `ActivityPub.Federator.HTTP.SignFetch` signs the request, again for each redirect hop
+             |> Keyword.put(
+               :sign_fetch,
+               Keyword.take(options, [:current_actor, :date]) ++ [signature_format: format]
+             )
            )
            |> debug("fetch_done"),
          _ <- Instances.handle_successful_contact(uri),

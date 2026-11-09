@@ -4,7 +4,7 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
 
   Which activities a group announces, and when, is the adapter's decision (in Bonfire, `AdapterUtils.announce_by_group/2`), tested there; this calls `ActivityPub.announce/2` the way it does.
 
-  The first block pins what goes out without the received document, built from the stored copy, which is what is sent today.
+  The first block pins what goes out without the received document, built from the stored copy: an Update comes out rebuilt with its post embedded again, a Like with the post still an id (a group relays a Like with a bare-id `object`), and in both the author's proof no longer verifies.
   """
   use ActivityPub.DataCase, async: false
   use Oban.Testing, repo: repo()
@@ -147,7 +147,27 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
       end
     end
 
-    test "a Like goes out with the liked post embedded, and the author's proof no longer verifies",
+    # A Like relayed by a group keeps the liked post a bare id, as the author sent it (Lemmy reads the inner Like as a vote, whose `object` is an id), so the post is not embedded on the way out.
+    # test "a Like goes out with the liked post embedded, and the author's proof no longer verifies",
+    #      context do
+    #   like = signed_like(context)
+    #   assert {:ok, _} = delivered(like, context.author_id)
+    #
+    #   payloads = group_payloads(context, like)
+    #   assert payloads != []
+    #
+    #   for %{"type" => "Announce", "object" => inner} <- payloads do
+    #     assert inner["type"] == "Like"
+    #
+    #     assert is_map(inner["object"]),
+    #            "the author sent an id, the Announce clause embeds the post"
+    #
+    #     refute inner == like
+    #     refute IntegrityProofs.verify(inner) == {:ok, context.author_id}
+    #   end
+    # end
+
+    test "a Like goes out with the liked post as an id, but not as the author sent it, and the author's proof no longer verifies",
          context do
       like = signed_like(context)
       assert {:ok, _} = delivered(like, context.author_id)
@@ -157,9 +177,7 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
 
       for %{"type" => "Announce", "object" => inner} <- payloads do
         assert inner["type"] == "Like"
-
-        assert is_map(inner["object"]),
-               "the author sent an id, the Announce clause embeds the post"
+        assert inner["object"] == like["object"], "the post stays an id"
 
         refute inner == like
         refute IntegrityProofs.verify(inner) == {:ok, context.author_id}
@@ -365,25 +383,56 @@ defmodule ActivityPub.Federator.RelayedReceivedDocumentTest do
       assert one == two
     end
 
-    test "one with no proof or signature of its own is not used", context do
-      like = signed_like(context)
-      assert {:ok, _} = delivered(like, context.author_id)
+    # A Like relayed to a group has the same bare-id `object` built from the stored copy as from the received document, so `is_map(inner["object"])` no longer tells the two apart there; an Update does, as its stored copy differs from the received one.
+    # test "one with no proof or signature of its own is not used", context do
+    #   like = signed_like(context)
+    #   assert {:ok, _} = delivered(like, context.author_id)
+    #
+    #   for inner <- inners(published(context, like, data_received: Map.delete(like, "proof"))) do
+    #     assert is_map(inner["object"]), "built from the stored copy, as without one"
+    #   end
+    # end
 
-      for inner <- inners(published(context, like, data_received: Map.delete(like, "proof"))) do
-        assert is_map(inner["object"]), "built from the stored copy, as without one"
+    test "one with no proof or signature of its own is not used", context do
+      update = signed_update(context)
+      assert {:ok, _} = delivered(update, context.author_id)
+
+      unsigned = Map.delete(update, "proof")
+
+      for inner <- inners(published(context, update, data_received: unsigned)) do
+        refute inner == unsigned, "built from the stored copy, as without one"
+        refute inner == update
+        refute IntegrityProofs.verify(inner) == {:ok, context.author_id}
       end
+
+      assert row(update["id"]).authenticated == :http_signature
     end
 
+    # test "one with another id is not used", context do
+    #   like = signed_like(context)
+    #   assert {:ok, _} = delivered(like, context.author_id)
+    #
+    #   other = Map.put(like, "id", like["id"] <> "-other")
+    #
+    #   for inner <- inners(published(context, like, data_received: other)) do
+    #     assert inner["id"] == like["id"]
+    #     assert is_map(inner["object"]), "built from the stored copy, as without one"
+    #   end
+    # end
+
     test "one with another id is not used", context do
-      like = signed_like(context)
-      assert {:ok, _} = delivered(like, context.author_id)
+      update = signed_update(context)
+      assert {:ok, _} = delivered(update, context.author_id)
 
-      other = Map.put(like, "id", like["id"] <> "-other")
+      other = Map.put(update, "id", update["id"] <> "-other")
 
-      for inner <- inners(published(context, like, data_received: other)) do
-        assert inner["id"] == like["id"]
-        assert is_map(inner["object"]), "built from the stored copy, as without one"
+      for inner <- inners(published(context, update, data_received: other)) do
+        assert inner["id"] == update["id"]
+        refute inner == other, "built from the stored copy, as without one"
+        refute inner == update
       end
+
+      assert row(update["id"]).authenticated == :http_signature
     end
 
     test "one with bto or bcc is relayed as it is too: taking them out is the emitting instance's job (ActivityPub 6.11), and would break the author's proof",

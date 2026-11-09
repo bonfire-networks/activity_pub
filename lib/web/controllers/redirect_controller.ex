@@ -60,7 +60,11 @@ defmodule ActivityPub.Web.RedirectController do
         # conn
         # |> send_resp(404, "Remote actor or object not found")
         # |> halt
-        redirect_back_with_error(conn, "Remote actor or object not found", remote_interaction_path())
+        redirect_back_with_error(
+          conn,
+          "Remote actor or object not found",
+          remote_interaction_path()
+        )
     end
   end
 

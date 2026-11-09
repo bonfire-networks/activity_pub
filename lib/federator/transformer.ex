@@ -44,10 +44,32 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, data}
   end
 
-  # An actor-referencing activity's `object` must stay a bare id (see `Config.bare_object_activity_types/0`). Without this, `prepare_outgoing_object/1` normalises the id back into the full cached actor JSON.
+  # The `object` of a Follow, Block, Join or Leave must stay a bare id (see `Config.bare_object_activity_types/0`). Without this, `prepare_outgoing_object/1` normalises the id back into the full cached actor JSON.
   def prepare_outgoing(%{"type" => type, "object" => object} = data, opts)
       when is_in(type, :bare_object_activity_types) and is_binary(object) do
     {:ok, maybe_add_json_ld_header(data, type, opts)}
+  end
+
+  # A Like that goes to a group keeps the liked object a bare id: Lemmy reads it as `Vote.object`, an `ObjectId`, and refuses the whole activity (HTTP 400) when it is a map. Any other Like gets the liked object embedded, like the rest.
+  # Which recipients are groups comes from the actor cache, which `ActivityPub.Federator.APPublisher` fills for the same ids right after: one cache lookup per addressed id, no query of its own.
+  def prepare_outgoing(%{"type" => "Like", "object" => object} = data, opts)
+      when is_binary(object) do
+    if addressed_to_group?(data),
+      do: {:ok, maybe_add_json_ld_header(data, "Like", opts)},
+      else: {:ok, prepare_outgoing_with_object(data, opts)}
+  end
+
+  # A group relaying an activity whose `object` stays a bare id (`Announce{Like}`, as a Like goes to the group) keeps the inner `object` a bare id too, since the receiver reads the inner activity by the same rules (Lemmy parses it as a `Vote`).
+  def prepare_outgoing(
+        %{
+          "type" => "Announce",
+          "object" => %{"type" => inner_type, "object" => inner_object}
+        } = data,
+        opts
+      )
+      when (inner_type == "Like" or is_in(inner_type, :bare_object_activity_types)) and
+             is_binary(inner_object) do
+    {:ok, maybe_add_json_ld_header(data, :object, opts)}
   end
 
   # FEP-1b12 group relay: `Announce{Create{…}}`, where the announced activity must carry its object INLINE. We STORE the inner activity with its object as a bare id, since `Object.insert/4` splits the two, so without this the wire form is `Announce{Create{<id>}}` and a receiver that reads the relayed copy rather than re-fetching gets nothing. Embedding on the way out is how a plain `Create` already behaves.
@@ -173,16 +195,30 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp with_received_create(prepared, _stored), do: prepared
 
-  def prepare_outgoing(%{"object" => object} = data, opts) do
-    data =
-      data
-      |> Map.put("object", prepare_outgoing_object(object))
-      |> maybe_add_json_ld_header(maybe_type(object) || :object, opts)
+  def prepare_outgoing(%{"object" => _object} = data, opts) do
+    {:ok, prepare_outgoing_with_object(data, opts)}
+  end
+
+  # the activity with its `object` normalised (an id becomes the stored object), and the JSON-LD header of the object's type
+  defp prepare_outgoing_with_object(%{"object" => object} = data, opts) do
+    data
+    |> Map.put("object", prepare_outgoing_object(object))
+    |> maybe_add_json_ld_header(maybe_type(object) || :object, opts)
 
     # |> Map.delete("bto")
     # |> Map.delete("bcc")
+  end
 
-    {:ok, data}
+  # whether any addressed id (`to`, `cc` or `audience`, other than Public) is a Group actor
+  defp addressed_to_group?(data) do
+    [data["to"], data["cc"], data["audience"]]
+    |> List.flatten()
+    |> Enum.map(&Object.get_ap_id/1)
+    |> Enum.reject(&(is_nil(&1) or Utils.has_as_public?(&1)))
+    |> Enum.uniq()
+    |> Enum.any?(fn ap_id ->
+      match?({:ok, %{data: %{"type" => "Group"}}}, Actor.get_cached(ap_id: ap_id))
+    end)
   end
 
   # hack for mastodon accept and reject type activity formats

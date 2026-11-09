@@ -156,8 +156,10 @@ defmodule ActivityPub.Config do
   def ordered_collection_types,
     do: get([:instance, :ordered_collection_types]) || ["keyPackages", "featured", "moderators"]
 
-  @doc "Activity types whose `object` is an actor and goes out as a bare id, because implementations type it as a link (eg. Lemmy's `ObjectId<ApubCommunity>`, Mastodon's URI) and fail on an embedded actor. Read at compile time, since `Transformer.prepare_outgoing/2` matches on it in a guard."
+  @doc "Activity types whose `object` always goes out as a bare id, because implementations type it as a link and fail on an embedded copy: the actor of a Follow, Block, Join or Leave (eg. Lemmy's `ObjectId<ApubCommunity>`, Mastodon's URI). A Like is not in the list: its liked object goes out as a bare id only when a recipient is a Group (see `Transformer.prepare_outgoing/2`), since Lemmy's `Vote.object` is an `ObjectId<PostOrComment>`, so a vote with the whole post or comment in it matches no `AnnouncableActivities` variant and the inbox answers HTTP 400. Read at compile time, since `Transformer.prepare_outgoing/2` matches on it in a guard."
   def bare_object_activity_types,
+    # Follow, Block, Join and Leave name an actor, and always keep it as a bare id
+    # ["Follow", "Block", "Join", "Leave", "Like"] # the list including Like makes every Like bare, whoever it goes to
     do:
       get([:instance, :bare_object_activity_types]) ||
         ["Follow", "Block", "Join", "Leave"]

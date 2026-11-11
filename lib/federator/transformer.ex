@@ -50,6 +50,12 @@ defmodule ActivityPub.Federator.Transformer do
     {:ok, maybe_add_json_ld_header(data, type, opts)}
   end
 
+  # A `Remove` naming where it removes from as its `origin` (a group's removal of a member) keeps its `object`, the id of the `Join` that made the member, a bare id: the receiver looks it up by that URL, and embedding the stored Join would hand it a copy in the state we hold it
+  def prepare_outgoing(%{"type" => "Remove", "origin" => _, "object" => object} = data, opts)
+      when is_binary(object) do
+    {:ok, maybe_add_json_ld_header(data, "Remove", opts)}
+  end
+
   # A Like that goes to a group keeps the liked object a bare id: Lemmy reads it as `Vote.object`, an `ObjectId`, and refuses the whole activity (HTTP 400) when it is a map. Any other Like gets the liked object embedded, like the rest.
   # Which recipients are groups comes from the actor cache, which `ActivityPub.Federator.APPublisher` fills for the same ids right after: one cache lookup per addressed id, no query of its own.
   def prepare_outgoing(%{"type" => "Like", "object" => object} = data, opts)
@@ -1740,8 +1746,15 @@ defmodule ActivityPub.Federator.Transformer do
       )
       |> debug("accept result")
     else
+      # an Accept of a join that was not ours (a group telling its members it admitted someone, with the `Join` or `Member` inline): nothing of ours to settle, so it is stored and handed to the adapter, which decides whether the actor may say so
       e ->
-        error(e, "Could not handle incoming Accept")
+        case follow_object do
+          %{"type" => type} when type in ["Join", "Member"] ->
+            maybe_handle_other_activity(data, opts)
+
+          _ ->
+            error(e, "Could not handle incoming Accept")
+        end
     end
   end
 
@@ -1758,7 +1771,8 @@ defmodule ActivityPub.Federator.Transformer do
     with followed_actor <- Object.actor_from_data(data) |> debug("followed_actor"),
          {:ok, followed} <- Actor.get_cached(ap_id: followed_actor) |> debug("followed"),
          {:ok, follow_activity} <-
-           Object.get_follow_activity(follow_object, followed) |> debug("follow_activity") do
+           Object.get_follow_activity(follow_object, followed, data["to"])
+           |> debug("follow_activity") do
       # Get follower from follow activity to use as default recipient
       follower_id = follow_activity.data["actor"]
 
@@ -2292,6 +2306,17 @@ defmodule ActivityPub.Federator.Transformer do
     else
       _ -> nil
     end
+  end
+
+  # A group changing a member's role (Mobilizon's `Update` of a `Member`): the `Member` is not an object to edit, as its id is also the id of the `Join` that made it, which another actor sent, so it would be refused as an edit by someone else. Stored as the activity it is and handed to the adapter, which decides whether the actor may say so
+  def handle_incoming(
+        %{"type" => "Update", "object" => %{"type" => "Member"} = member} = data,
+        opts
+      ) do
+    # the `Member` is kept inline under an id of this `Update`'s own, since storing it under its own would find the `Join` that made it and drop the new role
+    data
+    |> Map.put("object", Map.put(member, "id", "#{data["id"]}#member"))
+    |> maybe_handle_other_activity(opts)
   end
 
   def handle_incoming(

@@ -133,6 +133,9 @@ defmodule ActivityPub.Federator.Fetcher do
     Logger.metadata(action: "fetch_object")
     opts = opts |> Keyword.put(:triggered_by, "fetch_object_from_id")
 
+    # a user passed for the fetch signs it, and their keys are made now if they have none yet: this is where the work starts, whereas what it leads to (mirroring a group, its moderators) runs inside a transaction, where making them fails
+    ensure_signing_keys(opts)
+
     case cached_or_handle_incoming(id_or_object, opts)
          |> debug("fetch_object_from_id -> cached_or_handled_incoming") do
       {:ok, object} ->
@@ -151,6 +154,25 @@ defmodule ActivityPub.Federator.Fetcher do
 
       other ->
         error(other, "Could not process or fetch object")
+    end
+  end
+
+  defp ensure_signing_keys(opts) do
+    with {:ok, %Actor{} = actor} <- Utils.current_actor_from_opts(opts) do
+      ActivityPub.Safety.Keys.ensure_keys_present(actor)
+
+      # The service actor too: it signs what is fetched without a user (eg. a group's moderators, read while it is being mirrored, inside a transaction), and a lookup of it that finds nothing cached asks the database from the cache's own process, which cannot use the transaction's connection and times out. Until a user signed the first fetch, the service actor had been looked up (and so cached) by it.
+      Utils.service_actor()
+    end
+  end
+
+  # The actor that signs, with its keys, resolved here in the calling process: the request is signed in the HTTP layer, in another process, where a lookup of keys the cached actor lacks asks the database from outside the caller's transaction, and closes its connection
+  defp signing_actor_with_keys(opts) do
+    with {:ok, %Actor{} = actor} <- Utils.current_actor_from_opts(opts),
+         {:ok, %Actor{} = with_keys} <- ActivityPub.Safety.Keys.ensure_keys_present(actor) do
+      {:ok, with_keys}
+    else
+      _ -> Utils.current_actor_from_opts(opts)
     end
   end
 
@@ -708,7 +730,9 @@ defmodule ActivityPub.Federator.Fetcher do
              # `ActivityPub.Federator.HTTP.SignFetch` signs the request, again for each redirect hop
              |> Keyword.put(
                :sign_fetch,
-               Keyword.take(options, [:current_actor, :date]) ++ [signature_format: format]
+               # was `Keyword.take(options, [:current_actor, :date])`, which signed a fetch made for a user as the service actor
+               Keyword.take(options, [:date]) ++
+                 [current_actor: signing_actor_with_keys(options), signature_format: format]
              )
            )
            |> debug("fetch_done"),
@@ -997,10 +1021,19 @@ defmodule ActivityPub.Federator.Fetcher do
         )
 
         with {:ok, page} <-
-               get_cached_or_fetch_object_json(ap_id, skip_contain_origin_check: true)
-               |> debug("collection fetched") do
+               fetch_collection_root(ap_id, opts)
+               |> debug("collection fetched"),
+             :ok <- check_max_total(page, opts[:max_total]) do
           {:ok, handle_collection(page, opts)}
         else
+          {:error, {:over_max_total, _}} = too_many ->
+            warn(
+              too_many,
+              "skipping collection #{ap_id}, it has more items than the maximum asked"
+            )
+
+            too_many
+
           e ->
             err(e, "Could not fetch collection #{ap_id}")
         end
@@ -1036,6 +1069,55 @@ defmodule ActivityPub.Federator.Fetcher do
       )
     end
   end
+
+  # The actor a fetch is signed as: the `current_actor` the caller gave, else the user or actor it passed for the checks (`:current_user`, `:by_actor`, `:user_id`, `:user_ids`) if that is local, else none (the service actor signs). The remote server learns which of our users looked something up.
+  # Moved to `ActivityPub.Utils.current_actor_from_opts/1` and `local_actor_for/1`, which the fetch here calls:
+  # defp signing_actor(options) do
+  #   options[:current_actor] ||
+  #     Enum.find_value(
+  #       [options[:current_user], options[:by_actor], options[:user_id]] ++
+  #         List.wrap(options[:user_ids]),
+  #       &local_actor_for/1
+  #     )
+  # end
+  #
+  # defp local_actor_for(nil), do: nil
+  # defp local_actor_for(%Actor{local: true} = actor), do: {:ok, actor}
+  # defp local_actor_for(%Actor{}), do: nil
+  #
+  # defp local_actor_for("http" <> _ = ap_id), do: local_only(Actor.get_cached(ap_id: ap_id))
+  #
+  # defp local_actor_for(passed) do
+  #   case Utils.uid(passed) do
+  #     id when is_binary(id) -> local_only(Actor.get_cached(pointer: id))
+  #     _ -> nil
+  #   end
+  # end
+  #
+  # defp local_only({:ok, %Actor{local: true}} = found), do: found
+  # defp local_only(_), do: nil
+
+  # A collection read as a given actor (`current_actor`) is read from its origin, signed as that actor: what we hold of it is what an unsigned or other reader gets, and a collection only some actors may read (a group's members) lists nothing to those. Without an actor, the copy we hold serves.
+  # The same actor as signs any fetch (`Utils.current_actor_from_opts/1`): the `current_actor` given, else a local user the caller passed.
+  defp fetch_collection_root(ap_id, opts) do
+    case Utils.current_actor_from_opts(opts) do
+      nil ->
+        get_cached_or_fetch_object_json(ap_id, skip_contain_origin_check: true)
+
+      current_actor ->
+        fetch_remote_object_from_id(ap_id,
+          skip_contain_origin_check: true,
+          current_actor: current_actor
+        )
+    end
+  end
+
+  # `max_total:` skips a collection whose root states more items than that, before any page of it is read
+  defp check_max_total(%{"totalItems" => total}, max)
+       when is_integer(total) and is_integer(max) and total > max,
+       do: {:error, {:over_max_total, total}}
+
+  defp check_max_total(_root, _max), do: :ok
 
   defp handle_collection(page, opts) do
     opts = opts |> Keyword.put(:triggered_by, "handle_collection")
@@ -1131,12 +1213,13 @@ defmodule ActivityPub.Federator.Fetcher do
   def context_opener(_), do: nil
 
   defp fetch_page(page_id, items \\ [], opts \\ []) do
-    max = Config.get([:activity_pub, :max_collection_objects], 10)
+    # `max_items` is for a caller that needs the whole collection (a group's members), which the configured cap is too low for
+    max = opts[:max_items] || Config.get([:activity_pub, :max_collection_objects], 10)
 
     if Enum.count(items) >= max do
       info(
         max,
-        "stop fetching pages, because we have more than the :max_collection_objects setting"
+        "stop fetching pages, because we have more than the :max_items option or :max_collection_objects setting"
       )
 
       items

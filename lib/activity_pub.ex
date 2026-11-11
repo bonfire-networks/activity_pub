@@ -184,8 +184,16 @@ defmodule ActivityPub do
          params,
          opts
        ) do
+    # addressed to the group alone unless the caller says otherwise: a group hosted here tells its other members too (`to` its members collection, `cc` and `bcc` as it sees fit)
     data =
-      %{"type" => type, "actor" => actor_id, "to" => [group_id], "object" => group_id}
+      %{
+        "type" => type,
+        "actor" => actor_id,
+        "to" => params[:to] || [group_id],
+        "object" => group_id
+      }
+      |> Utils.maybe_put("cc", params[:cc])
+      |> Utils.maybe_put("bcc", params[:bcc])
       |> Utils.maybe_put("id", Map.get(params, :activity_id))
 
     with {:ok, activity} <-
@@ -232,7 +240,8 @@ defmodule ActivityPub do
                "type" => "Accept",
                "actor" => actor_id,
                "object" => accepted_activity.data
-             },
+             }
+             |> Utils.maybe_put("bcc", params[:bcc]),
          # Check if this is a QuoteRequest and create QuoteAuthorization
          data <-
            if(type == "QuoteRequest",
@@ -625,7 +634,32 @@ defmodule ActivityPub do
   Generates and federates a `Remove` activity removing `object` from the collection `target`.
   See `add/2`.
   """
-  def remove(%{actor: actor, object: object, target: _target} = params, opts \\ []) do
+  def remove(params, opts \\ [])
+
+  # A `Remove` naming where it removes from as its `origin`, with no collection (`target`): Mobilizon's removal of a member, whose `object` is the Member URL (the id of the `Join` that made them) and `origin` the group. Addressed as the caller says (`to`, `cc`, `bcc`).
+  def remove(%{actor: actor, object: object, origin: origin} = params, opts)
+      when not is_map_key(params, :target) do
+    data =
+      %{
+        "type" => "Remove",
+        "actor" => Utils.ap_id(actor),
+        "object" => Utils.ap_id(object),
+        "origin" => Utils.ap_id(origin),
+        "to" => params[:to] || []
+      }
+      |> Utils.maybe_put("cc", params[:cc])
+      |> Utils.maybe_put("bcc", params[:bcc])
+      |> Utils.maybe_put("id", Map.get(params, :activity_id))
+
+    with {:ok, activity} <-
+           Object.insert(data, Map.get(params, :local, true), Map.get(params, :pointer), opts),
+         :ok <- maybe_federate(actor, activity),
+         {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts) do
+      {:ok, Map.put(activity, :pointer, adapter_object)}
+    end
+  end
+
+  def remove(%{actor: actor, object: object, target: _target} = params, opts) do
     apply_collection_activity("Remove", :remove, params, actor, object, opts)
   end
 
@@ -794,11 +828,19 @@ defmodule ActivityPub do
   end
 
   defp local_actor_ap_id(uuid) do
-    case Actor.get_cached(pointer: uuid) do
-      {:ok, %{local: true} = actor} -> {:ok, actor.ap_id}
+    case Utils.local_actor_for(uuid) do
+      {:ok, actor} -> {:ok, actor.ap_id}
       _ -> :error
     end
   end
+
+  # Moved to `Utils.local_actor_for/1`, which does the same for an id:
+  # defp local_actor_ap_id(uuid) do
+  #   case Actor.get_cached(pointer: uuid) do
+  #     {:ok, %{local: true} = actor} -> {:ok, actor.ap_id}
+  #     _ -> :error
+  #   end
+  # end
 
   def delete(object, is_local? \\ nil, opts \\ [])
 

@@ -366,7 +366,9 @@ defmodule ActivityPub.Web.ActivityPubController do
       |> render("collection.json", %{
         collection: collection,
         page: page_number(params["page"]),
-        embed: params["embed"] == "true"
+        embed: params["embed"] == "true",
+        # who signed the request, if anyone: a host may list a collection to some requesters only
+        requester: conn.assigns[:current_actor]
       })
     else
       e ->

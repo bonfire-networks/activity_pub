@@ -1006,6 +1006,35 @@ defmodule ActivityPub.Utils do
     end
   end
 
+  @doc """
+  The actor a request is made as: the `current_actor` the caller gave (`{:ok, actor}`), else the first local user or actor among those it passed for the checks (`:current_user`, `:by_actor`, `:user_id`, `:user_ids`), as `{:ok, actor}`. `nil` when it passed none, or none is local, and the service actor then acts. The remote server learns which of our users made the request.
+  """
+  def current_actor_from_opts(opts) do
+    opts[:current_actor] ||
+      Enum.find_value(
+        [opts[:current_user], opts[:by_actor], opts[:user_id]] ++ List.wrap(opts[:user_ids]),
+        &local_actor_for/1
+      )
+  end
+
+  @doc "`{:ok, actor}` for a local actor given as the actor, its AP id, or a user (or its id), else `nil`."
+  def local_actor_for(nil), do: nil
+  def local_actor_for(%ActivityPub.Actor{local: true} = actor), do: {:ok, actor}
+  def local_actor_for(%ActivityPub.Actor{}), do: nil
+
+  def local_actor_for("http" <> _ = ap_id),
+    do: local_only(ActivityPub.Actor.get_cached(ap_id: ap_id))
+
+  def local_actor_for(passed) do
+    case uid(passed) do
+      id when is_binary(id) -> local_only(ActivityPub.Actor.get_cached(pointer: id))
+      _ -> nil
+    end
+  end
+
+  defp local_only({:ok, %ActivityPub.Actor{local: true}} = found), do: found
+  defp local_only(_), do: nil
+
   def service_actor!() do
     with {:ok, service_actor} <-
            ActivityPub.Federator.Adapter.get_or_create_service_actor() do

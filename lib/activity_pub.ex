@@ -426,13 +426,18 @@ defmodule ActivityPub do
              Map.get(params, :pointer),
              opts
            ),
+         # `skip_delivery` stores the announce, so it's listed in the actor's outbox, without sending it to anyone, eg. for posts brought in by an account import, which their followers already saw
          :ok <-
-           maybe_federate(actor, activity,
-             data_received:
-               relayable_received_document(
-                 object,
-                 # given, or on the activity as the adapter was handed it
-                 opts[:data_received] || Object.received_document(object)
+           if(opts[:skip_delivery],
+             do: :ok,
+             else:
+               maybe_federate(actor, activity,
+                 data_received:
+                   relayable_received_document(
+                     object,
+                     # given, or on the activity as the adapter was handed it
+                     opts[:data_received] || Object.received_document(object)
+                   )
                )
            ),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),

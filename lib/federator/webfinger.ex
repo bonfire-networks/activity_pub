@@ -116,7 +116,17 @@ defmodule ActivityPub.Federator.WebFinger do
         "type" => "text/html",
         "href" => id
       }
-    ] ++ Publisher.gather_webfinger_links(id)
+    ] ++ Publisher.gather_webfinger_links(id) ++ extra_webfinger_links(id)
+  end
+
+  # links from modules that don't publish anything, e.g. an OpenID Connect issuer; a module that isn't loaded (its extension is not installed) adds none
+  defp extra_webfinger_links(id) do
+    (Application.get_env(:activity_pub, :instance, [])[:webfinger_link_modules] || [])
+    |> Enum.flat_map(fn module ->
+      if Code.ensure_loaded?(module) and function_exported?(module, :gather_webfinger_links, 1),
+        do: module.gather_webfinger_links(id),
+        else: []
+    end)
   end
 
   def local_hostname,

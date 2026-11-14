@@ -6,8 +6,6 @@ It is the part of [Bonfire](https://bonfirenetworks.org) that does the talking, 
 
 > **Not using Elixir?** That's fine, you are welcome here too. If you just want to run a fediverse server, have a look at [Bonfire](https://bonfirenetworks.org), the app built on this library.
 
-**Not sure yet?** [What it does](#what-it-does-for-you) · **Want to run it?** [Getting started](#getting-started) · **Want the details?** [Learn more](#learn-more)
-
 ## What it does for you
 
 - **Talks to other servers.** It answers WebFinger, and serves actors, inboxes and outboxes.
@@ -28,7 +26,11 @@ To use it you need Elixir 1.20.2 or later (with OTP 29), Phoenix, Ecto with Post
 
 Here is the shape of it, step by step. By the end of step 6, other servers can find one of your people.
 
-**1. Add it to `mix.exs`.** The library marks some dependencies as optional, and a Git dependency doesn't bring those along, so list them yourself:
+<!-- tabs-open -->
+
+### 1. Dependencies
+
+The library marks some dependencies as optional, and a Git dependency doesn't bring those along, so list them yourself:
 
 ```elixir
 {:activity_pub, github: "bonfire-networks/activity_pub"},
@@ -39,7 +41,9 @@ Here is the shape of it, step by step. By the end of step 6, other servers can f
 {:phoenix_live_dashboard, "~> 0.9"} # brings phoenix_live_view
 ```
 
-**2. Write an adapter.** This is where your app and the library meet: a module that tells the library how to find your actors. These seven callbacks are enough to put one of your people on the network:
+### 2. Adapter
+
+This is where your app and the library meet: a module that tells the library how to find your actors. These seven callbacks are enough to put one of your people on the network:
 
 ```elixir
 defmodule MyApp.Adapter do
@@ -109,7 +113,9 @@ end
 
 `MyApp.Accounts` stands for your own code, and `to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. The compiler will warn about the callbacks you haven't written yet, and that list is your to-do list: [Hearing back](#hearing-back) below goes through it.
 
-**3. Create the tables.** Oban's first (skip that one if your app has them already), then the library's:
+### 3. Tables
+
+Oban's first (skip that one if your app has them already), then the library's:
 
 ```bash
 mix ecto.gen.migration add_oban
@@ -156,7 +162,7 @@ mix ecto.migrate
 
 The library keeps adding steps now and then: the ones its own tests run are in [`priv/test_repo/migrations`](https://github.com/bonfire-networks/activity_pub/tree/main/priv/test_repo/migrations), and the functions are in [`ActivityPub.Migrations`](https://github.com/bonfire-networks/activity_pub/blob/main/lib/migrations.ex).
 
-**4. Configure it.**
+### 4. Config
 
 ```elixir
 # config/config.exs
@@ -193,7 +199,9 @@ config :activity_pub, :instance, federating: true
 
 After changing `:mime` types, run `mix deps.clean mime --build` once. Every setting has a comment in [`config/activity_pub.exs`](https://github.com/bonfire-networks/activity_pub/blob/main/config/activity_pub.exs).
 
-**5. Plug it into Phoenix.** Start `{Finch, name: MyApp.Finch}` and `{Oban, Application.fetch_env!(:my_app, Oban)}` in your supervision tree. Then:
+### 5. Phoenix
+
+Start `{Finch, name: MyApp.Finch}` and `{Oban, Application.fetch_env!(:my_app, Oban)}` in your supervision tree. Then:
 
 ```elixir
 # in your endpoint, in place of your Plug.Parsers.
@@ -218,7 +226,9 @@ use ActivityPub.Web.Router
 
 That adds WebFinger, actors with their inbox and outbox, the shared inbox, and the stored objects, under `/pub` (set `AP_BASE_PATH` at compile time to change it). [NodeInfo](https://github.com/bonfire-networks/nodeinfo) is a separate library that you add alongside.
 
-**6. See it work.** Say you have a user called `alice`. Give her keys with `ActivityPub.Safety.Keys.ensure_keys_present/1`, then ask for her as another server would:
+### 6. See it work
+
+Say you have a user called `alice`. Give her keys with `ActivityPub.Safety.Keys.ensure_keys_present/1`, then ask for her as another server would:
 
 ```bash
 curl -H 'Accept: application/jrd+json' 'https://your.host/.well-known/webfinger?resource=acct:alice@your.host'
@@ -228,6 +238,8 @@ curl -H 'Accept: application/activity+json' 'https://your.host/pub/actors/alice'
 You should get her actor back as JSON. If you get `500` and `server error`, a callback is missing: the log says which.
 
 To try two instances on `localhost`, list them in `config :activity_pub, :ssrf_allow_hosts, ["a.localhost:4001", "b.localhost:4002"]`, since private addresses are refused otherwise.
+
+<!-- tabs-close -->
 
 ## Hearing back
 

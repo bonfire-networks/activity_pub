@@ -112,13 +112,12 @@ defmodule MyApp.Adapter do
 end
 ```
 
-`to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. Three of its fields are worth a word:
+`to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. Four of its fields are worth a word:
 
+- `id` is your own id for the user, as a string. `"1001"` works; the number `1001` makes the library crash when it builds a cache key from it.
 - `data` is the actor as it will be served, a map with string keys: `"id"` (the same URL as `ap_id`), `"type"` (say `"Person"`), `"preferredUsername"`, and `"inbox"`, `"outbox"`, `"followers"` and `"following"` as URLs. The library adds the public key and a few other fields but doesn't make those URLs up, so fill them in where the router in step 5 serves them: `ActivityPub.Actor.actor_url("alice")` gives the `"id"` (`https://your.host/pub/actors/alice`), and the other four are that plus `/inbox`, `/outbox`, `/followers` or `/following`. A `:map` (jsonb) column keeps it as it is.
 - `keys` is the private key as a PEM string, and `nil` until there is one. The library makes it the first time it is needed and hands it to `update_local_actor/2` to be saved, so a text column will do.
-- `pointer_id` is the id of the user in your own database. The library keeps it in its `ap_object` table, in a column that only takes a [ULID](https://github.com/ulid/spec) (26 characters, such as `01M7BVN6J5ASZ9TKMCFGDMC12A`), so give your users ULIDs: `Needle.UID.generate/0` makes one, and comes with the library. A UUID or an integer is refused with an `Ecto.ChangeError`. (Bonfire calls these pointers; you don't need a table of them.)
-
-> **Open:** whether an app with integer or UUID ids can keep them as `id` and put a ULID beside them in `pointer_id` hasn't been tried here.
+- `pointer_id` is a second id for the user. The library keeps it in its `ap_object` table, in a column that only takes a [ULID](https://github.com/ulid/spec) (26 characters, such as `01M7BVN6J5ASZ9TKMCFGDMC12A`). If your ids already are ULIDs, use the same one for both; if not, keep a ULID beside yours: `Needle.UID.generate/0` makes one, and comes with the library. A UUID or an integer here is refused with an `Ecto.ChangeError`. (Bonfire calls these pointers; you don't need a table of them.)
 
 The instance's own actor is an actor like the others, with an `ap_id` and `username` of its own (say `https://your.host/pub/actors/instance.actor` and `instance.actor`) and `data` of the same kind, which can't be empty: an `"id"`, a `"type"` such as `"Application"`, a `"preferredUsername"` and an `"inbox"` are enough to start.
 
@@ -258,7 +257,7 @@ To try two instances on `localhost`, list them in `config :activity_pub, :ssrf_a
 
 The other callbacks let people follow yours, and let your app hear from other servers. Add them as you go; the [adapter docs](https://github.com/bonfire-networks/activity_pub/blob/main/lib/federator/adapter.ex) describe each.
 
-- `get_follower_local_ids/2` and `get_following_local_ids/2`: who follows whom, as your own ids. The followers URL answers `500` until the first is there.
+- `get_follower_local_ids/2` and `get_following_local_ids/2`: who follows whom, as the `pointer_id`s of step 2. The followers URL answers `500` until the first is there.
 - `handle_activity/1`: an activity arrived from another server and passed the checks. Do what it means in your app. A Follow is the usual first one: see [below](#when-someone-follows-you).
 - `maybe_create_remote_actor/1` and `update_remote_actor/1`: the library met a person on another server, or saw them change something. Keep your copy of them up to date. The first has to answer `{:ok, actor}`; an example is [below](#when-someone-follows-you).
 - `get_redirect_url/1`: where a person's page is on your site, for browsers. It gets a username or the actor's JSON.
@@ -302,7 +301,7 @@ end
 def get_follower_local_ids(%Actor{id: id}, _purpose), do: MyApp.Follows.followers(id)
 ```
 
-Those ids are ULIDs too, as in step 2. After that, what you [send](#sending-something) goes to each follower's inbox.
+Those ids are the `pointer_id`s of step 2. If they are your other ids, nothing fails: the followers list stays empty, and what you [send](#sending-something) reaches no one. With the right ones, it goes to each follower's inbox.
 
 > **Open:** this walkthrough was run against a stand-in remote server on localhost, not against Mastodon, Pleroma or Lemmy, so a real server may still surprise you.
 

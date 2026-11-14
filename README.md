@@ -111,7 +111,14 @@ defmodule MyApp.Adapter do
 end
 ```
 
-`MyApp.Accounts` stands for your own code, and `to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. The compiler will warn about the callbacks you haven't written yet, and that list is your to-do list: [Hearing back](#hearing-back) below goes through it.
+`MyApp.Accounts` stands for your own code, and `to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. Two of its fields are worth a word:
+
+- `data` is the actor as it will be served: a map with string keys, `"id"` (the same URL as `ap_id`), `"type"` (say `"Person"`) and `"preferredUsername"`, then `"inbox"`, `"outbox"`, `"followers"` and `"following"` as URLs. The library adds the public key and a few other fields when it serves it, but it doesn't make those URLs up, so they are yours to fill in. A `:map` (jsonb) column keeps it as it is.
+- `keys` is the private key as a PEM string, and `nil` until there is one. The library makes it the first time it is needed and hands it to `update_local_actor/2` to be saved, so a text column will do.
+
+The instance's own actor is an actor like the others, with an `ap_id` and a `username` of its own (for example `https://your.host/pub/actors/instance.actor` and `instance.actor`).
+
+The compiler will warn about the callbacks you haven't written yet, and that list is your to-do list: [Hearing back](#hearing-back) below goes through it.
 
 ### 3. Tables
 
@@ -228,14 +235,14 @@ That adds WebFinger, actors with their inbox and outbox, the shared inbox, and t
 
 ### 6. See it work
 
-Say you have a user called `alice`. Give her keys with `ActivityPub.Safety.Keys.ensure_keys_present/1`, then ask for her as another server would:
+Say you have a user called `alice`. Ask for her as another server would:
 
 ```bash
 curl -H 'Accept: application/jrd+json' 'https://your.host/.well-known/webfinger?resource=acct:alice@your.host'
 curl -H 'Accept: application/activity+json' 'https://your.host/pub/actors/alice'
 ```
 
-You should get her actor back as JSON. If you get `500` and `server error`, a callback is missing: the log says which.
+You should get her actor back as JSON, with a `publicKey` in it. The first time she is asked for, the library makes her keys and has your `update_local_actor/2` save them. If there is no `publicKey`, the log says the keys could not be saved: check that `update_local_actor/2` returns the user with her new `keys`. And if you get `500` and `server error`, a callback is missing: the log says which.
 
 To try two instances on `localhost`, list them in `config :activity_pub, :ssrf_allow_hosts, ["a.localhost:4001", "b.localhost:4002"]`, since private addresses are refused otherwise.
 

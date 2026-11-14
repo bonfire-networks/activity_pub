@@ -426,13 +426,18 @@ defmodule ActivityPub do
              Map.get(params, :pointer),
              opts
            ),
+         # `skip_delivery` stores the announce, so it's listed in the actor's outbox, without sending it to anyone, eg. for posts brought in by an account import, which their followers already saw
          :ok <-
-           maybe_federate(actor, activity,
-             data_received:
-               relayable_received_document(
-                 object,
-                 # given, or on the activity as the adapter was handed it
-                 opts[:data_received] || Object.received_document(object)
+           if(opts[:skip_delivery],
+             do: :ok,
+             else:
+               maybe_federate(actor, activity,
+                 data_received:
+                   relayable_received_document(
+                     object,
+                     # given, or on the activity as the adapter was handed it
+                     opts[:data_received] || Object.received_document(object)
+                   )
                )
            ),
          {:ok, adapter_object} <- Adapter.maybe_handle_activity(activity, opts),
@@ -1251,7 +1256,12 @@ defmodule ActivityPub do
     })
   end
 
-  # A group's boost goes to its followers only, as its other Announces do and as Lemmy's community Announce does: addressing the author costs one more delivery and maybe a fetch back from their server, and their server still learns of it when someone there follows the group. A person's boost is addressed to the author so their server can tell them.
+  # A top-level group's boost goes to its followers only, as its other Announces do and as Lemmy's community Announce does: addressing the author costs one more delivery and maybe a fetch back from their server, and their server still learns of it when someone there follows the group. A person's boost is addressed to the author so their server can tell them.
+  # A group that has a parent (a topic or subgroup, which names it with `broader`) does address the author: a member on another server who follows the group but not the topic would otherwise never get the post back, and their server could not file it under its copy of the topic. Other members there still don't get it.
+  defp boost_cc(%{data: %{"type" => "Group", "broader" => broader}}, object)
+       when is_binary(broader) and broader != "",
+       do: [object.data["attributedTo"] || object.data["actor"]]
+
   defp boost_cc(%{data: %{"type" => "Group"}}, _object), do: []
 
   defp boost_cc(_actor, object), do: [object.data["attributedTo"] || object.data["actor"]]

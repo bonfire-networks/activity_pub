@@ -394,6 +394,10 @@ defmodule ActivityPub.Utils do
     id
   end
 
+  # an object handed over whole (eg. by an account export) is rendered as it is and not cached: its JSON depends on the caller's options (an export leaves out `@context`), so it must not be stored where an ordinary request for the object would be answered from
+  # matched by name rather than `%ActivityPub.Object{}`, which would make this module depend on Object at compile time
+  def some_identifier(:json, %{__struct__: ActivityPub.Object}), do: nil
+
   # def some_identifier(_, object) do
   #   uid(object) || ap_id(object)
   # end

@@ -119,6 +119,21 @@ defmodule ActivityPub.AnnounceWrappingTest do
              "a group's boost goes to the group's followers, not to the post's author"
     end
 
+    # A topic or subgroup names its parent with `broader`: its boost also goes to the post's author, so that a member on another server who follows the group but not the topic gets it back.
+    test "a topic's boost of a remote post also addresses the post's author" do
+      topic =
+        insert(:actor, type: "Group", data: %{"broader" => "https://group.local/pub/group/1"})
+
+      %{author: author, note: note} = remote_post()
+
+      assert {:ok, announce} = ActivityPub.announce(%{actor: topic, object: note})
+
+      assert announce.data["to"] == [ActivityPub.Config.public_uri(), topic.data["followers"]]
+
+      assert announce.data["cc"] == [author],
+             "a topic's boost is addressed to the post's author as well as the topic's followers"
+    end
+
     test "a person's boost of the same post still addresses its author" do
       someone = insert(:actor)
       %{author: author, note: note} = remote_post()

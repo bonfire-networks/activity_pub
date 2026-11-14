@@ -886,7 +886,8 @@ defmodule ActivityPub.Federator.Fetcher do
       # the host did not answer at all. Recorded for each of these, not only a refused connection, since `updated_at` is the last attempt: a probe of a host we gave up on that times out has to close the gate again, or every fetch to it waits out its own timeout
       # {:error, :econnrefused} ->
       {:error, reason} when reason in @no_answer_errors ->
-        # cache_fetch_error(id)
+        # remembered for the same short while as a 404, so the many objects naming one dead host (eg. an imported outbox of a closed instance) don't each wait out a connection attempt
+        cache_fetch_error(id)
         Instances.set_unreachable(id)
         error("Could not connect to ActivityPub remote")
         {:error, :network_error}

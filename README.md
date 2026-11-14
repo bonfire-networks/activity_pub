@@ -111,12 +111,13 @@ defmodule MyApp.Adapter do
 end
 ```
 
-`MyApp.Accounts` stands for your own code, and `to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. Two of its fields are worth a word:
+`MyApp.Accounts` stands for your own code, and `to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. Three of its fields are worth a word:
 
-- `data` is the actor as it will be served: a map with string keys, `"id"` (the same URL as `ap_id`), `"type"` (say `"Person"`) and `"preferredUsername"`, then `"inbox"`, `"outbox"`, `"followers"` and `"following"` as URLs. The library adds the public key and a few other fields when it serves it, but it doesn't make those URLs up, so they are yours to fill in. A `:map` (jsonb) column keeps it as it is.
+- `data` is the actor as it will be served: a map with string keys, `"id"` (the same URL as `ap_id`), `"type"` (say `"Person"`) and `"preferredUsername"`, then `"inbox"`, `"outbox"`, `"followers"` and `"following"` as URLs. The library adds the public key and a few other fields when it serves it, but it doesn't make those URLs up, so they are yours to fill in, and they have to be where the router in step 5 serves them. `ActivityPub.Actor.actor_url("alice")` gives the `"id"`, `https://your.host/pub/actors/alice`, and the other four are that with `/inbox`, `/outbox`, `/followers` or `/following` on the end. A `:map` (jsonb) column keeps it as it is.
 - `keys` is the private key as a PEM string, and `nil` until there is one. The library makes it the first time it is needed and hands it to `update_local_actor/2` to be saved, so a text column will do.
+- `pointer_id` is the id of the user in your own database, so `user.id` will do. (Bonfire, where the library comes from, calls it a pointer; you don't need a table of pointers.)
 
-The instance's own actor is an actor like the others, with an `ap_id` and a `username` of its own (for example `https://your.host/pub/actors/instance.actor` and `instance.actor`).
+The instance's own actor is an actor like the others, with an `ap_id` and a `username` of its own (for example `https://your.host/pub/actors/instance.actor` and `instance.actor`) and `data` of the same kind. It can't be empty: an `"id"`, a `"type"` such as `"Application"`, a `"preferredUsername"` and an `"inbox"` are enough to start with.
 
 The compiler will warn about the callbacks you haven't written yet, and that list is your to-do list: [Hearing back](#hearing-back) below goes through it.
 
@@ -247,6 +248,8 @@ You should get her actor back as JSON, with a `publicKey` in it. The first time 
 To try two instances on `localhost`, list them in `config :activity_pub, :ssrf_allow_hosts, ["a.localhost:4001", "b.localhost:4002"]`, since private addresses are refused otherwise.
 
 <!-- tabs-close -->
+
+**Got it working? Stuck? Wondering what comes next?** Come and say hello in the [chat room](https://matrix.to/#/#activitypub-elixir-lib:matrix.org) or the [Elixir & ActivityPub group](https://bonfire.cafe/group/Elixir_ActivityPub). Questions and half-baked ideas are welcome.
 
 ## Hearing back
 

@@ -1,118 +1,295 @@
 # ActivityPub for Elixir
 
-An Elixir library that enables a Phoenix app to federate with the fediverse over [ActivityPub](https://www.w3.org/TR/activitypub/). It is the federation layer used by [Bonfire](https://bonfirenetworks.org) and [kazarma](https://kazar.ma/), and it is built to be used by other apps too.
+Welcome! This is a library for [Elixir](https://elixir-lang.org) that lets your app join the **fediverse**: the network of servers (Mastodon, Pleroma, Bonfire and many more) where people on one server can follow and talk to people on another. The servers speak a shared language called [ActivityPub](https://www.w3.org/TR/activitypub/), and this library speaks it for you.
 
-Getting federation right means implementing ActivityPub, ActivityStreams, and many more specs, including signatures, discovery, fetching, delivery and retries. This library does that work, so your app's users can follow and be followed, post, reply, boost and react across servers. It doesn't dictate your app's data model. Incoming activities are normalised and temporarily stored as ActivityStreams JSON objects, and handed to your app through an adapter module. Outgoing ones are queued and delivered to each recipient's inbox. Your app decides what an activity means for its own users, posts and follows.
+It is the part of [Bonfire](https://bonfirenetworks.org) that does the talking, and [kazarma](https://kazar.ma/) uses it too. You are very welcome to use it in your own app, and to come and say hello any time, even if ActivityPub is new to you: in the [chat room](https://matrix.to/#/#activitypub-elixir-lib:matrix.org), or on the fediverse in the [Elixir & ActivityPub group](https://bonfire.cafe/group/Elixir_ActivityPub). Questions and half-baked ideas are welcome in both.
 
-## Status
+> **Not using Elixir?** That's fine, you are welcome here too. If you just want to run a fediverse server, have a look at [Bonfire](https://bonfirenetworks.org), the app built on this library.
 
-It runs in production on every Bonfire instance. The API is still evolving but in a backwards-compatible way.
+**Not sure yet?** [What it does](#what-it-does-for-you) · **Want to run it?** [Getting started](#getting-started) · **Want the details?** [Learn more](#learn-more)
 
-## What it does
+## What it does for you
 
-- Serves actors, objects and collections as ActivityStreams JSON, with the ActivityPub server-to-server inbox and outbox. 
-- The client-to-server (C2S) API is available too.
-- Finds and is found through WebFinger, so `@user@your.host` works from other servers.
-- Signs what it sends with HTTP signatures (RFC 9421 or draft-cavage, whichever the receiving server uses) and Data Integrity proofs (FEP-8b32, `eddsa-jcs-2022`).
-- Checks what it receives, with HTTP signatures (RFC 9421 or draft-cavage), Linked Data signatures (`RsaSignature2017`, the ones Mastodon emits) and Data Integrity proofs (FEP-8b32, `eddsa-jcs-2022` and `mldsa44-jcs-2024`, with keys from the actor's `assertionMethod`, FEP-521a).
-- Fetches remote actors and objects, including the objects nested in an activity, and caches them.
-- Delivers and receives through [Oban](https://hexdocs.pm/oban) queues, retries failed deliveries, and tracks which instances are unreachable.
-- Enforces moderation at the instance level with MRF policies: rejecting or limiting instances, removing media, and filtering keywords.
+- **Talks to other servers.** It answers WebFinger, and serves actors, inboxes and outboxes.
+- **Signs and checks.** It signs what you send and checks what arrives (HTTP signatures, Linked Data signatures, and [FEP-8b32](https://w3id.org/fep/8b32) proofs).
+- **Fetches and remembers** remote people and posts.
+- **Delivers** your activities to other servers, with retries, through [Oban](https://hexdocs.pm/oban) queues.
+- **Looks after you.** It refuses private addresses, rate limits incoming requests, and runs moderation policies (MRF) on everything it stores.
 
-It needs Elixir 1.20.2 or later, an Ecto repo and Oban.
+## What stays yours
 
-## Related libraries
+Your app keeps its own data (users, posts, follows) in whatever database you like. The library asks your app about them through a small **adapter** module that you write.
 
-- [nodeinfo](https://github.com/bonfire-networks/nodeinfo): serves instance information with the [NodeInfo](https://nodeinfo.diaspora.software) standard, which other servers read to learn what software an instance runs (not a dependency: add it alongside)
-- [http_signatures](https://github.com/bonfire-networks/http_signatures): signs and checks HTTP signatures, used by this library (a fork of Akkoma's)
+The library has tables of its own in PostgreSQL: an Oban job queue, and a JSON copy of the activities and objects it sends and receives.
 
-And for an example of how to integrate this library's adapter into an app, you can look at [Bonfire's adapter](https://github.com/bonfire-networks/bonfire_federate_activitypub).
+To use it you need Elixir 1.20.2 or later (with OTP 29), Phoenix, Ecto with PostgreSQL, and Oban. It runs in production on Bonfire, and its API is still growing, in a backwards-compatible way. It is not on Hex yet, so install it from Git.
 
-## Credits and licence
+## Getting started
 
-Parts of the code come from [Akkoma](https://akkoma.social). Licensed under the GNU AGPLv3 (see `LICENCE`).
+Here is the shape of it, step by step. By the end of step 6, other servers can find one of your people.
 
-## Installation
+**1. Add it to `mix.exs`.** The library marks some dependencies as optional, and a Git dependency doesn't bring those along, so list them yourself:
 
-1. Add this library to your dependencies in `mix.exs`
-
-```
-defp deps do
-  [...]
-  {:activity_pub, git: "https://github.com/bonfire-networks/activity_pub.git", branch: "stable"} # branch can be "stable", or "develop" for the bleeding edge
-end
+```elixir
+{:activity_pub, github: "bonfire-networks/activity_pub"},
+{:oban, "~> 2.17"},
+{:finch, ">= 0.0.0"},
+{:certifi, "~> 2.12"},
+{:jason, "~> 1.0"},
+{:phoenix_live_dashboard, "~> 0.9"} # brings phoenix_live_view
 ```
 
-2. Create an adapter module. To start, one created at `lib/my_app/adapter.ex` might look like this:
+**2. Write an adapter.** This is where your app and the library meet: a module that tells the library how to find your actors. These seven callbacks are enough to put one of your people on the network:
 
 ```elixir
 defmodule MyApp.Adapter do
-  @moduledoc """
-  Adapter functions delegated from the `ActivityPub` Library
-  """
-
   @behaviour ActivityPub.Federator.Adapter
+
+  alias ActivityPub.Actor
+  # yours: it finds and saves your users
+  alias MyApp.Accounts
+
+  # Where you live. WebFinger takes your host name from here.
+  @impl true
+  def base_url, do: MyAppWeb.Endpoint.url()
+
+  @impl true
+  def get_locale, do: "en"
+
+  # Your actors, handed over as %ActivityPub.Actor{}.
+  @impl true
+  def get_actor_by_username(username), do: found(Accounts.one(username: username, local: true))
+
+  @impl true
+  def get_actor_by_ap_id(ap_id), do: found(Accounts.one(ap_id: ap_id))
+
+  @impl true
+  def get_actor_by_id(id), do: found(Accounts.one(id: id))
+
+  # The instance's own actor: the library signs its fetches with it. Must return {:ok, actor}.
+  @impl true
+  def get_or_create_service_actor do
+    Accounts.get_or_create_instance_actor()
+    |> to_actor()
+    |> ActivityPub.Safety.Keys.ensure_keys_present()
+  end
+
+  # The library saves things on your users, such as the keys it makes for them.
+  @impl true
+  def update_local_actor(%Actor{id: id}, params) do
+    user = Accounts.one(id: id)
+
+    # `keep_stored_keys`: save new keys only if there are none yet (requests can race to make them)
+    if params[:keep_stored_keys] && user.keys do
+      {:ok, to_actor(user)}
+    else
+      {:ok, user} = Accounts.update(user, Map.take(params, [:keys, :data]))
+      {:ok, to_actor(user)}
+    end
+  end
+
+  defp found(nil), do: {:error, :not_found}
+  defp found(user), do: {:ok, to_actor(user)}
+
+  # Your user, as the library wants to see it.
+  defp to_actor(user) do
+    %Actor{
+      id: user.id,
+      ap_id: user.ap_id,
+      username: user.username,
+      local: user.local,
+      keys: user.keys,
+      data: user.data,
+      pointer_id: user.id,
+      deactivated: false
+    }
+  end
 end
 ```
 
-Thanks to the `@behaviour`, Elixir warns you about each callback of `ActivityPub.Federator.Adapter` you have not implemented yet, such as `base_url/0`, `get_actor_by_id/1`, `get_actor_by_username/1` and `handle_activity/1`. Your app still starts. 
+`MyApp.Accounts` stands for your own code, and `to_actor/1` is the one place where a user of yours becomes an `%ActivityPub.Actor{}`. The compiler will warn about the callbacks you haven't written yet, and that list is your to-do list: [Hearing back](#hearing-back) below goes through it.
 
-The behaviour module documents every callback, and which ones are optional. These callbacks are how the library reads your actors and objects, and how it hands incoming activities to your app. 
+**3. Create the tables.** Oban's first (skip that one if your app has them already), then the library's:
 
-Then set it in config:
-
+```bash
+mix ecto.gen.migration add_oban
+mix ecto.gen.migration add_activity_pub
 ```
+
+Put these in the two new files:
+
+```elixir
+defmodule MyApp.Repo.Migrations.AddOban do
+  use Ecto.Migration
+
+  def up, do: Oban.Migration.up()
+  def down, do: Oban.Migration.down(version: 1)
+end
+```
+
+```elixir
+defmodule MyApp.Repo.Migrations.AddActivityPub do
+  use Ecto.Migration
+
+  # the library creates its indexes CONCURRENTLY, which Postgres refuses inside a transaction
+  @disable_ddl_transaction true
+  @disable_migration_lock true
+
+  # added after `up/0`, each as a function of its own, in this order
+  @later ~w(add_service_actor_uri add_object_boolean add_object_authenticated add_object_data_received
+            add_object_in_reply_to_index add_object_coalesce_index add_object_actor_index
+            add_object_username_index add_object_recipients_index add_object_prunable_index
+            add_collection_member_table)a
+
+  def up do
+    ActivityPub.Migrations.up()
+    Enum.each(@later, &apply(ActivityPub.Migrations, &1, []))
+  end
+
+  def down, do: :ok
+end
+```
+
+```bash
+mix ecto.migrate
+```
+
+The library keeps adding steps now and then: the ones its own tests run are in [`priv/test_repo/migrations`](https://github.com/bonfire-networks/activity_pub/tree/main/priv/test_repo/migrations), and the functions are in [`ActivityPub.Migrations`](https://github.com/bonfire-networks/activity_pub/blob/main/lib/migrations.ex).
+
+**4. Configure it.**
+
+```elixir
+# config/config.exs
+# The library's defaults (the guard lets your first `mix deps.get` run before the file exists)
+lib_config = Path.expand("../deps/activity_pub/config/activity_pub.exs", __DIR__)
+if File.exists?(lib_config), do: import_config(lib_config)
+
 config :activity_pub, :adapter, MyApp.Adapter
-```
-
-3. Set your application repo in config
-
-```
 config :activity_pub, :repo, MyApp.Repo
-```
+config :tesla, adapter: {Tesla.Adapter.Finch, name: MyApp.Finch}
 
-4. Create a new ecto migration and call `ActivityPub.Migration.up/0` from it
+config :mime, :types, %{
+  "application/json" => ["json"],
+  "application/activity+json" => ["activity+json"],
+  "application/ld+json" => ["ld+json"],
+  "application/jrd+json" => ["jrd+json"]
+}
 
-5. Inject AP routes to your router by adding `use ActivityPub.Web.Router` to your app's router module
-
-6. Copy the default AP config to your app's `config.exs`
-
-```
-config :activity_pub, :mrf_simple,
-  media_removal: [],
-  media_nsfw: [],
-  report_removal: [],
-  accept: [],
-  avatar_removal: [],
-  banner_removal: []
-
-config :activity_pub, :instance,
-  hostname: "example.com",
-  federation_publisher_modules: [ActivityPub.Federator.APPublisher],
-  federation_reachability_timeout_days: 7,
-  federating: true,
-  rewrite_policy: []
-
-config :activity_pub, :http,
-  proxy_url: nil,
-  user_agent: "Your app name",
-  send_user_agent: true,
-  adapter: [
-    ssl_options: [
-      # Workaround for remote server certificate chain issues
-      partial_chain: &:hackney_connect.partial_chain/1,
-      # We don't support TLS v1.3 yet
-      versions: [:tlsv1, :"tlsv1.1", :"tlsv1.2"]
-    ]
+config :my_app, Oban,
+  repo: MyApp.Repo,
+  queues: [
+    federator_incoming_mentions: 2,
+    federator_incoming: 3,
+    federator_incoming_follows: 2,
+    federator_incoming_unverified: 1,
+    federator_outgoing: 2,
+    remote_fetcher: 1
   ]
-  ```
 
-7. Change the hostname value in the instance config block to your instance's hostname 
-
-8. If you don't already have Oban set up, follow the [Oban installation instructions](https://hexdocs.pm/oban/installation.html#content) and add the AP queues:
-
-```
-config :my_app, Oban, queues: [federator_incoming: 50, federator_outgoing: 50, remote_fetcher: 20]
+# config/runtime.exs
+# Without this, every fetch and delivery answers "Federation is disabled"
+config :activity_pub, :instance, federating: true
 ```
 
-Now you should be able to compile and run your app and move over to integration.
+After changing `:mime` types, run `mix deps.clean mime --build` once. Every setting has a comment in [`config/activity_pub.exs`](https://github.com/bonfire-networks/activity_pub/blob/main/config/activity_pub.exs).
+
+**5. Plug it into Phoenix.** Start `{Finch, name: MyApp.Finch}` and `{Oban, Application.fetch_env!(:my_app, Oban)}` in your supervision tree. Then:
+
+```elixir
+# in your endpoint, in place of your Plug.Parsers.
+# Signatures cover a Digest of the raw body, so the endpoint has to keep it.
+plug Plug.Parsers,
+  parsers: [:urlencoded, :multipart, :json],
+  pass: ["*/*"],
+  json_decoder: Jason,
+  body_reader: {ActivityPub.Web.Plugs.DigestPlug, :read_body, []}
+
+# in your router. The library's routes pipe through two pipelines of yours, so define them first
+# (you probably have :browser already, and :load_authorization can be empty).
+pipeline :browser do
+  plug :accepts, ["html"]
+end
+
+pipeline :load_authorization do
+end
+
+use ActivityPub.Web.Router
+```
+
+That adds WebFinger, actors with their inbox and outbox, the shared inbox, and the stored objects, under `/pub` (set `AP_BASE_PATH` at compile time to change it). [NodeInfo](https://github.com/bonfire-networks/nodeinfo) is a separate library that you add alongside.
+
+**6. See it work.** Say you have a user called `alice`. Give her keys with `ActivityPub.Safety.Keys.ensure_keys_present/1`, then ask for her as another server would:
+
+```bash
+curl -H 'Accept: application/jrd+json' 'https://your.host/.well-known/webfinger?resource=acct:alice@your.host'
+curl -H 'Accept: application/activity+json' 'https://your.host/pub/actors/alice'
+```
+
+You should get her actor back as JSON. If you get `500` and `server error`, a callback is missing: the log says which.
+
+To try two instances on `localhost`, list them in `config :activity_pub, :ssrf_allow_hosts, ["a.localhost:4001", "b.localhost:4002"]`, since private addresses are refused otherwise.
+
+## Hearing back
+
+The other callbacks let people follow yours, and let your app hear from other servers. Add them as you go: the compiler's warnings name the ones that are missing, and the [adapter docs](https://github.com/bonfire-networks/activity_pub/blob/main/lib/federator/adapter.ex) describe each.
+
+- `get_follower_local_ids/2` and `get_following_local_ids/2`: who follows whom, as your own ids. The followers URL answers `500` until the first is there.
+- `handle_activity/1`: an activity arrived from another server and passed the checks. Do what it means in your app.
+- `maybe_create_remote_actor/1` and `update_remote_actor/1`: the library met a person on another server, or saw them change something. Keep your copy of them up to date.
+- `get_redirect_url/1`: where a person's page is on your site, for browsers. It gets a username or the actor's JSON.
+- `maybe_publish_object/2`: only if your app has objects of its own that the library should hand over by id. `{:ok, :not_published}` is a fine answer.
+
+You can leave `activity_exists?/3` and `get_actors_by_ids/1` out, though the compiler will warn: the library answers `false` for the first, and for the second it asks `get_actor_by_id/1` once per id. For a whole adapter, see [Bonfire's](https://github.com/bonfire-networks/bonfire_federate_activitypub).
+
+## Sending something
+
+Everything you send goes through [`ActivityPub`](https://github.com/bonfire-networks/activity_pub/blob/main/lib/activity_pub.ex). Here is a public note, which the library addresses and queues for delivery to each follower's inbox:
+
+```elixir
+public = "https://www.w3.org/ns/activitystreams#Public"
+followers = me.data["followers"]   # `me` is an %ActivityPub.Actor{}
+
+{:ok, _} =
+  ActivityPub.create(%{
+    to: [public],
+    actor: me,
+    object: %{
+      "type" => "Note",
+      "content" => "Hello, fediverse",
+      "attributedTo" => me.ap_id,
+      "to" => [public],
+      "cc" => [followers]
+    },
+    additional: %{"cc" => [followers]}
+  })
+```
+
+The same module has `follow`, `accept`, `like`, `announce`, `update`, `delete`, `block` and more. What arrives from other servers comes to your adapter's `handle_activity/1`.
+
+## Moderation
+
+MRF (message rewrite facility) policies can rewrite or reject an object when it is stored. Turn them on with `config :activity_pub, :instance, rewrite_policy: [...]`. [`SimplePolicy`](https://github.com/bonfire-networks/activity_pub/blob/main/lib/safety/mrf/mrf_simple_policy.ex) and [`KeywordPolicy`](https://github.com/bonfire-networks/activity_pub/blob/main/lib/safety/mrf/mrf_keyword_policy.ex) come with it, and you can write your own with `@behaviour ActivityPub.MRF`.
+
+## Learn more
+
+- [Bonfire's federation interoperability guide](https://docs.bonfirenetworks.org/federation.html): what to know if you are building something that should work well with Bonfire (its endpoints, the FEPs it supports, and how it signs and checks requests).
+- [bonfire_federate_activitypub](https://github.com/bonfire-networks/bonfire_federate_activitypub): Bonfire's adapter, a full example.
+- [http_signatures](https://github.com/bonfire-networks/http_signatures): signs and checks HTTP signatures, used by this library.
+
+## Contributing
+
+Questions, ideas and fixes are welcome. This library is shared by several apps, so staying compatible (with them and with the fediverse) matters: for anything bigger than a small fix, please open an issue first (or ask in the [chat room](https://matrix.to/#/#activitypub-elixir-lib:matrix.org) or the [group](https://bonfire.cafe/group/Elixir_ActivityPub)), so we can talk it through together.
+
+```text
+lib/activity_pub.ex      the API your app calls
+lib/federator/           adapter, delivery, fetching, WebFinger, Oban workers
+lib/safety/              signatures, keys, SSRF guard, MRF policies
+lib/web/                 router, controllers, plugs
+priv/test_repo/          the migrations the tests run
+```
+
+`mix test` needs a PostgreSQL that [`config/test.exs`](https://github.com/bonfire-networks/activity_pub/blob/main/config/test.exs) can reach.
+
+## Credits and licence
+
+Parts of the code come from [Akkoma](https://akkoma.social). Licensed under the GNU AGPLv3 (see [`LICENCE`](https://github.com/bonfire-networks/activity_pub/blob/main/LICENCE)).

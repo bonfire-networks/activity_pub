@@ -2292,8 +2292,9 @@ defmodule ActivityPub.Federator.Transformer do
   defp actor_update_vouched_by(document, actor_id, opts) do
     with false <- opts[:local] || false,
          {:ok, %Object{data: held}} <- Object.get_cached(ap_id: actor_id) do
+      # a signed request stays valid for the signature's window, so one replayed within it carries an older document: also only when provably newer than what we hold
       if opts[:authenticated] == :http_signature and opts[:signed_by] == actor_id do
-        :http_signature
+        if ActivityPub.Safety.newer?(document, held), do: :http_signature
       else
         # anyone holding an older document the actor signed can deliver it again, and it still verifies: so its proof stands for it only when it is provably newer than what we hold, else the actor is fetched from its origin
         with {:ok, by_signature} <- ActivityPub.Safety.author_signature(document),

@@ -62,11 +62,13 @@ defmodule ActivityPub.Federator.ActorUpdateWithoutRefetchTest do
     data["name"]
   end
 
-  test "signed over HTTP by the actor itself: applied from the document", %{
+  @newer %{"updated" => "2026-06-01T00:00:00Z"}
+
+  test "signed over HTTP by the actor itself, and newer: applied from the document", %{
     actor_id: actor_id,
     held: held
   } do
-    delivered(actor_update(actor_id, %{held | "name" => "Alice renamed"}),
+    delivered(actor_update(actor_id, Map.merge(%{held | "name" => "Alice renamed"}, @newer)),
       authenticated: :http_signature,
       signed_by: actor_id
     )
@@ -74,11 +76,61 @@ defmodule ActivityPub.Federator.ActorUpdateWithoutRefetchTest do
     assert name(actor_id) == "Alice renamed"
   end
 
+  # a signed request stays valid for its window, so anyone who saw one can send it again
+  test "signed over HTTP by the actor itself, replayed with an older document: not applied", %{
+    actor_id: actor_id,
+    held: held
+  } do
+    held_key = held["assertionMethod"]
+
+    older =
+      held
+      |> Map.merge(%{"name" => "Alice, years ago", "updated" => "2025-01-01T00:00:00Z"})
+      |> Map.put("assertionMethod", [multikey(actor_id, new_key(:ed25519))])
+
+    delivered(actor_update(actor_id, older), authenticated: :http_signature, signed_by: actor_id)
+
+    {:ok, %Object{data: data}} = Object.get_uncached(ap_id: actor_id)
+    assert data["name"] == held["name"]
+    assert data["assertionMethod"] == held_key
+  end
+
+  test "an Update of another actor, sent by this one: refused, and that actor is unchanged", %{
+    actor_id: actor_id,
+    stranger: stranger
+  } do
+    {:ok, %Object{data: victim_before}} = Object.get_uncached(ap_id: stranger)
+
+    delivered(
+      actor_update(actor_id, Map.merge(%{victim_before | "name" => "Mallory was here"}, @newer)),
+      authenticated: :http_signature,
+      signed_by: actor_id
+    )
+
+    assert {:ok, %Object{data: ^victim_before}} = Object.get_uncached(ap_id: stranger)
+  end
+
+  test "an Update of an actor, its HTTP signature by another: its document is not applied", %{
+    actor_id: actor_id,
+    held: held,
+    stranger: stranger
+  } do
+    delivered(actor_update(actor_id, Map.merge(%{held | "name" => "Alice forged"}, @newer)),
+      authenticated: :http_signature,
+      signed_by: stranger
+    )
+
+    assert name(actor_id) == held["name"]
+  end
+
   test "rotating its key, signed with the key we hold: applied, new key included", %{
     actor_id: actor_id,
     held: held
   } do
-    rotated = Map.put(held, "assertionMethod", [multikey(actor_id, new_key(:ed25519))])
+    rotated =
+      held
+      |> Map.merge(@newer)
+      |> Map.put("assertionMethod", [multikey(actor_id, new_key(:ed25519))])
 
     delivered(actor_update(actor_id, rotated),
       authenticated: :http_signature,

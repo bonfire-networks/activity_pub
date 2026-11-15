@@ -721,7 +721,8 @@ defmodule ActivityPub.Federator.Fetcher do
          #   )
          #   |> debug("ready to fetch #{inspect(id)} with signature headers"),
          headers <- [{"Accept", "application/activity+json"}],
-         {:ok, %{body: body, status: code, headers: resp_headers}} when code in 200..299 <-
+         {:ok, %{body: body, status: code, headers: resp_headers} = response}
+         when code in 200..299 <-
            HTTP.get(
              id,
              headers,
@@ -747,6 +748,8 @@ defmodule ActivityPub.Federator.Fetcher do
                status: code,
                headers: resp_headers
              }),
+           # whatever else is skipped, a document must come from the host it names in its `id`
+           {:ok, data} <- contain_fetched_id_host(data, final_fetch_url(response, id), options),
            {true, _} <-
              {options[:skip_contain_origin_check] ||
                 Containment.contain_origin(Utils.ap_id(data) || id, data) ||
@@ -768,6 +771,60 @@ defmodule ActivityPub.Federator.Fetcher do
       returned -> handle_fetch_error(returned, id, options)
     end
   end
+
+  # The URL the document was served from, after redirects (`Tesla.Middleware.FollowRedirects` returns the env of the last hop). An adapter that sets no `url` leaves the requested one.
+  defp final_fetch_url(%{url: url}, _id) when is_binary(url) and url != "", do: url
+  defp final_fetch_url(_response, id), do: id
+
+  # A fetched document is only taken if the host of its `id` is the host it was fetched from, so a server cannot define an object (an actor and its key above all) of another host. And no remote host defines an id of this instance.
+  # One served from another host (an alias or a mirror) is taken in two cases, and neither makes that host a source of truth: it carries a proof or signature that holds (`vouched_cross_host?/1`), or its id's own host serves the same document (fetched once from there, and a fetch from there is not followed further).
+  defp contain_fetched_id_host(%{"id" => doc_id} = data, fetched_from, options)
+       when is_binary(doc_id) do
+    doc_authority = Utils.authority(doc_id)
+
+    cond do
+      doc_authority == Utils.authority(ActivityPub.Web.base_url()) ->
+        error(doc_id, "A fetched document claims an id on this instance")
+        {:error, :local_id_claimed}
+
+      doc_authority == Utils.authority(fetched_from) ->
+        {:ok, data}
+
+      options[:refetched_from_id] ->
+        mismatched_id_host(doc_id, fetched_from)
+
+      vouched_cross_host?(data) ->
+        {:ok, data}
+
+      true ->
+        case fetch_remote_object_from_id(doc_id, Keyword.put(options, :refetched_from_id, true)) do
+          {:ok, %{"id" => ^doc_id} = refetched} -> {:ok, refetched}
+          _ -> mismatched_id_host(doc_id, fetched_from)
+        end
+    end
+  end
+
+  defp contain_fetched_id_host(data, _fetched_from, _options), do: {:ok, data}
+
+  defp mismatched_id_host(doc_id, fetched_from) do
+    error(
+      doc_id,
+      "A fetched document's id is not on the host it was fetched from (#{fetched_from})"
+    )
+
+    {:error, "Containment error"}
+  end
+
+  # Whether the document's own proof (FEP-8b32) or LD signature holds, made by its owner with a key that owner's origin serves (`ActivityPub.Safety.author_signature/1`). An actor's document counts only for an actor we already hold, so the key is the one we have (or its rotation, as its origin serves it): a self-signed document of an actor we do not know vouches for nothing.
+  defp vouched_cross_host?(%{"id" => doc_id} = data) do
+    (not actor_document?(data) or match?({:ok, _}, Object.get_cached(ap_id: doc_id))) and
+      match?({:ok, _}, ActivityPub.Safety.author_signature(data))
+  end
+
+  defp actor_document?(%{"type" => type}),
+    do: type |> List.wrap() |> Enum.any?(&(&1 in Config.supported_actor_types()))
+
+  defp actor_document?(_), do: false
 
   defp maybe_extract_generator_from_fetched(id, %{"generator" => _} = data) do
     do_extract_generator(id, data)

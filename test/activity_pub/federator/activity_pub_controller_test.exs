@@ -617,12 +617,14 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
 
     subject = actor(local: false)
 
+    # the sender delivers its own post, as a real server does
     data =
       data
       |> Map.put("actor", subject.data["id"])
+      |> put_in(["object", "attributedTo"], subject.data["id"])
 
     sender_url = data["actor"]
-    sender = local_actor(ap_id: data["actor"])
+    _sender = local_actor(ap_id: data["actor"])
 
     Instances.set_consistently_unreachable(sender_url)
     refute Instances.reachable?(sender_url)
@@ -630,11 +632,16 @@ defmodule ActivityPub.Web.ActivityPubControllerTest do
     conn =
       conn
       |> assign(:valid_signature, true)
-      |> put_req_header("signature", "keyId=\"#{ap_id(sender)}/main-key\"")
+      # |> put_req_header("signature", "keyId=\"#{ap_id(sender)}/main-key\"")
+      # signed by the actor that sends the activity
+      |> put_req_header("signature", "keyId=\"#{sender_url}#main-key\"")
       |> put_req_header("content-type", "application/activity+json")
       |> post("#{Utils.ap_base_url()}/shared_inbox", data)
 
     assert json_response(conn, 200) in ["ok", "tbd"]
+
+    # the host is marked reachable by the worker, once it has processed the verified delivery
+    ObanHelpers.perform(all_enqueued())
     assert Instances.reachable?(sender_url)
   end
 

@@ -72,14 +72,16 @@ defmodule ActivityPub.Federator.Transformer.StoredAuthenticationTest do
       assert row(create["object"]["id"]).authenticated == :http_signature
     end
 
-    test "has an object of somebody else without a proof of its own stored as unverified", %{
-      n: n,
-      sender: sender
-    } do
+    # the object is the author's and nothing vouches for it, so it is not stored from this delivery: the activity is, with the object's id only, and the object is fetched from its origin when something needs it (here the adapter, which finds nobody serving it)
+    test "has an object of somebody else without a proof of its own left out, the activity stored with its id",
+         %{
+           n: n,
+           sender: sender
+         } do
       author = person("https://author-#{n}.example/users/author")
       create = create_of(sender, author)
 
-      assert {:ok, _} =
+      assert {:error, _} =
                Transformer.handle_incoming(create,
                  from_inbox: true,
                  authenticated: :http_signature,
@@ -87,7 +89,8 @@ defmodule ActivityPub.Federator.Transformer.StoredAuthenticationTest do
                )
 
       assert row(create["id"]).authenticated == :http_signature
-      assert row(create["object"]["id"]).authenticated == :unverified
+      assert row(create["id"]).data["object"] == create["object"]["id"]
+      assert {:error, :not_found} = Object.get_cached(ap_id: create["object"]["id"])
     end
 
     test "has an object of somebody else with a valid proof stored as vouched for by it", %{

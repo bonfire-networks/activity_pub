@@ -178,7 +178,7 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
   # FEP-1b12: a group relays by announcing the ACTIVITY (`Announce{Create{…}}`) rather than the object, which is what a Mastodon-style boost does. Verified against real captures from Lemmy, PieFed and NodeBB, as all three send this shape exclusively, so without unwrapping, the embedded `Create` is mistaken for the announced object and the inner object is never ingested at all.
   describe "a group announcing an activity (FEP-1b12)" do
     test "unwraps the inlined activity and ingests its object" do
-      group = insert(:actor)
+      group = followed_group()
       author = insert(:actor)
 
       object_id = "#{author.data["id"]}/posts/1b12-unwrap"
@@ -661,8 +661,15 @@ defmodule ActivityPub.Federator.Transformer.AnnounceHandlingTest do
     end
   end
 
+  # a Group that one of our actors follows, and which has accepted: the one whose relay of a post we do not hold is taken unfetched
+  defp followed_group do
+    group = insert(:actor, type: "Group")
+    insert(:follow_activity, followed: group, state: "accept")
+    group
+  end
+
   defp relayed_announce do
-    group = insert(:actor)
+    group = followed_group()
     author = insert(:actor)
 
     object_id = "#{author.data["id"]}/posts/relayed"

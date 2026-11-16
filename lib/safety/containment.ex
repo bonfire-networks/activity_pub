@@ -48,6 +48,12 @@ defmodule ActivityPub.Safety.Containment do
   Checks that an imported AP object's actor matches the host it came from.
   """
 
+  # an object that says it is of several types is held to the rules of each: one type that is exempt (a collection, an actor) must not exempt the others
+  def contain_origin(id, %{"type" => [_ | _] = types} = params),
+    do: Enum.all?(types, &contain_origin(id, Map.put(params, "type", &1)))
+
+  def contain_origin(_id, %{"type" => []}), do: false
+
   def contain_origin(_id, %{"type" => type} = _params)
       when is_in(type, :supported_actor_types) or
              is_in(type, :collection_types) or
@@ -58,9 +64,6 @@ defmodule ActivityPub.Safety.Containment do
   def contain_origin(_id, %{"type" => "Place"} = params)
       when not is_map_key(params, "actor") and not is_map_key(params, "attributedTo"),
       do: true
-
-  def contain_origin(id, %{"type" => types} = params) when is_list(types),
-    do: Enum.any?(types, &contain_origin(id, Map.put(params, "type", &1)))
 
   def contain_origin(id, %{"actor" => _actor} = params) when is_binary(id) do
     id_uri = URI.parse(id)

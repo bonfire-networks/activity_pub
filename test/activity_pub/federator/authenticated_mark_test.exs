@@ -297,7 +297,11 @@ defmodule ActivityPub.Federator.AuthenticatedMarkTest do
       key = new_key(:ed25519)
       actor(ap_id: author_id, data: %{"assertionMethod" => [multikey(author_id, key)]})
 
-      %{author_id: author_id, key: key, group: insert(:actor)}
+      # a Group that one of our actors follows, which has accepted: a post it relays that we do not hold is taken as it comes
+      group = insert(:actor, type: "Group")
+      insert(:follow_activity, followed: group, state: "accept")
+
+      %{author_id: author_id, key: key, group: group}
     end
 
     defp mock_unreachable_origin,
@@ -339,8 +343,10 @@ defmodule ActivityPub.Federator.AuthenticatedMarkTest do
 
     test "an inner activity nothing vouches for is not marked, though the group's delivery was",
          %{author_id: author_id, group: group} do
-      unsigned = create_note(author_id)
       group_id = group.data["id"]
+
+      # the post names the group, which is what makes the group's relay of a post we do not hold acceptable as it comes
+      unsigned = create_note(author_id) |> put_in(["object", "audience"], group_id)
 
       assert {:ok, _} =
                Transformer.handle_incoming(announce_of(group, unsigned),

@@ -84,12 +84,12 @@ defmodule ActivityPub.Safety.Signatures.SignatureFormatTest do
       host = "passive-rfc-#{System.unique_integer([:positive])}.example.com"
       params = %{"actor" => "https://#{host}/users/admin"}
 
-      with_mock HTTPSignatures,
-        validate: fn _conn, _opts -> host end do
+      # signed as a real sender signs a delivery: method, target and content digest, with a fresh `created`
+      with_mock HTTPSignatures, [:passthrough], validate: fn _conn, _opts -> host end do
         build_conn(:post, "/pub/shared_inbox", params)
         |> put_req_header(
           "signature-input",
-          ~s[sig1=("@method");created=123;keyid="https://#{host}/users/admin#main-key"]
+          ~s[sig1=("@method" "@target-uri" "content-digest");created=#{System.os_time(:second)};keyid="https://#{host}/users/admin#main-key"]
         )
         |> put_req_header("signature", "sig1=:dGVzdA==:")
         |> put_format("activity+json")
@@ -103,12 +103,13 @@ defmodule ActivityPub.Safety.Signatures.SignatureFormatTest do
       host = "passive-cavage-#{System.unique_integer([:positive])}.example.com"
       params = %{"actor" => "https://#{host}/users/admin"}
 
-      with_mock HTTPSignatures,
-        validate: fn _conn, _opts -> host end do
+      # signed as a real sender signs a delivery: request target, date and digest, with a fresh Date
+      with_mock HTTPSignatures, [:passthrough], validate: fn _conn, _opts -> host end do
         build_conn(:post, "/pub/shared_inbox", params)
+        |> put_req_header("date", ActivityPub.Utils.format_date())
         |> put_req_header(
           "signature",
-          ~s[keyId="https://#{host}/users/admin#main-key",algorithm="rsa-sha256",headers="(request-target) host date",signature="abc123=="]
+          ~s[keyId="https://#{host}/users/admin#main-key",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="abc123=="]
         )
         |> put_format("activity+json")
         |> HTTPSignaturePlug.call(%{})

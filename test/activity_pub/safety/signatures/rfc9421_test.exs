@@ -155,7 +155,15 @@ defmodule ActivityPub.Safety.Signatures.RFC9421Test do
     test "it detects signature-input header and sets derived components" do
       params = %{"actor" => "https://mastodon.local/users/admin"}
 
+      created = System.os_time(:second)
+
       with_mock HTTPSignatures,
+        extract_signature: fn _ ->
+          %{
+            "headers" => ["@method", "@authority", "@target-uri", "content-digest"],
+            "created" => created
+          }
+        end,
         validate: fn conn, _opts ->
           headers = Enum.into(conn.req_headers, %{})
 
@@ -170,7 +178,7 @@ defmodule ActivityPub.Safety.Signatures.RFC9421Test do
           build_conn(:post, "/pub/shared_inbox", params)
           |> put_req_header(
             "signature-input",
-            ~s[sig1=("@method" "@authority" "content-type");created=1618884475;keyid="https://mastodon.local/users/admin#main-key"]
+            ~s[sig1=("@method" "@authority" "@target-uri" "content-digest");created=#{created};keyid="https://mastodon.local/users/admin#main-key"]
           )
           |> put_req_header(
             "signature",
@@ -225,7 +233,12 @@ defmodule ActivityPub.Safety.Signatures.RFC9421Test do
     test "it passes content-digest to validation headers for RFC 9421" do
       params = %{"actor" => "https://mastodon.local/users/admin"}
 
+      created = System.os_time(:second)
+
       with_mock HTTPSignatures,
+        extract_signature: fn _ ->
+          %{"headers" => ["@method", "@target-uri", "content-digest"], "created" => created}
+        end,
         validate: fn conn, _opts ->
           headers = Enum.into(conn.req_headers, %{})
           assert headers["content-digest"] =~ "sha-256="

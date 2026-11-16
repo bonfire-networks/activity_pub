@@ -388,7 +388,7 @@ defmodule ActivityPub.Safety.SignatureTest do
             |> put_req_header("date", fresh_date)
             |> put_req_header(
               "signature",
-              "keyId=\"#{subject.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"date\",signature=\"fake\""
+              "keyId=\"#{subject.data["id"]}#main-key\",algorithm=\"rsa-sha256\",headers=\"(request-target) host date digest\",signature=\"fake\""
             )
             |> post("#{Utils.ap_base_url()}/shared_inbox", data)
           end)

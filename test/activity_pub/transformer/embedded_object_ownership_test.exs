@@ -217,53 +217,72 @@ defmodule ActivityPub.Federator.Transformer.EmbeddedObjectOwnershipTest do
       assert {:error, :not_found} = Object.get_cached(ap_id: note["id"])
     end
 
-    test "with no proof is stored as it came, marked unverified, with nothing fetched", %{
+    # nothing says the note is the sender's or the author's: it is not stored from this delivery, so it can not take the author's id. The Create is stored with the note's id only, and the adapter asks the author's server for the note, which here serves nothing
+    test "with no proof is not stored: the Create is kept with its id only", %{
       sender: sender,
       author: author,
       n: n
     } do
-      test_pid = self()
-
-      Tesla.Mock.mock(fn %{method: :get, url: url} ->
-        send(test_pid, {:fetched, url})
-        %Tesla.Env{status: 404, body: ""}
-      end)
+      origin_serves_nothing()
 
       create = create_of(sender, author, "<p>as the sender embeds it #{n}</p>")
-      note = create["object"]
-      note_id = note["id"]
+      note_id = create["object"]["id"]
 
-      assert {:ok, _} = delivered(create, :http_signature, sender.id)
+      assert {:error, _} = delivered(create, :http_signature, sender.id)
+
+      assert {:error, :not_found} = Object.get_cached(ap_id: note_id)
+
+      assert {:ok, %Object{data: %{"object" => ^note_id}}} =
+               Object.get_cached(ap_id: create["id"])
+
+      assert handed_over_note(create["id"]) == nil, "the adapter was handed no copy of the note"
+    end
+
+    test "with no proof is stored from the author's own server when it serves the note", %{
+      sender: sender,
+      author: author
+    } do
+      create = create_of(sender, author, "<p>as the sender embeds it</p>")
+      note = create["object"]
+
+      Tesla.Mock.mock(fn %{method: :get, url: url} ->
+        if url == note["id"],
+          do:
+            Tesla.Mock.json(
+              note
+              |> Map.put("@context", "https://www.w3.org/ns/activitystreams")
+              |> Map.put("content", "<p>as the author serves it</p>")
+            ),
+          else: %Tesla.Env{status: 404, body: ""}
+      end)
+
+      delivered(create, :http_signature, sender.id)
 
       assert {:ok, %Object{data: %{"content" => content}}} = Object.get_cached(ap_id: note["id"])
-      assert content =~ "as the sender embeds it"
-
-      assert %Object{authenticated: :unverified} = handed_over_note(create["id"]),
-             "unverified, which is not the same as no claim (nil)"
-
-      refute_received {:fetched, ^note_id}, "the owner's server is not asked"
+      assert content =~ "as the author serves it"
     end
 
     test "with a proof we cannot check counts as having none", %{sender: sender, author: author} do
       origin_serves_nothing()
       create = create_of(sender, author)
+      note_id = create["object"]["id"]
 
       unknown_suite =
         sign(create["object"], author.key, proof: %{"cryptosuite" => "ecdsa-rdfc-2019"})
 
       create = Map.put(create, "object", unknown_suite)
 
-      assert {:ok, _} = delivered(create, :http_signature, sender.id)
-      assert %Object{authenticated: :unverified} = handed_over_note(create["id"])
+      assert {:error, _} = delivered(create, :http_signature, sender.id)
+      assert {:error, :not_found} = Object.get_cached(ap_id: note_id)
     end
 
     test "is left alone when we fetched the Create ourselves", %{sender: sender, author: author} do
       origin_serves_nothing()
       create = create_of(sender, author)
 
-      # nobody delivered this to us, so it is not for a delivery's rules to judge
-      assert {:ok, _} =
-               Transformer.handle_incoming(create, already_fetched: create["id"])
+      # nobody delivered this to us, so it is not for a delivery's rules to judge: the note is stored as it came. The adapter still refuses to make something of a Create whose actor does not own its object
+      assert {:error, _} = Transformer.handle_incoming(create, already_fetched: create["id"])
+      assert {:ok, _} = Object.get_cached(ap_id: create["object"]["id"])
     end
   end
 

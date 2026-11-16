@@ -1503,9 +1503,17 @@ defmodule ActivityPub.Object do
   @doc "The Follow of ours that an Accept or Reject answers: the one its `object` names, else (for an Accept, which gives `to`) the one we have pending to the answering actor, see `get_pending_follow/2`."
   def get_follow_activity(follow_object, followed, to \\ nil) do
     with object_id when not is_nil(object_id) <- get_ap_id(follow_object),
-         {:ok, activity} <- get_cached(ap_id: object_id) do
+         {:ok, activity} <- get_cached(ap_id: object_id),
+         # an activity of ours answers only for the actor it was sent to: anybody else's Accept or Reject of it is not one
+         true <- answerable_by?(activity, followed) do
       {:ok, activity}
     else
+      # a refusal a retry cannot change (the ids are public, so anybody can answer with one): cancelled, not retried
+      false ->
+        reason = "The follow was not sent to the actor that answered it"
+        error(false, reason)
+        {:cancel, reason}
+
       # Can't find the activity. This might be a Mastodon 2.3 "Accept"
       nil ->
         with %{} = activity <- fetch_latest_activity(follow_object["actor"], followed, "Follow") do
@@ -1520,6 +1528,31 @@ defmodule ActivityPub.Object do
         end
     end
   end
+
+  # Whether `answerer` is the actor `activity` was sent to: the actor it names as its `object` (a Follow). For an activity of ours that is not addressed to its object, the one who rules on it: the group named as the `audience` or `target` of a moderation activity (a `Lock`, a `Block`, a removal's `Delete`), or the author of the post a `QuoteRequest` asks to quote.
+  defp answerable_by?(%Object{data: data} = activity, answerer) do
+    answerer_id = get_ap_id(answerer)
+
+    is_binary(answerer_id) and
+      (get_ap_id(data["object"]) == answerer_id or
+         (activity.local == true and rules_on?(data, answerer_id)))
+  end
+
+  defp rules_on?(%{"type" => "QuoteRequest", "object" => quoted}, answerer_id) do
+    with quoted_id when is_binary(quoted_id) <- get_ap_id(quoted),
+         {:ok, %Object{data: quoted_data}} <- get_cached(ap_id: quoted_id) do
+      get_ap_id(actor_from_data(quoted_data)) == answerer_id
+    else
+      _ -> false
+    end
+  end
+
+  defp rules_on?(%{"type" => type} = data, answerer_id)
+       when type in ["Lock", "Block", "Delete"] do
+    answerer_id in (List.wrap(data["audience"] || data["target"]) |> Enum.map(&get_ap_id/1))
+  end
+
+  defp rules_on?(_data, _answerer_id), do: false
 
   @doc "The Follow of ours that is still pending to the actor `followed`, sent by one of the actors `to` names (an id, or a map or actor holding one). `nil` when there is none, so an answer from an actor we never followed, or addressed to somebody else, matches nothing."
   def get_pending_follow(followed, to) do
@@ -1536,6 +1569,18 @@ defmodule ActivityPub.Object do
       end)
     else
       _ -> nil
+    end
+  end
+
+  @doc "Whether an actor of ours follows the actor `followed`, and was accepted: one query that only checks for a Follow of ours to it in the state an Accept leaves it in."
+  def accepted_local_follow?(followed) do
+    with followed_id when is_binary(followed_id) <- get_ap_id(followed) do
+      Queries.by_type("Follow")
+      |> Queries.by_object_id(followed_id)
+      |> where([a], a.local == true and fragment("(?)->>'state' = 'accept'", a.data))
+      |> repo().exists?()
+    else
+      _ -> false
     end
   end
 

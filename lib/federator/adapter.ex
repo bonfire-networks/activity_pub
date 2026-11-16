@@ -491,7 +491,9 @@ defmodule ActivityPub.Federator.Adapter do
   @doc """
   Creates an internal service actor by username, if missing.
 
-  # TODO: make the application actor discoverable with https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md and https://codeberg.org/fediverse/fep/src/branch/main/fep/2677/fep-2677.md
+  Done, was: TODO: make the application actor discoverable with https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md and https://codeberg.org/fediverse/fep/src/branch/main/fep/2677/fep-2677.md
+
+  Discovery is now through FEP-d556 WebFinger (`ActivityPub.Federator.WebFinger`, `webfinger.ex:81` and `:176`) and the FEP-2677 application actor link in nodeinfo (`ActivityPub.Instances`, `instances.ex:265`).
   """
   @callback get_or_create_service_actor() :: Actor.t() | nil
   def get_or_create_service_actor() do

@@ -36,9 +36,15 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlugTest do
     params = %{"actor" => "https://mastodon.local/users/admin"}
     conn = build_conn(:post, "/doesntmattter", params)
 
-    with_mock HTTPSignatures, validate: fn _, _ -> true end do
+    # a delivery as a real sender signs it: the request target, the date and the digest are covered, and a fresh Date is sent
+    with_mock HTTPSignatures,
+      validate: fn _, _ -> true end,
+      extract_signature: fn _ ->
+        %{"headers" => ["(request-target)", "host", "date", "digest"]}
+      end do
       conn =
         conn
+        |> put_req_header("date", ActivityPub.Utils.format_date())
         |> put_req_header(
           "signature",
           "keyId=\"https://mastodon.local/users/admin#main-key"

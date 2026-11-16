@@ -74,6 +74,19 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
           validated?
         end
 
+      # A signature on a delivery has to vouch for the request, the body and the time: otherwise it can be put on any body, or replayed whenever. A delivery that fails this is treated like an unsigned one (`valid_signature` false), as with a stale Date.
+      validated? =
+        if is_binary(validated?) and http_method == "POST" and
+             not delivery_covered?(conn, has_rfc9421?) do
+          warn(
+            "Signature does not cover the request target, body and time, treating it as invalid"
+          )
+
+          false
+        else
+          validated?
+        end
+
       assign(
         conn,
         :valid_signature,
@@ -184,6 +197,36 @@ defmodule ActivityPub.Web.Plugs.HTTPSignaturePlug do
       _ ->
         # No Date header — don't reject on date alone
         true
+    end
+  end
+
+  # What a POST's signature must cover. Cavage: `(request-target)`, `date` and `digest`, with a `Date` header present and fresh. `host` is not required and the `algorithm` is not looked at (some senders put `hs2019` without `(created)`). RFC 9421: `@method`, `@target-uri` and `content-digest`, with `created` present and fresh. The digest itself is recomputed from the body by the DigestPlug and used in place of the header when validating.
+  defp delivery_covered?(conn, true = _rfc9421?) do
+    with %{"headers" => covered, "created" => created} when is_list(covered) <-
+           HTTPSignatures.extract_signature(conn),
+         true <- Enum.all?(["@method", "@target-uri", "content-digest"], &(&1 in covered)),
+         true <- is_integer(created) do
+      abs(System.os_time(:second) - created) <= @max_clock_skew_seconds
+    else
+      _ -> false
+    end
+  end
+
+  defp delivery_covered?(conn, false = _rfc9421?) do
+    with %{"headers" => covered} when is_list(covered) <- HTTPSignatures.extract_signature(conn),
+         true <- Enum.all?(["(request-target)", "date", "digest"], &(&1 in covered)) do
+      date_present_and_fresh?(conn)
+    else
+      _ -> false
+    end
+  end
+
+  defp date_present_and_fresh?(conn) do
+    with [date_str] <- get_req_header(conn, "date"),
+         {:ok, request_time} <- parse_http_date(date_str) do
+      abs(DateTime.diff(DateTime.utc_now(), request_time)) <= @max_clock_skew_seconds
+    else
+      _ -> false
     end
   end
 

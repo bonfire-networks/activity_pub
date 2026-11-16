@@ -144,12 +144,20 @@ defmodule ActivityPub.Web.IncomingActivityPubController do
           "params" => debug(params, "incoming_unverified_ap_doc params"),
           "headers" => Enum.into(conn.req_headers, %{})
         },
-        worker_args
+        # The same document delivered again (by anyone, as nothing signs it) is one job, whichever worker its type routes it to: it is verified once, however often it is posted. The headers differ per request, so only the document counts.
+        worker_args ++
+          [
+            unique: [
+              period: 600,
+              fields: [:args, :worker],
+              keys: [:params],
+              states: [:available, :scheduled, :executing, :retryable, :completed]
+            ]
+          ]
       )
       |> debug("verification enqueued or processed")
 
-      Instances.handle_successful_contact(params["actor"])
-
+      # (the host is marked reachable by the worker, once the delivery is verified)
       conn
       |> Utils.maybe_advertise_accept_signature()
       |> json("tbd")

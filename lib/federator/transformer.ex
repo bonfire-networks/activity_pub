@@ -619,6 +619,7 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_in_reply_to(%{"inReplyTo" => in_reply_to} = object, options)
       when not is_nil(in_reply_to) do
     with in_reply_to_id when is_binary(in_reply_to_id) <- Utils.single_ap_id(in_reply_to),
+         # TODO: a parent we don't hold is fetched for every reply, recursively up the thread; the reply could instead be threaded under a placeholder for its parent (the adapter's `get_or_create_placeholder`), and the parent fetched when someone opens the thread
          _ <-
            Fetcher.maybe_fetch(
              in_reply_to_id,
@@ -889,7 +890,10 @@ defmodule ActivityPub.Federator.Transformer do
   def fix_emoji(%{"tag" => tags} = object) when is_list(tags) do
     emoji =
       tags
-      |> Enum.filter(fn data -> is_map(data) and data["type"] == "Emoji" and data["icon"] end)
+      |> Enum.filter(fn data ->
+        is_map(data) and data["type"] == "Emoji" and is_map(data["icon"]) and
+          plain_http_url?(data["icon"]["url"])
+      end)
       |> Enum.reduce(%{}, fn data, mapping ->
         name = String.trim(data["name"], ":")
 
@@ -901,12 +905,30 @@ defmodule ActivityPub.Federator.Transformer do
 
   def fix_emoji(%{"tag" => %{"type" => "Emoji"} = tag} = object) do
     name = String.trim(tag["name"], ":")
-    emoji = %{name => tag["icon"]["url"]}
+
+    emoji =
+      if is_map(tag["icon"]) and plain_http_url?(tag["icon"]["url"]),
+        do: %{name => tag["icon"]["url"]},
+        else: %{}
 
     Map.put(object, "emoji", emoji)
   end
 
   def fix_emoji(object), do: object
+
+  # an emoji image address is kept only as a plain http(s) URL (no quotes, spaces or markup characters)
+  defp plain_http_url?(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host}
+      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+        not String.match?(url, ~r/[\s\x00-\x1f<>"'`\\]/)
+
+      _ ->
+        false
+    end
+  end
+
+  defp plain_http_url?(_), do: false
 
   def fix_tag(%{"tag" => tags} = object) when is_list(tags) do
     # tags =
@@ -1406,17 +1428,26 @@ defmodule ActivityPub.Federator.Transformer do
       |> debug("the actor_id")
 
     with :ok <- check_embedded_origin(received_object, actor_id, opts),
-         {:ok, {object_authenticated, object_signed_by}} <-
+         {:ok, authentication} <-
            embedded_object_authentication(received_object, actor_id, opts),
-         # for the row of the object and for the adapter, which is handed the stored object inside the `Create`
-         opts =
-           opts
-           |> Keyword.put(:object_authenticated, object_authenticated)
-           |> Keyword.put(:object_signed_by, object_signed_by),
-         {:ok, actor} <- resolve_author(actor_id, opts),
-         # after the checks, so a `Create` that is refused leaves nothing behind
-         object = ingest_nested_objects(object, data, opts) do
-      handle_incoming_create(data, object, actor, opts)
+         {:ok, actor} <- resolve_author(actor_id, opts) do
+      case authentication do
+        # the `Create` is stored with the object's id only: the object is not ours to store from this delivery, so the adapter gets an id and fetches it from its origin (stored only if the origin serves it)
+        {:reference_only, object_id} ->
+          handle_incoming_create(Map.put(data, "object", object_id), object_id, actor, opts)
+
+        {object_authenticated, object_signed_by} ->
+          # for the row of the object and for the adapter, which is handed the stored object inside the `Create`
+          opts =
+            opts
+            |> Keyword.put(:object_authenticated, object_authenticated)
+            |> Keyword.put(:object_signed_by, object_signed_by)
+
+          # after the checks, so a `Create` that is refused leaves nothing behind
+          object = ingest_nested_objects(object, data, opts)
+
+          handle_incoming_create(data, object, actor, opts)
+      end
     end
   end
 
@@ -1509,9 +1540,10 @@ defmodule ActivityPub.Federator.Transformer do
   #
   #   * a valid proof by its owner: authenticated by it (`:integrity_proof`)
   #   * a proof that fails, or is somebody else's: evidence against the object, so it is refused
-  #   * no proof, or one we cannot check (an unknown suite, a key we cannot fetch): kept, `:unverified`, and nothing is fetched
+  #   * no proof, or one we cannot check (an unknown suite, a key we cannot fetch), and the `Create`'s actor is not among the object's owners: the object is not stored from this delivery, as it would take its owner's id for a copy nobody vouched for. The `Create` is stored with the object's id only, and the object is fetched from its origin when something needs it (`{:reference_only, id}`)
+  #   * no proof, but the `Create`'s actor is one of several owners of the object (a PeerTube video owned by a person and their channel): kept, `:unverified`, and nothing is fetched
   #
-  # Returns `{authenticated, signed_by}`, with `nil` for neither: what an object gets when the `Create` was not authenticated as its owner, which `Object.authentication/1` then settles by how the document arrived. Only for a DELIVERY: a document we fetched ourselves, or a local one, is not for these rules to judge.
+  # Returns `{authenticated, signed_by}`, with `nil` for neither: what an object gets when the `Create` was not authenticated as its owner, which `Object.authentication/1` then settles by how the document arrived. Or `{:reference_only, id}`, as above. Only for a DELIVERY: a document we fetched ourselves, or a local one, is not for these rules to judge.
   defp embedded_object_authentication(%{} = object, wrapper_actor_id, opts) do
     owner = embedded_owner(object)
 
@@ -1541,8 +1573,13 @@ defmodule ActivityPub.Federator.Transformer do
           _no_proof_or_unverifiable ->
             case ActivityPub.Safety.LinkedDataSignatures.has_verifiable_signature?(object) &&
                    ActivityPub.Safety.author_signature(object) do
-              {:ok, :ld_signature} -> {:ok, {:ld_signature, owner}}
-              _ -> {:ok, {:unverified, nil}}
+              {:ok, :ld_signature} ->
+                {:ok, {:ld_signature, owner}}
+
+              _ ->
+                if is_binary(object["id"]) and wrapper_actor_id not in owner_ids(object),
+                  do: {:ok, {:reference_only, object["id"]}},
+                  else: {:ok, {:unverified, nil}}
             end
         end
     end
@@ -1636,6 +1673,18 @@ defmodule ActivityPub.Federator.Transformer do
 
   defp maybe_replace_object(_object, _sender, _opts), do: :ok
 
+  # The `Create` we hold for this object, if any. A `Create` held with the object's id only (one whose embedded object was not stored from that delivery) is no `Create` of this object while we hold no copy of it: the copy that arrives now (fetched from its origin) gets a `Create` of its own and is stored.
+  defp stored_create_of(%{"id" => id} = object) when is_binary(id) do
+    with %Object{} = stored <- Object.get_activity_for_object_ap_id(object) do
+      case Object.get_cached(ap_id: id) do
+        {:ok, _held} -> stored
+        _ -> nil
+      end
+    end
+  end
+
+  defp stored_create_of(object), do: Object.get_activity_for_object_ap_id(object)
+
   defp handle_incoming_create(data, object, actor, opts) do
     params = %{
       activity_id: data["id"],
@@ -1655,7 +1704,7 @@ defmodule ActivityPub.Federator.Transformer do
         ])
     }
 
-    with nil <- Object.get_activity_for_object_ap_id(object) do
+    with nil <- stored_create_of(object) do
       # an object we hold whose `Create` we never stored (it came nested in another object, in a boost, or by a fetch) is replaced by the same rule as when its `Create` arrives again
       with :ok <- maybe_replace_object(object, actor, opts),
            do: ActivityPub.create(params, as_received(opts, data))
@@ -1746,6 +1795,9 @@ defmodule ActivityPub.Federator.Transformer do
       )
       |> debug("accept result")
     else
+      {:cancel, _} = cancel ->
+        cancel
+
       # an Accept of a join that was not ours (a group telling its members it admitted someone, with the `Join` or `Member` inline): nothing of ours to settle, so it is stored and handed to the adapter, which decides whether the actor may say so
       e ->
         case follow_object do
@@ -1789,6 +1841,9 @@ defmodule ActivityPub.Federator.Transformer do
       )
       |> debug("reject result")
     else
+      {:cancel, _} = cancel ->
+        cancel
+
       e ->
         error(e, "Could not handle incoming Reject")
     end
@@ -1821,6 +1876,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached_or_fetch(ap_id: actor),
+         # TODO: a Like of an object we don't hold has nothing local to attach to, so it could be dropped without fetching the object (and the adapter not fetch it either)
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          {:ok, activity} <-
            ActivityPub.like(
@@ -2005,7 +2061,10 @@ defmodule ActivityPub.Federator.Transformer do
       handle_collection_add_remove(data, "Add", inner_activity, data["target"], opts)
     else
       with {:ok, inner_activity, mark} <-
-             verify_relayed_activity(inner_activity, Keyword.put(opts, :relayed_by, actor)),
+             verify_relayed_activity(
+               inner_activity,
+               opts |> Keyword.put(:relayed_by, actor) |> Keyword.put(:relayed_in_container, true)
+             ),
            # the container's own id, so a reply can quote it back
            inner_activity =
              Map.put_new(inner_activity, "context", container),
@@ -2116,12 +2175,22 @@ defmodule ActivityPub.Federator.Transformer do
 
   # `:trust` takes a relayed activity as it comes from the post's own group (FEP-1b12), but not from just any relayer: a relay of an activity about a post we hold, by an actor that is not in that post's `audience`, is checked against the origin as under `:verify`, or anyone could close, reopen or rewrite someone else's post by wrapping an `Update` of it in an `Announce`
   defp maybe_refetch_relayed_activity(inner_activity, opts) do
-    its_group? = relayed_by_its_group?(inner_activity, opts[:relayed_by])
+    standing =
+      relayer_standing(inner_activity, opts[:relayed_by], opts[:relayed_in_container] == true)
 
-    if relayed_activity_trust() != :verify and its_group? do
-      {:ok, inner_activity, {nil, nil}}
-    else
-      verify_relayed_against_origin(inner_activity, its_group?, opts)
+    trusting? = relayed_activity_trust() != :verify
+
+    cond do
+      trusting? and standing == :group ->
+        {:ok, inner_activity, {nil, nil}}
+
+      # a post we do not hold, from a relayer that is not known to be its group: the `Create` is kept with the post's id only, and nothing is stored under that id. The adapter fetches the post from its origin when it needs it, and stores it only if the origin serves it
+      trusting? and standing == :unheld_not_group ->
+        {:ok, Map.put(inner_activity, "object", Object.get_ap_id(inner_activity["object"])),
+         {nil, nil}}
+
+      true ->
+        verify_relayed_against_origin(inner_activity, standing == :group, opts)
     end
   end
 
@@ -2174,17 +2243,40 @@ defmodule ActivityPub.Federator.Transformer do
     end
   end
 
-  # whether the relayer is the group the post is in: named in the `audience` of the copy we HOLD (what the relay writes into the activity proves nothing, as it can name itself). A post we don't hold yet is the 1b12 trade-off, as before: taken from the relay
-  defp relayed_by_its_group?(inner_activity, relayer) do
+  # whether the relayer is the group the post is in:
+  # * a post we HOLD: the relayer is named in the `audience` of our copy (what the relay writes into the activity proves nothing, as it can name itself): `:group`, else `:not_group`
+  # * a `Create` of a post we do not hold: `:group` only when the relayer is a Group (as we have it cached), named in the `audience` of the post it carries, and followed by an actor of ours, which is a group we chose to join. Anybody else (an ordinary actor, or a group nobody here follows, which anyone can run) is `:unheld_not_group`: what it says about the post is its own word. The checks run from the cheapest, and the one query comes last: no fetch, no list loaded
+  # * any other relayed activity about a post we do not hold: `:group`, as before (the 1b12 trade-off)
+  # `container?`: the relayer added the activity to its own container (FEP-171b), which is how that family names its group, in place of the `audience` of the post
+  defp relayer_standing(inner_activity, relayer, container?) do
     case Object.get_cached(ap_id: Object.get_ap_id(inner_activity["object"])) do
       {:ok, %Object{data: stored}} ->
-        is_binary(relayer) and
-          relayer in Enum.map(List.wrap(stored["audience"]), &Object.get_ap_id/1)
+        if is_binary(relayer) and
+             relayer in Enum.map(List.wrap(stored["audience"]), &Object.get_ap_id/1),
+           do: :group,
+           else: :not_group
 
       _ ->
-        true
+        case inner_activity do
+          %{"type" => "Create", "object" => %{"id" => id} = embedded} when is_binary(id) ->
+            if followed_group_naming_in_audience?(relayer, embedded, container?),
+              do: :group,
+              else: :unheld_not_group
+
+          _ ->
+            :group
+        end
     end
   end
+
+  defp followed_group_naming_in_audience?(relayer, embedded, container?)
+       when is_binary(relayer) do
+    (container? or relayer in Enum.map(List.wrap(embedded["audience"]), &Object.get_ap_id/1)) and
+      match?({:ok, %Actor{data: %{"type" => "Group"}}}, Actor.get_cached(ap_id: relayer)) and
+      Object.accepted_local_follow?(relayer)
+  end
+
+  defp followed_group_naming_in_audience?(_relayer, _embedded, _container?), do: false
 
   # what we fetched ourselves from the origin is the origin speaking, so it is the actor's, as far as the origin vouches for it. But we fetched the OBJECT of the activity: for a `Create` or `Update` that is its content, for a `Lock`, a `Block`, a `Delete` or an `Undo` it is only what the activity is about, and the rest (who acted, why, in which group) is still the relayer's word, so it is not marked as fetched
   defp fetched_from_origin(%{"type" => type} = inner_activity) when type in ["Create", "Update"],
@@ -2495,6 +2587,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached(ap_id: actor),
+         # TODO: undoing a boost of an object we don't hold has nothing to undo, so it could be dropped without fetching the object
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          {:ok, activity} <-
            ActivityPub.unannounce(
@@ -2524,6 +2617,7 @@ defmodule ActivityPub.Federator.Transformer do
 
     with actor <- Object.actor_from_data(data),
          {:ok, actor} <- Actor.get_cached(ap_id: actor),
+         # TODO: undoing a Like of an object we don't hold has nothing to undo, so it could be dropped without fetching the object
          {:ok, object} <- object_normalize_and_maybe_fetch(object_id, opts),
          {:ok, activity} <-
            ActivityPub.unlike(
@@ -2641,17 +2735,19 @@ defmodule ActivityPub.Federator.Transformer do
     # only a deletion we received can be taken back: the origin serving the actor says nothing about who archived our copy, and an admin here may have
     with {:deleted, %Object{local: false}} <-
            {:deleted, Object.get_activity_for_object_ap_id(object_id, "Delete")},
-         {:ok, %{"type" => type}} when is_in(type, :supported_actor_types) <-
+         # the document must be the actor itself: an origin can answer an address with another actor's document
+         {:ok, %{"type" => type, "id" => ^object_id}} when is_in(type, :supported_actor_types) <-
            Fetcher.fetch_remote_object_from_id(object_id) |> debug("served again?"),
          {:ok, _} <- Adapter.call_or(:undelete_remote_actor, [object_id], {:ok, nil}),
+         # TODO: this fetches the actor from its origin a second time (`update_actor/3` with `true` fetches it fresh): pass the document fetched above instead
          {:ok, actor} <- Actor.update_actor(object_id, nil, true) do
       {:ok, actor}
     else
       {:deleted, _} ->
         error(object_id, "Not the Undo of a Delete of this actor that we received")
 
-      {:ok, %{"type" => _not_an_actor}} ->
-        error(object_id, "Only the restoring of an actor is supported")
+      {:ok, %{"type" => _}} ->
+        error(object_id, "The origin does not serve this actor at its address")
 
       e ->
         error(e, "Could not handle an incoming Undo of a Delete")
@@ -3112,7 +3208,7 @@ defmodule ActivityPub.Federator.Transformer do
       {:ok, activity}
     else
       {:error, :not_found} ->
-        handle_activity_with_pruned_object(data, "Delete", opts)
+        handle_delete_of_unheld_object(data, object, object_id, opts)
 
       {:actor, true, verified_data} ->
         debug("it's an actor!")
@@ -3174,6 +3270,24 @@ defmodule ActivityPub.Federator.Transformer do
       e ->
         error(e, "Could not handle incoming deletion")
     end
+  end
+
+  # A `Delete` of an object with no row here (pruned, while the adapter still holds what it made). Only the origin can say what it is: gone (or a Tombstone) there, and the adapter is handed a Tombstone of our own making; still served, and it is handed the bare id, so it sees an object that exists (and applies the `Delete` only for the object's own author, who needs no word from the origin). Neither an inline Tombstone nor a `formerType` the sender wrote is believed.
+  defp handle_delete_of_unheld_object(data, object, object_id, opts) do
+    data =
+      case check_remote_object_deleted(object, opts[:already_fetched]) do
+        {:ok, _} ->
+          tombstone =
+            %{"id" => object_id, "type" => "Tombstone"}
+            |> Utils.maybe_put("formerType", if(is_map(object), do: object["formerType"]))
+
+          Map.put(data, "object", tombstone)
+
+        _ ->
+          data |> Map.delete("formerType") |> Map.put("object", object_id)
+      end
+
+    handle_activity_with_pruned_object(data, "Delete", opts)
   end
 
   defp held_actor?(object_id) do

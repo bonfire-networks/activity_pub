@@ -2,7 +2,7 @@ defmodule ActivityPub.Federator.HTTP.RetryAfterTest do
   @moduledoc """
   Honouring a remote's `Retry-After` when it rate limits us.
 
-  A 429 is answered by rescheduling rather than retrying: inside an Oban worker the middleware raises `RateLimitSnooze`, which `ActivityPub.Federator.Worker` turns into `{:snooze, seconds}`, so the job waits as long as the remote asked and the attempt is not spent. Outside a worker there is no job to reschedule, so it waits inline and re-runs the request.
+  A 429 is answered by rescheduling rather than retrying: inside an Oban worker the middleware raises `RateLimitSnooze`, which `ActivityPub.Federator.Worker` turns into `{:snooze, seconds}`, so the job waits as long as the remote asked and the attempt is not spent. Outside a worker there is no job to reschedule, so the 429 is returned at once and the request is not repeated.
 
   The header's VALUE decides the delay, which is what these pin: reading the header as a mere presence check gave `true` rather than the number, and `String.to_integer/1` then raised, so a 429 that carried a `Retry-After` fell back to ordinary backoff while one without it snoozed correctly.
   """
@@ -58,7 +58,7 @@ defmodule ActivityPub.Federator.HTTP.RetryAfterTest do
              ActivityPub.Config.get([RetryAfter, :default_retry_after_sec], 10)
   end
 
-  # Outside a worker there is no job to reschedule, so the only way to honour a delay is to BLOCK, which means holding that process and any connection it has checked out. Fine for a couple of seconds, not for the hour a remote is entitled to ask for, so past a threshold we hand the 429 back instead and let the caller fail normally. Inside a worker the same delay costs nothing, so it is honoured whole.
+  # Outside a worker there is no job to reschedule, so the only way to honour a delay is to BLOCK, which means holding that process and any connection it has checked out, so we hand the 429 back instead and let the caller fail normally. Inside a worker the same delay costs nothing, so it is honoured whole.
   test "outside a worker a long wait is not waited for" do
     assert {:ok, %{status: 429}} =
              Tesla.get(client(429, [{"retry-after", "3600"}]), "https://remote.local/inbox")
@@ -69,13 +69,17 @@ defmodule ActivityPub.Federator.HTTP.RetryAfterTest do
                     "blocking a web request for an hour to be polite is worse than answering it"
   end
 
-  test "outside a worker it waits and re-runs the request" do
-    # `0` so the inline wait costs nothing: what is under test is that the request is repeated, not how long we slept for
-    assert {:ok, %{status: 429}} =
-             Tesla.get(client(429, [{"retry-after", "0"}]), "https://remote.local/inbox")
+  test "outside a worker even a short wait is not waited for, and the request is not repeated" do
+    {micros, result} =
+      :timer.tc(fn ->
+        Tesla.get(client(429, [{"retry-after", "2"}]), "https://remote.local/inbox")
+      end)
+
+    assert {:ok, %{status: 429}} = result
+    assert div(micros, 1000) < 1000, "the 429 was held back for the remote's delay"
 
     assert_received :requested
-    assert_received :requested
+    refute_received :requested
   end
 
   # RFC 9110 allows `Retry-After` on a 503 too, and we do honour it, but in the PUBLISHER, not here. A 503 says the host is in trouble, which is something the publisher has to see: absorbing it into a snooze would mean the host is never flagged, so the reachability clock never starts and per-host pacing never engages. A 429 can be handled below the publisher precisely because it does NOT count against the host.

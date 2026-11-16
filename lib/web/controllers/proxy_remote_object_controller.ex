@@ -28,6 +28,13 @@ defmodule ActivityPub.Web.ProxyRemoteObjectController do
         |> json(%{error: "Authentication required"})
         |> halt()
 
+      # our limit on requests to that host is used up (or the host rate limited us): refused at once instead of holding this request
+      {:error, :rate_limited} ->
+        conn
+        |> put_status(:too_many_requests)
+        |> json(%{error: "Too many requests to that server, try again later"})
+        |> halt()
+
       # also for fetches refused by the block/allow lists or the SSRF guard: the same answer as "not found", so callers can't use the proxy to probe which addresses exist
       {:error, _} ->
         conn

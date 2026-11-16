@@ -1674,16 +1674,20 @@ defmodule ActivityPub.Federator.Transformer do
   defp maybe_replace_object(_object, _sender, _opts), do: :ok
 
   # The `Create` we hold for this object, if any. A `Create` held with the object's id only (one whose embedded object was not stored from that delivery) is no `Create` of this object while we hold no copy of it: the copy that arrives now (fetched from its origin) gets a `Create` of its own and is stored.
-  defp stored_create_of(%{"id" => id} = object) when is_binary(id) do
-    with %Object{} = stored <- Object.get_activity_for_object_ap_id(object) do
-      case Object.get_cached(ap_id: id) do
-        {:ok, _held} -> stored
-        _ -> nil
+  # Except that the very `Create` arriving again (same activity id, eg. the one we make for a document we fetch, which has the same id every time) is that `Create`, whether or not its object has a row of its own: storing it again would only collide with it.
+  defp stored_create_of(object, activity_id \\ nil)
+
+  defp stored_create_of(%{"id" => id} = object, activity_id) when is_binary(id) do
+    with %Object{data: stored_data} = stored <- Object.get_activity_for_object_ap_id(object) do
+      cond do
+        match?({:ok, _held}, Object.get_cached(ap_id: id)) -> stored
+        is_binary(activity_id) and stored_data["id"] == activity_id -> stored
+        true -> nil
       end
     end
   end
 
-  defp stored_create_of(object), do: Object.get_activity_for_object_ap_id(object)
+  defp stored_create_of(object, _activity_id), do: Object.get_activity_for_object_ap_id(object)
 
   defp handle_incoming_create(data, object, actor, opts) do
     params = %{
@@ -1704,7 +1708,7 @@ defmodule ActivityPub.Federator.Transformer do
         ])
     }
 
-    with nil <- stored_create_of(object) do
+    with nil <- stored_create_of(object, data["id"]) do
       # an object we hold whose `Create` we never stored (it came nested in another object, in a boost, or by a fetch) is replaced by the same rule as when its `Create` arrives again
       with :ok <- maybe_replace_object(object, actor, opts),
            do: ActivityPub.create(params, as_received(opts, data))
@@ -2245,7 +2249,7 @@ defmodule ActivityPub.Federator.Transformer do
 
   # whether the relayer is the group the post is in:
   # * a post we HOLD: the relayer is named in the `audience` of our copy (what the relay writes into the activity proves nothing, as it can name itself): `:group`, else `:not_group`
-  # * a `Create` of a post we do not hold: `:group` only when the relayer is a Group (as we have it cached), named in the `audience` of the post it carries, and followed by an actor of ours, which is a group we chose to join. Anybody else (an ordinary actor, or a group nobody here follows, which anyone can run) is `:unheld_not_group`: what it says about the post is its own word. The checks run from the cheapest, and the one query comes last: no fetch, no list loaded
+  # * a `Create` or an `Update` of a post we do not hold (an `Update` would otherwise make the post, under its id, from the relayer's word alone): `:group` only when the relayer is a Group (as we have it cached), named in the `audience` of the post it carries, and followed by an actor of ours, which is a group we chose to join. Anybody else (an ordinary actor, or a group nobody here follows, which anyone can run) is `:unheld_not_group`: what it says about the post is its own word. The checks run from the cheapest, and the one query comes last: no fetch, no list loaded
   # * any other relayed activity about a post we do not hold: `:group`, as before (the 1b12 trade-off)
   # `container?`: the relayer added the activity to its own container (FEP-171b), which is how that family names its group, in place of the `audience` of the post
   defp relayer_standing(inner_activity, relayer, container?) do
@@ -2258,7 +2262,8 @@ defmodule ActivityPub.Federator.Transformer do
 
       _ ->
         case inner_activity do
-          %{"type" => "Create", "object" => %{"id" => id} = embedded} when is_binary(id) ->
+          %{"type" => type, "object" => %{"id" => id} = embedded}
+          when type in ["Create", "Update"] and is_binary(id) ->
             if followed_group_naming_in_audience?(relayer, embedded, container?),
               do: :group,
               else: :unheld_not_group

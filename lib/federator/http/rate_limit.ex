@@ -42,19 +42,19 @@ defmodule ActivityPub.Federator.HTTP.RateLimit do
           Tesla.run(env, next)
 
         {:deny, retry_after} ->
-          # Wait for the retry period (but cap it at scale_ms to avoid excessive delays)
-          wait_ms = min(retry_after, scale_ms)
-
           if ProcessTree.get(:ap_oban_worker) do
             wait_sec = snooze_seconds(retry_after, scale_ms)
             info(wait_sec, "HTTP client rate limit reached, snoozing (seconds)")
 
             raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: wait_sec
           else
-            info(wait_ms, "HTTP client rate limit reached, waiting (ms)")
+            # with no job to reschedule, the request is refused at once and not sent: waiting would hold the caller (often a web request) for the rest of the window, and sending after the wait would break the limit
+            info(
+              retry_after,
+              "HTTP client rate limit reached, refusing the request (retry after ms)"
+            )
 
-            :timer.sleep(wait_ms)
-            Tesla.run(env, next)
+            {:error, :rate_limited}
           end
       end
     end

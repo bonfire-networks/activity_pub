@@ -1535,8 +1535,22 @@ defmodule ActivityPub.Object do
 
     is_binary(answerer_id) and
       (get_ap_id(data["object"]) == answerer_id or
-         (activity.local == true and rules_on?(data, answerer_id)))
+         (activity.local == true and rules_on?(data, answerer_id)) or
+         (activity.local == true and moderator_on_group_host?(data, answerer_id)))
   end
+
+  # A group's moderators answer a `Join` of ours in its name (Mobilizon sends the Accept or Reject of a join to a moderated group from the moderator's own account, not from the group actor, and lists no moderators to check against). Only for a `Join`, and only from an account on the very host of the group joined: that server speaks for its group anyway (it could send the answer as the group), and what such an answer settles is our own pending request. An account on another host never answers for it.
+  defp moderator_on_group_host?(%{"type" => "Join", "object" => group}, answerer_id) do
+    with group_id when is_binary(group_id) <- get_ap_id(group),
+         %URI{host: host, port: port} when is_binary(host) and host != "" <- URI.parse(group_id),
+         %URI{host: ^host, port: ^port} <- URI.parse(answerer_id) do
+      true
+    else
+      _ -> false
+    end
+  end
+
+  defp moderator_on_group_host?(_data, _answerer_id), do: false
 
   defp rules_on?(%{"type" => "QuoteRequest", "object" => quoted}, answerer_id) do
     with quoted_id when is_binary(quoted_id) <- get_ap_id(quoted),

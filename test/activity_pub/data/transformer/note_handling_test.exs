@@ -673,13 +673,21 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
     test "returns object with emoji when object contains list tags" do
       assert Transformer.fix_emoji(%{
                "tag" => [
-                 %{"type" => "Emoji", "name" => ":bib:", "icon" => %{"url" => "/test"}},
+                 %{
+                   "type" => "Emoji",
+                   "name" => ":bib:",
+                   "icon" => %{"url" => "https://example.local/test.png"}
+                 },
                  %{"type" => "Hashtag"}
                ]
              }) == %{
-               "emoji" => %{"bib" => "/test"},
+               "emoji" => %{"bib" => "https://example.local/test.png"},
                "tag" => [
-                 %{"icon" => %{"url" => "/test"}, "name" => ":bib:", "type" => "Emoji"},
+                 %{
+                   "icon" => %{"url" => "https://example.local/test.png"},
+                   "name" => ":bib:",
+                   "type" => "Emoji"
+                 },
                  %{"type" => "Hashtag"}
                ]
              }
@@ -687,11 +695,37 @@ defmodule ActivityPub.Federator.Transformer.NoteHandlingTest do
 
     test "returns object with emoji when object contains map tag" do
       assert Transformer.fix_emoji(%{
-               "tag" => %{"type" => "Emoji", "name" => ":bib:", "icon" => %{"url" => "/test"}}
+               "tag" => %{
+                 "type" => "Emoji",
+                 "name" => ":bib:",
+                 "icon" => %{"url" => "https://example.local/test.png"}
+               }
              }) == %{
-               "emoji" => %{"bib" => "/test"},
-               "tag" => %{"icon" => %{"url" => "/test"}, "name" => ":bib:", "type" => "Emoji"}
+               "emoji" => %{"bib" => "https://example.local/test.png"},
+               "tag" => %{
+                 "icon" => %{"url" => "https://example.local/test.png"},
+                 "name" => ":bib:",
+                 "type" => "Emoji"
+               }
              }
+    end
+
+    test "drops an emoji whose icon url is not an absolute http(s) url" do
+      for url <- ["/test", "javascript:alert(1)", "https://example.local/a\" onerror=\"x"] do
+        assert %{"emoji" => emoji} =
+                 Transformer.fix_emoji(%{
+                   "tag" => [%{"type" => "Emoji", "name" => ":bib:", "icon" => %{"url" => url}}]
+                 })
+
+        assert emoji == %{}, "kept an emoji with icon url #{inspect(url)}"
+
+        assert %{"emoji" => emoji} =
+                 Transformer.fix_emoji(%{
+                   "tag" => %{"type" => "Emoji", "name" => ":bib:", "icon" => %{"url" => url}}
+                 })
+
+        assert emoji == %{}, "kept an emoji with icon url #{inspect(url)}"
+      end
     end
   end
 

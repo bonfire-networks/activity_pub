@@ -4,7 +4,7 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
 
   Inside an Oban worker a 429 raises `RateLimitSnooze`, which `ActivityPub.Federator.Worker` turns into `{:snooze, seconds}`: the job is rescheduled for as long as the remote asked, and since snoozing raises `max_attempts` alongside `attempt`, waiting costs no retry.
 
-  Elsewhere there is no job to reschedule, so the only way to honour a delay is to block the caller and its database connection with it. That is fine for a moment and wrong for the hour a remote is entitled to ask for, so a short wait is taken inline and repeated, while a long one gives the 429 back to the caller (`:max_inline_wait_sec`).
+  Elsewhere there is no job to reschedule, and the only way to honour a delay is to block the caller and its database connection with it, so the 429 goes back to the caller at once and the request is not repeated.
 
   Only 429 is handled here. A 503 also carries `Retry-After` and is honoured in `APPublisher`, because it says the HOST is in trouble: absorbing it into a snooze would keep that from ever reaching the failure handling that records it.
 
@@ -47,7 +47,7 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
     end
   end
 
-  defp handle_rate_limited(result, retry_after, env, next, _opts) do
+  defp handle_rate_limited(result, retry_after, _env, _next, _opts) do
     debug(result, "handle HTTP 429: Too Many Requests")
 
     cond do
@@ -55,17 +55,18 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
         info(retry_after, "Rate limited, rescheduling the job in (seconds)")
         raise ActivityPub.Federator.HTTP.RateLimitSnooze, wait_sec: retry_after
 
-      retry_after <= max_inline_wait_sec() ->
-        :timer.sleep(retry_after * 1000)
-
-        # the ORIGINAL env and the REST of the stack, which is what a repeat needs: retrying the result of the first attempt is not a request
-        Tesla.run(env, next)
+      # (was: a wait up to `max_inline_wait_sec/0` was slept inline and the request repeated)
+      # retry_after <= max_inline_wait_sec() ->
+      #   :timer.sleep(retry_after * 1000)
+      #
+      #   # the ORIGINAL env and the REST of the stack, which is what a repeat needs: retrying the result of the first attempt is not a request
+      #   Tesla.run(env, next)
 
       true ->
-        # with no job to reschedule, honouring this would mean BLOCKING the caller's process, and its database connection with it, for as long as the remote asked. A caller holding a web request is better off with the 429
+        # with no job to reschedule, honouring this would mean BLOCKING the caller's process, and its database connection with it. A caller holding a web request is better off with the 429 at once, and the remote is not asked again
         warn(
           retry_after,
-          "Rate limited for longer than we will wait outside a job, so answering with the 429 (seconds)"
+          "Rate limited outside a job, so answering with the 429 at once (seconds the remote asked for)"
         )
 
         result
@@ -79,5 +80,5 @@ defmodule ActivityPub.Federator.HTTP.RetryAfter do
       |> debug("no readable `retry-after` header, will retry in ")
   end
 
-  defp max_inline_wait_sec, do: Config.get([__MODULE__, :max_inline_wait_sec], 5)
+  # defp max_inline_wait_sec, do: Config.get([__MODULE__, :max_inline_wait_sec], 5)
 end

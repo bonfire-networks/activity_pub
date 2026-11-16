@@ -393,6 +393,11 @@ defmodule ActivityPub.Federator.APPublisher do
         debug(reason, "delivery to #{inbox} refused before sending")
         {:cancel, reason}
 
+      # our own per-host limit refused it outside a job (inside one it snoozes): the host has said nothing, so it isn't marked unreachable
+      {:error, :rate_limited} = limited ->
+        warn(inbox, "delivery refused by our rate limit for the host")
+        limited
+
       {_post_result, response} when is_binary(response) or is_atom(response) ->
         # unless params[:unreachable_since], do: Instances.set_unreachable(inbox) -- recorded either way, see above
         Instances.set_unreachable(inbox)

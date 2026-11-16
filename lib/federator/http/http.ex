@@ -50,9 +50,19 @@ defmodule ActivityPub.Federator.HTTP do
 
     # |> debug("options")
 
+    {max_body_bytes, options} = Keyword.pop(options, :max_body_bytes)
+    max_body_bytes = max_body_bytes || max_body_bytes()
+
     params = Keyword.get(options, :params, [])
 
-    Connection.new(options)
+    # the adapter stops reading the response at the limit
+    options
+    |> Keyword.update(
+      :adapter,
+      [max_body_bytes: max_body_bytes],
+      &Keyword.put(&1, :max_body_bytes, max_body_bytes)
+    )
+    |> Connection.new()
     # |> debug("connection")
     |> ActivityPub.Federator.HTTP.Tesla.request(
       %{}
@@ -71,9 +81,28 @@ defmodule ActivityPub.Federator.HTTP do
       |> Enum.into([])
       # |> IO.inspect(label: "HTTP built")
     )
+    |> cap_body(max_body_bytes)
 
     # |> debug("requested")
   end
+
+  @default_max_body_bytes 10 * 1024 * 1024
+
+  @doc "The size over which a response body is refused (`config :activity_pub, :http, max_body_bytes: …`, 10 MB by default). Also the `:max_body_bytes` option of a request."
+  def max_body_bytes,
+    do: ActivityPub.Config.get([:http, :max_body_bytes], @default_max_body_bytes)
+
+  # The adapter stops reading at the limit (`ActivityPub.Federator.HTTP.CappedFinch`); this covers the adapters that cannot, and answers that arrived whole.
+  defp cap_body({:ok, %{body: body}} = result, max) when is_binary(body) do
+    if byte_size(body) > max do
+      error(max, "The response body is over the size limit")
+      {:error, :body_too_large}
+    else
+      result
+    end
+  end
+
+  defp cap_body(result, _max), do: result
 
   defp process_request_options(options) do
     {_adapter, opts} = Connection.adapter_options([])

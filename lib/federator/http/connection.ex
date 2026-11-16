@@ -42,6 +42,10 @@ defmodule ActivityPub.Federator.HTTP.Connection do
      |> Keyword.merge(proxy: proxy_url)}
   end
 
+  # Finch is used through an adapter that can stop reading at the `:max_body_bytes` option, which is otherwise the same adapter
+  def adapter_options({Tesla.Adapter.Finch, base_opts}, opts),
+    do: {ActivityPub.Federator.HTTP.CappedFinch, Keyword.merge(base_opts, opts)}
+
   def adapter_options({adapter, base_opts}, opts), do: {adapter, Keyword.merge(base_opts, opts)}
   def adapter_options(adapter, opts), do: {adapter, opts}
 end

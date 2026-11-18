@@ -751,7 +751,18 @@ defmodule ActivityPub.Actor do
 
   defp maybe_extract_generator_from_data(_), do: :ok
 
-  defp create_or_update_ap_object_for_actor(
+  # one of our own actors, listed in full in a document from elsewhere (eg. a collection of moderators or subgroups): ours is what we serve, so a copy of it is never stored, which would then stand in for it
+  defp create_or_update_ap_object_for_actor(%{"id" => id} = data, already_fetched, authenticated)
+       when is_binary(id) do
+    if String.starts_with?(id, ActivityPub.Web.base_url()) do
+      debug(id, "an actor of ours from elsewhere, not stored: using our own")
+      Adapter.get_actor_by_ap_id(id)
+    else
+      do_create_or_update_ap_object_for_actor(data, already_fetched, authenticated)
+    end
+  end
+
+  defp do_create_or_update_ap_object_for_actor(
          %{"id" => id} = data,
          true = _already_fetched,
          authenticated
@@ -779,7 +790,7 @@ defmodule ActivityPub.Actor do
     end
   end
 
-  defp create_or_update_ap_object_for_actor(
+  defp do_create_or_update_ap_object_for_actor(
          %{"id" => id} = _ignore_passed_data_for_safety,
          _false,
          _authenticated

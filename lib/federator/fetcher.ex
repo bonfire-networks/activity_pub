@@ -36,6 +36,11 @@ defmodule ActivityPub.Federator.Fetcher do
   """
   def get_cached_or_fetch_object(id, opts \\ []) do
     case Object.get_cached(ap_id: id) do
+      {:ok, %{local: false, pointer_id: nil} = stray} when is_binary(id) ->
+        if String.starts_with?(id, ActivityPub.Web.base_url()),
+          do: local_over_stray(id, stray),
+          else: {:ok, stray}
+
       {:ok, object} ->
         {:ok, object}
 
@@ -372,9 +377,26 @@ defmodule ActivityPub.Federator.Fetcher do
   defp maybe_get_local(id) when is_binary(id) do
     warn(id, "seems we're trying to fetch a local object...")
 
-    with {:error, :not_found} <- Object.get_cached(ap_id: id) do
-      warn(id, "could not find in cache or AP db, looking it up from the adapter...")
-      Adapter.get_actor_by_ap_id(id)
+    case Object.get_cached(ap_id: id) do
+      {:error, :not_found} ->
+        warn(id, "could not find in cache or AP db, looking it up from the adapter...")
+        Adapter.get_actor_by_ap_id(id)
+
+      {:ok, %{local: false, pointer_id: nil} = stray} ->
+        local_over_stray(id, stray)
+
+      found ->
+        found
+    end
+  end
+
+  # One of our URLs stored as a remote object with nothing of ours behind it is a stray copy (eg. our own actor listed in full in a document from elsewhere), which must not stand in for what is ours: the local actor is asked for first, and the copy kept only when there is none.
+  defp local_over_stray(id, stray) do
+    warn(id, "found a remote copy of a local URL, looking it up from the adapter first...")
+
+    case Adapter.get_actor_by_ap_id(id) do
+      {:ok, _} = local -> local
+      _ -> {:ok, stray}
     end
   end
 

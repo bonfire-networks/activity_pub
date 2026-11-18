@@ -95,6 +95,33 @@ defmodule ActivityPub.Federator.Transformer.IncomingUpdateIdTest do
              Object.get_cached(ap_id: context.note["id"])
   end
 
+  # an activity may arrive with no id; the one it is stored under is then derived from its actor (whose origin it belongs to) and its content, so it is never on our host and a redelivery finds the same one
+  defp updates_of(note_id) do
+    Object
+    |> repo().all()
+    |> Enum.filter(
+      &(&1.data["type"] == "Update" and Object.get_ap_id(&1.data["object"]) == note_id)
+    )
+  end
+
+  test "sent without an id, is stored under one on the author's host, not ours", context do
+    update = context |> update_of("<p>edited</p>") |> Map.delete("id")
+    assert {:ok, _} = delivered(update)
+
+    assert [%Object{data: %{"id" => id}}] = updates_of(context.note["id"])
+    assert String.starts_with?(id, context.author_id <> "#")
+    refute String.starts_with?(id, ActivityPub.Web.base_url())
+  end
+
+  test "sent without an id, delivered twice, is stored once", context do
+    update = context |> update_of("<p>edited</p>") |> Map.delete("id")
+
+    assert {:ok, _} = delivered(update)
+    assert {:ok, _} = delivered(update)
+
+    assert [_] = updates_of(context.note["id"])
+  end
+
   test "two edits are two Updates, each under its own id", context do
     first = update_of(context, "<p>edited once</p>")
     second = update_of(context, "<p>edited twice</p>")

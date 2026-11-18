@@ -290,7 +290,8 @@ defmodule ActivityPub.Object do
   @doc false
   def insert(params, local?, pointer \\ nil, opts \\ [])
       when is_map(params) and is_boolean(local?) do
-    with activity_id <- Ecto.UUID.generate(),
+    with :ok <- not_our_id_from_elsewhere(params, local?, opts),
+         activity_id <- Ecto.UUID.generate(),
          params <-
            normalize_params(params, activity_id, pointer) |> drop_json_ld_context(local?),
          :ok <- Actor.check_actor_is_active(params["actor"]),
@@ -370,6 +371,10 @@ defmodule ActivityPub.Object do
         # {:ignore, "Do not federate due to local boundaries and filters"}
         :ignore
 
+      {:ignore, reason} = ignore ->
+        warn(params["id"], reason)
+        ignore
+
       {:error,
        %Ecto.Changeset{
          errors: [
@@ -399,6 +404,21 @@ defmodule ActivityPub.Object do
         {:error, "Error while trying to save the object for federation"}
     end
   end
+
+  # An id on our host is ours to mint (FEP-fe34), so a document from elsewhere naming itself with one is not stored as theirs: as a remote row it would stand in for what we hold under that id. Read on the id as received, since every row has one after `normalize_params/3`. A copy of one of ours, signed by us and relayed back (eg. by a group), is ours and may be stored.
+  defp not_our_id_from_elsewhere(%{"id" => id}, false = _local?, opts) when is_binary(id) do
+    base_url = ActivityPub.Web.base_url()
+
+    with true <- String.starts_with?(id, base_url),
+         {_authenticated, signed_by} = Safety.authentication(opts),
+         false <- is_binary(signed_by) and String.starts_with?(signed_by, base_url) do
+      {:ignore, "a document from elsewhere under an id on our host"}
+    else
+      _ -> :ok
+    end
+  end
+
+  defp not_our_id_from_elsewhere(_params, _local?, _opts), do: :ok
 
   # a received row is stored without its `@context`, the activity's and its embedded object's: nothing reads it from a stored row, and a signed document, where it counts, is kept as received in `data_received`
   defp drop_json_ld_context(params, true = _local?), do: params

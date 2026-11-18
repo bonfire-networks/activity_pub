@@ -33,6 +33,13 @@ defmodule ActivityPub.Utils do
 
   def generate_object_id(generator \\ &UUID.generate/0), do: generate_id("objects", generator)
 
+  @doc """
+  An id for a document of `owner_id`'s that has none: on the owner's host rather than ours (FEP-fe34: an id belongs to its actor's origin), and the same for the same document, so a redelivery finds it again.
+  """
+  def derived_id(owner_id, %{"type" => type} = document) when is_binary(owner_id),
+    do:
+      "#{owner_id}##{String.downcase(type)}-#{hash(:erlang.term_to_binary(document, [:deterministic]))}"
+
   def generate_id(type, generator \\ &UUID.generate/0),
     do: ap_base_url() <> "/#{type}/#{generator.()}"
 

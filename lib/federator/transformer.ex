@@ -1324,6 +1324,10 @@ defmodule ActivityPub.Federator.Transformer do
     handle_each_object(data, inner_activities, opts)
   end
 
+  # A document that came with no id is given one before anything handles it, so that every path stores it under the same one. One from elsewhere gets an id derived from what its sender owns (its `url`, else its actor plus a hash of the document), never one on our host, which would make it look like ours (FEP-fe34: an id belongs to its actor's origin); being derived from the content, a redelivery finds the same id and is stored once. An embedded object with no id is named after its activity the same way.
+  def handle_incoming(%{"type" => _} = data, opts) when not is_map_key(data, "id"),
+    do: data |> with_derived_id(local?(opts)) |> handle_incoming(opts)
+
   # shorter than "https://" can't be an id; should validate better, but good enough for now
   @min_id_size byte_size("https://")
 
@@ -2870,6 +2874,41 @@ defmodule ActivityPub.Federator.Transformer do
   end
 
   defp local?(opts), do: Keyword.get(opts, :local, false)
+
+  # The id a document with none is handled under (see the clause of `handle_incoming/2` that calls this): ours is minted as always; one from elsewhere is named after its `url`, else its sender, and only when it has neither is it minted here as before.
+  defp with_derived_id(data, true = _local?),
+    do: Map.put(data, "id", Utils.generate_object_id())
+
+  defp with_derived_id(data, _local?) do
+    id =
+      case data do
+        %{"url" => url} when is_binary(url) ->
+          url
+
+        _ ->
+          case Object.get_ap_id(data["actor"]) || Object.get_ap_id(data["attributedTo"]) do
+            owner when is_binary(owner) -> Utils.derived_id(owner, data)
+            _ -> Utils.generate_object_id()
+          end
+      end
+
+    data
+    |> Map.put("id", id)
+    |> with_derived_object_id()
+  end
+
+  defp with_derived_object_id(%{"id" => activity_id, "object" => %{"type" => _} = object} = data)
+       when not is_map_key(object, "id") do
+    object_id =
+      case object do
+        %{"url" => url} when is_binary(url) -> url
+        _ -> Utils.derived_id(activity_id, object)
+      end
+
+    Map.put(data, "object", Map.put(object, "id", object_id))
+  end
+
+  defp with_derived_object_id(data), do: data
 
   # an activity as its author sent it, from another instance or from a client of ours (C2S), is stored as sent (the builder in `ActivityPub` reads `incoming_activity:`); one we make is built. A C2S one has its ids and its actor set by `ActivityPub.C2S` before it gets here
   defp as_received(opts, data) do

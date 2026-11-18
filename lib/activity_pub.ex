@@ -214,6 +214,13 @@ defmodule ActivityPub do
           optional(atom()) => any()
         }) ::
           {:ok, Object.t()} | {:error, any()}
+  # The id of an activity built here when none was given: ours is minted on our host as always; one standing for an actor elsewhere (`local: false`, eg. their answer replayed without the activity they sent) is derived from that actor, as `Transformer.handle_incoming/2` does for one that arrives with no id, so it is never on our host.
+  defp built_activity_id(params, actor_id, document) do
+    if Map.get(params, :local, true) != false or not is_binary(actor_id),
+      do: Object.object_url(Map.get(params, :pointer)),
+      else: Utils.derived_id(actor_id, document)
+  end
+
   def accept(params, opts \\ []) do
     with {:ok, accept_activity, adapter_object, _accepted_activity} <-
            accept_activity(params, opts) do
@@ -235,13 +242,19 @@ defmodule ActivityPub do
          data <-
            incoming_activity(opts, %{"object" => accepted_activity.data}, %{"to" => to}) ||
              %{
-               "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
                "to" => to,
                "type" => "Accept",
                "actor" => actor_id,
                "object" => accepted_activity.data
              }
-             |> Utils.maybe_put("bcc", params[:bcc]),
+             |> Utils.maybe_put("bcc", params[:bcc])
+             |> then(
+               &Map.put(
+                 &1,
+                 "id",
+                 params[:activity_id] || built_activity_id(params, actor_id, &1)
+               )
+             ),
          # Check if this is a QuoteRequest and create QuoteAuthorization
          data <-
            if(type == "QuoteRequest",
@@ -285,12 +298,18 @@ defmodule ActivityPub do
     with data <-
            incoming_activity(opts, %{"object" => object}, %{"to" => to}) ||
              %{
-               "id" => params[:activity_id] || Object.object_url(Map.get(params, :pointer)),
                "to" => to,
                "type" => "Reject",
                "actor" => actor.data["id"],
                "object" => object
-             },
+             }
+             |> then(
+               &Map.put(
+                 &1,
+                 "id",
+                 params[:activity_id] || built_activity_id(params, actor.data["id"], &1)
+               )
+             ),
          %Object{data: %{"type" => type}} = activity_to_reject <-
            Object.get_cached!(ap_id: object) |> debug("activity_to_reject"),
          {:ok, activity} <-
@@ -538,13 +557,23 @@ defmodule ActivityPub do
            incoming_activity(opts, %{"object" => object}) ||
              Map.merge(
                %{
-                 "id" => params[:id] || params[:activity_id] || Utils.generate_object_id(),
                  "to" => to,
                  "type" => "Update",
                  "actor" => Map.get(actor, :data, actor)["id"],
                  "object" => object
                },
                params[:additional] || %{}
+             )
+             |> then(
+               &Map.put_new(
+                 &1,
+                 "id",
+                 params[:id] || params[:activity_id] ||
+                   if(Map.get(params, :local, true) != false,
+                     do: Utils.generate_object_id(),
+                     else: built_activity_id(params, &1["actor"], &1)
+                   )
+               )
              ),
          {:ok, activity} <-
            Object.insert(

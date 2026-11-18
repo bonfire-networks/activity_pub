@@ -511,6 +511,10 @@ defmodule ActivityPub.Federator.APPublisher do
         is_public? || actor.data["followers"] in tos ->
           get_external_followers_except(actor, :publish, addressed_pointer_ids)
 
+        # A non-public `Delete` already names who may have the object (see `ActivityPub.delete/3`), and the object is gone by now, so there is no one left to look up
+        activity_data["type"] == "Delete" ->
+          []
+
         true ->
           # optionally send it to a subset of followers
           with {:ok, followers} <-

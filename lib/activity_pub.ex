@@ -945,8 +945,26 @@ defmodule ActivityPub do
         is_local?,
         opts
       ) do
+    # A public object may have reached anyone, so its `Delete` is public, which sends it to all the actor's followers. One that was not public only reached who it was addressed to, so its `Delete` goes to them alone, plus who the caller adds in `bcc` (eg. the followers allowed to see it)
+    public? = Utils.public?(object.data)
+
     to =
-      (object.data["to"] || []) ++ (object.data["cc"] || []) ++ [ActivityPub.Config.public_uri()]
+      if public?,
+        do:
+          (object.data["to"] || []) ++
+            (object.data["cc"] || []) ++ [ActivityPub.Config.public_uri()],
+        else: List.wrap(object.data["to"])
+
+    cc = if public?, do: nil, else: List.wrap(object.data["cc"])
+
+    bcc =
+      if public?,
+        do: opts[:bcc],
+        else:
+          Enum.uniq(
+            List.wrap(object.data["bto"]) ++
+              List.wrap(object.data["bcc"]) ++ List.wrap(opts[:bcc])
+          )
 
     # `keep_object: true` publishes the `Delete` without deleting the object here, for a moderator REMOVING it from where it was posted (the threadiverse's mod "remove", marked by `summary`): it leaves the object where else it lives, so tombstoning our own copy would delete what was only removed
     with {:ok, _object} <-
@@ -961,8 +979,9 @@ defmodule ActivityPub do
                "actor" => opts[:subject] || actor,
                "object" => id,
                "to" => to,
-               "bcc" => opts[:bcc]
+               "bcc" => bcc
              }
+             |> Utils.maybe_put("cc", cc)
              |> Utils.maybe_put("summary", opts[:summary])
              |> Utils.maybe_put("audience", opts[:audience]),
          # the local record it stands for, when the caller gives one (eg. a moderator's removal and its moderation record)

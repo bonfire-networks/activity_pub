@@ -13,6 +13,20 @@ defmodule ActivityPub.Federator.Worker.ReceiverRouter do
       iex> ActivityPub.Federator.Worker.ReceiverRouter.route_worker(params, true)
       ActivityPub.Federator.Workers.ReceiverFollowsWorker
 
+  A `Join` goes with the follows, so that the group's answer to it does not wait behind every post the instance receives. A `Leave` does not:
+
+      iex> params = %{"type" => "Join"}
+      iex> ActivityPub.Federator.Worker.ReceiverRouter.route_worker(params, true)
+      ActivityPub.Federator.Workers.ReceiverFollowsWorker
+
+      iex> params = %{"type" => "Join"}
+      iex> ActivityPub.Federator.Worker.ReceiverRouter.route_worker(params, false)
+      ActivityPub.Federator.Workers.ReceiverFollowsWorker
+
+      iex> params = %{"type" => "Leave"}
+      iex> ActivityPub.Federator.Worker.ReceiverRouter.route_worker(params, true)
+      ActivityPub.Federator.Workers.ReceiverWorker
+
       iex> params = %{"type" => "Create"}
       iex> ActivityPub.Federator.Worker.ReceiverRouter.route_worker(params, false)
       ActivityPub.Federator.Workers.ReceiverUnverifiedWorker
@@ -33,7 +47,7 @@ defmodule ActivityPub.Federator.Worker.ReceiverRouter do
       has_local_mentions_or_private?(params) ->
         ActivityPub.Federator.Workers.ReceiverMentionsWorker
 
-      follow?(params) ->
+      follow?(params) or join?(params) ->
         ActivityPub.Federator.Workers.ReceiverFollowsWorker
 
       verified? != true ->
@@ -58,6 +72,12 @@ defmodule ActivityPub.Federator.Worker.ReceiverRouter do
   """
   def follow?(%{"type" => "Follow"}), do: true
   def follow?(_), do: false
+
+  @doc """
+  Returns true if the AP doc is a Join (of a group).
+  """
+  def join?(%{"type" => "Join"}), do: true
+  def join?(_), do: false
 
   @doc """
   Returns true if the object contains a mention tag for a local user.

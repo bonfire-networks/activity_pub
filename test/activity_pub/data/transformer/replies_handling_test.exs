@@ -286,7 +286,8 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         "actor" => ap_id(user)
       }
 
-      {:ok, activity} = Transformer.handle_incoming(message)
+      # a local actor's document received as incoming is only stored when signed by us
+      {:ok, activity} = Transformer.handle_incoming(message, signed_by: ap_id(user))
 
       {:ok, _} = Transformer.prepare_outgoing(activity.data)
     end
@@ -315,7 +316,7 @@ defmodule ActivityPub.Federator.Transformer.RepliesHandlingTest do
         "actor" => ap_id(user)
       }
 
-      {:ok, activity} = Transformer.handle_incoming(message)
+      {:ok, activity} = Transformer.handle_incoming(message, signed_by: ap_id(user))
 
       {:ok, _} = Transformer.prepare_outgoing(activity.data)
     end

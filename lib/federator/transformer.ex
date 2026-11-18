@@ -1324,7 +1324,7 @@ defmodule ActivityPub.Federator.Transformer do
     handle_each_object(data, inner_activities, opts)
   end
 
-  # A document that came with no id is given one before anything handles it, so that every path stores it under the same one. One from elsewhere gets an id derived from what its sender owns (its `url`, else its actor plus a hash of the document), never one on our host, which would make it look like ours (FEP-fe34: an id belongs to its actor's origin); being derived from the content, a redelivery finds the same id and is stored once. An embedded object with no id is named after its activity the same way.
+  # A document that came with no id is given one before anything handles it, so that every path stores it under the same one. One from elsewhere gets an id derived from what its sender owns (its `url`, else its actor plus a hash of the document), never one on our host, which would make it look like ours (FEP-fe34: an id belongs to its actor's origin); being derived from the content, a redelivery finds the same id and is stored once. An embedded object with no id is named after its activity the same way, except the activity an Accept or Reject answers.
   def handle_incoming(%{"type" => _} = data, opts) when not is_map_key(data, "id"),
     do: data |> with_derived_id(local?(opts)) |> handle_incoming(opts)
 
@@ -1343,7 +1343,7 @@ defmodule ActivityPub.Federator.Transformer do
       when is_binary(id) and byte_size(id) >= @min_id_size,
       do: store_and_hand_to_adapter(data, opts)
 
-  # with no id, a redelivery can't be told from a new one, and each would write another moderation record
+  # an id that is nil, empty or too short to be one: refused, so these don't fall through to the generic clauses. One with no `id` key at all never gets here, it is given a derived id first (see the clause that calls `with_derived_id/2`)
   def handle_incoming(%{"type" => "Lock"}, _opts), do: {:error, "No object ID"}
 
   def handle_incoming(%{"type" => "Undo", "object" => %{"type" => "Lock"}}, _opts),
@@ -2896,6 +2896,10 @@ defmodule ActivityPub.Federator.Transformer do
     |> Map.put("id", id)
     |> with_derived_object_id()
   end
+
+  # The object of an Accept or Reject is the activity it answers, not a new one: it is never stored, and with no id it is matched by its actor and who it was sent to (see `Object.get_follow_activity/3`), which an id made up here would prevent
+  defp with_derived_object_id(%{"type" => type} = data) when type in ["Accept", "Reject"],
+    do: data
 
   defp with_derived_object_id(%{"id" => activity_id, "object" => %{"type" => _} = object} = data)
        when not is_map_key(object, "id") do

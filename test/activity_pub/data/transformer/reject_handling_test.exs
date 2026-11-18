@@ -96,7 +96,9 @@ defmodule ActivityPub.Federator.Transformer.RejectHandlingTest do
         |> Map.delete("id")
         |> Map.put("object", without_id)
 
-      {:ok, %Activity{data: _}} = Transformer.handle_incoming(reject_data)
+      # a local actor's document received as incoming is only stored when signed by us
+      {:ok, %Activity{data: _}} =
+        Transformer.handle_incoming(reject_data, signed_by: ap_id(followed))
 
       refute following?(follower, followed)
       assert Object.fetch_latest_activity(follower, followed).data["state"] == "reject"

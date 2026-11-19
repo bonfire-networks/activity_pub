@@ -156,7 +156,10 @@ defmodule ActivityPub.MoveTest do
 
     {:ok, _new_user} = add_alias(new_user, old_user.ap_id)
 
-    assert {:ok, %Object{} = activity} = Transformer.handle_incoming(message)
+    # a local actor's document received as incoming is only stored when signed by us
+    assert {:ok, %Object{} = activity} =
+             Transformer.handle_incoming(message, signed_by: old_user.ap_id)
+
     assert activity.data["actor"] == old_user.ap_id
     assert activity.data["object"] == old_user.ap_id
     assert activity.data["target"] == new_user.ap_id

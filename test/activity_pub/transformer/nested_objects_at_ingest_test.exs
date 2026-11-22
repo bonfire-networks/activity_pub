@@ -45,6 +45,8 @@ defmodule ActivityPub.Federator.Transformer.NestedObjectsAtIngestTest do
             "type" => "Event",
             "attributedTo" => sender.id,
             "name" => "an event",
+            # an adapter that stores events natively (eg. Bonfire with `bonfire_gatherings`) needs a start
+            "startTime" => "2030-06-01T18:00:00Z",
             "to" => [@public]
           },
           fields

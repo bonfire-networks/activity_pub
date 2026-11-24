@@ -296,7 +296,7 @@ defmodule ActivityPub.Federator.APPublisher do
   end
 
   defp publish_one_rfc9421(params, actor, uri, json) do
-    content_digest = "sha-256=:" <> Base.encode64(:crypto.hash(:sha256, json)) <> ":"
+    content_digest = HTTPSignatures.ContentDigest.build(json)
 
     # Provide sub-components so resolve_component("@target-uri") can reconstruct the full URI
     headers = %{

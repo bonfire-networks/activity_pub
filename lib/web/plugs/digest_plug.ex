@@ -61,11 +61,11 @@ defmodule ActivityPub.Web.Plugs.DigestPlug do
               message: "invalid value for content-digest algorithm, got: #{algorithm}"
           end
 
-          encoded_digest = :crypto.hash(:sha256, body) |> Base.encode64()
-          debug(encoded_digest, "encoded_content_digest")
+          content_digest = HTTPSignatures.ContentDigest.build(body)
+          debug(content_digest, "computed_content_digest")
 
           # Store in RFC 9530 format: sha-256=:base64:
-          Conn.assign(conn, :content_digest, "sha-256=:#{encoded_digest}:")
+          Conn.assign(conn, :content_digest, content_digest)
 
         _ ->
           warn(content_digest_header, "malformed content-digest header")

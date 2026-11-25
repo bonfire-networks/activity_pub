@@ -955,7 +955,7 @@ defmodule ActivityPub.Federator.Fetcher do
                 error(e, "Could not fallback to finding the object in (headers nor) HTML")
 
                 if options[:return_html_as_fallback] do
-                  {:ok, %{status: status || 200, body: data}}
+                  {:ok, %{status: status || 200, body: data, headers: headers}}
                 else
                   error(json_error, "Invalid ActivityPub JSON")
                 end
